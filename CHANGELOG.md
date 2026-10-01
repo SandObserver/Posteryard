@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-01
+
 ### Added
 
 - Render movie and show posters from the official English TMDB poster, confirmed by OCR.
@@ -22,3 +24,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Skip unchanged images by fingerprint and leave images changed by hand in Plex alone.
 - Add the `posteryard forget` command.
 - Add the Docker image.
+
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/SandObserver/Posteryard/releases/tag/v0.1.0
