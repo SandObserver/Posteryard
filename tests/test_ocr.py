@@ -26,6 +26,8 @@ def test_season_mentions() -> None:
     assert ocr.mentions_season([line("SEASON 3")], 3)
     assert not ocr.mentions_season([line("season two")], 3)
     assert not ocr.mentions_season([line("the office")], 2)
+    assert ocr.mentions_season([line("specials")], 0)
+    assert not ocr.mentions_season([line("season one")], 0)
 
 
 def test_engine_reads_rendered_text() -> None:

@@ -56,15 +56,15 @@ def studio_poster(art: Image.Image, badges: list[Badge], leaving: str | None, se
     return canvas.convert("RGB")
 
 
-def season_poster(art: Image.Image, season: int | None, leaving: str | None, service: str | None) -> Image.Image:
-    """A season's official poster. `season` is None when the art already prints the number."""
+def season_poster(art: Image.Image, label: str | None, leaving: str | None, service: str | None) -> Image.Image:
+    """`label` is None when the art already prints the season."""
     canvas = cover(art, *POSTER).convert("RGBA")
-    if season is not None:
+    if label is not None:
         canvas.alpha_composite(vertical_gradient(canvas.size, STRIP))
         draw_tracked(
             ImageDraw.Draw(canvas),
             (canvas.width / 2, canvas.height - round(0.07 * canvas.width)),
-            f"SEASON {season}",
+            label.upper(),
             font("SemiBold", round(0.04 * canvas.width)),
             (*WHITE, 245),
             tracking=SEASON_TRACKING,

@@ -1,5 +1,6 @@
 """Small HTTP client with timeouts and retries on transient failures."""
 
+import http.client
 import json
 import logging
 import time
@@ -15,11 +16,18 @@ SECRET_PARAMS = frozenset({"x-plex-token", "api_key", "token", "apikey"})
 USER_AGENT = "Posteryard"
 
 
-class HttpError(Exception):
-    def __init__(self, status: int, url: str, body: str = "") -> None:
-        super().__init__(f"HTTP {status} for {redact(url)}: {body[:200]}")
-        self.status = status
+class RequestError(Exception):
+    """Raised for every failed request. The message never contains a credential."""
+
+    def __init__(self, message: str, url: str) -> None:
+        super().__init__(f"{message} for {redact(url)}")
         self.url = redact(url)
+
+
+class HttpError(RequestError):
+    def __init__(self, status: int, url: str, body: str = "") -> None:
+        super().__init__(f"HTTP {status}: {body[:200]}", url)
+        self.status = status
 
 
 def redact(url: str) -> str:
@@ -43,10 +51,10 @@ def request(
 ) -> bytes:
     delay = 2.0
     for attempt in range(1, retries + 1):
-        req = urllib.request.Request(
-            url, data=data, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})}
-        )
         try:
+            req = urllib.request.Request(
+                url, data=data, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})}
+            )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body: bytes = resp.read()
                 return body
@@ -57,8 +65,10 @@ def request(
             log.warning("retrying %s %s after HTTP %s", method, redact(url), exc.code)
         except (urllib.error.URLError, TimeoutError, ConnectionError) as exc:
             if attempt == retries:
-                raise
-            log.warning("retrying %s %s after %s", method, redact(url), exc)
+                raise RequestError(type(exc).__name__, url) from None
+            log.warning("retrying %s %s after %s", method, redact(url), type(exc).__name__)
+        except (ValueError, http.client.HTTPException) as exc:
+            raise RequestError(type(exc).__name__, url) from None
         time.sleep(delay)
         delay *= 2
     raise AssertionError("unreachable")

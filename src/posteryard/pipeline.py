@@ -118,17 +118,17 @@ def show(ctx: Context, item: Item, episodes: int | None = 0) -> list[Output]:
 def season(ctx: Context, title: Title, item: Item, episodes: int | None = 0) -> list[Output]:
     """`episodes` is how many episodes to render: 0 for none, None for all."""
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
+    name = "Specials" if number == 0 else f"Season {number}"
     leaving = ctx.leaving(key)
     refs = ctx.tmdb.season_images(title.tmdb_id, number).english_posters()
     choice = artwork.titled_poster(refs, title.english_titles, ctx.fetch, ctx.read)
     if choice is not None:
         printed = ocr.mentions_season(choice.lines, number)
-        image = designs.season_poster(choice.image, None if printed else number, leaving, title.service)
-        notes = [f"season poster {choice.ref.path}" + (", number already printed" if printed else "")]
+        image = designs.season_poster(choice.image, None if printed else name, leaving, title.service)
+        notes = [f"season poster {choice.ref.path}" + (", season already printed" if printed else "")]
     else:
-        caption = "Specials" if number == 0 else f"Season {number}"
-        image, notes = _fallback(ctx, title, caption=caption, badges=[], leaving=leaving)
-    out = [Output(key, "poster", f"{title.name} · Season {number}", image, notes)]
+        image, notes = _fallback(ctx, title, caption=name, badges=[], leaving=leaving)
+    out = [Output(key, "poster", f"{title.name} · {name}", image, notes)]
     if episodes != 0 and ctx.plex is not None:
         for episode_item in ctx.plex.children(key)[:episodes]:
             out += episode(ctx, title, number, episode_item)

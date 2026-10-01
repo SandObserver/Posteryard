@@ -23,7 +23,7 @@ class Plex:
 
     def item(self, rating_key: str) -> Item | None:
         try:
-            meta = self._get(f"/library/metadata/{rating_key}", includeGuids=1).get("Metadata") or []
+            meta = self._get(f"/library/metadata/{_key(rating_key)}", includeGuids=1).get("Metadata") or []
         except http.HttpError as exc:
             if exc.status == 404:
                 return None
@@ -31,8 +31,16 @@ class Plex:
         return meta[0] if meta else None
 
     def children(self, rating_key: str) -> list[Item]:
-        items: list[Item] = self._get(f"/library/metadata/{rating_key}/children", includeGuids=1).get("Metadata", [])
+        items: list[Item] = self._get(f"/library/metadata/{_key(rating_key)}/children", includeGuids=1).get(
+            "Metadata", []
+        )
         return items
+
+
+def _key(rating_key: str) -> str:
+    if not rating_key.isdigit():
+        raise ValueError(f"not a Plex rating key: {rating_key!r}")
+    return rating_key
 
 
 def tmdb_id(item: Item) -> int | None:

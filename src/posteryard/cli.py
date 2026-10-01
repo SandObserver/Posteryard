@@ -60,6 +60,10 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
     if not args.rating_keys and not args.tmdb:
         log.error("give at least one Plex rating key or --tmdb KIND:ID")
         return 2
+    bad = [key for key in args.rating_keys if not key.isdigit()]
+    if bad:
+        log.error("rating keys are numbers, not %s", ", ".join(bad))
+        return 2
     refs = []
     for ref in args.tmdb:
         match = TMDB_REF.match(ref)
@@ -87,7 +91,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
             else:
                 kind, tid = ref
                 outputs = pipeline.render_tmdb(ctx, kind, tid, args.season)
-        except (pipeline.NotFoundError, http.HttpError) as exc:
+        except (pipeline.NotFoundError, http.RequestError) as exc:
             log.error("%s: %s", ref, exc)
             failed += 1
             continue

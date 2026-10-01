@@ -35,7 +35,7 @@ def test_corner_block_stays_in_the_top_of_the_poster() -> None:
 def test_season_number_goes_in_the_bottom_strip() -> None:
     source = art()
     plain = cover(source, *designs.POSTER)
-    rows = changed_rows(designs.season_poster(source, 2, None, None), plain)
+    rows = changed_rows(designs.season_poster(source, "Season 2", None, None), plain)
     assert rows.min() >= designs.POSTER[1] * 0.7
     assert ImageChops.difference(designs.season_poster(source, None, None, None), plain).getbbox() is None
 

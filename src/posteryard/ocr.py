@@ -78,6 +78,8 @@ def has_display_text(lines: Iterable[TextLine]) -> bool:
 
 
 def mentions_season(lines: Iterable[TextLine], season: int) -> bool:
+    if season == 0:
+        return any(line.score >= MIN_SCORE and "special" in line.text.lower() for line in lines)
     words = [str(season)]
     if season < len(NUMBER_WORDS):
         words.append(NUMBER_WORDS[season])
