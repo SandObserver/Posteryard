@@ -1,7 +1,11 @@
-"""Choose source art from TMDB for each design."""
+"""Choose source art from TMDB for each design.
 
-from collections.abc import Callable, Sequence
+Choices are cached by the list of candidates they were made from, so OCR runs again only when TMDB's list changes.
+"""
+
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 from PIL import Image
 
@@ -16,44 +20,85 @@ Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
 
 
+class ChoiceCache(Protocol):
+    def get_choice(self, key: str) -> Mapping[str, Any] | None: ...
+    def put_choice(self, key: str, value: Mapping[str, Any]) -> None: ...
+
+
+class MemoryChoices:
+    def __init__(self) -> None:
+        self._data: dict[str, Mapping[str, Any]] = {}
+
+    def get_choice(self, key: str) -> Mapping[str, Any] | None:
+        return self._data.get(key)
+
+    def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
+        self._data[key] = value
+
+
 @dataclass(frozen=True)
-class Choice:
-    ref: ImageRef
-    image: Image.Image
+class Picked:
+    path: str
     lines: list[ocr.TextLine]
 
 
-def titled_poster(refs: Sequence[ImageRef], titles: Sequence[str], fetch: Fetch, read: Read) -> Choice | None:
-    """Do not trust TMDB's language tag alone. It lets foreign-language posters through."""
-    for ref in refs[:MAX_CANDIDATES]:
-        image = fetch(ref.path)
-        lines = read(image)
-        if ocr.shows_title(lines, titles):
-            return Choice(ref, image, lines)
-    return None
+@dataclass(frozen=True)
+class Picker:
+    cache: ChoiceCache
+    fetch: Fetch
+    read: Read
 
+    def _cached(
+        self, key: str, refs: Sequence[ImageRef], accept: Callable[[list[ocr.TextLine]], bool]
+    ) -> Picked | None:
+        candidates = [r.path for r in refs[:MAX_CANDIDATES]]
+        hit = self.cache.get_choice(key)
+        if hit is not None and hit.get("candidates") == candidates:
+            path = hit.get("path")
+            return Picked(str(path), [ocr.TextLine(*line) for line in hit.get("lines", [])]) if path else None
+        picked = None
+        for path in candidates:
+            lines = self.read(self.fetch(path))
+            if accept(lines):
+                picked = Picked(path, lines)
+                break
+        self.cache.put_choice(
+            key,
+            {
+                "candidates": candidates,
+                "path": picked.path if picked else None,
+                "lines": [[ln.text, ln.score, ln.height, ln.width] for ln in picked.lines] if picked else [],
+            },
+        )
+        return picked
 
-def textless(refs: Sequence[ImageRef], titles: Sequence[str], fetch: Fetch, read: Read) -> Choice | None:
-    """Reject any art that OCR finds a title or display text on, whatever its language tag says."""
-    for ref in refs[:MAX_CANDIDATES]:
-        image = fetch(ref.path)
-        lines = read(image)
-        if not ocr.shows_title(lines, titles) and not ocr.has_display_text(lines):
-            return Choice(ref, image, lines)
-    return None
+    def titled(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
+        """Do not trust TMDB's language tag alone. It lets foreign-language posters through."""
+        return self._cached(f"titled:{key}", refs, lambda lines: ocr.shows_title(lines, titles))
 
+    def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
+        """Reject any art that OCR finds a title or display text on, whatever its language tag says."""
+        return self._cached(
+            f"textless:{key}",
+            refs,
+            lambda lines: not ocr.shows_title(lines, titles) and not ocr.has_display_text(lines),
+        )
 
-def textless_art(images: Images, titles: Sequence[str], fetch: Fetch, read: Read) -> Choice | None:
-    return textless(images.textless_posters(), titles, fetch, read) or textless(
-        images.textless_backdrops(), titles, fetch, read
-    )
+    def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
+        return self.textless(f"{key}:posters", images.textless_posters(), titles) or self.textless(
+            f"{key}:backdrops", images.textless_backdrops(), titles
+        )
 
+    def background(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
+        refs = sorted(images.textless_backdrops(), key=lambda r: r.width < MIN_BACKDROP_WIDTH)
+        return self.textless(f"{key}:background", refs, titles)
 
-def background(images: Images, titles: Sequence[str], fetch: Fetch, read: Read) -> Choice | None:
-    refs = sorted(images.textless_backdrops(), key=lambda r: r.width < MIN_BACKDROP_WIDTH)
-    return textless(refs, titles, fetch, read)
-
-
-def logo(images: Images, fetch: Fetch) -> Image.Image | None:
-    logos = [trim(fetch(ref.path)) for ref in images.english_logos()[:MAX_CANDIDATES]]
-    return next((lg for lg in logos if is_light(lg)), logos[0] if logos else None)
+    def logo(self, key: str, images: Images) -> str | None:
+        candidates = [r.path for r in images.english_logos()[:MAX_CANDIDATES]]
+        hit = self.cache.get_choice(f"logo:{key}")
+        if hit is not None and hit.get("candidates") == candidates:
+            return str(hit["path"]) if hit.get("path") else None
+        light = next((path for path in candidates if is_light(trim(self.fetch(path)))), None)
+        path = light or (candidates[0] if candidates else None)
+        self.cache.put_choice(f"logo:{key}", {"candidates": candidates, "path": path})
+        return path
