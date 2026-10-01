@@ -75,6 +75,7 @@ class Service:
                 key, reason = self.queue.get(timeout=TICK)
             except queue.Empty:
                 self.worker_beat = time.monotonic()
+                self.idle()
                 continue
             with self._lock:
                 self._queued.discard(key)
@@ -107,6 +108,20 @@ class Service:
         self.store.set_meta("sweep_cursor", str(started))
         self.last_sweep_ok = time.monotonic()
 
+    def idle(self) -> None:
+        """Called when the queue has been empty for a tick. Marks a full pass as finished."""
+        with self._lock:
+            busy = bool(self._queued) or not self.queue.empty()
+        if not busy and self.store.meta("full_pending") == "1":
+            self.store.set_meta("full_pending", "0")
+            log.info("full pass finished")
+
+    def resume(self) -> None:
+        """A restart drops the queue. Run an unfinished full pass again; unchanged items are skipped quickly."""
+        if self.store.meta("full_pending") == "1":
+            log.info("resuming an unfinished full pass")
+            self.full()
+
     def full(self) -> None:
         """Every item. Forget items Plex no longer has."""
         seen: set[str] = set()
@@ -114,6 +129,7 @@ class Service:
             for kind in KINDS[str(section["type"])]:
                 seen.update(str(i["ratingKey"]) for i in self.plex.section_items(str(section["key"]), kind))
         self.enqueue(sorted(seen), "daily")
+        self.store.set_meta("full_pending", "1")
         gone = self.store.keys() - seen
         for key in gone:
             self.store.forget(key)
@@ -137,8 +153,12 @@ class Service:
     def _schedule(self) -> None:
         next_sweep = 0.0
         lookback = RESTART_LOOKBACK
+        resumed = False
         while not self._stop.is_set():
             try:
+                if not resumed:
+                    self.resume()
+                    resumed = True
                 signature = self.settings_signature()
                 if self.store.meta("settings_signature") != signature:
                     log.info("version or settings changed, checking every item now")
