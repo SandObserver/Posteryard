@@ -52,3 +52,7 @@ uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
 Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs.
 
 Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
+
+## Releases
+
+Semantic versioning. To release, move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, commit, and push a `vX.Y.Z` tag. The tag builds the image.
