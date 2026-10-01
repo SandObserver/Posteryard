@@ -77,4 +77,4 @@ Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOUR
 
 ## Releases
 
-Semantic versioning. To release, move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, commit, and push a `vX.Y.Z` tag. The tag builds the image.
+Semantic versioning. To release, move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, commit, and push a `vX.Y.Z` tag. The tag builds the image and pushes `ghcr.io/sandobserver/posteryard:X.Y.Z` and `:X.Y`.
