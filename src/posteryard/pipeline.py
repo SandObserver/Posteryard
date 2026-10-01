@@ -6,7 +6,7 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from functools import cache
+from functools import lru_cache
 from typing import Any, Literal
 
 from PIL import Image
@@ -21,6 +21,8 @@ from posteryard.tmdb import Kind, Tmdb
 
 Target = Literal["poster", "art", "thumb"]
 TITLE_CACHE_SECONDS = 600
+# Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
+FETCH_CACHE = 16
 
 
 class NotFoundError(Exception):
@@ -62,7 +64,7 @@ class Context:
     plex: Plex | None = None
     choices: ChoiceCache = field(default_factory=MemoryChoices)
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
-    fetch: Callable[[str], Image.Image] = field(default_factory=lambda: cache(Tmdb.image))
+    fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(Tmdb.image))
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
 
     @property

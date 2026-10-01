@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Hold at most 16 downloaded images in memory, so the service no longer runs out of memory on large passes.
+- Resume an unfinished full pass after a restart.
+
 ## [0.1.0] - 2026-10-01
 
 ### Added
