@@ -1,0 +1,57 @@
+[project]
+name = "posteryard"
+version = "0.0.0"
+description = "Apple TV style posters, backgrounds and episode stills for Plex"
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "numpy>=2.3",
+    "onnxruntime>=1.23",
+    "opencv-python-headless>=4.12,<5",
+    "pillow>=12",
+    "rapidocr>=3.9",
+]
+
+[project.scripts]
+posteryard = "posteryard.cli:main"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18",
+    "pytest>=8.4",
+    "resvg-py>=0.2",
+    "ruff>=0.14",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv]
+environments = [
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "SIM", "RUF", "I", "N", "PTH", "PL", "C4"]
+ignore = ["PLR0913", "PLR2004", "PLR0911", "PLR0912"]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+files = ["src", "tests", "tools"]
+
+[[tool.mypy.overrides]]
+module = ["cv2", "rapidocr", "resvg_py"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
