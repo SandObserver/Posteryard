@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-01
+
 ### Fixed
 
 - Hold at most 16 downloaded images in memory, so the service no longer runs out of memory on large passes.
@@ -30,5 +32,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/SandObserver/Posteryard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/SandObserver/Posteryard/releases/tag/v0.1.0
