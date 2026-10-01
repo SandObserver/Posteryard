@@ -19,3 +19,13 @@ jobs:
       - run: uv run ruff check .
       - run: uv run mypy
       - run: uv run pytest
+
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker build --tag posteryard:ci .
+      - run: docker run --rm --entrypoint posteryard posteryard:ci --version
+      - run: >-
+          docker run --rm --entrypoint python posteryard:ci -c
+          "from PIL import Image; from posteryard import ocr; ocr.read(Image.new('RGB', (480, 720)))"

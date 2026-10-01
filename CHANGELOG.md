@@ -17,3 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Show the Maintainerr leaving label.
 - Show the streaming service mark on show and season posters.
 - Add the `posteryard preview` command for Plex rating keys and TMDB ids.
+- Add the `posteryard serve` service: Plex webhook, sweep, daily full pass, retries and ntfy alerts.
+- Upload, select and lock images in Plex, or write previews only with `DRY_RUN=true`.
+- Skip unchanged images by fingerprint and leave images changed by hand in Plex alone.
+- Add the `posteryard forget` command.
+- Add the Docker image.

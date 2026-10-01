@@ -1,0 +1,18 @@
+services:
+  posteryard:
+    image: ghcr.io/sandobserver/posteryard:0.1.0
+    restart: unless-stopped
+    environment:
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - PLEX_URL=http://plex.example:32400
+      - PLEX_TOKEN=${PLEX_TOKEN}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - MAINTAINERR_URL=http://maintainerr:6246
+      - NTFY_URL=https://ntfy.example
+      - NTFY_TOPIC=posteryard
+      - NTFY_TOKEN=${NTFY_TOKEN}
+      - DRY_RUN=true
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8000:8000"

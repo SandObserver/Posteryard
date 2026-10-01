@@ -28,6 +28,8 @@ requires = ["uv_build>=0.12,<0.13"]
 build-backend = "uv_build"
 
 [tool.uv]
+# rapidocr depends on the GUI build of OpenCV. Both builds install the same cv2 module, so only the headless one is kept.
+override-dependencies = ["opencv-python; sys_platform == 'never'"]
 environments = [
     "sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
