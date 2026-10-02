@@ -111,8 +111,12 @@ class Service:
             for kind in KINDS[str(section["type"])]
             for i in self.plex.section_items(str(section["key"]), kind, label=overrides.IGNORE_LABEL)
         }
-        # A removed label leaves updatedAt untouched too, so items that lost the ignore label are queued here.
-        self.enqueue(sorted(set(json.loads(self.store.meta("ignored_keys", "[]"))) - ignored), "unignored")
+        # A removed label leaves updatedAt untouched too, so items that lost the ignore label are found here.
+        # Their old records are dropped: a poster chosen while ignored must not count as a manual change.
+        released = sorted(set(json.loads(self.store.meta("ignored_keys", "[]"))) - ignored)
+        for key in released:
+            self.store.forget(key)
+        self.enqueue(released, "unignored")
         self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
         previous = set(json.loads(self.store.meta("leaving_keys", "[]")))
         current = set(self.worker.leaving_days())

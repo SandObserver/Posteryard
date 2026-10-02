@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Render an item fresh when its `posteryard-ignore` label is removed, instead of treating a poster chosen meanwhile as a manual change.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added
