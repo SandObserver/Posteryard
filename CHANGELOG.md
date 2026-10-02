@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Shrink downloaded images to 2160 px and hold at most 8, so large TMDB originals no longer run the service out of memory.
+- Run OCR on 2 threads and limit allocator arenas to keep memory under the container limit.
+
 ## [0.2.0] - 2026-10-02
 
 ### Changed

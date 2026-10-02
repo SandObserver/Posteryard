@@ -13,6 +13,8 @@ from posteryard import http
 Kind = Literal["movie", "tv"]
 API = "https://api.themoviedb.org/3"
 IMAGES = "https://image.tmdb.org/t/p"
+# The largest side any design draws: a 1500 px poster, a 1920 px background, with margin for crops.
+MAX_SIDE = 2160
 ENGLISH_REGIONS = frozenset({"US", "CA", "GB", "AU", "IE", "NZ"})
 
 
@@ -120,5 +122,10 @@ class Tmdb:
 
     @staticmethod
     def image(path: str, size: str = "original") -> Image.Image:
+        """Decoded and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory."""
         body = http.request("GET", f"{IMAGES}/{size}{path}", timeout=60)
-        return Image.open(io.BytesIO(body))
+        image = Image.open(io.BytesIO(body))
+        image.draft("RGB", (MAX_SIDE, MAX_SIDE))
+        image.load()
+        image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+        return image
