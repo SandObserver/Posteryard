@@ -1,6 +1,28 @@
-# Posteryard
+<p align="center"><img src="docs/logo.svg" width="96" alt=""></p>
 
-Apple TV style artwork for the Plex `Movies` and `TV Shows` libraries.
+<h1 align="center">Posteryard</h1>
+
+<p align="center"><b>Apple TV style posters for Plex, picked, rendered and kept current automatically.</b></p>
+
+<p align="center">
+  <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/SandObserver/Posteryard/pkgs/container/posteryard"><img alt="ghcr.io" src="https://img.shields.io/badge/ghcr.io-posteryard-2496ED?logo=github&logoColor=white"></a>
+</p>
+
+<p align="center"><img src="docs/before-after.jpg" alt="Deadpool & Wolverine, Thunderbolts* and Lilo & Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label"></p>
+
+Posteryard runs next to Plex and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
+
+## Quick start
+
+1. Copy [compose.example.yml](compose.example.yml) and fill in `TMDB_API_KEY`, `PLEX_URL`, `PLEX_TOKEN` and a random `WEBHOOK_SECRET`.
+2. Start it. `DRY_RUN=true` is the default, so images go to `data/previews` and Plex is not touched.
+3. Look through the previews. When you like them, set `DRY_RUN=false` and restart.
+4. Add the Plex webhook (Plex Web > Settings > Webhooks): `http://HOST:8000/webhook/WEBHOOK_SECRET`.
+
+Posteryard must be the only thing writing posters, backgrounds and episode thumbnails. Turn off poster overlays in other tools.
+
+## What it makes
 
 | Plex image | Design |
 | --- | --- |
@@ -25,9 +47,7 @@ With `DRY_RUN=true` images go to `DATA_DIR/previews` and nothing is written to P
 
 Failed items are retried after 15 minutes, doubling to 12 hours. After three failures an ntfy alert goes out, one per upstream (Plex, TMDB, Maintainerr, missing artwork), at most once per 6 hours. While Maintainerr is down its last known schedule is used.
 
-Posteryard must be the only thing writing posters, backgrounds and episode thumbnails. Turn off poster overlays in other tools.
-
-Plex webhook URL (Plex Web > Settings > Webhooks): `http://HOST:8000/webhook/WEBHOOK_SECRET`. `GET /healthz` reports health, queue length and image counts.
+`GET /healthz` reports health, queue length and image counts.
 
 ## Choosing art
 
@@ -78,15 +98,8 @@ uv run posteryard preview --tmdb movie:693134 --tmdb tv:95396 --season 2   # TMD
 
 ## Development
 
-```sh
-uv sync
-uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and releases. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
-Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs.
+## Credits
 
-Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
-
-## Releases
-
-Semantic versioning. To release, move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, commit, and push a `vX.Y.Z` tag. The tag builds the image and pushes `ghcr.io/sandobserver/posteryard:X.Y.Z` and `:X.Y`.
+Artwork and metadata come from [TMDB](https://www.themoviedb.org). Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
