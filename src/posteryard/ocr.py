@@ -9,6 +9,8 @@ import numpy as np
 from PIL import Image
 
 READ_WIDTH = 480
+# Each onnxruntime thread holds its own buffers. More threads push the service past its memory limit.
+OCR_THREADS = 2
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
@@ -27,7 +29,13 @@ class TextLine:
 def _engine() -> Any:
     from rapidocr import RapidOCR  # noqa: PLC0415
 
-    return RapidOCR(params={"Global.log_level": "error"})
+    return RapidOCR(
+        params={
+            "Global.log_level": "error",
+            "EngineConfig.onnxruntime.intra_op_num_threads": OCR_THREADS,
+            "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+        }
+    )
 
 
 def read(image: Image.Image) -> list[TextLine]:

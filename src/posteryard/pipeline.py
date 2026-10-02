@@ -25,7 +25,7 @@ TITLE_CACHE_SECONDS = 600
 # Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
-FETCH_CACHE = 16
+FETCH_CACHE = 8
 
 
 class NotFoundError(Exception):
