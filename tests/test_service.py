@@ -90,6 +90,8 @@ def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
     plex.ignored = [{"ratingKey": "5"}]
     service.sweep()
     assert "5" not in [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    service.store.uploaded("5", "poster", "Example", "fp", "old-upload")
     plex.ignored = []
     service.sweep()
     assert "5" in [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    assert service.store.get("5", "poster") is None
