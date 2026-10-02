@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-02
+
 ### Fixed
 
 - Shrink downloaded images to 2160 px and hold at most 8, so large TMDB originals no longer run the service out of memory.
@@ -53,7 +55,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/SandObserver/Posteryard/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SandObserver/Posteryard/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/SandObserver/Posteryard/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/SandObserver/Posteryard/releases/tag/v0.1.0
