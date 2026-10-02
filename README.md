@@ -13,14 +13,70 @@
 
 Posteryard runs next to Plex and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
 
-## Quick start
+## Install
 
-1. Copy [compose.example.yml](compose.example.yml) and fill in `TMDB_API_KEY`, `PLEX_URL`, `PLEX_TOKEN` and a random `WEBHOOK_SECRET`.
-2. Start it. `DRY_RUN=true` is the default, so images go to `data/previews` and Plex is not touched.
-3. Look through the previews. When you like them, set `DRY_RUN=false` and restart.
-4. Add the Plex webhook (Plex Web > Settings > Webhooks): `http://HOST:8000/webhook/WEBHOOK_SECRET`.
+You need:
 
-Posteryard must be the only thing writing posters, backgrounds and episode thumbnails. Turn off poster overlays in other tools.
+- Docker with Compose. Portainer, Dockge and Unraid stacks work too.
+- A free TMDB API key. Sign up at [themoviedb.org](https://www.themoviedb.org/signup), then open [Settings > API](https://www.themoviedb.org/settings/api) and copy the **API Key** (the short one).
+- Your Plex token. Plex shows how to find it: [Finding an authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+- Plex Pass, only for instant updates. Without it, new items still get their posters within 15 minutes.
+
+### 1. Make a folder
+
+```sh
+mkdir -p posteryard/data && cd posteryard
+sudo chown 1000:1000 data
+```
+
+Posteryard runs as user 1000, so it needs to own `data`.
+
+### 2. Add two files
+
+`compose.yaml`: copy [compose.example.yml](compose.example.yml) and change `PLEX_URL` to your Plex address, for example `http://192.168.1.10:32400`.
+
+`.env`, next to it:
+
+```sh
+TMDB_API_KEY=your-tmdb-api-key
+PLEX_TOKEN=your-plex-token
+WEBHOOK_SECRET=any-long-random-text
+```
+
+`openssl rand -hex 16` makes a good secret. In Portainer, put these three in the stack's environment variables instead.
+
+### 3. Try it without touching Plex
+
+```sh
+docker compose up -d
+docker compose logs -f
+```
+
+It starts with `DRY_RUN=true`. Posters are saved to `data/previews` and nothing in Plex changes. A big library takes a while, so watch the log.
+
+### 4. Turn it on
+
+Happy with the previews? Set `DRY_RUN=false` in `compose.yaml` and run `docker compose up -d` again. Posteryard now uploads the posters and locks them, so Plex keeps them.
+
+To try it on a few titles first, add `ONLY_RATING_KEYS=12345,67890`. To find a rating key, open the title in Plex Web, choose **Get Info > View XML**, and read the number after `/library/metadata/` in the address bar.
+
+### 5. Instant updates (Plex Pass)
+
+In Plex Web, open **Settings > Webhooks > Add Webhook** and enter:
+
+```text
+http://YOUR-SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET
+```
+
+New movies and episodes now get their posters right after Plex adds them.
+
+### Extras
+
+- [Maintainerr](https://github.com/Maintainerr/Maintainerr): add `MAINTAINERR_URL=http://YOUR-SERVER-IP:6246` to show "Leaving in 3 days" on titles about to be removed.
+- [ntfy](https://ntfy.sh) alerts when something keeps failing: add `NTFY_URL`, `NTFY_TOPIC` and, if needed, `NTFY_TOKEN`.
+- Every other option is in [Settings](#settings).
+
+Turn off poster overlays in other tools, such as Kometa. Two tools writing posters keep overwriting each other.
 
 ## What it makes
 
@@ -35,7 +91,7 @@ OCR rejects any art that prints the title or other large text. TMDB language tag
 
 ## How it runs
 
-`posteryard serve` runs as a Docker service. See [compose.example.yml](compose.example.yml).
+Once it runs, Posteryard keeps itself up to date:
 
 - **Plex webhook** (`library.new`): a new item is queued at once. A new episode also queues its season and show.
 - **Sweep**, every `SWEEP_MINUTES`: items added or changed since the last sweep, every item Maintainerr lists, and failed items whose retry is due. A replaced file sends no webhook, so the sweep catches it. The first sweep after a start looks back 6 hours.
