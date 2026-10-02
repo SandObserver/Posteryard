@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Render every movie, show and season poster as Apple's tile: textless art, the title logo in a fixed box and a black bottom gradient.
+- Move quality badges and the Maintainerr label to a row under the title logo.
+- Give each season its own art, or a series image no other season uses, with a `Season N` caption.
+
+### Removed
+
+- Remove the studio poster design and the season number check.
+
+### Fixed
+
+- Queue one full pass, not two, when a restart and a settings change happen together.
+
 ## [0.1.1] - 2026-10-01
 
 ### Fixed

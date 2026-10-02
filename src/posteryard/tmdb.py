@@ -57,6 +57,9 @@ class Images:
     def textless_backdrops(self) -> list[ImageRef]:
         return [r for r in self.backdrops if r.language in (None, "xx")]
 
+    def textless_art(self) -> list[ImageRef]:
+        return self.textless_posters() + self.textless_backdrops()
+
     def english_logos(self) -> list[ImageRef]:
         return [r for r in self.logos if r.language == "en" and r.path.endswith(".png")]
 

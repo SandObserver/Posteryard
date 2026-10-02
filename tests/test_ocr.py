@@ -21,15 +21,6 @@ def test_display_text_is_large_text_only() -> None:
     assert not ocr.has_display_text([line("WORLD'S BEST BOSS", height=0.02, width=0.2)])
 
 
-def test_season_mentions() -> None:
-    assert ocr.mentions_season([line("season two")], 2)
-    assert ocr.mentions_season([line("SEASON 3")], 3)
-    assert not ocr.mentions_season([line("season two")], 3)
-    assert not ocr.mentions_season([line("the office")], 2)
-    assert ocr.mentions_season([line("specials")], 0)
-    assert not ocr.mentions_season([line("season one")], 0)
-
-
 def test_engine_reads_rendered_text() -> None:
     image = Image.new("RGB", (1000, 1500), (12, 12, 14))
     ImageDraw.Draw(image).text((500, 700), "the office", font=font("Bold", 120), fill=(240, 240, 240), anchor="mm")

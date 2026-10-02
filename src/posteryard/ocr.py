@@ -1,6 +1,5 @@
 """Read the text printed on artwork."""
 
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import cache
@@ -14,10 +13,6 @@ MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
 DISPLAY_WIDTH = 0.35
-NUMBER_WORDS = (
-    "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-    "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty",
-)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -75,13 +70,3 @@ def has_display_text(lines: Iterable[TextLine]) -> bool:
     return any(
         line.score >= MIN_SCORE and line.height > DISPLAY_HEIGHT and line.width > DISPLAY_WIDTH for line in lines
     )
-
-
-def mentions_season(lines: Iterable[TextLine], season: int) -> bool:
-    if season == 0:
-        return any(line.score >= MIN_SCORE and "special" in line.text.lower() for line in lines)
-    words = [str(season)]
-    if season < len(NUMBER_WORDS):
-        words.append(NUMBER_WORDS[season])
-    pattern = re.compile(rf"\b(season|series|s)\s*0?({'|'.join(words)})\b")
-    return any(line.score >= MIN_SCORE and pattern.search(line.text.lower()) for line in lines)

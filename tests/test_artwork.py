@@ -4,8 +4,10 @@ from posteryard.artwork import MemoryChoices, Picker
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef
 
+TEXT = {"/a.jpg": "EXAMPLE", "/b.jpg": "", "/c.jpg": "", "/d.jpg": "A BIG TAGLINE"}
 
-def test_ocr_runs_again_only_when_the_candidates_change() -> None:
+
+def make() -> tuple[Picker, list[str]]:
     reads: list[str] = []
 
     def fetch(path: str) -> Image.Image:
@@ -14,16 +16,32 @@ def test_ocr_runs_again_only_when_the_candidates_change() -> None:
         return image
 
     def read(image: Image.Image) -> list[TextLine]:
-        reads.append(str(image.info["path"]))
-        return [TextLine("EXAMPLE", 0.99, 0.06, 0.6)] if image.info["path"] == "/b.jpg" else []
+        path = str(image.info["path"])
+        reads.append(path)
+        return [TextLine(TEXT[path], 0.99, 0.06, 0.6)] if TEXT[path] else []
 
-    picker = Picker(MemoryChoices(), fetch, read)
-    refs = [ImageRef("/a.jpg", "en", 2000, 3000, 5, 1), ImageRef("/b.jpg", "en", 2000, 3000, 4, 1)]
-    first = picker.titled("movie:1", refs, ["Example"])
+    return Picker(MemoryChoices(), fetch, read), reads
+
+
+def refs(*paths: str) -> list[ImageRef]:
+    return [ImageRef(p, None, 2000, 3000, 5, 1) for p in paths]
+
+
+def test_textless_skips_titles_and_display_text_and_caches() -> None:
+    picker, reads = make()
+    first = picker.textless("tv:1", refs("/a.jpg", "/b.jpg"), ["Example"])
     assert first is not None and first.path == "/b.jpg"
+    assert picker.textless("tv:1", refs("/a.jpg", "/b.jpg"), ["Example"]) == first
     assert reads == ["/a.jpg", "/b.jpg"]
-    again = picker.titled("movie:1", refs, ["Example"])
-    assert again is not None and again.path == "/b.jpg" and again.lines[0].text == "EXAMPLE"
-    assert reads == ["/a.jpg", "/b.jpg"]
-    picker.titled("movie:1", [ImageRef("/c.jpg", "en", 2000, 3000, 6, 1), *refs], ["Example"])
-    assert reads[2:] == ["/c.jpg", "/a.jpg", "/b.jpg"]
+    picker.textless("tv:1", refs("/c.jpg", "/a.jpg", "/b.jpg"), ["Example"])
+    assert reads[2:] == ["/c.jpg"]
+
+
+def test_textless_all_keeps_every_acceptable_image_in_order() -> None:
+    picker, reads = make()
+    assert picker.textless_all("tv:1", refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"), ["Example"]) == [
+        "/b.jpg",
+        "/c.jpg",
+    ]
+    picker.textless_all("tv:1", refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"), ["Example"])
+    assert len(reads) == 4

@@ -9,6 +9,7 @@ from datetime import date
 from functools import lru_cache
 from typing import Any, Literal
 
+import numpy as np
 from PIL import Image
 
 from posteryard import __version__, maintainerr, ocr, quality, services
@@ -16,11 +17,13 @@ from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
 from posteryard.plex import Item, Plex, tmdb_id
 from posteryard.quality import QualityMinimums
 from posteryard.render import designs
-from posteryard.render.layers import trim
-from posteryard.tmdb import Kind, Tmdb
+from posteryard.render.layers import cover, trim
+from posteryard.tmdb import Images, Kind, Tmdb
 
 Target = Literal["poster", "art", "thumb"]
 TITLE_CACHE_SECONDS = 600
+# Perceptual hashes this close are the same picture at another size or crop.
+SAME_PICTURE_BITS = 10
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 16
 
@@ -66,6 +69,7 @@ class Context:
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
     fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(Tmdb.image))
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
+    lookups: dict[tuple[str, ...], tuple[float, Any]] = field(default_factory=dict)
 
     @property
     def picker(self) -> Picker:
@@ -77,6 +81,42 @@ class Context:
             if days is not None:
                 return maintainerr.label(days)
         return None
+
+    def _lookup(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
+        hit = self.lookups.get(key)
+        if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
+            return hit[1]
+        value = load()
+        self.lookups[key] = (time.monotonic(), value)
+        return value
+
+    def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
+        return self._lookup(key, load)
+
+    def image_hash(self, path: str) -> int:
+        """A 64-bit difference hash of the picture as a poster crop shows it, cached with the art choices."""
+        hit = self.choices.get_choice(f"poster-hash:{path}")
+        if hit is not None:
+            return int(hit["hash"])
+        shown = cover(self.fetch(path), 90, 135)
+        grey = np.asarray(shown.convert("L").resize((9, 8), Image.Resampling.LANCZOS), dtype=np.int16)
+        bits = (grey[:, 1:] > grey[:, :-1]).flatten()
+        value = int("".join("1" if b else "0" for b in bits), 2)
+        self.choices.put_choice(f"poster-hash:{path}", {"hash": value})
+        return value
+
+    def images(self, kind: Kind, tid: int) -> Images:
+        images: Images = self._lookup(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))
+        return images
+
+    def season_images(self, tid: int, season: int) -> Images:
+        key = ("season", str(tid), str(season))
+        images: Images = self._lookup(key, lambda: self.tmdb.season_images(tid, season))
+        return images
+
+    def details(self, kind: Kind, tid: int) -> Mapping[str, Any]:
+        details: Mapping[str, Any] = self._lookup(("details", kind, str(tid)), lambda: self.tmdb.details(kind, tid))
+        return details
 
     def title(self, kind: Kind, tid: int, name: str) -> Title:
         hit = self.titles.get((kind, tid))
@@ -101,6 +141,46 @@ def _season_label(number: int) -> str:
     return "Specials" if number == 0 else f"Season {number}"
 
 
+def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers: Sequence[int]) -> tuple[str, str]:
+    """Look up this season in the show's assignment. See `_assign_seasons`."""
+    key = ("seasons", str(title.tmdb_id), *map(str, numbers))
+    assignment: dict[int, tuple[str, str]] = ctx.remember(key, lambda: _assign_seasons(ctx, title, show_art, numbers))
+    return assignment.get(season, (show_art, f"show art {show_art}"))
+
+
+def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
+    """Each season gets its own textless art, else a series image nothing else uses, else the show's art.
+
+    TMDB stores the same picture under several file names, so "used" compares pictures, not names.
+    """
+    base = f"{title.kind}:{title.tmdb_id}"
+    used = [ctx.image_hash(show_art)]
+    assignment: dict[int, tuple[str, str]] = {}
+    for number in numbers:
+        refs = ctx.season_images(title.tmdb_id, number).textless_posters()
+        picked = ctx.picker.textless(f"{base}:s{number}", refs, title.all_titles)
+        if picked and not _seen(ctx.image_hash(picked.path), used):
+            used.append(ctx.image_hash(picked.path))
+            assignment[number] = (picked.path, f"season art {picked.path}")
+    pool = ctx.picker.textless_all(
+        f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
+    )
+    for number in numbers:
+        if number in assignment:
+            continue
+        for path in pool:
+            fingerprint = ctx.image_hash(path)
+            if not _seen(fingerprint, used):
+                used.append(fingerprint)
+                assignment[number] = (path, f"series art {path}")
+                break
+    return assignment
+
+
+def _seen(fingerprint: int, used: list[int]) -> bool:
+    return any(bin(fingerprint ^ other).count("1") <= SAME_PICTURE_BITS for other in used)
+
+
 def _poster(
     ctx: Context,
     title: Title,
@@ -108,44 +188,25 @@ def _poster(
     name: str,
     *,
     season: int | None,
+    siblings: Sequence[int] = (),
     badges: list[quality.Badge],
     leaving: str | None,
 ) -> Plan:
-    if season is None:
-        refs = ctx.tmdb.images(title.kind, title.tmdb_id).english_posters()
-        cache_key = f"{title.kind}:{title.tmdb_id}"
-    else:
-        refs = ctx.tmdb.season_images(title.tmdb_id, season).english_posters()
-        cache_key = f"{title.kind}:{title.tmdb_id}:s{season}"
-    picked = ctx.picker.titled(cache_key, refs, title.english_titles)
-    label = None if season is None else _season_label(season)
-    common: dict[str, Any] = {"badges": badges, "leaving": leaving, "service": title.service}
-
-    if picked is not None:
-        printed = season is not None and ocr.mentions_season(picked.lines, season)
-        shown = None if printed else label
-        path = picked.path
-        notes = [f"{'studio' if season is None else 'season'} poster {path}"]
-        if printed:
-            notes.append("season already printed")
-
-        def draw() -> Image.Image:
-            if season is None:
-                return designs.studio_poster(ctx.fetch(path), badges, leaving, title.service)
-            return designs.season_poster(ctx.fetch(path), shown, leaving, title.service)
-
-        return Plan(key, "poster", name, {**common, "design": "studio", "art": path, "label": shown}, draw, notes)
-
-    images = ctx.tmdb.images(title.kind, title.tmdb_id)
+    images = ctx.images(title.kind, title.tmdb_id)
     base = f"{title.kind}:{title.tmdb_id}"
-    art = ctx.picker.textless_art(base, images, title.all_titles)
+    show_art = ctx.picker.textless_art(base, images, title.all_titles)
     logo = ctx.picker.logo(base, images)
-    if art is None or logo is None:
-        raise NotFoundError(f"TMDB has no usable poster, textless art or title logo for {name}")
-    art_path, logo_path = art.path, logo
+    if show_art is None or logo is None:
+        raise NotFoundError(f"TMDB has no textless art or title logo for {name}")
+    if season is None:
+        art_path, note = show_art.path, f"art {show_art.path}"
+    else:
+        art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
+    label = None if season is None else _season_label(season)
+    logo_path = logo
 
-    def draw_fallback() -> Image.Image:
-        return designs.fallback_poster(
+    def draw() -> Image.Image:
+        return designs.tile_poster(
             ctx.fetch(art_path),
             trim(ctx.fetch(logo_path)),
             caption=label,
@@ -154,13 +215,15 @@ def _poster(
             service=title.service,
         )
 
-    inputs = {**common, "design": "fallback", "art": art_path, "logo": logo_path, "label": label}
-    notes = ["no English poster with a readable title", f"fallback design, art {art_path}"]
-    return Plan(key, "poster", name, inputs, draw_fallback, notes)
+    inputs = {
+        "design": "tile", "art": art_path, "logo": logo_path, "label": label,
+        "badges": badges, "leaving": leaving, "service": title.service,
+    }  # fmt: skip
+    return Plan(key, "poster", name, inputs, draw, [note])
 
 
 def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
-    images = ctx.tmdb.images(title.kind, title.tmdb_id)
+    images = ctx.images(title.kind, title.tmdb_id)
     picked = ctx.picker.background(f"{title.kind}:{title.tmdb_id}", images, title.all_titles)
     if picked is None:
         return []
@@ -191,7 +254,17 @@ def season(ctx: Context, title: Title, item: Item) -> list[Plan]:
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
     leaving = ctx.leaving(key, str(item.get("parentRatingKey", "")))
     name = f"{title.name} · {_season_label(number)}"
-    return [_poster(ctx, title, key, name, season=number, badges=[], leaving=leaving)]
+    siblings = _sibling_seasons(ctx, title, item)
+    return [_poster(ctx, title, key, name, season=number, siblings=siblings, badges=[], leaving=leaving)]
+
+
+def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
+    """The seasons that share the show's images: the ones in Plex, or TMDB's list without Plex."""
+    parent = str(item.get("parentRatingKey", ""))
+    if ctx.plex is not None and parent.isdigit():
+        children = ctx.remember(("children", parent), lambda: ctx.plex.children(parent) if ctx.plex else [])
+        return sorted(int(child.get("index", 0)) for child in children)
+    return sorted(int(s["season_number"]) for s in ctx.details("tv", title.tmdb_id).get("seasons") or [])
 
 
 def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
