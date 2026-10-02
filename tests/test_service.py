@@ -27,16 +27,28 @@ def test_an_episode_brings_its_season_and_show() -> None:
 
 
 class FakePlex:
+    def __init__(self) -> None:
+        self.ignored: list[dict[str, str]] = []
+
     def sections(self) -> list[dict[str, str]]:
         return [{"key": "3", "title": "Movies", "type": "movie"}]
 
-    def section_items(self, section: str, kind: str) -> list[dict[str, str]]:
+    def section_items(self, section: str, kind: str, **filters: str) -> list[dict[str, str]]:
+        if filters.get("label") == "posteryard-next":
+            return [{"ratingKey": "9"}]
+        if filters.get("label") == "posteryard-ignore":
+            return self.ignored
+        if filters:
+            return []
         return [{"ratingKey": "1"}, {"ratingKey": "2"}]
 
+    def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
+        return []
 
-def make_service(tmp_path: Path) -> Service:
+
+def make_service(tmp_path: Path, plex: FakePlex | None = None) -> Service:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path)})
-    return Service(cfg, FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    return Service(cfg, plex or FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
 
 
 def test_a_full_pass_stays_pending_until_the_queue_drains(tmp_path: Path) -> None:
@@ -61,3 +73,23 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
     finished.store.set_meta("full_pending", "0")
     finished.resume()
     assert finished.queue.empty()
+
+
+def test_the_sweep_queues_labelled_items(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
+    service.sweep()
+    queued = [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    assert queued == ["9"]
+
+
+def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
+    plex = FakePlex()
+    service = make_service(tmp_path, plex)
+    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
+    plex.ignored = [{"ratingKey": "5"}]
+    service.sweep()
+    assert "5" not in [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    plex.ignored = []
+    service.sweep()
+    assert "5" in [service.queue.get()[0] for _ in range(service.queue.qsize())]

@@ -98,6 +98,24 @@ class Plex:
         http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=image_key))
         return image_key
 
+    def poster_bytes(self, item: Item) -> bytes:
+        """The poster Plex currently shows for the item."""
+        thumb = str(item.get("thumb") or "")
+        if not thumb.startswith("/library/"):
+            raise http.RequestError("the item has no poster", self._url(f"/library/metadata/{item.get('ratingKey')}"))
+        return http.request("GET", self._url(thumb), timeout=60)
+
+    def remove_label(self, item: Item, label: str) -> None:
+        http.request(
+            "PUT",
+            self._url(
+                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+                type=TYPE_IDS[str(item["type"])],
+                id=item["ratingKey"],
+                **{"label[].tag.tag-": label},
+            ),
+        )
+
     def lock(self, item: Item, target: Target) -> None:
         """Lock the field so a metadata refresh keeps the uploaded image."""
         _, _, field = ENDPOINTS[target]
@@ -110,6 +128,10 @@ class Plex:
                 **{f"{field}.locked": 1},
             ),
         )
+
+
+def labels(item: Item) -> set[str]:
+    return {str(label.get("tag", "")).lower() for label in item.get("Label") or []}
 
 
 def _key(rating_key: str) -> str:

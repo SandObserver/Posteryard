@@ -1,7 +1,9 @@
+import io
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL import Image
 
 from posteryard import config, http
 from posteryard.notify import Notifier
@@ -39,6 +41,14 @@ class FakePlex:
 
     def lock(self, item: Any, target: str) -> None:
         pass
+
+    def remove_label(self, item: Any, label: str) -> None:
+        self.items["1"]["Label"] = [t for t in self.items["1"].get("Label", []) if t["tag"] != label]
+
+    def poster_bytes(self, item: Any) -> bytes:
+        buffer = io.BytesIO()
+        Image.new("RGB", (600, 900), (10, 120, 200)).save(buffer, "JPEG")
+        return buffer.getvalue()
 
 
 class Alerts(Notifier):
@@ -112,3 +122,47 @@ def test_a_removed_item_is_forgotten(tmp_path: Path) -> None:
     del plex.items["1"]
     assert worker.process("1") == Outcome.GONE
     assert store.keys() == set()
+
+
+def test_next_label_switches_art_once_and_is_removed(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.items["1"]["Label"] = [{"tag": "posteryard-next"}]
+    assert worker.process("1") == Outcome.UPLOADED
+    override = store.override("1")
+    assert override is not None and override.skip
+    assert plex.items["1"]["Label"] == []
+    assert worker.process("1") == Outcome.UNCHANGED
+
+
+def test_custom_label_adopts_the_poster_uploaded_in_plex(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.selected_keys[("1", "poster")] = "uploaded-by-hand"
+    plex.items["1"]["Label"] = [{"tag": "Posteryard-Custom"}]
+    assert worker.process("1") == Outcome.UPLOADED
+    override = store.override("1")
+    assert override is not None and override.source == "plex" and override.custom
+    assert worker.process("1") == Outcome.UNCHANGED
+    plex.items["1"]["Label"] = []
+    assert worker.process("1") == Outcome.UPLOADED
+    assert store.override("1") is None
+
+
+def test_art_commands(tmp_path: Path) -> None:
+    worker, _, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    assert worker.set_custom("1", Image.new("RGB", (800, 1200), (1, 2, 3))) == Outcome.UPLOADED
+    assert worker.next_art("1") == Outcome.UPLOADED
+    assert store.override("1") is None
+    assert worker.next_art("1") == Outcome.UPLOADED
+    assert worker.reset_art("1") == Outcome.UPLOADED
+    assert store.override("1") is None
+
+
+def test_the_ignore_label_leaves_the_item_alone(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.items["1"]["Label"] = [{"tag": "posteryard-ignore"}, {"tag": "posteryard-next"}]
+    assert worker.process("1") == Outcome.SKIPPED
+    assert plex.uploads == []
+    assert store.override("1") is None

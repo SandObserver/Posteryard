@@ -7,13 +7,15 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 from PIL import Image
 
-from posteryard import maintainerr, ocr, quality, services
+from posteryard import maintainerr, ocr, overrides, quality, services
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
+from posteryard.overrides import Override
 from posteryard.plex import Item, Plex, tmdb_id
 from posteryard.quality import QualityMinimums
 from posteryard.render import designs
@@ -70,6 +72,7 @@ class Context:
     plex: Plex | None = None
     choices: ChoiceCache = field(default_factory=MemoryChoices)
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
+    overrides: Callable[[str], Override | None] = field(default=lambda _key: None)
     fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(Tmdb.image))
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     lookups: dict[tuple[str, ...], tuple[float, Any]] = field(default_factory=dict)
@@ -92,6 +95,10 @@ class Context:
         value = load()
         self.lookups[key] = (time.monotonic(), value)
         return value
+
+    def load(self, path: str) -> Image.Image:
+        """TMDB art by path, or the user's custom art by its `file:` path."""
+        return overrides.load(path) if path.startswith(overrides.FILE_PREFIX) else self.fetch(path)
 
     def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
         return self._lookup(key, load)
@@ -151,6 +158,17 @@ def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers:
     return assignment.get(season, (show_art, f"show art {show_art}"))
 
 
+def _season_assignment_paths(
+    ctx: Context, title: Title, show_art: str, siblings: Sequence[int], season: int | None
+) -> list[str]:
+    """Art the show poster and the other seasons use, which a replacement must not repeat."""
+    if season is None:
+        return []
+    key = ("seasons", str(title.tmdb_id), *map(str, siblings))
+    assignment: dict[int, tuple[str, str]] = ctx.remember(key, lambda: _assign_seasons(ctx, title, show_art, siblings))
+    return [show_art, *(path for number, (path, _) in assignment.items() if number != season)]
+
+
 def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
     """Each season gets its own textless art, else a series image nothing else uses, else the show's art.
 
@@ -180,6 +198,16 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
     return assignment
 
 
+def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str]) -> str | None:
+    """The best series image that is none of the pictures in `avoid` or `skip`."""
+    base = f"{title.kind}:{title.tmdb_id}"
+    pool = ctx.picker.textless_all(
+        f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
+    )
+    used = [ctx.image_hash(path) for path in (*avoid, *skip)]
+    return next((path for path in pool if not _seen(ctx.image_hash(path), used)), None)
+
+
 def _seen(fingerprint: int, used: list[int]) -> bool:
     return any(bin(fingerprint ^ other).count("1") <= SAME_PICTURE_BITS for other in used)
 
@@ -205,12 +233,25 @@ def _poster(
         art_path, note = show_art.path, f"art {show_art.path}"
     else:
         art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
+    override = ctx.overrides(key)
+    extra: dict[str, Any] = {}
+    if override and override.custom:
+        art_path, note = overrides.FILE_PREFIX + override.custom, "custom art"
+        extra["override"] = Path(override.custom).name
+    elif override and override.skip:
+        others = _season_assignment_paths(ctx, title, show_art.path, siblings, season)
+        replacement = _next_unused(ctx, title, others, override.skip)
+        if replacement is not None:
+            art_path, note = replacement, f"next art {replacement}"
+        else:
+            note += ", no other art left to switch to"
+        extra["override"] = sorted(override.skip)
     label = None if season is None else _season_label(season)
     logo_path = logo
 
     def draw() -> Image.Image:
         return designs.tile_poster(
-            ctx.fetch(art_path),
+            ctx.load(art_path),
             trim(ctx.fetch(logo_path)),
             caption=label,
             badges=badges,
@@ -220,7 +261,7 @@ def _poster(
 
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label,
-        "badges": badges, "leaving": leaving, "service": title.service,
+        "badges": badges, "leaving": leaving, "service": title.service, **extra,
     }  # fmt: skip
     return Plan(key, "poster", name, inputs, draw, [note])
 

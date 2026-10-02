@@ -11,11 +11,11 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import http, pipeline
+from posteryard import http, overrides, pipeline
 from posteryard.config import Config
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.plex import Item, Plex
+from posteryard.plex import Item, Plex, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -54,7 +54,14 @@ class Worker:
         self.cfg, self.plex, self.store, self.notifier = cfg, plex, store, notifier
         self.maintainerr = Maintainerr(cfg.maintainerr_url)
         self.ctx = pipeline.Context(
-            tmdb or Tmdb(cfg.tmdb_api_key), cfg.quality, cfg.regions, {}, date.today(), plex, choices=store
+            tmdb or Tmdb(cfg.tmdb_api_key),
+            cfg.quality,
+            cfg.regions,
+            {},
+            date.today(),
+            plex,
+            choices=store,
+            overrides=store.override,
         )
         self._leaving: Leaving | None = None
 
@@ -89,14 +96,19 @@ class Worker:
             item = self.plex.item(rating_key)
             if item is None:
                 self.store.forget(rating_key)
+                self.store.reset_override(rating_key)
                 return Outcome.GONE
-            if not self.allowed(item):
+            if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
                 return Outcome.SKIPPED
             title = str(item.get("title", rating_key))
             self.ctx.action_days = self.leaving_days()
             self.ctx.today = date.today()
-            outcomes = [self._apply(plan, item, force) for plan in pipeline.plan_item(self.ctx, item)]
-        except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
+            redo_poster = self._follow_labels(item)
+            outcomes = [
+                self._apply(plan, item, force or (redo_poster and plan.target == "poster"))
+                for plan in pipeline.plan_item(self.ctx, item)
+            ]
+        except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED
         self.store.forget_target(rating_key, ITEM_TARGET)
@@ -104,6 +116,59 @@ class Worker:
             if outcome in outcomes:
                 return outcome
         return Outcome.SKIPPED
+
+    def set_custom(self, rating_key: str, image: Image.Image) -> Outcome:
+        path = overrides.save(image, self.cfg.data_dir, rating_key)
+        self.store.set_custom(rating_key, str(path), "command")
+        return self.process(rating_key, force=True)
+
+    def next_art(self, rating_key: str) -> Outcome:
+        item = self.plex.item(rating_key)
+        if item is None:
+            raise pipeline.NotFoundError(f"Plex has no item {rating_key}")
+        self._skip_current(item)
+        return self.process(rating_key, force=True)
+
+    def reset_art(self, rating_key: str) -> Outcome:
+        self.store.reset_override(rating_key)
+        return self.process(rating_key, force=True)
+
+    def _skip_current(self, item: Item) -> None:
+        key = str(item["ratingKey"])
+        poster = next((p for p in pipeline.plan_item(self.ctx, item) if p.target == "poster"), None)
+        if poster is None:
+            raise pipeline.NotFoundError(f"{item.get('title')} has no poster to replace")
+        art = str(poster.inputs["art"])
+        if art.startswith(overrides.FILE_PREFIX):
+            self.store.reset_override(key)
+        else:
+            self.store.add_skip(key, art)
+
+    def _follow_labels(self, item: Item) -> bool:
+        """Apply the Plex labels. True when the poster must be rendered again."""
+        key, tags = str(item["ratingKey"]), labels(item)
+        redo = False
+        if overrides.NEXT_LABEL in tags:
+            self._skip_current(item)
+            self.plex.remove_label(item, overrides.NEXT_LABEL)
+            log.info("switching %s to its next art", item.get("title"))
+            redo = True
+        current = self.store.override(key)
+        if overrides.CUSTOM_LABEL in tags:
+            record = self.store.get(key, "poster")
+            selected = self.plex.selected(key, "poster")
+            if selected and (record is None or selected != record.image_key):
+                image = overrides.decode(self.plex.poster_bytes(item))
+                path = str(overrides.save(image, self.cfg.data_dir, key))
+                if current is None or current.custom != path:
+                    self.store.set_custom(key, path, "plex")
+                    log.info("using the poster uploaded in Plex as custom art for %s", item.get("title"))
+                    redo = True
+        elif current is not None and current.source == "plex":
+            self.store.reset_override(key)
+            log.info("custom art label removed from %s, back to automatic art", item.get("title"))
+            redo = True
+        return redo
 
     def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:
         key, target = plan.rating_key, plan.target

@@ -7,7 +7,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from posteryard import __version__, config, http, memory, pipeline
+from posteryard import __version__, config, http, memory, overrides, pipeline
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
@@ -33,6 +33,16 @@ def _parser() -> argparse.ArgumentParser:
 
     forget = commands.add_parser("forget", help="let the service manage images that were changed by hand again")
     forget.add_argument("rating_keys", nargs="+", metavar="RATING_KEY")
+
+    art = commands.add_parser("art", help="choose the poster art for a movie, show or season")
+    art_commands = art.add_subparsers(dest="art_command", required=True)
+    art_set = art_commands.add_parser("set", help="use your own image as the poster art; overlays are added on top")
+    art_set.add_argument("rating_key", metavar="RATING_KEY")
+    source = art_set.add_mutually_exclusive_group(required=True)
+    source.add_argument("--url", help="an http(s) address of the image")
+    source.add_argument("--file", type=Path, help="a path to the image inside the container, e.g. under /data")
+    for name, text in (("next", "switch to the next best image"), ("reset", "go back to automatic art")):
+        art_commands.add_parser(name, help=text).add_argument("rating_key", metavar="RATING_KEY")
 
     preview = commands.add_parser(
         "preview",
@@ -116,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         cfg = config.load()
-        if args.command == "serve":
+        if args.command in ("serve", "art"):
             config.require_service(cfg)
     except config.ConfigError as exc:
         log.error("%s", exc)
@@ -133,8 +143,29 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     plex = Plex(cfg.plex_url, cfg.plex_token)
     worker = Worker(cfg, plex, store, Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token))
+    if args.command == "art":
+        return _art(args, worker)
     Service(cfg, plex, store, worker).run()
     return 0
+
+
+def _art(args: argparse.Namespace, worker: Worker) -> int:
+    key = str(args.rating_key)
+    if not _keys_ok([key]):
+        return 2
+    try:
+        if args.art_command == "set":
+            image = overrides.from_url(args.url) if args.url else overrides.from_file(args.file)
+            outcome = worker.set_custom(key, image)
+        elif args.art_command == "next":
+            outcome = worker.next_art(key)
+        else:
+            outcome = worker.reset_art(key)
+    except (overrides.ArtError, pipeline.NotFoundError, http.RequestError) as exc:
+        log.error("%s", exc)
+        return 1
+    log.info("%s: %s%s", key, outcome, " (DRY_RUN: preview only)" if worker.cfg.dry_run else "")
+    return 1 if outcome == "failed" else 0
 
 
 if __name__ == "__main__":
