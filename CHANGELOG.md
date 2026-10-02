@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Use your own image as the poster art with the `posteryard-custom` Plex label or `posteryard art set`.
 - Switch to the next best image with the `posteryard-next` Plex label or `posteryard art next`.
 - Go back to automatic art with `posteryard art reset`.
+- Leave an item completely alone with the `posteryard-ignore` Plex label.
 
 ## [0.2.2] - 2026-10-02
 

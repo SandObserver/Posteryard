@@ -14,6 +14,7 @@ from posteryard.tmdb import MAX_SIDE
 
 CUSTOM_LABEL = "posteryard-custom"
 NEXT_LABEL = "posteryard-next"
+IGNORE_LABEL = "posteryard-ignore"
 MAX_DOWNLOAD = 40 * 1024 * 1024
 FILE_PREFIX = "file:"
 

@@ -105,6 +105,15 @@ class Service:
                     # Adding a label does not change an item's updatedAt, so changed_since misses it.
                     labelled = self.plex.section_items(str(section["key"]), kind, label=label)
                     self.enqueue((str(i["ratingKey"]) for i in labelled), "label")
+        ignored = {
+            str(i["ratingKey"])
+            for section in self._sections()
+            for kind in KINDS[str(section["type"])]
+            for i in self.plex.section_items(str(section["key"]), kind, label=overrides.IGNORE_LABEL)
+        }
+        # A removed label leaves updatedAt untouched too, so items that lost the ignore label are queued here.
+        self.enqueue(sorted(set(json.loads(self.store.meta("ignored_keys", "[]"))) - ignored), "unignored")
+        self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
         previous = set(json.loads(self.store.meta("leaving_keys", "[]")))
         current = set(self.worker.leaving_days())
         self.enqueue(sorted(previous | current), "leaving")

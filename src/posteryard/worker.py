@@ -98,7 +98,7 @@ class Worker:
                 self.store.forget(rating_key)
                 self.store.reset_override(rating_key)
                 return Outcome.GONE
-            if not self.allowed(item):
+            if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
                 return Outcome.SKIPPED
             title = str(item.get("title", rating_key))
             self.ctx.action_days = self.leaving_days()

@@ -158,3 +158,11 @@ def test_art_commands(tmp_path: Path) -> None:
     assert worker.next_art("1") == Outcome.UPLOADED
     assert worker.reset_art("1") == Outcome.UPLOADED
     assert store.override("1") is None
+
+
+def test_the_ignore_label_leaves_the_item_alone(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.items["1"]["Label"] = [{"tag": "posteryard-ignore"}, {"tag": "posteryard-next"}]
+    assert worker.process("1") == Outcome.SKIPPED
+    assert plex.uploads == []
+    assert store.override("1") is None
