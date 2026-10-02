@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Run OCR in a separate process that is replaced after 100 reads, so its memory is returned in full.
+- Return freed memory to the operating system after each item.
+- Base fingerprints on a design version instead of the package version, so a release that renders the same images uploads nothing.
+
 ## [0.2.1] - 2026-10-02
 
 ### Fixed

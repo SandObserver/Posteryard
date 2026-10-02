@@ -120,3 +120,10 @@ def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
     plan = pipeline.season(ctx, title, {"ratingKey": "17", "index": 7})[0]
     assert plan.inputs["art"] == "/textless.jpg"
     assert plan.inputs["label"] == "Season 7"
+
+
+def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> None:
+    plan = pipeline.Plan(
+        "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
+    )
+    assert plan.fingerprint == "d4fa7f2c453257164d8f6fec8f560e35"

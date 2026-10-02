@@ -7,7 +7,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from posteryard import __version__, config, http, pipeline
+from posteryard import __version__, config, http, memory, pipeline
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
@@ -104,6 +104,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
                 path = out_dir / f"{plan.rating_key}-{plan.target}-{_slug(plan.name)}.jpg"
                 plan.draw().convert("RGB").save(path, quality=92)
                 log.info("%s  %s  (%s)", path.name, plan.name, "; ".join(plan.notes))
+            memory.release()
         except (pipeline.NotFoundError, http.RequestError) as exc:
             log.error("%s: %s", label, exc)
             failed += 1

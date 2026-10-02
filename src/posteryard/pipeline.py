@@ -12,7 +12,7 @@ from typing import Any, Literal
 import numpy as np
 from PIL import Image
 
-from posteryard import __version__, maintainerr, ocr, quality, services
+from posteryard import maintainerr, ocr, quality, services
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
 from posteryard.plex import Item, Plex, tmdb_id
 from posteryard.quality import QualityMinimums
@@ -22,6 +22,9 @@ from posteryard.tmdb import Images, Kind, Tmdb
 
 Target = Literal["poster", "art", "thumb"]
 TITLE_CACHE_SECONDS = 600
+# Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
+# re-uploaded. A release that renders the same images keeps it.
+DESIGN_VERSION = "0.2.1"
 # Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
@@ -43,7 +46,7 @@ class Plan:
 
     @property
     def fingerprint(self) -> str:
-        blob = json.dumps({"version": __version__, **self.inputs}, sort_keys=True, default=str)
+        blob = json.dumps({"version": DESIGN_VERSION, **self.inputs}, sort_keys=True, default=str)
         return hashlib.sha256(blob.encode()).hexdigest()[:32]
 
 

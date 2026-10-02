@@ -19,7 +19,7 @@ OCR rejects any art that prints the title or other large text. TMDB language tag
 - **Sweep**, every `SWEEP_MINUTES`: items added or changed since the last sweep, every item Maintainerr lists, and failed items whose retry is due. A replaced file sends no webhook, so the sweep catches it. The first sweep after a start looks back 6 hours.
 - **Full pass**, daily at `DAILY_AT` and at once after a version or setting change: every item. Items Plex no longer has are forgotten.
 
-Each image is fingerprinted from what decides it: the chosen TMDB art, badges, label, service and version. An unchanged image is not rendered or uploaded again. OCR runs again only when TMDB's list of candidates changes.
+Each image is fingerprinted from what decides it: the chosen TMDB art, badges, label, service and the design version. A release that renders the same images keeps the design version and uploads nothing. An unchanged image is not rendered or uploaded again. OCR runs again only when TMDB's list of candidates changes.
 
 With `DRY_RUN=true` images go to `DATA_DIR/previews` and nothing is written to Plex. Otherwise each image is uploaded, selected and locked, so a metadata refresh keeps it. If an uploaded image is later changed in Plex, Posteryard leaves that image alone. `posteryard forget RATING_KEY` hands it back.
 
