@@ -13,144 +13,115 @@
 
 Posteryard runs next to Plex and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
 
-## Install
+## Getting started
 
-You need:
+You need [Docker](https://docs.docker.com/get-started/get-docker/), a free [TMDB API key](https://www.themoviedb.org/settings/api) (the short **API Key**) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
 
-- Docker with Compose. Portainer, Dockge and Unraid stacks work too.
-- A free TMDB API key. Sign up at [themoviedb.org](https://www.themoviedb.org/signup), then open [Settings > API](https://www.themoviedb.org/settings/api) and copy the **API Key** (the short one).
-- Your Plex token. Plex shows how to find it: [Finding an authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
-- Plex Pass, only for instant updates. Without it, new items still get their posters within 15 minutes.
-
-### 1. Make a folder
-
-```sh
-mkdir -p posteryard/data && cd posteryard
-sudo chown 1000:1000 data
+```yaml
+services:
+  posteryard:
+    image: ghcr.io/sandobserver/posteryard:0.3
+    container_name: posteryard
+    restart: unless-stopped
+    environment:
+      - TMDB_API_KEY=your-tmdb-api-key
+      - PLEX_URL=http://192.168.1.10:32400
+      - PLEX_TOKEN=your-plex-token
+      - WEBHOOK_SECRET=any-long-random-text
+      - DRY_RUN=true
+    volumes:
+      - ./data:/data
+    ports:
+      - "8000:8000"
 ```
 
-Posteryard runs as user 1000, so it needs to own `data`.
+Change these:
 
-### 2. Add two files
-
-`compose.yaml`: copy [compose.example.yml](compose.example.yml) and change `PLEX_URL` to your Plex address, for example `http://192.168.1.10:32400`.
-
-`.env`, next to it:
-
-```sh
-TMDB_API_KEY=your-tmdb-api-key
-PLEX_TOKEN=your-plex-token
-WEBHOOK_SECRET=any-long-random-text
-```
-
-`openssl rand -hex 16` makes a good secret. In Portainer, put these three in the stack's environment variables instead.
-
-### 3. Try it without touching Plex
+| Setting | Set it to |
+| --- | --- |
+| `TMDB_API_KEY` | Your TMDB API key. |
+| `PLEX_URL` | Your Plex address, as the container sees it. |
+| `PLEX_TOKEN` | Your Plex token. |
+| `WEBHOOK_SECRET` | Any long random text. `openssl rand -hex 16` makes one. |
 
 ```sh
+mkdir -p data && sudo chown 1000:1000 data
 docker compose up -d
-docker compose logs -f
 ```
 
-It starts with `DRY_RUN=true`. Posters are saved to `data/previews` and nothing in Plex changes. A big library takes a while, so watch the log.
+Posteryard runs as user 1000, so it needs to own `./data`.
 
-### 4. Turn it on
+It starts with `DRY_RUN=true`: posters are saved to `./data/previews` and Plex is not touched. Happy with them? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters are now uploaded and locked, so Plex keeps them.
 
-Happy with the previews? Set `DRY_RUN=false` in `compose.yaml` and run `docker compose up -d` again. Posteryard now uploads the posters and locks them, so Plex keeps them.
-
-To try it on a few titles first, add `ONLY_RATING_KEYS=12345,67890`. To find a rating key, open the title in Plex Web, choose **Get Info > View XML**, and read the number after `/library/metadata/` in the address bar.
-
-### 5. Instant updates (Plex Pass)
-
-In Plex Web, open **Settings > Webhooks > Add Webhook** and enter:
-
-```text
-http://YOUR-SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET
-```
-
-New movies and episodes now get their posters right after Plex adds them.
-
-### Extras
-
-- [Maintainerr](https://github.com/Maintainerr/Maintainerr): add `MAINTAINERR_URL=http://YOUR-SERVER-IP:6246` to show "Leaving in 3 days" on titles about to be removed.
-- [ntfy](https://ntfy.sh) alerts when something keeps failing: add `NTFY_URL`, `NTFY_TOPIC` and, if needed, `NTFY_TOKEN`.
-- Every other option is in [Settings](#settings).
+With Plex Pass, add a webhook in Plex Web under **Settings > Webhooks** so new titles get posters right away: `http://YOUR-SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`. Without Plex Pass, they get them within 15 minutes.
 
 Turn off poster overlays in other tools, such as Kometa. Two tools writing posters keep overwriting each other.
+
+## Settings
+
+Add any of these under `environment:`.
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `DRY_RUN` | `true` saves previews only. `false` uploads to Plex. | `true` |
+| `PLEX_LIBRARIES` | The Plex libraries to manage, by name. | `Movies,TV Shows` |
+| `ONLY_RATING_KEYS` | Only handle these titles, for a first test. A show includes its seasons and episodes. Empty means everything. | |
+| `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
+| `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | Your [ntfy](https://ntfy.sh) server, topic and token. Sends an alert when something keeps failing. | |
+| `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
+| `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
+| `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
+| `STREAMING_REGIONS` | Countries to look up the streaming service in, in order. | `CA,US` |
+| `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
+| `DAILY_AT` | Time of the daily full pass over the whole library. | `04:15` |
+| `LISTEN_PORT` | Port inside the container. | `8000` |
+| `DATA_DIR` | Where the database and previews are kept. | `/data` |
+
+Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
+
+## Commands
+
+Run them in the container: `docker exec posteryard posteryard COMMAND`.
+
+| Command | What it does |
+| --- | --- |
+| `art next RATING_KEY` | Switch a movie, show or season to the next best art. |
+| `art set RATING_KEY --url URL` | Use your own image as the art. `--file /data/my-art.jpg` takes a file from `./data`. |
+| `art reset RATING_KEY` | Go back to automatic art. |
+| `forget RATING_KEY` | Hand an image you changed in Plex back to Posteryard. |
+| `preview RATING_KEY` | Save a preview to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
+| `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. `--season 2` adds a season. |
+
+To find a rating key, open the title in Plex Web, choose **Get Info > View XML**, and read the number after `/library/metadata/` in the address bar.
+
+## Plex labels
+
+Add these labels to a title in Plex instead of running a command. Posteryard picks them up within 15 minutes.
+
+| Label | What it does |
+| --- | --- |
+| `posteryard-next` | Switch to the next best art. The label is removed when done. |
+| `posteryard-custom` | Keep the poster you uploaded in Plex as the art, with the title and badges drawn on top. Remove the label to go back to automatic art. |
+| `posteryard-ignore` | Leave this title alone. On a show it covers the show only; label seasons separately. Remove the label and it is rendered fresh. |
 
 ## What it makes
 
 | Plex image | Design |
 | --- | --- |
-| Movie and show poster | Apple's tile: textless TMDB art, the title logo in Apple's fixed box, Apple's black bottom gradient. Quality badges (movies) and the Maintainerr label in a row under the logo. Streaming service mark top right on shows. |
-| Season poster | The same tile with `Season N` or `Specials` as a caption. The art is the season's own textless art; otherwise a series image no other season or the show poster uses; otherwise the show's art. |
-| Episode thumbnail | The TMDB still. The bottom quarter is blurred and faded into the still's colour, with `EPISODE N` and the title. |
-| Background | Textless TMDB art. No title. |
+| Movie and show poster | Textless TMDB art, the title logo in a fixed spot and a soft black fade. Quality badges (movies) and the Maintainerr label sit under the logo. Shows get their streaming service mark top right. |
+| Season poster | The same, with `Season N` or `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
+| Episode thumbnail | The episode still, with the bottom blurred and faded, `EPISODE N` and the title. |
+| Background | Textless TMDB art, no title. |
 
-OCR rejects any art that prints the title or other large text. TMDB language tags are often wrong.
+Art that prints the title or other large text is rejected, even when TMDB marks it as textless.
 
-## How it runs
+## How it works
 
-Once it runs, Posteryard keeps itself up to date:
+- **Webhook**: a new title is handled right away. A new episode also refreshes its season and show.
+- **Sweep**, every 15 minutes: titles added or changed since the last sweep, titles Maintainerr lists, and failed titles due for a retry.
+- **Full pass**, daily and after an update or settings change: the whole library. Titles Plex no longer has are forgotten.
 
-- **Plex webhook** (`library.new`): a new item is queued at once. A new episode also queues its season and show.
-- **Sweep**, every `SWEEP_MINUTES`: items added or changed since the last sweep, every item Maintainerr lists, and failed items whose retry is due. A replaced file sends no webhook, so the sweep catches it. The first sweep after a start looks back 6 hours.
-- **Full pass**, daily at `DAILY_AT` and at once after a version or setting change: every item. Items Plex no longer has are forgotten.
-
-Each image is fingerprinted from what decides it: the chosen TMDB art, badges, label, service and the design version. A release that renders the same images keeps the design version and uploads nothing. An unchanged image is not rendered or uploaded again. OCR runs again only when TMDB's list of candidates changes.
-
-With `DRY_RUN=true` images go to `DATA_DIR/previews` and nothing is written to Plex. Otherwise each image is uploaded, selected and locked, so a metadata refresh keeps it. If an uploaded image is later changed in Plex, Posteryard leaves that image alone. `posteryard forget RATING_KEY` hands it back.
-
-Failed items are retried after 15 minutes, doubling to 12 hours. After three failures an ntfy alert goes out, one per upstream (Plex, TMDB, Maintainerr, missing artwork), at most once per 6 hours. While Maintainerr is down its last known schedule is used.
-
-`GET /healthz` reports health, queue length and image counts.
-
-## Choosing art
-
-Posteryard picks the art itself. To change it for one movie, show or season, use Plex labels or a command.
-
-| What you want | In Plex | Command |
-| --- | --- | --- |
-| Your own image as the poster art | Upload the image as the poster in Plex and add the label `posteryard-custom`. Remove the label to go back to automatic art. | `posteryard art set RATING_KEY --url https://...` or `--file /data/my-art.jpg` |
-| The next best image | Add the label `posteryard-next`. Posteryard switches the art and removes the label. | `posteryard art next RATING_KEY` |
-| Automatic art again | Remove `posteryard-custom`. | `posteryard art reset RATING_KEY` |
-| No Posteryard changes at all | Add the label `posteryard-ignore`. Posteryard leaves that item's poster, background or thumbnail alone. On a show it covers the show only; label seasons separately. Remove the label to hand the item back: the next sweep renders it fresh, whatever poster was chosen meanwhile. | |
-
-The title logo, gradient, badges, labels, service mark and season caption are drawn on top of the chosen art. Labels are picked up by the next sweep. Commands apply at once; run them in the container, for example `docker exec posteryard posteryard art next 12345`. A choice stays until it is reset.
-
-## Settings
-
-Set in the environment.
-
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `TMDB_API_KEY` | TMDB v3 API key. Required. | |
-| `PLEX_URL` | Plex server URL. Required for `serve` and Plex rating keys. | |
-| `PLEX_TOKEN` | Plex token. Required for `serve` and Plex rating keys. | |
-| `WEBHOOK_SECRET` | Random string, part of the webhook URL. Required for `serve`. | |
-| `PLEX_LIBRARIES` | Libraries to manage, by name. | `Movies,TV Shows` |
-| `DRY_RUN` | `true` writes previews only. `false` uploads to Plex. | `true` |
-| `ONLY_RATING_KEYS` | Comma-separated rating keys to limit a rollout. A show key includes its seasons and episodes. Empty means all. | |
-| `SWEEP_MINUTES` | Minutes between sweeps. | `15` |
-| `DAILY_AT` | Local time of the daily full pass. | `04:15` |
-| `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | ntfy server, topic and access token for alerts. Empty turns alerts off. | |
-| `LISTEN_PORT` | HTTP port inside the container. | `8000` |
-| `MAINTAINERR_URL` | Maintainerr URL. Empty turns the label off. | |
-| `STREAMING_REGIONS` | Regions to look up streaming services in, in order. | `CA,US` |
-| `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
-| `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
-| `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
-| `DATA_DIR` | Working folder: `state.db` and `previews/`. The image sets `/data`. | `data` |
-
-Each axis shows at most one badge: the best format the file has, if it reaches the minimum.
-
-## Preview
-
-```sh
-uv run posteryard preview 12345 12346        # Plex rating keys: movie, show, season or episode
-uv run posteryard preview 12345 --episodes 2 # also the first 2 episodes of each season
-uv run posteryard preview --tmdb movie:693134 --tmdb tv:95396 --season 2   # TMDB only, no Plex
-```
+Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours; after three failures ntfy gets one alert per cause, at most every 6 hours. `GET /healthz` reports health, queue length and image counts.
 
 ## Development
 
