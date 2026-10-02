@@ -14,6 +14,7 @@ from posteryard.render.layers import is_light, trim
 from posteryard.tmdb import ImageRef, Images
 
 MAX_CANDIDATES = 6
+POOL_SIZE = 12
 MIN_BACKDROP_WIDTH = 1920
 
 Fetch = Callable[[str], Image.Image]
@@ -72,17 +73,19 @@ class Picker:
         )
         return picked
 
-    def titled(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        """Do not trust TMDB's language tag alone. It lets foreign-language posters through."""
-        return self._cached(f"titled:{key}", refs, lambda lines: ocr.shows_title(lines, titles))
-
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
         """Reject any art that OCR finds a title or display text on, whatever its language tag says."""
-        return self._cached(
-            f"textless:{key}",
-            refs,
-            lambda lines: not ocr.shows_title(lines, titles) and not ocr.has_display_text(lines),
-        )
+        return self._cached(f"textless:{key}", refs, lambda lines: _textless(lines, titles))
+
+    def textless_all(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> list[str]:
+        """Every acceptable textless image among the first POOL_SIZE candidates, best first."""
+        candidates = [r.path for r in refs[:POOL_SIZE]]
+        hit = self.cache.get_choice(f"textless-all:{key}")
+        if hit is not None and hit.get("candidates") == candidates:
+            return [str(p) for p in hit.get("paths", [])]
+        paths = [path for path in candidates if _textless(self.read(self.fetch(path)), titles)]
+        self.cache.put_choice(f"textless-all:{key}", {"candidates": candidates, "paths": paths})
+        return paths
 
     def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
         return self.textless(f"{key}:posters", images.textless_posters(), titles) or self.textless(
@@ -102,3 +105,7 @@ class Picker:
         path = light or (candidates[0] if candidates else None)
         self.cache.put_choice(f"logo:{key}", {"candidates": candidates, "path": path})
         return path
+
+
+def _textless(lines: list[ocr.TextLine], titles: Sequence[str]) -> bool:
+    return not ocr.shows_title(lines, titles) and not ocr.has_display_text(lines)

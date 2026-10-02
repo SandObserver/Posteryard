@@ -4,13 +4,12 @@ Apple TV style artwork for the Plex `Movies` and `TV Shows` libraries.
 
 | Plex image | Design |
 | --- | --- |
-| Movie poster | The official English poster from TMDB. Quality badges and the Maintainerr label top left. |
-| Show poster | The official English poster. Streaming service mark top right, Maintainerr label top left. |
-| Season poster | The season's official poster with `SEASON N` at the bottom, unless the poster already prints it. |
+| Movie and show poster | Apple's tile: textless TMDB art, the title logo in Apple's fixed box, Apple's black bottom gradient. Quality badges (movies) and the Maintainerr label in a row under the logo. Streaming service mark top right on shows. |
+| Season poster | The same tile with `Season N` or `Specials` as a caption. The art is the season's own textless art; otherwise a series image no other season or the show poster uses; otherwise the show's art. |
 | Episode thumbnail | The TMDB still. The bottom quarter is blurred and faded into the still's colour, with `EPISODE N` and the title. |
 | Background | Textless TMDB art. No title. |
 
-OCR confirms that a poster prints the English title. TMDB language tags are often wrong. When no poster passes, the poster falls back to textless art with the title logo in Apple's tile layout.
+OCR rejects any art that prints the title or other large text. TMDB language tags are often wrong.
 
 ## How it runs
 

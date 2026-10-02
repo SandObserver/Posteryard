@@ -156,10 +156,11 @@ class Service:
         resumed = False
         while not self._stop.is_set():
             try:
-                if not resumed:
-                    self.resume()
-                    resumed = True
                 signature = self.settings_signature()
+                if not resumed:
+                    if self.store.meta("settings_signature") == signature:
+                        self.resume()
+                    resumed = True
                 if self.store.meta("settings_signature") != signature:
                     log.info("version or settings changed, checking every item now")
                     self.full()

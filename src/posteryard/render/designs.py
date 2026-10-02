@@ -1,9 +1,9 @@
-"""The poster, season, fallback, episode and background designs."""
+"""The poster, episode and background designs."""
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from posteryard.quality import Badge
-from posteryard.render import corner
+from posteryard.render import inforow
 from posteryard.render.layers import (
     APPLE_BOTTOM,
     NEAR_BLACK,
@@ -25,11 +25,9 @@ LOGO_CENTRE = 0.755
 LOGO_CENTRE_WITH_CAPTION = 0.72
 CAPTION_SIZE = 13 / 219
 CAPTION_Y = 0.845
-STRIP: tuple[tuple[float, float], ...] = ((0.0, 0.0), (0.78, 0.0), (0.86, 0.40), (0.93, 0.65), (1.0, 0.75))
 SERVICE_HEIGHT = 0.054
 SERVICE_MAX_WIDTH = 0.2
 SERVICE_MARGIN = 0.044
-SEASON_TRACKING = 0.18
 
 
 def _service(canvas: Image.Image, service: str) -> None:
@@ -48,35 +46,7 @@ def _service(canvas: Image.Image, service: str) -> None:
     canvas.alpha_composite(logo, (x, y))
 
 
-def studio_poster(art: Image.Image, badges: list[Badge], leaving: str | None, service: str | None) -> Image.Image:
-    canvas = cover(art, *POSTER).convert("RGBA")
-    if service:
-        _service(canvas, service)
-    corner.draw(canvas, badges, leaving)
-    return canvas.convert("RGB")
-
-
-def season_poster(art: Image.Image, label: str | None, leaving: str | None, service: str | None) -> Image.Image:
-    """`label` is None when the art already prints the season."""
-    canvas = cover(art, *POSTER).convert("RGBA")
-    if label is not None:
-        canvas.alpha_composite(vertical_gradient(canvas.size, STRIP))
-        draw_tracked(
-            ImageDraw.Draw(canvas),
-            (canvas.width / 2, canvas.height - round(0.07 * canvas.width)),
-            label.upper(),
-            font("SemiBold", round(0.04 * canvas.width)),
-            (*WHITE, 245),
-            tracking=SEASON_TRACKING,
-            align="centre",
-        )
-    if service:
-        _service(canvas, service)
-    corner.draw(canvas, [], leaving)
-    return canvas.convert("RGB")
-
-
-def fallback_poster(
+def tile_poster(
     art: Image.Image,
     logo: Image.Image,
     *,
@@ -106,7 +76,7 @@ def fallback_poster(
         )
     if service:
         _service(canvas, service)
-    corner.draw(canvas, badges, leaving)
+    inforow.draw(canvas, badges, leaving)
     return canvas.convert("RGB")
 
 
