@@ -1,0 +1,24 @@
+name: Bug report
+description: Something renders wrong or the service misbehaves
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected, what you got, and which title. A TMDB link is enough to find it.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Posteryard version
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: The lines around the problem. Remove tokens and server addresses first.
+      render: text

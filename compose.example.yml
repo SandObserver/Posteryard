@@ -1,6 +1,6 @@
 services:
   posteryard:
-    image: ghcr.io/sandobserver/posteryard:0.1.0
+    image: ghcr.io/sandobserver/posteryard:0.3
     restart: unless-stopped
     environment:
       - TMDB_API_KEY=${TMDB_API_KEY}
