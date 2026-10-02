@@ -1,6 +1,6 @@
 [project]
 name = "posteryard"
-version = "0.2.2"
+version = "0.3.0"
 description = "Apple TV style posters, backgrounds and episode stills for Plex"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
