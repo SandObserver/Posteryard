@@ -14,7 +14,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http
+from posteryard import __version__, http, memory
 from posteryard.config import Config
 from posteryard.plex import Item, Plex
 from posteryard.store import Store
@@ -87,6 +87,7 @@ class Service:
                 outcome = Outcome.FAILED
             if outcome not in (Outcome.UNCHANGED, Outcome.SKIPPED):
                 log.info("%s %s (%s) in %.1fs", outcome, key, reason, time.monotonic() - started)
+            memory.release()
             self.worker_beat = time.monotonic()
 
     def _sections(self) -> list[Item]:

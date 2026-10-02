@@ -1,6 +1,10 @@
 """Read the text printed on artwork."""
 
+import atexit
+import multiprocessing
 from collections.abc import Iterable, Sequence
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
 from functools import cache
 from typing import Any
@@ -8,9 +12,14 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
+from posteryard import memory
+
 READ_WIDTH = 480
 # Each onnxruntime thread holds its own buffers. More threads push the service past its memory limit.
 OCR_THREADS = 2
+# The OCR process is replaced after this many reads, which returns everything it allocated.
+READS_PER_PROCESS = 100
+READ_TIMEOUT = 120
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
@@ -38,23 +47,50 @@ def _engine() -> Any:
     )
 
 
+@cache
+def _pool() -> ProcessPoolExecutor:
+    """One OCR process, so the onnxruntime engine never lives in the service process."""
+    pool = ProcessPoolExecutor(
+        max_workers=1,
+        max_tasks_per_child=READS_PER_PROCESS,
+        mp_context=multiprocessing.get_context("spawn"),
+    )
+    atexit.register(pool.shutdown, cancel_futures=True)
+    return pool
+
+
 def read(image: Image.Image) -> list[TextLine]:
     rgb = image.convert("RGB")
     rgb = rgb.resize((READ_WIDTH, max(1, round(rgb.height * READ_WIDTH / rgb.width))))
-    result = _engine()(np.asarray(rgb))
-    if result.txts is None:
-        return []
+    pixels = np.asarray(rgb)
+    try:
+        return _pool().submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
+    except BrokenProcessPool:
+        _pool.cache_clear()
+    try:
+        return _pool().submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
+    except BrokenProcessPool:
+        _pool.cache_clear()
+        raise OSError("the OCR process stopped twice in a row") from None
+
+
+def _read_pixels(pixels: np.ndarray) -> list[TextLine]:
+    """Runs in the OCR process. Sizes are fractions of the image."""
+    height, width = pixels.shape[:2]
+    result = _engine()(pixels)
     lines = []
-    for box, text, score in zip(result.boxes, result.txts, result.scores, strict=True):
-        xs, ys = box[:, 0], box[:, 1]
-        lines.append(
-            TextLine(
-                text=str(text),
-                score=float(score),
-                height=float(ys.max() - ys.min()) / rgb.height,
-                width=float(xs.max() - xs.min()) / rgb.width,
+    if result.txts is not None:
+        for box, text, score in zip(result.boxes, result.txts, result.scores, strict=True):
+            xs, ys = box[:, 0], box[:, 1]
+            lines.append(
+                TextLine(
+                    text=str(text),
+                    score=float(score),
+                    height=float(ys.max() - ys.min()) / height,
+                    width=float(xs.max() - xs.min()) / width,
+                )
             )
-        )
+    memory.release()
     return lines
 
 
