@@ -14,7 +14,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, memory
+from posteryard import __version__, http, memory, overrides
 from posteryard.config import Config
 from posteryard.plex import Item, Plex
 from posteryard.store import Store
@@ -101,6 +101,10 @@ class Service:
             for kind in KINDS[str(section["type"])]:
                 changed = self.plex.changed_since(str(section["key"]), kind, since)
                 self.enqueue((str(i["ratingKey"]) for i in changed), "changed")
+                for label in (overrides.CUSTOM_LABEL, overrides.NEXT_LABEL):
+                    # Adding a label does not change an item's updatedAt, so changed_since misses it.
+                    labelled = self.plex.section_items(str(section["key"]), kind, label=label)
+                    self.enqueue((str(i["ratingKey"]) for i in labelled), "label")
         previous = set(json.loads(self.store.meta("leaving_keys", "[]")))
         current = set(self.worker.leaving_days())
         self.enqueue(sorted(previous | current), "leaving")

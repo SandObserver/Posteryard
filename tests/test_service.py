@@ -30,8 +30,15 @@ class FakePlex:
     def sections(self) -> list[dict[str, str]]:
         return [{"key": "3", "title": "Movies", "type": "movie"}]
 
-    def section_items(self, section: str, kind: str) -> list[dict[str, str]]:
+    def section_items(self, section: str, kind: str, **filters: str) -> list[dict[str, str]]:
+        if filters.get("label") == "posteryard-next":
+            return [{"ratingKey": "9"}]
+        if filters:
+            return []
         return [{"ratingKey": "1"}, {"ratingKey": "2"}]
+
+    def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
+        return []
 
 
 def make_service(tmp_path: Path) -> Service:
@@ -61,3 +68,11 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
     finished.store.set_meta("full_pending", "0")
     finished.resume()
     assert finished.queue.empty()
+
+
+def test_the_sweep_queues_labelled_items(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
+    service.sweep()
+    queued = [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    assert queued == ["9"]

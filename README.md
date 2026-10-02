@@ -29,6 +29,18 @@ Posteryard must be the only thing writing posters, backgrounds and episode thumb
 
 Plex webhook URL (Plex Web > Settings > Webhooks): `http://HOST:8000/webhook/WEBHOOK_SECRET`. `GET /healthz` reports health, queue length and image counts.
 
+## Choosing art
+
+Posteryard picks the art itself. To change it for one movie, show or season, use Plex labels or a command.
+
+| What you want | In Plex | Command |
+| --- | --- | --- |
+| Your own image as the poster art | Upload the image as the poster in Plex and add the label `posteryard-custom`. Remove the label to go back to automatic art. | `posteryard art set RATING_KEY --url https://...` or `--file /data/my-art.jpg` |
+| The next best image | Add the label `posteryard-next`. Posteryard switches the art and removes the label. | `posteryard art next RATING_KEY` |
+| Automatic art again | Remove `posteryard-custom`. | `posteryard art reset RATING_KEY` |
+
+The title logo, gradient, badges, labels, service mark and season caption are drawn on top of the chosen art. Labels are picked up by the next sweep. Commands apply at once; run them in the container, for example `docker exec posteryard posteryard art next 12345`. A choice stays until it is reset.
+
 ## Settings
 
 Set in the environment.

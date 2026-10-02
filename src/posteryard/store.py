@@ -10,6 +10,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from posteryard.overrides import Override
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS images (
     rating_key  TEXT NOT NULL,
@@ -22,6 +24,12 @@ CREATE TABLE IF NOT EXISTS images (
     last_error  TEXT NOT NULL DEFAULT '',
     updated_at  INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (rating_key, target)
+);
+CREATE TABLE IF NOT EXISTS overrides (
+    rating_key TEXT PRIMARY KEY,
+    custom     TEXT NOT NULL DEFAULT '',
+    source     TEXT NOT NULL DEFAULT '',
+    skip       TEXT NOT NULL DEFAULT '[]'
 );
 CREATE TABLE IF NOT EXISTS choices (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -108,6 +116,37 @@ class Store:
     def counts(self) -> dict[str, int]:
         with self._lock:
             return dict(self._db.execute("SELECT status, COUNT(*) FROM images GROUP BY status").fetchall())
+
+    def override(self, rating_key: str) -> Override | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT custom, source, skip FROM overrides WHERE rating_key=?", (rating_key,)
+            ).fetchone()
+        if not row:
+            return None
+        return Override(custom=row[0] or None, source=row[1], skip=frozenset(json.loads(row[2])))
+
+    def set_custom(self, rating_key: str, path: str, source: str) -> None:
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO overrides(rating_key, custom, source, skip) VALUES(?, ?, ?, '[]') "
+                "ON CONFLICT(rating_key) DO UPDATE SET custom=excluded.custom, source=excluded.source, skip='[]'",
+                (rating_key, path, source),
+            )
+
+    def add_skip(self, rating_key: str, art: str) -> None:
+        current = self.override(rating_key)
+        skip = sorted((current.skip if current else frozenset()) | {art})
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO overrides(rating_key, custom, source, skip) VALUES(?, '', '', ?) "
+                "ON CONFLICT(rating_key) DO UPDATE SET custom='', source='', skip=excluded.skip",
+                (rating_key, json.dumps(skip)),
+            )
+
+    def reset_override(self, rating_key: str) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM overrides WHERE rating_key=?", (rating_key,))
 
     def get_choice(self, key: str) -> Mapping[str, Any] | None:
         with self._lock:

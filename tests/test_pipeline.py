@@ -1,11 +1,12 @@
 import hashlib
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 from PIL import Image, ImageDraw
 
-from posteryard import pipeline
+from posteryard import overrides, pipeline
 from posteryard.ocr import TextLine
 from posteryard.quality import QualityMinimums
 from posteryard.tmdb import ImageRef, Images
@@ -127,3 +128,28 @@ def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> 
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
     assert plan.fingerprint == "d4fa7f2c453257164d8f6fec8f560e35"
+
+
+def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
+    custom = tmp_path / "1-abc.jpg"
+    Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command") if key == "1" else None
+    plan = pipeline.movie(ctx, ITEM)[0]
+    assert plan.inputs["art"] == f"file:{custom}"
+    assert plan.inputs["override"] == "1-abc.jpg"
+    assert plan.draw().size == (1000, 1500)
+
+
+def test_next_art_skips_the_current_picture() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
+    plan = pipeline.movie(ctx, ITEM)[0]
+    assert plan.inputs["art"] == "/backdrop.jpg"
+    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/backdrop.jpg"}))
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop2.jpg"
+
+
+def test_without_overrides_fingerprints_stay_the_same() -> None:
+    plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
+    assert "override" not in plan.inputs
