@@ -81,18 +81,52 @@ Each badge row shows at most one video, one HDR and one audio badge: the best th
 
 ## Commands
 
-Run them in the container: `docker exec posteryard posteryard COMMAND`.
+Run a command inside the container:
+
+```sh
+docker exec posteryard posteryard art next The Office
+```
+
+Name a title the way Plex shows it. Case and punctuation do not matter, and quotes are optional. Add `--season N` to change one season of a show.
 
 | Command | What it does |
 | --- | --- |
-| `art next RATING_KEY` | Switch a movie, show or season to the next best art. |
-| `art set RATING_KEY --url URL` | Use your own image as the art. `--file /data/my-art.jpg` takes a file from `./data`. |
-| `art reset RATING_KEY` | Go back to automatic art. |
-| `forget RATING_KEY` | Hand an image you changed in Plex back to Posteryard. |
-| `preview RATING_KEY` | Save a preview to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
-| `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. `--season 2` adds a season. |
+| `art next TITLE` | Switch to the next best art. Run it again for the one after. |
+| `art set TITLE --url URL` | Use your own image as the art. The title logo and badges are drawn on top. |
+| `art set TITLE --file /data/my-art.jpg` | The same, with an image you put in `./data`. |
+| `art reset TITLE` | Go back to automatic art. |
+| `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
+| `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
+| `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
+| `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. |
 
-To find a rating key, open the title in Plex Web, choose **Get Info > View XML**, and read the number after `/library/metadata/` in the address bar.
+Examples:
+
+```sh
+docker exec posteryard posteryard art next "Fly Me to the Moon"
+docker exec posteryard posteryard art reset The Office --season 2
+docker exec posteryard posteryard art set Dune 2021 --url https://example.org/dune.jpg
+docker exec posteryard posteryard find office
+```
+
+With `DRY_RUN=true`, these commands save a preview instead of changing Plex.
+
+### When a name matches more than one title
+
+A command never guesses. If two titles share a name, nothing changes and Posteryard lists them:
+
+```text
+"Dune" matches 2 titles. Run again with one of these:
+  Dune (1984, movie)   posteryard art next "Dune 1984"   or 4411
+  Dune (2021, movie)   posteryard art next "Dune 2021"   or 8120
+Nothing changed.
+```
+
+Add the year, or use the number shown. A misspelled name lists the closest titles instead.
+
+### Rating keys
+
+A rating key is the number Plex uses for a title. Every command accepts one in place of a name. `find` shows them. You only need them for `ONLY_RATING_KEYS`, or for a title whose name is a number, such as `1917`: write `1917 2019` or use its key.
 
 ## Plex labels
 

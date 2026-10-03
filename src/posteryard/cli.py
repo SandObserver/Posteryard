@@ -1,24 +1,32 @@
 import argparse
 import logging
 import re
+import shlex
 from datetime import date
 from pathlib import Path
 
-from posteryard import __version__, config, http, memory, overrides, pipeline
+from posteryard import __version__, config, http, lookup, memory, overrides, pipeline
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.plex import Plex, is_rating_key
+from posteryard.plex import Plex
 from posteryard.service import Service
 from posteryard.store import Store
 from posteryard.tmdb import Kind, Tmdb
-from posteryard.worker import Worker
+from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger("posteryard")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
+TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a Plex rating key'
+SEASON_HELP = "season N of the show instead of the show itself"
+DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, Plex was not changed)"
 
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60]
+
+
+def _title_arguments(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
+    parser.add_argument("title", nargs="+" if required else "*", metavar="TITLE", help=TITLE_HELP)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -28,32 +36,39 @@ def _parser() -> argparse.ArgumentParser:
 
     commands.add_parser("serve", help="run the service: webhook, sweep and daily pass")
 
-    forget = commands.add_parser("forget", help="let the service manage images that were changed by hand again")
-    forget.add_argument("rating_keys", nargs="+", metavar="RATING_KEY")
+    find = commands.add_parser("find", help="list the movies and shows whose name contains WORDS")
+    find.add_argument("words", nargs="+", metavar="WORDS")
+
+    forget = commands.add_parser("forget", help="hand an image you changed in Plex back to Posteryard")
+    _title_arguments(forget)
+    forget.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
 
     art = commands.add_parser("art", help="choose the poster art for a movie, show or season")
     art_commands = art.add_subparsers(dest="art_command", required=True)
     art_set = art_commands.add_parser("set", help="use your own image as the poster art; overlays are added on top")
-    art_set.add_argument("rating_key", metavar="RATING_KEY")
+    _title_arguments(art_set)
+    art_set.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
     source = art_set.add_mutually_exclusive_group(required=True)
     source.add_argument("--url", help="an http(s) address of the image")
     source.add_argument("--file", type=Path, help="a path to the image inside the container, e.g. under /data")
     for name, text in (("next", "switch to the next best image"), ("reset", "go back to automatic art")):
-        art_commands.add_parser(name, help=text).add_argument("rating_key", metavar="RATING_KEY")
+        command = art_commands.add_parser(name, help=text)
+        _title_arguments(command)
+        command.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
 
     preview = commands.add_parser(
         "preview",
         help="render artwork into a folder; never writes to Plex",
         description="Render artwork into a folder. Nothing is written to Plex.",
     )
-    preview.add_argument("rating_keys", nargs="*", metavar="RATING_KEY", help="Plex movie, show, season or episode")
+    _title_arguments(preview, required=False)
     preview.add_argument(
         "--tmdb", action="append", default=[], metavar="KIND:ID",
         help="render from TMDB alone, e.g. movie:603 or tv:95396; repeatable",
     )  # fmt: skip
     preview.add_argument(
         "--season", action="append", type=int, default=[], metavar="N",
-        help="with --tmdb tv:ID, also render season N; repeatable",
+        help="render season N of the show; repeatable",
     )  # fmt: skip
     preview.add_argument(
         "--episodes", type=int, default=0, metavar="N",
@@ -63,34 +78,58 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _keys_ok(keys: list[str]) -> bool:
-    bad = [key for key in keys if not is_rating_key(key)]
-    if bad:
-        log.error("rating keys are numbers, not %s", ", ".join(bad))
-    return not bad
+def _options(args: argparse.Namespace) -> str:
+    """The options to repeat in a suggested command."""
+    parts: list[str] = []
+    seasons = args.season if isinstance(args.season, list) else [args.season] if args.season is not None else []
+    for number in seasons:
+        parts += ["--season", str(number)]
+    if getattr(args, "url", None):
+        parts += ["--url", args.url]
+    if getattr(args, "file", None):
+        parts += ["--file", str(args.file)]
+    return "".join(f" {shlex.quote(part)}" for part in parts)
+
+
+def _command(args: argparse.Namespace) -> str:
+    return f"art {args.art_command}" if args.command == "art" else str(args.command)
+
+
+def _resolve(plex: Plex, cfg: config.Config, args: argparse.Namespace) -> lookup.Match:
+    match = lookup.resolve(plex, cfg.libraries, " ".join(args.title))
+    return lookup.season(plex, match, args.season) if args.season is not None else match
 
 
 def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
-    if not args.rating_keys and not args.tmdb:
-        log.error("give at least one Plex rating key or --tmdb KIND:ID")
-        return 2
-    if not _keys_ok(args.rating_keys):
+    if not args.title and not args.tmdb:
+        print("Give a title or --tmdb KIND:ID.")
         return 2
     refs: list[tuple[Kind, int]] = []
     for ref in args.tmdb:
         match = TMDB_REF.match(ref)
         if not match:
-            log.error("--tmdb takes movie:ID or tv:ID, not %s", ref)
+            print(f"--tmdb takes movie:ID or tv:ID, not {ref}")
             return 2
         refs.append(("movie" if match.group(1) == "movie" else "tv", int(match.group(2))))
-    if args.rating_keys and not (cfg.plex_url and cfg.plex_token):
-        log.error("PLEX_URL and PLEX_TOKEN are required to render Plex items")
+    if args.title and not (cfg.plex_url and cfg.plex_token):
+        print("PLEX_URL and PLEX_TOKEN are required to render Plex items.")
         return 2
 
-    plex = Plex(cfg.plex_url, cfg.plex_token) if args.rating_keys else None
+    plex = Plex(cfg.plex_url, cfg.plex_token) if args.title else None
+    keys: list[str] = []
+    if plex is not None:
+        try:
+            found = lookup.resolve(plex, cfg.libraries, " ".join(args.title))
+            keys = [lookup.season(plex, found, n).rating_key for n in args.season] or [found.rating_key]
+        except lookup.TitleError as exc:
+            print(exc.explain("preview", _options(args)))
+            return 1
+        except (ValueError, http.RequestError) as exc:
+            print(exc)
+            return 1
     try:
-        days = Maintainerr(cfg.maintainerr_url).action_days() if args.rating_keys else {}
-    except http.RequestError as exc:
+        days = Maintainerr(cfg.maintainerr_url).action_days() if plex is not None else {}
+    except (http.RequestError, ValueError) as exc:
         log.warning("Maintainerr unavailable, rendering without leaving labels: %s", exc)
         days = {}
     ctx = pipeline.Context(Tmdb(cfg.tmdb_api_key), cfg.quality, cfg.regions, days, date.today(), plex)
@@ -99,7 +138,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
     episodes = None if args.episodes < 0 else args.episodes
 
     failed = 0
-    jobs: list[tuple[str, tuple[Kind, int] | None]] = [(k, None) for k in args.rating_keys]
+    jobs: list[tuple[str, tuple[Kind, int] | None]] = [(k, None) for k in keys]
     jobs += [(f"{kind}:{tid}", (kind, tid)) for kind, tid in refs]
     for label, tmdb_ref in jobs:
         try:
@@ -110,12 +149,25 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
             for plan in plans:
                 path = out_dir / f"{plan.rating_key}-{plan.target}-{_slug(plan.name)}.jpg"
                 plan.draw().convert("RGB").save(path, quality=92)
-                log.info("%s  %s  (%s)", path.name, plan.name, "; ".join(plan.notes))
+                print(f"{path}  {plan.name}  ({'; '.join(plan.notes)})")
             memory.release()
-        except (pipeline.NotFoundError, http.RequestError) as exc:
-            log.error("%s: %s", label, exc)
+        except (pipeline.NotFoundError, http.RequestError, ValueError) as exc:
+            print(f"{label}: {exc}")
             failed += 1
     return 1 if failed else 0
+
+
+def _find(args: argparse.Namespace, cfg: config.Config) -> int:
+    plex = Plex(cfg.plex_url, cfg.plex_token)
+    query = " ".join(args.words)
+    matches = lookup.search(lookup.library_titles(plex, cfg.libraries), query)
+    if not matches:
+        print(f'Nothing in {", ".join(cfg.libraries)} matches "{query}".')
+        return 1
+    width = max(len(m.rating_key) for m in matches)
+    for m in matches:
+        print(f"  {m.rating_key.rjust(width)}  {m.label}")
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -123,43 +175,53 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         cfg = config.load()
-        if args.command in ("serve", "art"):
+        if args.command == "serve":
             config.require_service(cfg)
+        elif args.command in ("art", "forget", "find"):
+            config.require_plex(cfg)
     except config.ConfigError as exc:
-        log.error("%s", exc)
+        print(exc)
         return 2
     if args.command == "preview":
         return _preview(args, cfg)
-    store = Store(cfg.state_path)
-    if args.command == "forget":
-        if not _keys_ok(args.rating_keys):
-            return 2
-        for key in args.rating_keys:
-            store.forget(key)
-            log.info("forgot %s", key)
-        return 0
-    plex = Plex(cfg.plex_url, cfg.plex_token)
-    worker = Worker(cfg, plex, store, Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token))
-    if args.command == "art":
-        return _art(args, worker)
-    Service(cfg, plex, store, worker).run()
-    return 0
-
-
-def _art(args: argparse.Namespace, worker: Worker) -> int:
-    key = str(args.rating_key)
-    if not _keys_ok([key]):
-        return 2
     try:
-        if args.art_command == "set":
+        if args.command == "find":
+            return _find(args, cfg)
+        plex = Plex(cfg.plex_url, cfg.plex_token)
+        store = Store(cfg.state_path)
+        worker = Worker(cfg, plex, store, Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token))
+        if args.command == "serve":
+            Service(cfg, plex, store, worker).run()
+            return 0
+        return _change(args, cfg, plex, store, worker)
+    except http.RequestError as exc:
+        print(exc)
+        return 1
+
+
+def _change(args: argparse.Namespace, cfg: config.Config, plex: Plex, store: Store, worker: Worker) -> int:
+    try:
+        match = _resolve(plex, cfg, args)
+    except lookup.TitleError as exc:
+        print(exc.explain(_command(args), _options(args)))
+        return 1
+    except ValueError as exc:
+        print(exc)
+        return 1
+    key = match.rating_key
+    try:
+        if args.command == "forget":
+            store.forget(key)
+            outcome = worker.process(key)
+        elif args.art_command == "set":
             image = overrides.from_url(args.url) if args.url else overrides.from_file(args.file)
             outcome = worker.set_custom(key, image)
         elif args.art_command == "next":
             outcome = worker.next_art(key)
         else:
             outcome = worker.reset_art(key)
-    except (overrides.ArtError, pipeline.NotFoundError, http.RequestError) as exc:
-        log.error("%s", exc)
+    except (overrides.ArtError, pipeline.NotFoundError) as exc:
+        print(f"{match.label}: {exc}")
         return 1
-    log.info("%s: %s%s", key, outcome, " (DRY_RUN: preview only)" if worker.cfg.dry_run else "")
-    return 1 if outcome == "failed" else 0
+    print(f"{match.label}: {outcome}{DRY_RUN_NOTE if cfg.dry_run and outcome == Outcome.PREVIEW else ''}")
+    return 1 if outcome == Outcome.FAILED else 0
