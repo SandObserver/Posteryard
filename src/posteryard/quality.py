@@ -1,5 +1,3 @@
-"""Which quality badges a movie shows, from Plex's own media analysis."""
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum

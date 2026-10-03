@@ -1,5 +1,3 @@
-"""Small HTTP client with timeouts and retries on transient failures."""
-
 import http.client
 import json
 import logging
@@ -77,5 +75,5 @@ def request(
     raise AssertionError("unreachable")
 
 
-def get_json(url: str, *, headers: dict[str, str] | None = None, timeout: float = 30) -> Any:
-    return json.loads(request("GET", url, headers={"Accept": "application/json", **(headers or {})}, timeout=timeout))
+def get_json(url: str) -> Any:
+    return json.loads(request("GET", url, headers={"Accept": "application/json"}))

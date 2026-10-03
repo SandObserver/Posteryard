@@ -1,5 +1,3 @@
-"""The Plex Media Server calls Posteryard needs."""
-
 import urllib.parse
 from collections.abc import Iterator, Mapping
 from typing import Any, Literal
@@ -80,7 +78,6 @@ class Plex:
         return next((str(i.get("ratingKey")) for i in self.images(rating_key, target) if i.get("selected")), None)
 
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
-        """Upload, select, and return the key Plex gave the new image."""
         listing, select, _ = ENDPOINTS[target]
         before = {str(i.get("ratingKey")) for i in self.images(rating_key, target)}
         http.request(
@@ -99,7 +96,6 @@ class Plex:
         return image_key
 
     def poster_bytes(self, item: Item) -> bytes:
-        """The poster Plex currently shows for the item."""
         thumb = str(item.get("thumb") or "")
         if not thumb.startswith("/library/"):
             raise http.RequestError("the item has no poster", self._url(f"/library/metadata/{item.get('ratingKey')}"))

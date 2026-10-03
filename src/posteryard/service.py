@@ -1,5 +1,3 @@
-"""Webhook receiver, work queue and schedule."""
-
 import hmac
 import json
 import logging

@@ -1,5 +1,3 @@
-"""Drawing primitives shared by every design."""
-
 import math
 from collections.abc import Sequence
 from functools import cache
@@ -33,10 +31,10 @@ def _mark(name: str) -> Image.Image:
     return Image.open(str(ASSETS / "marks" / f"{name}.png")).convert("RGBA")
 
 
-def mark(name: str, height: int, rgb: RGB = WHITE, opacity: float = 1.0) -> Image.Image:
+def mark(name: str, height: int) -> Image.Image:
     src = _mark(name)
-    out = Image.new("RGBA", src.size, (*rgb, 255))
-    out.putalpha(src.getchannel("A").point(lambda v: round(v * opacity)))
+    out = Image.new("RGBA", src.size, (*WHITE, 255))
+    out.putalpha(src.getchannel("A"))
     return out.resize((max(1, round(src.width * height / src.height)), height), Image.Resampling.LANCZOS)
 
 

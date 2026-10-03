@@ -1,5 +1,3 @@
-"""Which streaming service a series is on, from TMDB (JustWatch) provider data."""
-
 from collections.abc import Iterable, Mapping
 from typing import Any
 

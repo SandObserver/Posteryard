@@ -1,9 +1,6 @@
-"""Command line entry point."""
-
 import argparse
 import logging
 import re
-import sys
 from datetime import date
 from pathlib import Path
 
@@ -166,7 +163,3 @@ def _art(args: argparse.Namespace, worker: Worker) -> int:
         return 1
     log.info("%s: %s%s", key, outcome, " (DRY_RUN: preview only)" if worker.cfg.dry_run else "")
     return 1 if outcome == "failed" else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

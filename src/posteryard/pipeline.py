@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import numpy as np
 from PIL import Image
@@ -16,13 +16,12 @@ from PIL import Image
 from posteryard import maintainerr, ocr, overrides, quality, services
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
 from posteryard.overrides import Override
-from posteryard.plex import Item, Plex, tmdb_id
+from posteryard.plex import Item, Plex, Target, tmdb_id
 from posteryard.quality import QualityMinimums
 from posteryard.render import designs
 from posteryard.render.layers import cover, trim
 from posteryard.tmdb import Images, Kind, Tmdb
 
-Target = Literal["poster", "art", "thumb"]
 TITLE_CACHE_SECONDS = 600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
@@ -57,7 +56,6 @@ class Title:
     kind: Kind
     tmdb_id: int
     name: str
-    english_titles: list[str]
     all_titles: list[str]
     service: str | None
 
@@ -88,7 +86,7 @@ class Context:
                 return maintainerr.label(days)
         return None
 
-    def _lookup(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
+    def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
         hit = self.lookups.get(key)
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             return hit[1]
@@ -99,9 +97,6 @@ class Context:
     def load(self, path: str) -> Image.Image:
         """TMDB art by path, or the user's custom art by its `file:` path."""
         return overrides.load(path) if path.startswith(overrides.FILE_PREFIX) else self.fetch(path)
-
-    def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
-        return self._lookup(key, load)
 
     def image_hash(self, path: str) -> int:
         """A 64-bit difference hash of the picture as a poster crop shows it, cached with the art choices."""
@@ -116,26 +111,25 @@ class Context:
         return value
 
     def images(self, kind: Kind, tid: int) -> Images:
-        images: Images = self._lookup(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))
+        images: Images = self.remember(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))
         return images
 
     def season_images(self, tid: int, season: int) -> Images:
         key = ("season", str(tid), str(season))
-        images: Images = self._lookup(key, lambda: self.tmdb.season_images(tid, season))
+        images: Images = self.remember(key, lambda: self.tmdb.season_images(tid, season))
         return images
 
     def details(self, kind: Kind, tid: int) -> Mapping[str, Any]:
-        details: Mapping[str, Any] = self._lookup(("details", kind, str(tid)), lambda: self.tmdb.details(kind, tid))
+        details: Mapping[str, Any] = self.remember(("details", kind, str(tid)), lambda: self.tmdb.details(kind, tid))
         return details
 
     def title(self, kind: Kind, tid: int, name: str) -> Title:
         hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             return hit[1]
-        english = list(dict.fromkeys([name, *self.tmdb.english_titles(kind, tid)]))
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
         service = services.pick(self.tmdb.watch_providers(kind, tid), self.regions) if kind == "tv" else None
-        title = Title(kind, tid, name, english, every, service)
+        title = Title(kind, tid, name, every, service)
         self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
 

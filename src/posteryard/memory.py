@@ -1,5 +1,3 @@
-"""Hand freed memory back to the operating system."""
-
 import ctypes
 import ctypes.util
 import gc
