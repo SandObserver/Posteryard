@@ -1,0 +1,386 @@
+[
+ {
+  "id": "movie-149",
+  "kind": "movie",
+  "title": "Akira"
+ },
+ {
+  "id": "movie-945961",
+  "kind": "movie",
+  "title": "Alien: Romulus"
+ },
+ {
+  "id": "movie-299534",
+  "kind": "movie",
+  "title": "Avengers: Endgame"
+ },
+ {
+  "id": "movie-414906",
+  "kind": "movie",
+  "title": "The Batman"
+ },
+ {
+  "id": "movie-284054",
+  "kind": "movie",
+  "title": "Black Panther"
+ },
+ {
+  "id": "movie-335984",
+  "kind": "movie",
+  "title": "Blade Runner 2049"
+ },
+ {
+  "id": "movie-929590",
+  "kind": "movie",
+  "title": "Civil War"
+ },
+ {
+  "id": "movie-354912",
+  "kind": "movie",
+  "title": "Coco"
+ },
+ {
+  "id": "movie-974576",
+  "kind": "movie",
+  "title": "Conclave"
+ },
+ {
+  "id": "movie-155",
+  "kind": "movie",
+  "title": "The Dark Knight"
+ },
+ {
+  "id": "movie-533535",
+  "kind": "movie",
+  "title": "Deadpool Wolverine"
+ },
+ {
+  "id": "movie-64690",
+  "kind": "movie",
+  "title": "Drive"
+ },
+ {
+  "id": "movie-438631",
+  "kind": "movie",
+  "title": "Dune"
+ },
+ {
+  "id": "movie-693134",
+  "kind": "movie",
+  "title": "Dune: Part Two"
+ },
+ {
+  "id": "movie-264660",
+  "kind": "movie",
+  "title": "Ex Machina"
+ },
+ {
+  "id": "movie-911430",
+  "kind": "movie",
+  "title": "F1"
+ },
+ {
+  "id": "movie-746036",
+  "kind": "movie",
+  "title": "The Fall Guy"
+ },
+ {
+  "id": "movie-419430",
+  "kind": "movie",
+  "title": "Get Out"
+ },
+ {
+  "id": "movie-940721",
+  "kind": "movie",
+  "title": "Godzilla Minus One"
+ },
+ {
+  "id": "movie-118340",
+  "kind": "movie",
+  "title": "Guardians of the Galaxy"
+ },
+ {
+  "id": "movie-152601",
+  "kind": "movie",
+  "title": "Her"
+ },
+ {
+  "id": "movie-475557",
+  "kind": "movie",
+  "title": "Joker"
+ },
+ {
+  "id": "movie-313369",
+  "kind": "movie",
+  "title": "La La Land"
+ },
+ {
+  "id": "movie-552524",
+  "kind": "movie",
+  "title": "Lilo & Stitch"
+ },
+ {
+  "id": "movie-286217",
+  "kind": "movie",
+  "title": "The Martian"
+ },
+ {
+  "id": "movie-603",
+  "kind": "movie",
+  "title": "The Matrix"
+ },
+ {
+  "id": "movie-8392",
+  "kind": "movie",
+  "title": "My Neighbor Totoro"
+ },
+ {
+  "id": "movie-872585",
+  "kind": "movie",
+  "title": "Oppenheimer"
+ },
+ {
+  "id": "movie-496243",
+  "kind": "movie",
+  "title": "Parasite"
+ },
+ {
+  "id": "movie-273481",
+  "kind": "movie",
+  "title": "Sicario"
+ },
+ {
+  "id": "movie-569094",
+  "kind": "movie",
+  "title": "Spider-Man: Across the Spider-Verse"
+ },
+ {
+  "id": "movie-1061474",
+  "kind": "movie",
+  "title": "Superman"
+ },
+ {
+  "id": "movie-7345",
+  "kind": "movie",
+  "title": "There Will Be Blood"
+ },
+ {
+  "id": "movie-361743",
+  "kind": "movie",
+  "title": "Top Gun: Maverick"
+ },
+ {
+  "id": "movie-1078605",
+  "kind": "movie",
+  "title": "Weapons"
+ },
+ {
+  "id": "movie-244786",
+  "kind": "movie",
+  "title": "Whiplash"
+ },
+ {
+  "id": "tv-108545",
+  "kind": "tv",
+  "title": "3 Body Problem",
+  "seasons": 1
+ },
+ {
+  "id": "tv-83867",
+  "kind": "tv",
+  "title": "Andor",
+  "seasons": 2
+ },
+ {
+  "id": "tv-94605",
+  "kind": "tv",
+  "title": "Arcane",
+  "seasons": 2
+ },
+ {
+  "id": "tv-4613",
+  "kind": "tv",
+  "title": "Band of Brothers",
+  "seasons": 1
+ },
+ {
+  "id": "tv-136315",
+  "kind": "tv",
+  "title": "The Bear",
+  "seasons": 5
+ },
+ {
+  "id": "tv-42009",
+  "kind": "tv",
+  "title": "Black Mirror",
+  "seasons": 7
+ },
+ {
+  "id": "tv-1396",
+  "kind": "tv",
+  "title": "Breaking Bad",
+  "seasons": 5
+ },
+ {
+  "id": "tv-65494",
+  "kind": "tv",
+  "title": "The Crown",
+  "seasons": 6
+ },
+ {
+  "id": "tv-240411",
+  "kind": "tv",
+  "title": "Dan Da Dan",
+  "seasons": 1
+ },
+ {
+  "id": "tv-202555",
+  "kind": "tv",
+  "title": "Daredevil: Born Again",
+  "seasons": 2
+ },
+ {
+  "id": "tv-85552",
+  "kind": "tv",
+  "title": "Euphoria",
+  "seasons": 3
+ },
+ {
+  "id": "tv-67070",
+  "kind": "tv",
+  "title": "Fleabag",
+  "seasons": 2
+ },
+ {
+  "id": "tv-93740",
+  "kind": "tv",
+  "title": "Foundation",
+  "seasons": 3
+ },
+ {
+  "id": "tv-95557",
+  "kind": "tv",
+  "title": "INVINCIBLE",
+  "seasons": 5
+ },
+ {
+  "id": "tv-100088",
+  "kind": "tv",
+  "title": "The Last of Us",
+  "seasons": 2
+ },
+ {
+  "id": "tv-84958",
+  "kind": "tv",
+  "title": "Loki",
+  "seasons": 2
+ },
+ {
+  "id": "tv-82856",
+  "kind": "tv",
+  "title": "The Mandalorian",
+  "seasons": 3
+ },
+ {
+  "id": "tv-71446",
+  "kind": "tv",
+  "title": "Money Heist",
+  "seasons": 3
+ },
+ {
+  "id": "tv-62560",
+  "kind": "tv",
+  "title": "Mr. Robot",
+  "seasons": 4
+ },
+ {
+  "id": "tv-69740",
+  "kind": "tv",
+  "title": "Ozark",
+  "seasons": 4
+ },
+ {
+  "id": "tv-60574",
+  "kind": "tv",
+  "title": "Peaky Blinders",
+  "seasons": 6
+ },
+ {
+  "id": "tv-194764",
+  "kind": "tv",
+  "title": "The Penguin",
+  "seasons": 1
+ },
+ {
+  "id": "tv-250307",
+  "kind": "tv",
+  "title": "The Pitt",
+  "seasons": 3
+ },
+ {
+  "id": "tv-225171",
+  "kind": "tv",
+  "title": "Pluribus",
+  "seasons": 1
+ },
+ {
+  "id": "tv-108978",
+  "kind": "tv",
+  "title": "Reacher",
+  "seasons": 4
+ },
+ {
+  "id": "tv-95396",
+  "kind": "tv",
+  "title": "Severance",
+  "seasons": 3
+ },
+ {
+  "id": "tv-19885",
+  "kind": "tv",
+  "title": "Sherlock",
+  "seasons": 4
+ },
+ {
+  "id": "tv-125988",
+  "kind": "tv",
+  "title": "Silo",
+  "seasons": 4
+ },
+ {
+  "id": "tv-120089",
+  "kind": "tv",
+  "title": "SPY x FAMILY",
+  "seasons": 3
+ },
+ {
+  "id": "tv-66732",
+  "kind": "tv",
+  "title": "Stranger Things",
+  "seasons": 5
+ },
+ {
+  "id": "tv-76331",
+  "kind": "tv",
+  "title": "Succession",
+  "seasons": 4
+ },
+ {
+  "id": "tv-97546",
+  "kind": "tv",
+  "title": "Ted Lasso",
+  "seasons": 4
+ },
+ {
+  "id": "tv-119051",
+  "kind": "tv",
+  "title": "Wednesday",
+  "seasons": 3
+ },
+ {
+  "id": "tv-71912",
+  "kind": "tv",
+  "title": "The Witcher",
+  "seasons": 4
+ }
+]

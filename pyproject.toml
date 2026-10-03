@@ -1,7 +1,7 @@
 [project]
 name = "posteryard"
 version = "0.4.0"
-description = "Apple TV style posters, backgrounds and episode stills for Plex"
+description = "Clean, consistent posters, backgrounds and episode stills for Plex"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [

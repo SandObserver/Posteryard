@@ -3,17 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Posteryard: Apple TV style posters for Plex</title>
-    <meta name="description" content="{{tagline}}" />
+    <title>Posteryard: clean, consistent posters for Plex</title>
+    <meta name="description" content="{{description}}" />
+    <link rel="canonical" href="{{site}}/" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="theme-color" content="#0d1117" />
-    <link rel="canonical" href="https://posteryard.sandobserver.com/" />
-    <meta property="og:title" content="Posteryard" />
-    <meta property="og:description" content="{{tagline}}" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#000000" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://posteryard.sandobserver.com/" />
-    <meta property="og:image" content="https://posteryard.sandobserver.com/img/social-card.png" />
+    <meta property="og:site_name" content="Posteryard" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="{{site}}/" />
+    <meta property="og:title" content="Posteryard: clean, consistent posters for Plex" />
+    <meta property="og:description" content="{{description}}" />
+    <meta property="og:image" content="{{site}}/img/social-card.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="Official movie posters next to the clean Posteryard versions" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Posteryard: clean, consistent posters for Plex" />
+    <meta name="twitter:description" content="{{description}}" />
+    <meta name="twitter:image" content="{{site}}/img/social-card.png" />
+    <meta name="twitter:image:alt" content="Official movie posters next to the clean Posteryard versions" />
+    <script type="application/ld+json">{{schema}}</script>
     <style>
       :root {
         --bg: #000;
@@ -41,7 +52,7 @@
       .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 40px; }
 
       .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
-      .brand { display: flex; align-items: center; gap: 10px; color: var(--label); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+      .brand { display: flex; align-items: center; min-height: 44px; gap: 10px; color: var(--label); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
       .brand:hover { color: var(--label); }
       .brand img { width: 32px; height: 32px; display: block; }
       .nav-right { display: flex; align-items: center; gap: 8px; }
@@ -53,7 +64,7 @@
       .pill-ghost:hover { background: var(--fill-hover); color: var(--label); }
 
       .hero { padding: 44px 0 44px; }
-      .hero h1 { margin: 0; font-size: 74px; line-height: 1.04; letter-spacing: -0.025em; font-weight: 700; max-width: 14ch; text-wrap: balance; }
+      .hero h1 { margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 700; max-width: 17ch; text-wrap: balance; }
       .hero p { margin: 26px 0 0; font-size: 19px; line-height: 1.5; color: var(--dim); max-width: 56ch; text-wrap: pretty; }
       .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
       .btn { height: 50px; padding: 0 26px; border-radius: 25px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 600; }
@@ -63,66 +74,103 @@
       .btn-quiet:hover { background: var(--fill-hover); color: var(--label); }
 
       /* Plex for Apple TV, TV Shows library grid. Sizes are fractions of a 2000 px wide capture. */
-      .tv-band { padding: 8px 0 72px; }
+      .tv-band { padding: 8px 0 0; }
       .tv { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
-      .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 22px; padding: 12px; box-shadow: 0 10px 80px rgba(0, 0, 0, 0.6); }
-      .screen { container-type: inline-size; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px;
+      .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 0; border-radius: 26px 26px 0 0; padding: 12px 12px 0; box-shadow: 0 -2px 60px rgba(0, 0, 0, 0.5); }
+      .screen { container-type: inline-size; position: relative; aspect-ratio: 5 / 2; overflow: hidden; border-radius: 14px 14px 0 0;
         background: radial-gradient(90% 70% at 70% 0%, #26282a 0%, #141414 55%, #0b0b0b 100%); }
       .rail { position: absolute; left: 1.5cqw; top: 40%; width: 3.75cqw; padding: 0.8cqw 0; border-radius: 2cqw; background: rgba(40, 40, 40, 0.85);
         display: flex; flex-direction: column; align-items: center; gap: 1.3cqw; }
       .avatar { width: 2.1cqw; height: 2.1cqw; border-radius: 50%; background: linear-gradient(135deg, #d9a066, #7a4a2a); }
       .rail svg { width: 1.2cqw; height: 1.2cqw; color: #e5e5ea; }
       .clock { position: absolute; right: 5.1cqw; top: 2.1cqw; padding: 0.55cqw 1.1cqw; border-radius: 2cqw; background: rgba(60, 60, 60, 0.7); font-size: 1.15cqw; color: #e5e5ea; }
-      .index { position: absolute; right: 2.3cqw; top: 13cqw; display: flex; flex-direction: column; align-items: center; gap: 0.25cqw; font-size: 1.05cqw; font-weight: 500; color: rgba(235, 235, 245, 0.6); }
-      .index b { display: grid; place-items: center; width: 1.75cqw; height: 1.75cqw; border-radius: 50%; border: 0.12cqw solid #fff; color: #fff; }
-      .grid { position: absolute; left: 6.65cqw; top: 7cqw; display: grid; grid-template-columns: repeat(6, 12.5cqw); column-gap: 2.2cqw; row-gap: 2.6cqw; }
-      .show { margin: 0; text-align: center; }
-      .art { position: relative; }
-      .art img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 0.6cqw; object-fit: cover; }
+      .hubs { position: absolute; left: 6.65cqw; right: 0; top: 3cqw; }
+      .hub + .hub { margin-top: 2.6cqw; }
+      .hub-title { margin-bottom: 1.1cqw; font-size: 1.45cqw; font-weight: 700; color: #fff; }
+      .hub-row { display: flex; gap: 1.65cqw; }
+      .tile { position: relative; flex: 0 0 12.5cqw; }
+      .art { position: relative; aspect-ratio: 2 / 3; border-radius: 0.6cqw; background: #1f1f21; }
+      .art img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
       .count { position: absolute; top: 0; right: 0; min-width: 2.3cqw; height: 2.15cqw; padding: 0 0.55cqw; border-radius: 0 0.6cqw 0 0.6cqw;
         background: rgba(20, 20, 20, 0.82); display: grid; place-items: center; font-size: 1.1cqw; font-weight: 600; color: #fff; }
       .count svg { width: 1cqw; height: 1cqw; }
       .focus .art::after { content: ""; position: absolute; inset: -0.55cqw; border: 0.22cqw solid #fff; border-radius: 1cqw; }
       .focus .art { transform: scale(1.04); }
-      .show figcaption { margin-top: 1.4cqw; font-size: 1.3cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .show figcaption span { display: block; margin-top: 0.2cqw; font-size: 1cqw; color: rgba(235, 235, 245, 0.6); }
-      .tv-note { margin: 18px 0 0; text-align: center; font-size: 14px; color: var(--dim); }
 
       @container (max-width: 640px) {
-        .rail, .index { display: none; }
-        .grid { position: static; padding: 14cqw 4cqw 6cqw; grid-template-columns: repeat(3, 1fr); column-gap: 4cqw; row-gap: 5cqw; }
-        .show:nth-child(n + 7) { display: none; }
-        .art img { border-radius: 2cqw; }
+        .rail { display: none; }
+        .hubs { left: 4cqw; top: 13cqw; }
+        .hub + .hub { margin-top: 6cqw; }
+        .hub-title { margin-bottom: 3cqw; font-size: 4.2cqw; }
+        .hub-row { gap: 3.5cqw; }
+        .tile { flex-basis: 27cqw; }
+        .art { border-radius: 2cqw; }
         .count { min-width: 7cqw; height: 6.5cqw; padding: 0 1.6cqw; border-radius: 0 2cqw 0 2cqw; font-size: 3.4cqw; }
         .count svg { width: 3cqw; height: 3cqw; }
         .focus .art::after { inset: -1.6cqw; border-width: 0.7cqw; border-radius: 3.2cqw; }
-        .show figcaption { margin-top: 3.4cqw; font-size: 3.6cqw; }
-        .show figcaption span { font-size: 3cqw; }
         .clock { top: 4cqw; right: 4cqw; padding: 1.4cqw 3cqw; border-radius: 5cqw; font-size: 3.4cqw; }
       }
 
-      .band { background: var(--bg-2); padding: 72px 0; }
-      .band + .band { border-top: 1px solid var(--separator); }
-      .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
-      .lede { margin: 0 0 36px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
-      .before-after { display: block; width: 100%; height: auto; border-radius: 18px; }
-      .points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
-      .point { background: var(--bg-3); border-radius: 22px; padding: 24px; }
-      .point h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
-      .point p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--dim); }
-      .point code { font-family: var(--mono); font-size: 0.9em; color: var(--label); }
+      .features { background: var(--bg-2); }
+      .feature { display: flex; align-items: center; justify-content: center; gap: 72px; padding: 48px 0; }
+      .feature + .feature { border-top: 1px solid var(--separator); }
+      .feature:nth-child(even) { flex-direction: row-reverse; }
+      .ftext { flex: 0 1 440px; min-width: 0; }
+      .ftext h2 { margin: 0 0 12px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+      .ftext p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--dim); max-width: 46ch; text-wrap: pretty; }
+      .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+      .chips code { font-family: var(--mono); font-size: 12.5px; padding: 6px 12px; border-radius: 999px; background: var(--fill); color: var(--label); }
+      .fvis { flex: 0 0 340px; }
+      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+      .pair div { min-width: 0; }
+      .tag { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+      .tag-py { color: var(--accent); }
+      .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
 
-      .doc { max-width: 860px; }
+      .band { background: var(--bg); padding: 72px 0; }
+      .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
+      .lede { margin: 0 0 28px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
+      .setup-grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 64px; }
+      .setup-grid + .setup-grid { margin-top: 32px; padding-top: 56px; border-top: 1px solid var(--separator); }
+      .setup-side { align-self: start; position: sticky; top: 24px; }
+      .setup-side .lede { margin: 0; }
+      .setup-side .lede p { margin: 0; }
+
+      .doc { min-width: 0; max-width: 760px; }
       .doc p, .doc li { font-size: 16px; line-height: 1.6; color: #d1d1d6; }
       .doc code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; color: var(--label); }
-      .doc pre { margin: 20px 0; padding: 16px 18px; background: #0d1117; border: 1px solid var(--separator); border-radius: 14px; overflow-x: auto; }
-      .doc pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.55; color: #e6edf3; }
-      .table-scroll { margin: 20px 0; overflow-x: auto; border-radius: 14px; background: var(--bg-3); }
-      .doc table { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.5; }
-      .doc th { text-align: left; font-weight: 600; color: var(--dim); padding: 12px 16px; border-bottom: 1px solid var(--separator); }
-      .doc td { padding: 12px 16px; color: #d1d1d6; vertical-align: top; }
-      .doc tr + tr td { border-top: 1px solid var(--separator); }
-      .doc td:first-child code { white-space: nowrap; }
+      .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+      .step { position: relative; padding: 0 0 36px 54px; counter-increment: step; }
+      .step::before { content: counter(step); position: absolute; left: 0; top: -3px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; display: grid; place-items: center; }
+      .step::after { content: ""; position: absolute; left: 15px; top: 38px; bottom: 6px; width: 2px; background: var(--separator); }
+      .step:last-child { padding-bottom: 0; }
+      .step:last-child::after { display: none; }
+      .step h3 { margin: 0 0 10px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .step > p:first-of-type { margin-top: 0; }
+      .code { margin: 16px 0; border: 1px solid var(--separator); border-radius: 14px; background: #0d1117; overflow: hidden; }
+      .code-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--separator); font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
+      .copy { position: relative; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--label); font: 600 13px var(--font); cursor: pointer; }
+      .copy::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+      .copy:hover { background: var(--fill); }
+      .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .code pre { margin: 0; padding: 14px 16px; overflow-x: auto; }
+      .code pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.55; color: #e6edf3; }
+      .defs { margin: 16px 0; border-top: 1px solid var(--separator); }
+      .def { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 4px 20px; padding: 12px 0; border-bottom: 1px solid var(--separator); }
+      .def dt { font-size: 14.5px; line-height: 1.6; }
+      .def dt code { background: none; padding: 0; font-weight: 600; overflow-wrap: anywhere; }
+      .def dd { margin: 0; }
+      .def dd p { margin: 0; font-size: 15px; line-height: 1.55; }
+      .default { display: inline-block; margin-top: 6px; font-size: 13.5px; color: var(--dim); }
+      .expand summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+      .expand summary::-webkit-details-marker { display: none; }
+      .expand summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+      .expand[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+      .expand summary:hover { background: var(--fill-hover); }
+      .expand summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .expand .when-open, .expand[open] .when-closed { display: none; }
+      .expand[open] .when-open { display: inline; }
+      .expand[open] summary { margin-bottom: 8px; }
 
       .footer { padding: 40px 0 48px; }
       .foot-in { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; }
@@ -130,20 +178,27 @@
       .foot-links a { font-size: 14px; color: var(--dim); display: inline-flex; align-items: center; min-height: 44px; }
       .foot-links a:hover { color: var(--label); }
       .credit { margin: 6px 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.5); max-width: 60ch; line-height: 1.5; }
-      .verbadge { display: flex; border-radius: 5px; overflow: hidden; font-size: 12px; font-weight: 600; }
-      .verbadge span { padding: 4px 8px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
-      .verbadge b { padding: 4px 8px; background: var(--accent); color: var(--on-accent); }
+      .verbadge { display: flex; align-items: center; min-height: 44px; overflow: hidden; font-size: 12px; font-weight: 600; }
+      .verbadge span { padding: 4px 8px; border-radius: 5px 0 0 5px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
+      .verbadge b { padding: 4px 8px; border-radius: 0 5px 5px 0; background: var(--accent); color: var(--on-accent); }
 
       @media (max-width: 1180px) {
         .wrap { padding: 0 28px; }
-        .hero h1 { font-size: 60px; }
+        .hero h1 { font-size: 54px; }
       }
       @media (max-width: 900px) {
-        .hero h1 { font-size: 46px; }
+        .hero h1 { font-size: 42px; }
         .hero p { font-size: 17px; }
-        .points { grid-template-columns: 1fr; }
+        .feature, .feature:nth-child(even) { flex-direction: column; align-items: stretch; gap: 22px; padding: 40px 0; }
+        .ftext { flex: none; }
+        .fvis { flex: none; width: 100%; max-width: 400px; }
+        .ftext h2 { font-size: 24px; }
+        .ftext p { font-size: 15.5px; }
         .band { padding: 52px 0; }
         .band h2 { font-size: 30px; }
+        .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+        .setup-side { position: static; }
+        .def { grid-template-columns: minmax(0, 1fr); }
       }
       @media (max-width: 600px) {
         .wrap { padding: 0 16px; }
@@ -151,14 +206,22 @@
         .pill { padding: 0 14px; font-size: 13px; }
         .pill-ghost { display: none; }
         .hero { padding: 24px 0 32px; }
-        .hero h1 { font-size: 36px; line-height: 1.06; }
+        .hero h1 { font-size: 32px; line-height: 1.08; }
         .hero p { font-size: 15.5px; margin-top: 16px; }
         .btn { height: 46px; padding: 0 20px; font-size: 15px; }
         .tv { padding: 0 16px; }
-        .bezel { border-radius: 16px; padding: 7px; }
-        .screen { aspect-ratio: auto; }
+        .bezel { border-radius: 18px 18px 0 0; padding: 7px 7px 0; }
+        .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
-        .before-after { border-radius: 12px; }
+        .pair img { border-radius: 9px; }
+        .pair { gap: 10px; }
+        .code pre { padding: 12px 14px; }
+        .code pre code { font-size: 12px; }
+        .step { padding-left: 44px; }
+        .step::before { width: 28px; height: 28px; font-size: 14px; }
+        .step::after { left: 13px; top: 34px; }
+        .ftext h2 { font-size: 22px; }
+        .tag { font-size: 12px; margin-bottom: 8px; }
         .foot-in { flex-direction: column; gap: 20px; }
       }
     </style>
@@ -179,11 +242,11 @@
     <main id="main">
       <div class="wrap">
         <header class="hero">
-          <h1>Apple TV style posters for Plex.</h1>
-          <p>{{intro}}</p>
+          <h1>Clean, consistent posters for your whole Plex library.</h1>
+          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for clean art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own as your library grows.</p>
           <div class="cta-row">
             <a class="btn btn-accent" href="#getting-started">Install with Docker</a>
-            <a class="btn btn-quiet" href="#settings">Settings</a>
+            <a class="btn btn-quiet" href="#features">See the difference</a>
           </div>
         </header>
       </div>
@@ -191,7 +254,7 @@
       <div class="tv-band">
         <div class="tv">
           <div class="bezel">
-            <div class="screen" role="img" aria-label="A Plex TV Shows library on Apple TV with Posteryard posters">
+            <div class="screen" role="img" aria-label="The Plex Home screen on Apple TV, with recently added movies and TV shows shown as Posteryard posters">
               <div class="rail" aria-hidden="true">
                 <span class="avatar"></span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -199,52 +262,77 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
               </div>
               <div class="clock" aria-hidden="true">8:30 PM</div>
-              <div class="index" aria-hidden="true"><span>#</span><span>A</span><span>B</span><span>F</span><span>L</span><span>O</span><b>S</b><span>T</span></div>
-              <div class="grid" aria-hidden="true">
-                <figure class="show focus"><div class="art"><img src="/img/posters/andor.jpg" alt="" width="500" height="750" /></div><figcaption>Andor<span>2 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-bear.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>The Bear<span>5 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/foundation.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Foundation<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-last-of-us.jpg" alt="" width="500" height="750" /><span class="count">7</span></div><figcaption>The Last of Us<span>2 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-office.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>The Office<span>9 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/severance.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Severance<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/shogun.jpg" alt="" width="500" height="750" /></div><figcaption>Shōgun<span>1 Season</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/shrinking.jpg" alt="" width="500" height="750" /><span class="count">12</span></div><figcaption>Shrinking<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/silo.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Silo<span>4 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/slow-horses.jpg" alt="" width="500" height="750" /><span class="count">6</span></div><figcaption>Slow Horses<span>6 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/stranger-things.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Stranger Things<span>5 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/ted-lasso.jpg" alt="" width="500" height="750" /><span class="count">12</span></div><figcaption>Ted Lasso<span>4 Seasons</span></figcaption></figure>
-              </div>
+              <div class="hubs" aria-hidden="true">{{tv_hubs}}</div>
             </div>
           </div>
-          <p class="tv-note">Plex draws the unwatched count top right. Posteryard keeps the streaming service mark top left, clear of it.</p>
         </div>
       </div>
 
-      <section class="band">
+      <section class="features" id="features">
         <div class="wrap">
-          <h2>One look for the whole library</h2>
-          <p class="lede">Official posters each have their own type, layout and clutter. Posteryard picks clean art and puts every title in the same spot.</p>
-          <img class="before-after" src="/img/before-after.jpg" alt="Deadpool &amp; Wolverine, Thunderbolts* and Lilo &amp; Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label" width="3200" height="960" loading="lazy" />
-          <div class="points">
-            <div class="point"><h3>Hands off</h3><p>New titles get posters from the Plex webhook or the 15 minute sweep. A daily pass keeps the whole library current. Unchanged posters are not uploaded again.</p></div>
-            <div class="point"><h3>Badges you control</h3><p>4K, Dolby Vision and Dolby Atmos marks come from Plex's media analysis. Set the minimum for each, or turn them off with <code>off</code>.</p></div>
-            <div class="point"><h3>Your picks win</h3><p>Switch art with a Plex label or a command. Posters you change by hand in Plex are left alone.</p></div>
+          <div class="feature">
+            <div class="ftext">
+              <h2>Every title in the same place</h2>
+              <p>Official posters mix fonts, taglines and clutter, and the title is often hard to read. Posteryard picks clean art and puts the title logo in one spot, at one size, over a soft fade. A shelf of posters finally looks like one library.</p>
+            </div>
+            <figure class="pair fvis">
+              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
+          <div class="feature">
+            <div class="ftext">
+              <h2>See where a show streams</h2>
+              <p>Show and season posters carry the streaming service mark, looked up on TMDB for your country, the US unless you set another. It sits top left, clear of the unwatched count Plex draws top right.</p>
+              <div class="chips"><code>STREAMING_REGIONS=US</code></div>
+            </div>
+            <figure class="pair fvis">
+              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
+          <div class="feature">
+            <div class="ftext">
+              <h2>Quality at a glance</h2>
+              <p>4K, HDR, Dolby Vision and Dolby Atmos marks come from Plex's own analysis of the file. Choose the lowest level that earns a badge, or turn each one off.</p>
+              <div class="chips"><code>QUALITY_MIN_VIDEO=2160</code><code>QUALITY_MIN_HDR=hdr10</code><code>QUALITY_MIN_AUDIO=atmos</code></div>
+            </div>
+            <figure class="pair fvis">
+              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
+          <div class="feature">
+            <div class="ftext">
+              <h2>Know what is leaving</h2>
+              <p>Connect Maintainerr and titles it is about to remove say so on the poster, such as "Leaving in 3 days". Nobody misses a movie because it vanished overnight.</p>
+              <div class="chips"><code>MAINTAINERR_URL</code></div>
+            </div>
+            <figure class="pair fvis">
+              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" alt="Lilo &amp; Stitch, rendered by Posteryard with a Leaving in 3 days label" width="432" height="648" loading="lazy" /></div>
+            </figure>
           </div>
         </div>
       </section>
 
       <section class="band" id="getting-started">
-        <div class="wrap doc">
-          <h2>Get started</h2>
-          {{getting_started}}
+        <div class="wrap setup-grid">
+          <div class="setup-side">
+            <h2>Get started</h2>
+            <div class="lede">{{getting_started_lead}}</div>
+          </div>
+          <div class="doc">{{getting_started}}</div>
         </div>
-      </section>
-
-      <section class="band" id="settings">
-        <div class="wrap doc">
-          <h2>Settings</h2>
-          {{settings}}
-          <p>Commands, Plex labels, alerts and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
+        <div class="wrap setup-grid" id="settings">
+          <div class="setup-side">
+            <h2>Settings</h2>
+            <p class="lede">{{settings_count}} optional settings for badges, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
+          </div>
+          <details class="doc expand">
+            <summary><span class="when-closed">Show all {{settings_count}} settings</span><span class="when-open">Hide settings</span></summary>
+            {{settings}}
+          </details>
         </div>
       </section>
     </main>
@@ -256,12 +344,57 @@
           <div class="foot-links">
             <a href="{{repo}}">GitHub</a>
             <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a>
-            <a href="{{repo}}/issues">Issues</a>
+            <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a>
+            <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
           </div>
           <p class="credit">Artwork and metadata come from TMDB. Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Plex is a trademark of Plex, Inc. Posteryard is not affiliated with Plex or Apple.</p>
         </div>
         <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Version {{version}}"><span>release</span><b>v{{version}}</b></a>
       </div>
     </footer>
+    <script>
+      {
+        const pool = {{poster_pool}};
+        const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
+        const shuffle = (list) => list.map((item) => [Math.random(), item]).sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+        for (const row of document.querySelectorAll(".hub-row")) {
+          const picks = shuffle(pool.filter((p) => p.kind === row.dataset.kind));
+          row.querySelectorAll(".tile").forEach((tile, i) => {
+            const art = tile.querySelector(".art");
+            art.textContent = "";
+            const img = new Image(400, 600);
+            img.alt = "";
+            img.decoding = "async";
+            img.src = `/img/posters/${picks[i].id}.webp`;
+            art.append(img);
+            if (row.dataset.kind === "tv") {
+              const count = document.createElement("span");
+              count.className = "count";
+              const n = Math.floor(Math.random() * 14);
+              if (n < 3) count.innerHTML = check;
+              else count.textContent = String(n - 2);
+              art.append(count);
+            }
+          });
+        }
+      }
+      function openFromHash() {
+        if (location.hash === "#settings") document.querySelector("#settings details").open = true;
+      }
+      addEventListener("hashchange", openFromHash);
+      openFromHash();
+      for (const button of document.querySelectorAll(".copy")) {
+        button.addEventListener("click", async () => {
+          const code = button.closest(".code").querySelector("code");
+          try {
+            await navigator.clipboard.writeText(code.textContent);
+            button.textContent = "Copied";
+            setTimeout(() => (button.textContent = "Copy"), 1500);
+          } catch {
+            getSelection().selectAllChildren(code);
+          }
+        });
+      }
+    </script>
   </body>
 </html>

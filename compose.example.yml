@@ -1,6 +1,6 @@
 services:
   posteryard:
-    image: ghcr.io/sandobserver/posteryard:0.4
+    image: ghcr.io/sandobserver/posteryard:latest
     container_name: posteryard
     restart: unless-stopped
     init: true

@@ -2,7 +2,7 @@
 
 <h1 align="center">Posteryard</h1>
 
-<p align="center"><b>Apple TV style posters for Plex, picked, rendered and kept current automatically.</b></p>
+<p align="center"><b>Clean, consistent posters for Plex, picked, rendered and kept current automatically.</b></p>
 
 <p align="center">
   <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
@@ -17,10 +17,12 @@ Posteryard runs next to Plex and gives every movie, show, season and episode the
 
 You need [Docker](https://docs.docker.com/get-started/get-docker/), a free [TMDB API key](https://www.themoviedb.org/settings/api) (the short **API Key**) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
 
+### Create the compose file
+
 ```yaml
 services:
   posteryard:
-    image: ghcr.io/sandobserver/posteryard:0.4
+    image: ghcr.io/sandobserver/posteryard:latest
     container_name: posteryard
     restart: unless-stopped
     init: true
@@ -54,6 +56,8 @@ Change these:
 | `WEBHOOK_SECRET` | Any long random text. `openssl rand -hex 16` makes one. |
 | `TZ` | Your [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), so the daily pass runs at your local `DAILY_AT`. |
 
+### Start it
+
 ```sh
 mkdir -p data && sudo chown 1000:1000 data
 docker compose up -d
@@ -61,7 +65,11 @@ docker compose up -d
 
 Posteryard runs as user 1000, so it needs to own `./data`. The `read_only`, `cap_drop` and `security_opt` lines lock the container down; Posteryard writes only to `/data` and `/tmp`.
 
+### Check the previews
+
 It starts with `DRY_RUN=true`: Plex is not touched. Every image is saved to `./data/previews` instead, named by rating key and image type, such as `5646-poster.jpg`. The first run renders the whole library and takes a while; `docker logs -f posteryard` shows progress.
+
+### Go live
 
 Happy with the previews? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters, backgrounds and episode thumbnails are now uploaded to Plex and locked, so a Plex metadata refresh keeps them. To try it on a few titles first, also set `ONLY_RATING_KEYS`.
 

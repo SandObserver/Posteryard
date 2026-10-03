@@ -30,7 +30,7 @@ def _title_arguments(parser: argparse.ArgumentParser, *, required: bool = True) 
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="posteryard", description="Apple TV style artwork for Plex.")
+    parser = argparse.ArgumentParser(prog="posteryard", description="Clean, consistent artwork for Plex.")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
 
