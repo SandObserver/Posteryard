@@ -65,6 +65,7 @@ def test_poster_options() -> None:
     assert cfg.logo_languages == ("en",)
     assert cfg.prefer_wordmark is True
     assert cfg.status_labels is True
+    assert (cfg.collection_posters, cfg.service_collections) == (False, False)
     cfg = load(
         {"TMDB_API_KEY": "example", "QUALITY_ACCESSIBILITY": "SDH, ad", "EPISODE_THUMBNAILS": "off",
          "LOGO_LANGUAGES": "fr,EN", "PREFER_WORDMARK": "false"}

@@ -20,6 +20,18 @@ SERVICE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("peacock", "peacock"),
     ("youtube", "youtube"),
 )
+NAMES = {
+    "appletv": "Apple TV",
+    "crave": "Crave",
+    "disney": "Disney+",
+    "hbomax": "HBO Max",
+    "hulu": "Hulu",
+    "netflix": "Netflix",
+    "paramountplus": "Paramount+",
+    "peacock": "Peacock",
+    "prime": "Prime Video",
+    "youtube": "YouTube",
+}
 EXCLUDED_WORDS = ("channel", "store", "youtube tv", "fubo", "stacktv", "live tv")
 OFFER_TYPES = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")

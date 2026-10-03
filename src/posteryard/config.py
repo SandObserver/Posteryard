@@ -37,6 +37,8 @@ class Config:
     episodes: EpisodeMode
     logo_languages: tuple[str, ...]
     prefer_wordmark: bool
+    collection_posters: bool
+    service_collections: bool
     data_dir: Path
     libraries: tuple[str, ...]
     dry_run: bool
@@ -147,6 +149,8 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         episodes=_choice(env, "EPISODE_THUMBNAILS", "plain", EpisodeMode),
         logo_languages=_languages(env),
         prefer_wordmark=_bool(env, "PREFER_WORDMARK", default=True),
+        collection_posters=_bool(env, "COLLECTION_POSTERS", default=False),
+        service_collections=_bool(env, "SERVICE_COLLECTIONS", default=False),
         data_dir=Path(env.get("DATA_DIR", "data")),
         libraries=libraries,
         dry_run=_bool(env, "DRY_RUN", default=True),
