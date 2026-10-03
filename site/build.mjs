@@ -76,7 +76,6 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(join(here, 'public'), dist, { recursive: true });
 cpSync(join(root, 'docs', 'logo.svg'), join(dist, 'logo.svg'));
-cpSync(join(root, 'docs', 'before-after.jpg'), join(dist, 'img', 'before-after.jpg'));
 cpSync(join(root, 'docs', 'social-card.png'), join(dist, 'img', 'social-card.png'));
 writeFileSync(join(dist, 'index.html'), html);
 console.log(`site: built Posteryard ${version} into dist/`);

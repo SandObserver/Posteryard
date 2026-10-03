@@ -41,7 +41,7 @@
       .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 40px; }
 
       .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
-      .brand { display: flex; align-items: center; gap: 10px; color: var(--label); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+      .brand { display: flex; align-items: center; min-height: 44px; gap: 10px; color: var(--label); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
       .brand:hover { color: var(--label); }
       .brand img { width: 32px; height: 32px; display: block; }
       .nav-right { display: flex; align-items: center; gap: 8px; }
@@ -63,10 +63,10 @@
       .btn-quiet:hover { background: var(--fill-hover); color: var(--label); }
 
       /* Plex for Apple TV, TV Shows library grid. Sizes are fractions of a 2000 px wide capture. */
-      .tv-band { padding: 8px 0 72px; }
+      .tv-band { padding: 8px 0 0; }
       .tv { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
-      .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 22px; padding: 12px; box-shadow: 0 10px 80px rgba(0, 0, 0, 0.6); }
-      .screen { container-type: inline-size; position: relative; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 12px;
+      .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 0; border-radius: 26px 26px 0 0; padding: 12px 12px 0; box-shadow: 0 -2px 60px rgba(0, 0, 0, 0.5); }
+      .screen { container-type: inline-size; position: relative; aspect-ratio: 5 / 2; overflow: hidden; border-radius: 14px 14px 0 0;
         background: radial-gradient(90% 70% at 70% 0%, #26282a 0%, #141414 55%, #0b0b0b 100%); }
       .rail { position: absolute; left: 1.5cqw; top: 40%; width: 3.75cqw; padding: 0.8cqw 0; border-radius: 2cqw; background: rgba(40, 40, 40, 0.85);
         display: flex; flex-direction: column; align-items: center; gap: 1.3cqw; }
@@ -86,12 +86,10 @@
       .focus .art { transform: scale(1.04); }
       .show figcaption { margin-top: 1.4cqw; font-size: 1.3cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .show figcaption span { display: block; margin-top: 0.2cqw; font-size: 1cqw; color: rgba(235, 235, 245, 0.6); }
-      .tv-note { margin: 18px 0 0; text-align: center; font-size: 14px; color: var(--dim); }
 
       @container (max-width: 640px) {
         .rail, .index { display: none; }
         .grid { position: static; padding: 14cqw 4cqw 6cqw; grid-template-columns: repeat(3, 1fr); column-gap: 4cqw; row-gap: 5cqw; }
-        .show:nth-child(n + 7) { display: none; }
         .art img { border-radius: 2cqw; }
         .count { min-width: 7cqw; height: 6.5cqw; padding: 0 1.6cqw; border-radius: 0 2cqw 0 2cqw; font-size: 3.4cqw; }
         .count svg { width: 3cqw; height: 3cqw; }
@@ -105,12 +103,23 @@
       .band + .band { border-top: 1px solid var(--separator); }
       .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
       .lede { margin: 0 0 36px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
-      .before-after { display: block; width: 100%; height: auto; border-radius: 18px; }
+      .compare { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
+      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+      .pair div { min-width: 0; }
+      .tag { display: block; margin-bottom: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+      .tag-py { color: var(--accent); }
+      .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
+      .support { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+      .support a { display: block; background: var(--bg-3); border-radius: 22px; padding: 24px; color: var(--label); }
+      .support a:hover { background: #3a3a3c; color: var(--label); }
+      .support h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; }
+      .support p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--dim); }
+      .support .go { display: inline-block; margin-top: 14px; font-size: 15px; font-weight: 600; color: var(--accent); }
       .points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 40px; }
       .point { background: var(--bg-3); border-radius: 22px; padding: 24px; }
       .point h3 { margin: 0 0 8px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
       .point p { margin: 0; font-size: 15px; line-height: 1.5; color: var(--dim); }
-      .point code { font-family: var(--mono); font-size: 0.9em; color: var(--label); }
+      .point code, .support code { font-family: var(--mono); font-size: 0.9em; color: var(--label); }
 
       .doc { max-width: 860px; }
       .doc p, .doc li { font-size: 16px; line-height: 1.6; color: #d1d1d6; }
@@ -123,6 +132,7 @@
       .doc td { padding: 12px 16px; color: #d1d1d6; vertical-align: top; }
       .doc tr + tr td { border-top: 1px solid var(--separator); }
       .doc td:first-child code { white-space: nowrap; }
+      .table-scroll code { background: #3a3a3c; }
 
       .footer { padding: 40px 0 48px; }
       .foot-in { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; }
@@ -130,9 +140,9 @@
       .foot-links a { font-size: 14px; color: var(--dim); display: inline-flex; align-items: center; min-height: 44px; }
       .foot-links a:hover { color: var(--label); }
       .credit { margin: 6px 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.5); max-width: 60ch; line-height: 1.5; }
-      .verbadge { display: flex; border-radius: 5px; overflow: hidden; font-size: 12px; font-weight: 600; }
-      .verbadge span { padding: 4px 8px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
-      .verbadge b { padding: 4px 8px; background: var(--accent); color: var(--on-accent); }
+      .verbadge { display: flex; align-items: center; min-height: 44px; overflow: hidden; font-size: 12px; font-weight: 600; }
+      .verbadge span { padding: 4px 8px; border-radius: 5px 0 0 5px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
+      .verbadge b { padding: 4px 8px; border-radius: 0 5px 5px 0; background: var(--accent); color: var(--on-accent); }
 
       @media (max-width: 1180px) {
         .wrap { padding: 0 28px; }
@@ -141,7 +151,8 @@
       @media (max-width: 900px) {
         .hero h1 { font-size: 46px; }
         .hero p { font-size: 17px; }
-        .points { grid-template-columns: 1fr; }
+        .points, .support { grid-template-columns: 1fr; }
+        .compare { grid-template-columns: 1fr; gap: 32px; max-width: 520px; }
         .band { padding: 52px 0; }
         .band h2 { font-size: 30px; }
       }
@@ -155,11 +166,23 @@
         .hero p { font-size: 15.5px; margin-top: 16px; }
         .btn { height: 46px; padding: 0 20px; font-size: 15px; }
         .tv { padding: 0 16px; }
-        .bezel { border-radius: 16px; padding: 7px; }
-        .screen { aspect-ratio: auto; }
+        .bezel { border-radius: 18px 18px 0 0; padding: 7px 7px 0; }
+        .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
-        .before-after { border-radius: 12px; }
+        .pair img { border-radius: 9px; }
+        .tag { font-size: 12px; margin-bottom: 8px; }
         .foot-in { flex-direction: column; gap: 20px; }
+        .doc thead { display: none; }
+        .doc table, .doc tbody, .doc tr, .doc td { display: block; }
+        .doc td { padding: 0 16px; }
+        .doc td:first-child { padding-top: 14px; }
+        .doc td:last-child { padding-bottom: 14px; }
+        .doc td + td { margin-top: 6px; }
+        .doc td:nth-child(3):empty { display: none; }
+        .doc td:nth-child(3)::before { content: "Default "; color: var(--dim); }
+        .doc td:first-child code { white-space: normal; }
+        .doc tr + tr td { border-top: 0; }
+        .doc tr + tr { border-top: 1px solid var(--separator); }
       }
     </style>
   </head>
@@ -216,15 +239,27 @@
               </div>
             </div>
           </div>
-          <p class="tv-note">Plex draws the unwatched count top right. Posteryard keeps the streaming service mark top left, clear of it.</p>
         </div>
       </div>
 
       <section class="band">
         <div class="wrap">
           <h2>One look for the whole library</h2>
-          <p class="lede">Official posters each have their own type, layout and clutter. Posteryard picks clean art and puts every title in the same spot.</p>
-          <img class="before-after" src="/img/before-after.jpg" alt="Deadpool &amp; Wolverine, Thunderbolts* and Lilo &amp; Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label" width="3200" height="960" loading="lazy" />
+          <p class="lede">Official posters each have their own type, layout and clutter. Posteryard picks clean art and puts every title in the same spot. Streaming service marks sit top left, clear of the unwatched count Plex draws top right.</p>
+          <div class="compare">
+            <figure class="pair">
+              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.jpg" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-after.jpg" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+            </figure>
+            <figure class="pair">
+              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.jpg" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.jpg" alt="Thunderbolts*, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+            </figure>
+            <figure class="pair">
+              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.jpg" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.jpg" alt="Lilo &amp; Stitch, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
           <div class="points">
             <div class="point"><h3>Hands off</h3><p>New titles get posters from the Plex webhook or the 15 minute sweep. A daily pass keeps the whole library current. Unchanged posters are not uploaded again.</p></div>
             <div class="point"><h3>Badges you control</h3><p>4K, Dolby Vision and Dolby Atmos marks come from Plex's media analysis. Set the minimum for each, or turn them off with <code>off</code>.</p></div>
@@ -247,6 +282,17 @@
           <p>Commands, Plex labels, alerts and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
         </div>
       </section>
+
+      <section class="band" id="support">
+        <div class="wrap">
+          <h2>Support</h2>
+          <p class="lede">Found a bug or missing a feature? Open an issue. Enjoying Posteryard? A coffee keeps it going.</p>
+          <div class="support">
+            <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer"><h3>Open an issue</h3><p>Report a problem or ask for a feature on GitHub. Include the log lines from <code>docker logs posteryard</code>.</p><span class="go">New issue</span></a>
+            <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer"><h3>Buy me a coffee</h3><p>Posteryard is free. If it saves you time, you can support its development.</p><span class="go">buymeacoffee.com/sandobserver</span></a>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">
@@ -256,7 +302,8 @@
           <div class="foot-links">
             <a href="{{repo}}">GitHub</a>
             <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a>
-            <a href="{{repo}}/issues">Issues</a>
+            <a href="#support">Support</a>
+            <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
           </div>
           <p class="credit">Artwork and metadata come from TMDB. Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Plex is a trademark of Plex, Inc. Posteryard is not affiliated with Plex or Apple.</p>
         </div>
