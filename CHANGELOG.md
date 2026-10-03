@@ -8,11 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Show coloured labels under the logo for just added titles, new episodes and seasons, and a season's start date; turn them off with `STATUS_LABELS=false`.
+- Draw the season number large in the top left corner of season posters.
+- Add SDH, CC and AD badges on their own line with `QUALITY_ACCESSIBILITY`.
+- Choose episode thumbnails with `EPISODE_THUMBNAILS`: `plain`, `titled` or `off`.
+- Choose title logo languages with `LOGO_LANGUAGES`.
+- Prefer wide title logos over emblems; turn it off with `PREFER_WORDMARK=false`.
+- Set the title in white when TMDB has no title logo, instead of skipping the poster.
 - Add a status page at `/` with health, schedule, failures and the latest images.
 - Publish the image for 64-bit ARM hosts, such as a Raspberry Pi 4 or 5, as well as x86.
 
 ### Changed
 
+- Place the title logo and the lines under it as on Apple TV tiles: the logo sits lower and moves up only for the lines present.
+- Make episode thumbnails plain stills by default; set `EPISODE_THUMBNAILS=titled` for the previous design.
+- Leave the streaming service mark off season posters.
 - Look up streaming services in the US by default; set `STREAMING_REGIONS` for another country.
 - Give every streaming service mark the same visual size, so stacked marks such as HBO Max are no longer small, and darken the corner behind it until the white mark reaches 4.5:1 contrast.
 - Use the `latest` image tag in the README and the compose example.
@@ -20,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Draw captions translucent as designed; they were fully opaque.
 - Render titles whose TMDB original is too large to load, such as Fallout and Challengers, from TMDB's 1280 px copy.
 
 ## [0.4.0] - 2026-10-03
