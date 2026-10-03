@@ -1,3 +1,4 @@
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -45,6 +46,11 @@ HDR_RANK = {HdrLevel.OFF: 0, HdrLevel.HDR10: 1, HdrLevel.HDR10_PLUS: 2, HdrLevel
 AUDIO_RANK = {AudioLevel.OFF: 0, AudioLevel.SURROUND_5_1: 1, AudioLevel.SURROUND_7_1: 2, AudioLevel.ATMOS: 3}
 RESOLUTION = {"4k": VideoLevel.UHD, "2160": VideoLevel.UHD, "1080": VideoLevel.FULL_HD, "720": VideoLevel.HD}
 PQ_TRANSFER = "smpte2084"
+ACCESSIBILITY = (Badge.SDH, Badge.CC, Badge.AD)
+CAPTION_CODECS = frozenset({"eia_608", "eia_708"})
+SDH_TITLE = re.compile(r"\bsdh\b")
+CC_TITLE = re.compile(r"\b(cc|closed captions?)\b")
+AD_TITLE = re.compile(r"\b(ad|audio description|described|descriptive)\b")
 
 
 @dataclass(frozen=True)
@@ -129,3 +135,20 @@ def badges(quality: MediaQuality, minimums: QualityMinimums) -> list[Badge]:
         else:
             out.append(Badge(quality.audio.value))
     return out
+
+
+def accessibility(media_list: Sequence[Mapping[str, Any]], wanted: frozenset[Badge]) -> list[Badge]:
+    """SDH, CC and AD from Plex's stream flags, or from track titles when a file sets no flag."""
+    found: set[Badge] = set()
+    for media in media_list:
+        for s in _streams(media, 3):
+            title = _text(s.get("title"), s.get("displayTitle"), s.get("extendedDisplayTitle"))
+            if s.get("hearingImpaired") or SDH_TITLE.search(title):
+                found.add(Badge.SDH)
+            if str(s.get("codec", "")).lower() in CAPTION_CODECS or CC_TITLE.search(title):
+                found.add(Badge.CC)
+        for s in _streams(media, 2):
+            title = _text(s.get("title"), s.get("displayTitle"), s.get("extendedDisplayTitle"))
+            if s.get("visualImpaired") or AD_TITLE.search(title):
+                found.add(Badge.AD)
+    return [badge for badge in ACCESSIBILITY if badge in found and badge in wanted]

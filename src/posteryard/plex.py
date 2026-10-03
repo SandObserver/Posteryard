@@ -107,6 +107,30 @@ class Plex:
         http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=image_key))
         return image_key
 
+    def restore(self, item: Item, target: Target) -> None:
+        """Select the image Plex's agent chose before any upload, and unlock the field again."""
+        rating_key = str(item["ratingKey"])
+        _, select, field = ENDPOINTS[target]
+        original = next(
+            (
+                str(i["ratingKey"])
+                for i in self.images(rating_key, target)
+                if not str(i.get("ratingKey", "")).startswith("upload://")
+            ),
+            None,
+        )
+        if original:
+            http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=original))
+        http.request(
+            "PUT",
+            self._url(
+                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+                type=TYPE_IDS[str(item["type"])],
+                id=rating_key,
+                **{f"{field}.locked": 0},
+            ),
+        )
+
     def poster_bytes(self, item: Item) -> bytes:
         thumb = str(item.get("thumb") or "")
         if not thumb.startswith("/library/"):

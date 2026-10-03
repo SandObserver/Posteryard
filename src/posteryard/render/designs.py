@@ -15,6 +15,7 @@ from posteryard.render.layers import (
     mark,
     radial_shade,
     tracked_width,
+    trim,
     vertical_gradient,
 )
 
@@ -26,6 +27,7 @@ LOGO_BOX = (0.66, 0.151)
 NUMBER_AT = (0.07, 0.05)
 NUMBER_CAP = 0.12
 NUMBER_FADE = ((0.0, 0.90), (0.5, 0.90), (1.0, 0.53))
+PLAIN_STILL = ((0.0, 0.0), (0.65, 0.0), (1.0, 0.35))
 NUMBER_SHADE: tuple[tuple[float, float], ...] = ((0.0, 0.40), (0.5, 0.20), (1.0, 0.0))
 SERVICE_HEIGHT = 0.054
 SERVICE_MAX_HEIGHT = 0.085
@@ -126,8 +128,13 @@ def tile_poster(
     return canvas.convert("RGB")
 
 
-def episode_still(still: Image.Image, number: int, title: str) -> Image.Image:
+def episode_still(still: Image.Image, number: int, title: str | None) -> Image.Image:
+    """Without a title, the still with Apple's light bottom shade only. Plex prints the episode details beside it."""
     image = cover(still, *WIDE, (0.5, 0.5))
+    if title is None:
+        shaded = image.convert("RGBA")
+        shaded.alpha_composite(vertical_gradient(shaded.size, PLAIN_STILL))
+        return shaded.convert("RGB")
     w, h = image.size
     colour = image.resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
     assert isinstance(colour, tuple)
@@ -152,6 +159,29 @@ def _fit(text: str, face: ImageFont.FreeTypeFont, max_width: int) -> str:
     while text and tracked_width(text + "…", face, 0) > max_width:
         text = text[:-1].rstrip()
     return text + "…"
+
+
+def text_logo(title: str) -> Image.Image:
+    """The title set in white, for titles TMDB has no logo for: one line, or the two-line split that sets it largest."""
+    words = title.split() or [title]
+    options = [[" ".join(words)]]
+    for cut in range(1, len(words)):
+        options.append([" ".join(words[:cut]), " ".join(words[cut:])])
+    face = font("Bold", 200)
+    box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
+
+    def scale(rows: list[str]) -> float:
+        width = max(face.getlength(row) for row in rows)
+        return min(box[0] / width, box[1] / (len(rows) * face.size * 1.1))
+
+    rows = max(options, key=scale)
+    width = round(max(face.getlength(row) for row in rows)) + 20
+    height = round(len(rows) * face.size * 1.1) + 20
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(layer)
+    for i, row in enumerate(rows):
+        pen.text((width / 2, 10 + (i + 0.5) * face.size * 1.1), row, font=face, fill=(*WHITE, 255), anchor="mm")
+    return trim(layer)
 
 
 def background(art: Image.Image) -> Image.Image:

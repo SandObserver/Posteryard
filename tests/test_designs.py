@@ -131,3 +131,18 @@ def test_service_shade_stays_light_on_dark_art() -> None:
     logo = designs._service_logo("netflix", designs.POSTER[0])
     shaded = designs._shade_for(canvas, logo, (44, 44))
     assert designs._contrast_behind(shaded, logo, (44, 44)) >= designs.SERVICE_CONTRAST
+
+
+def test_text_logo_breaks_long_titles_into_two_lines() -> None:
+    one = designs.text_logo("Up")
+    two = designs.text_logo("The Very Long Example Title Of A Film")
+    assert one.width / one.height > 1
+    assert two.height > one.height
+    assert designs.tile_poster(art(), two, lines_below=[]).size == designs.POSTER
+
+
+def test_plain_episode_still_has_no_text() -> None:
+    still = Image.new("RGB", (1920, 1080), (200, 200, 200))
+    out = np.asarray(designs.episode_still(still, 3, None).convert("L"))
+    assert out[: round(0.6 * 1080)].min() > 190
+    assert out[-1].max() < out[0].min()

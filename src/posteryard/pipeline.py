@@ -15,9 +15,10 @@ from PIL import Image
 
 from posteryard import maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
+from posteryard.config import EpisodeMode
 from posteryard.overrides import Override
 from posteryard.plex import Item, Plex, Target, tmdb_id
-from posteryard.quality import QualityMinimums
+from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
 from posteryard.render.layers import cover, trim
 from posteryard.tmdb import Images, Kind, Tmdb
@@ -69,6 +70,10 @@ class Context:
     today: date
     plex: Plex | None = None
     labels: bool = True
+    accessibility: frozenset[Badge] = frozenset()
+    episodes: EpisodeMode = EpisodeMode.PLAIN
+    logo_languages: tuple[str, ...] = ("en",)
+    prefer_wordmark: bool = True
     choices: ChoiceCache = field(default_factory=MemoryChoices)
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
     overrides: Callable[[str], Override | None] = field(default=lambda _key: None)
@@ -217,13 +222,14 @@ def _poster(
     siblings: Sequence[int] = (),
     badges: list[quality.Badge],
     label: lines.Label | None,
+    access: list[quality.Badge] | None = None,
 ) -> Plan:
     images = ctx.images(title.kind, title.tmdb_id)
     base = f"{title.kind}:{title.tmdb_id}"
     show_art = ctx.picker.textless_art(base, images, title.all_titles)
-    logo = ctx.picker.logo(base, images)
-    if show_art is None or logo is None:
-        raise NotFoundError(f"TMDB has no textless art or title logo for {name}")
+    logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+    if show_art is None:
+        raise NotFoundError(f"TMDB has no textless art for {name}")
     if season is None:
         art_path, note = show_art.path, f"art {show_art.path}"
     else:
@@ -248,15 +254,18 @@ def _poster(
         below.append(lines.Caption(_season_label(0)))
     if badges:
         below.append(lines.Badges(tuple(badges)))
+    if access:
+        below.append(lines.Badges(tuple(access)))
     number = season or None
     service = title.service if season is None else None
     logo_path = logo
 
     def draw() -> Image.Image:
-        return designs.tile_poster(
-            ctx.load(art_path), trim(ctx.fetch(logo_path)), lines_below=below, number=number, service=service
-        )
+        mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name)
+        return designs.tile_poster(ctx.load(art_path), mark, lines_below=below, number=number, service=service)
 
+    if logo_path is None:
+        extra["text_logo"] = title.name
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "lines": below,
         "number": number, "service": service, **extra,
@@ -281,8 +290,9 @@ def movie(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
     title = ctx.title("movie", _require_tmdb(item), str(item.get("title", "")))
     badges = quality.badges(quality.best(item.get("Media") or []), ctx.minimums)
+    access = quality.accessibility(item.get("Media") or [], ctx.accessibility)
     label = _label(ctx, status.Dates(added=status.from_timestamp(item.get("addedAt"))), ctx.leaving(key))
-    poster = _poster(ctx, title, key, title.name, season=None, badges=badges, label=label)
+    poster = _poster(ctx, title, key, title.name, season=None, badges=badges, label=label, access=access)
     return [poster, *_background(ctx, title, key)]
 
 
@@ -336,6 +346,8 @@ def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
 
 
 def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
+    if ctx.episodes == EpisodeMode.OFF:
+        return []
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
     season_number, name = int(item.get("parentIndex", 0)), str(item.get("title", ""))
     still = (ctx.tmdb.episode(title.tmdb_id, season_number, number) or {}).get("still_path")
@@ -343,10 +355,16 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
         return []
     path = str(still)
 
-    def draw() -> Image.Image:
-        return designs.episode_still(ctx.fetch(path), number, name)
+    titled = ctx.episodes == EpisodeMode.TITLED
 
-    inputs = {"design": "episode", "still": path, "number": number, "title": name}
+    def draw() -> Image.Image:
+        return designs.episode_still(ctx.fetch(path), number, name if titled else None)
+
+    inputs = {
+        "design": "episode",
+        "still": path,
+        **({"number": number, "title": name} if titled else {"mode": "plain"}),
+    }
     return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
 
 

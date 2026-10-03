@@ -2,8 +2,8 @@ from datetime import time
 
 import pytest
 
-from posteryard.config import ConfigError, load, require_service
-from posteryard.quality import AudioLevel, HdrLevel, VideoLevel
+from posteryard.config import ConfigError, EpisodeMode, load, require_service
+from posteryard.quality import AudioLevel, Badge, HdrLevel, VideoLevel
 
 
 def test_defaults() -> None:
@@ -56,3 +56,23 @@ def test_an_empty_library_list_is_rejected() -> None:
 def test_serve_needs_plex_and_a_webhook_secret() -> None:
     with pytest.raises(ConfigError, match="PLEX_URL, PLEX_TOKEN, WEBHOOK_SECRET"):
         require_service(load({"TMDB_API_KEY": "example"}))
+
+
+def test_poster_options() -> None:
+    cfg = load({"TMDB_API_KEY": "example"})
+    assert cfg.accessibility == frozenset()
+    assert cfg.episodes == EpisodeMode.PLAIN
+    assert cfg.logo_languages == ("en",)
+    assert cfg.prefer_wordmark is True
+    assert cfg.status_labels is True
+    cfg = load(
+        {"TMDB_API_KEY": "example", "QUALITY_ACCESSIBILITY": "SDH, ad", "EPISODE_THUMBNAILS": "off",
+         "LOGO_LANGUAGES": "fr,EN", "PREFER_WORDMARK": "false"}
+    )  # fmt: skip
+    assert cfg.accessibility == frozenset({Badge.SDH, Badge.AD})
+    assert cfg.episodes == EpisodeMode.OFF
+    assert cfg.logo_languages == ("fr", "en")
+    with pytest.raises(ConfigError, match="QUALITY_ACCESSIBILITY"):
+        load({"TMDB_API_KEY": "example", "QUALITY_ACCESSIBILITY": "sdh,braille"})
+    with pytest.raises(ConfigError, match="LOGO_LANGUAGES"):
+        load({"TMDB_API_KEY": "example", "LOGO_LANGUAGES": "french"})

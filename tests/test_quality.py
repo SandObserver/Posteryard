@@ -1,4 +1,14 @@
-from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, analyse, badges, best
+from posteryard.quality import (
+    AudioLevel,
+    Badge,
+    HdrLevel,
+    QualityMinimums,
+    VideoLevel,
+    accessibility,
+    analyse,
+    badges,
+    best,
+)
 
 
 def media(
@@ -45,3 +55,20 @@ def test_off_hides_an_axis() -> None:
 def test_best_picks_the_highest_version() -> None:
     assert best([media("1080"), media("4k")]).video == VideoLevel.UHD
     assert best([]).video == VideoLevel.OFF
+
+
+def test_accessibility_from_flags_and_titles() -> None:
+    every = frozenset({Badge.SDH, Badge.CC, Badge.AD})
+    flagged = [
+        {"Part": [{"Stream": [{"streamType": 3, "hearingImpaired": True}, {"streamType": 2, "visualImpaired": True}]}]}
+    ]
+    assert accessibility(flagged, every) == [Badge.SDH, Badge.AD]
+    titled = [
+        {"Part": [{"Stream": [{"streamType": 3, "title": "English (SDH)"}, {"streamType": 3, "codec": "eia_608"}]}]}
+    ]
+    assert accessibility(titled, every) == [Badge.SDH, Badge.CC]
+    assert accessibility(titled, frozenset({Badge.CC})) == [Badge.CC]
+    plain = [
+        {"Part": [{"Stream": [{"streamType": 3, "title": "Latin American"}, {"streamType": 2, "title": "Broadcast"}]}]}
+    ]
+    assert accessibility(plain, every) == []

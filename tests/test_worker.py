@@ -23,6 +23,7 @@ class FakePlex:
         self.selected_keys: dict[tuple[str, str], str] = {}
         self.uploads: list[tuple[str, str]] = []
         self.fail = False
+        self.restored: list[tuple[str, str]] = []
 
     def item(self, key: str) -> dict[str, Any] | None:
         if self.fail:
@@ -41,6 +42,9 @@ class FakePlex:
 
     def lock(self, item: Any, target: str) -> None:
         pass
+
+    def restore(self, item: Any, target: str) -> None:
+        self.restored.append((str(item["ratingKey"]), target))
 
     def remove_label(self, item: Any, label: str) -> None:
         self.items["1"]["Label"] = [t for t in self.items["1"].get("Label", []) if t["tag"] != label]
@@ -166,3 +170,12 @@ def test_the_ignore_label_leaves_the_item_alone(tmp_path: Path) -> None:
     assert worker.process("1") == Outcome.SKIPPED
     assert plex.uploads == []
     assert store.override("1") is None
+
+
+def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false", EPISODE_THUMBNAILS="off")
+    plex.items["5"] = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404"}
+    store.uploaded("5", "thumb", "Pilot", "abc", "upload-1")
+    worker.process("5")
+    assert plex.restored == [("5", "thumb")]
+    assert store.get("5", "thumb") is None

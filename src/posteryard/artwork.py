@@ -16,6 +16,8 @@ from posteryard.tmdb import ImageRef, Images
 MAX_CANDIDATES = 6
 POOL_SIZE = 12
 MIN_BACKDROP_WIDTH = 1920
+# Logos at least this wide for their height are wordmarks; narrower ones are emblems or stacked badges.
+WORDMARK_ASPECT = 1.8
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -96,14 +98,20 @@ class Picker:
         refs = sorted(images.textless_backdrops(), key=lambda r: r.width < MIN_BACKDROP_WIDTH)
         return self.textless(f"{key}:background", refs, titles)
 
-    def logo(self, key: str, images: Images) -> str | None:
-        candidates = [r.path for r in images.english_logos()[:MAX_CANDIDATES]]
-        hit = self.cache.get_choice(f"logo:{key}")
+    def logo(
+        self, key: str, images: Images, languages: Sequence[str] = ("en",), prefer_wordmark: bool = True
+    ) -> str | None:
+        refs = images.logos_in(languages)[:MAX_CANDIDATES]
+        candidates = [r.path for r in refs]
+        cache_key = f"logo:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
-        light = next((path for path in candidates if is_light(trim(self.fetch(path)))), None)
-        path = light or (candidates[0] if candidates else None)
-        self.cache.put_choice(f"logo:{key}", {"candidates": candidates, "path": path})
+        light = [r for r in refs if is_light(trim(self.fetch(r.path)))]
+        wide = [r for r in light if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
+        pool = wide or light or refs
+        path = pool[0].path if pool else None
+        self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
         return path
 
 

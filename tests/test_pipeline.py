@@ -8,10 +8,11 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import overrides, pipeline
+from posteryard.config import EpisodeMode
 from posteryard.ocr import TextLine
-from posteryard.quality import QualityMinimums
+from posteryard.quality import Badge, QualityMinimums
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
-from posteryard.render.lines import Caption, Label
+from posteryard.render.lines import Badges, Caption, Label
 from posteryard.tmdb import ImageRef, Images
 
 
@@ -25,6 +26,7 @@ class FakeTmdb:
     def __init__(self, posters: list[ImageRef], seasons: int = 4) -> None:
         self.posters = posters
         self.seasons = seasons
+        self.logos = [ref("/logo.png", "en")]
 
     def details(self, kind: str, tid: int) -> dict[str, Any]:
         return {"title": "Example Movie", "seasons": [{"season_number": n} for n in range(1, self.seasons + 1)]}
@@ -34,7 +36,7 @@ class FakeTmdb:
             ImageRef("/backdrop.jpg", None, 3840, 2160, 5, 10),
             ImageRef("/backdrop2.jpg", None, 3840, 2160, 4, 1),
         ]
-        return Images(self.posters, backdrops, [ref("/logo.png", "en")])
+        return Images(self.posters, backdrops, self.logos)
 
     def season_images(self, tid: int, season: int) -> Images:
         return Images([ref(f"/season{season}.jpg", None)] if season in (1, 3) else [], [], [])
@@ -220,9 +222,40 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
         ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
     ]  # fmt: skip
     still = plans[3]
-    assert still.inputs == {"design": "episode", "still": "/still-1-1.jpg", "number": 1, "title": "Episode 1"}
+    assert still.inputs == {"design": "episode", "still": "/still-1-1.jpg", "mode": "plain"}
     assert still.draw().size == (1920, 1080)
     assert [p.rating_key for p in pipeline.plan_preview(ctx, "12", episodes=None)] == ["12", "121", "122"]
+
+
+def test_episode_modes() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    title = ctx.title("tv", 42, "Example Show")
+    item = {"ratingKey": "111", "index": 1, "parentIndex": 1, "title": "Pilot"}
+    ctx.episodes = EpisodeMode.TITLED
+    titled = pipeline.episode(ctx, title, item)[0]
+    assert titled.inputs["title"] == "Pilot"
+    assert titled.draw().size == (1920, 1080)
+    ctx.episodes = EpisodeMode.OFF
+    assert pipeline.episode(ctx, title, item) == []
+
+
+def test_a_title_without_a_logo_is_set_in_text() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.tmdb.logos = []  # type: ignore[attr-defined]
+    plan = pipeline.movie(ctx, ITEM)[0]
+    assert plan.inputs["logo"] is None
+    assert plan.inputs["text_logo"] == "Example Movie"
+    assert plan.draw().size == (1000, 1500)
+
+
+def test_accessibility_badges_get_their_own_line() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.accessibility = frozenset({Badge.SDH, Badge.AD})
+    media = [
+        {"Part": [{"Stream": [{"streamType": 3, "hearingImpaired": True}, {"streamType": 2, "title": "English AD"}]}]}
+    ]
+    plan = pipeline.movie(ctx, {**ITEM, "ratingKey": "2", "Media": media})[0]
+    assert plan.inputs["lines"] == [Badges((Badge.SDH, Badge.AD))]
 
 
 def test_preview_of_a_missing_item_fails() -> None:
