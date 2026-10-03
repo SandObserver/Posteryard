@@ -2,182 +2,218 @@
  {
   "id": "movie-149",
   "kind": "movie",
-  "title": "Akira"
+  "title": "Akira",
+  "year": 1988
  },
  {
   "id": "movie-945961",
   "kind": "movie",
-  "title": "Alien: Romulus"
+  "title": "Alien: Romulus",
+  "year": 2024
  },
  {
   "id": "movie-299534",
   "kind": "movie",
-  "title": "Avengers: Endgame"
+  "title": "Avengers: Endgame",
+  "year": 2019
  },
  {
   "id": "movie-414906",
   "kind": "movie",
-  "title": "The Batman"
+  "title": "The Batman",
+  "year": 2022
  },
  {
   "id": "movie-284054",
   "kind": "movie",
-  "title": "Black Panther"
+  "title": "Black Panther",
+  "year": 2018
  },
  {
   "id": "movie-335984",
   "kind": "movie",
-  "title": "Blade Runner 2049"
+  "title": "Blade Runner 2049",
+  "year": 2017
  },
  {
   "id": "movie-929590",
   "kind": "movie",
-  "title": "Civil War"
+  "title": "Civil War",
+  "year": 2024
  },
  {
   "id": "movie-354912",
   "kind": "movie",
-  "title": "Coco"
+  "title": "Coco",
+  "year": 2017
  },
  {
   "id": "movie-974576",
   "kind": "movie",
-  "title": "Conclave"
+  "title": "Conclave",
+  "year": 2024
  },
  {
   "id": "movie-155",
   "kind": "movie",
-  "title": "The Dark Knight"
+  "title": "The Dark Knight",
+  "year": 2008
  },
  {
   "id": "movie-533535",
   "kind": "movie",
-  "title": "Deadpool Wolverine"
+  "title": "Deadpool & Wolverine",
+  "year": 2024
  },
  {
   "id": "movie-64690",
   "kind": "movie",
-  "title": "Drive"
+  "title": "Drive",
+  "year": 2011
  },
  {
   "id": "movie-438631",
   "kind": "movie",
-  "title": "Dune"
+  "title": "Dune",
+  "year": 2021
  },
  {
   "id": "movie-693134",
   "kind": "movie",
-  "title": "Dune: Part Two"
+  "title": "Dune: Part Two",
+  "year": 2024
  },
  {
   "id": "movie-264660",
   "kind": "movie",
-  "title": "Ex Machina"
+  "title": "Ex Machina",
+  "year": 2015
  },
  {
   "id": "movie-911430",
   "kind": "movie",
-  "title": "F1"
+  "title": "F1",
+  "year": 2025
  },
  {
   "id": "movie-746036",
   "kind": "movie",
-  "title": "The Fall Guy"
+  "title": "The Fall Guy",
+  "year": 2024
  },
  {
   "id": "movie-419430",
   "kind": "movie",
-  "title": "Get Out"
+  "title": "Get Out",
+  "year": 2017
  },
  {
   "id": "movie-940721",
   "kind": "movie",
-  "title": "Godzilla Minus One"
+  "title": "Godzilla Minus One",
+  "year": 2023
  },
  {
   "id": "movie-118340",
   "kind": "movie",
-  "title": "Guardians of the Galaxy"
+  "title": "Guardians of the Galaxy",
+  "year": 2014
  },
  {
   "id": "movie-152601",
   "kind": "movie",
-  "title": "Her"
+  "title": "Her",
+  "year": 2013
  },
  {
   "id": "movie-475557",
   "kind": "movie",
-  "title": "Joker"
+  "title": "Joker",
+  "year": 2019
  },
  {
   "id": "movie-313369",
   "kind": "movie",
-  "title": "La La Land"
+  "title": "La La Land",
+  "year": 2016
  },
  {
   "id": "movie-552524",
   "kind": "movie",
-  "title": "Lilo & Stitch"
+  "title": "Lilo & Stitch",
+  "year": 2025
  },
  {
   "id": "movie-286217",
   "kind": "movie",
-  "title": "The Martian"
+  "title": "The Martian",
+  "year": 2015
  },
  {
   "id": "movie-603",
   "kind": "movie",
-  "title": "The Matrix"
+  "title": "The Matrix",
+  "year": 1999
  },
  {
   "id": "movie-8392",
   "kind": "movie",
-  "title": "My Neighbor Totoro"
+  "title": "My Neighbor Totoro",
+  "year": 1988
  },
  {
   "id": "movie-872585",
   "kind": "movie",
-  "title": "Oppenheimer"
+  "title": "Oppenheimer",
+  "year": 2023
  },
  {
   "id": "movie-496243",
   "kind": "movie",
-  "title": "Parasite"
+  "title": "Parasite",
+  "year": 2019
  },
  {
   "id": "movie-273481",
   "kind": "movie",
-  "title": "Sicario"
+  "title": "Sicario",
+  "year": 2015
  },
  {
   "id": "movie-569094",
   "kind": "movie",
-  "title": "Spider-Man: Across the Spider-Verse"
+  "title": "Spider-Man: Across the Spider-Verse",
+  "year": 2023
  },
  {
   "id": "movie-1061474",
   "kind": "movie",
-  "title": "Superman"
+  "title": "Superman",
+  "year": 2025
  },
  {
   "id": "movie-7345",
   "kind": "movie",
-  "title": "There Will Be Blood"
+  "title": "There Will Be Blood",
+  "year": 2007
  },
  {
   "id": "movie-361743",
   "kind": "movie",
-  "title": "Top Gun: Maverick"
+  "title": "Top Gun: Maverick",
+  "year": 2022
  },
  {
   "id": "movie-1078605",
   "kind": "movie",
-  "title": "Weapons"
+  "title": "Weapons",
+  "year": 2025
  },
  {
   "id": "movie-244786",
   "kind": "movie",
-  "title": "Whiplash"
+  "title": "Whiplash",
+  "year": 2014
  },
  {
   "id": "tv-108545",
@@ -260,7 +296,7 @@
  {
   "id": "tv-95557",
   "kind": "tv",
-  "title": "INVINCIBLE",
+  "title": "Invincible",
   "seasons": 5
  },
  {

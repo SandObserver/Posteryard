@@ -52,9 +52,9 @@
       .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 40px; }
 
       .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
-      .brand { display: flex; align-items: center; min-height: 44px; gap: 10px; color: var(--label); font-size: 21px; font-weight: 700; letter-spacing: -0.02em; }
+      .brand { display: flex; align-items: center; min-height: 44px; gap: 12px; color: var(--label); font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
       .brand:hover { color: var(--label); }
-      .brand img { width: 32px; height: 32px; display: block; }
+      .brand img { width: 26px; height: 32px; display: block; }
       .nav-right { display: flex; align-items: center; gap: 8px; }
       .pill { height: 40px; padding: 0 20px; border-radius: 20px; display: inline-flex; align-items: center; position: relative; font-size: 14px; font-weight: 600; }
       .pill::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 44px; }
@@ -84,11 +84,12 @@
       .avatar { width: 2.1cqw; height: 2.1cqw; border-radius: 50%; background: linear-gradient(135deg, #d9a066, #7a4a2a); }
       .rail svg { width: 1.2cqw; height: 1.2cqw; color: #e5e5ea; }
       .clock { position: absolute; right: 5.1cqw; top: 2.1cqw; padding: 0.55cqw 1.1cqw; border-radius: 2cqw; background: rgba(60, 60, 60, 0.7); font-size: 1.15cqw; color: #e5e5ea; }
-      .hubs { position: absolute; left: 6.65cqw; right: 0; top: 3cqw; }
-      .hub + .hub { margin-top: 2.6cqw; }
-      .hub-title { margin-bottom: 1.1cqw; font-size: 1.45cqw; font-weight: 700; color: #fff; }
-      .hub-row { display: flex; gap: 1.65cqw; }
-      .tile { position: relative; flex: 0 0 12.5cqw; }
+      .index { position: absolute; right: 2.3cqw; top: 9cqw; display: flex; flex-direction: column; align-items: center; gap: 0.25cqw; font-size: 1.05cqw; font-weight: 500; color: rgba(235, 235, 245, 0.6); }
+      .index b { display: grid; place-items: center; width: 1.75cqw; height: 1.75cqw; border-radius: 50%; border: 0.12cqw solid #fff; color: #fff; }
+      .grid { position: absolute; left: 6.65cqw; top: 7cqw; display: grid; grid-template-columns: repeat(6, 12.5cqw); column-gap: 2.2cqw; row-gap: 2.6cqw; }
+      .show { margin: 0; min-width: 0; text-align: center; }
+      .show figcaption { margin-top: 1.4cqw; font-size: 1.3cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .show figcaption span { display: block; margin-top: 0.2cqw; font-size: 1cqw; color: rgba(235, 235, 245, 0.6); }
       .art { position: relative; aspect-ratio: 2 / 3; border-radius: 0.6cqw; background: #1f1f21; }
       .art img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
       .count { position: absolute; top: 0; right: 0; min-width: 2.3cqw; height: 2.15cqw; padding: 0 0.55cqw; border-radius: 0 0.6cqw 0 0.6cqw;
@@ -98,16 +99,14 @@
       .focus .art { transform: scale(1.04); }
 
       @container (max-width: 640px) {
-        .rail { display: none; }
-        .hubs { left: 4cqw; top: 13cqw; }
-        .hub + .hub { margin-top: 6cqw; }
-        .hub-title { margin-bottom: 3cqw; font-size: 4.2cqw; }
-        .hub-row { gap: 3.5cqw; }
-        .tile { flex-basis: 27cqw; }
+        .rail, .index { display: none; }
+        .grid { position: static; padding: 14cqw 4cqw 6cqw; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 4cqw; row-gap: 5cqw; }
         .art { border-radius: 2cqw; }
         .count { min-width: 7cqw; height: 6.5cqw; padding: 0 1.6cqw; border-radius: 0 2cqw 0 2cqw; font-size: 3.4cqw; }
         .count svg { width: 3cqw; height: 3cqw; }
         .focus .art::after { inset: -1.6cqw; border-width: 0.7cqw; border-radius: 3.2cqw; }
+        .show figcaption { margin-top: 3.4cqw; font-size: 3.6cqw; }
+        .show figcaption span { font-size: 3cqw; }
         .clock { top: 4cqw; right: 4cqw; padding: 1.4cqw 3cqw; border-radius: 5cqw; font-size: 3.4cqw; }
       }
 
@@ -203,6 +202,8 @@
       @media (max-width: 600px) {
         .wrap { padding: 0 16px; }
         .nav { padding: 18px 0; }
+        .brand { font-size: 21px; gap: 10px; }
+        .brand img { width: 22px; height: 27px; }
         .pill { padding: 0 14px; font-size: 13px; }
         .pill-ghost { display: none; }
         .hero { padding: 24px 0 32px; }
@@ -230,7 +231,7 @@
     <a class="skip" href="#main">Skip to content</a>
     <div class="wrap">
       <nav class="nav" aria-label="Main">
-        <a class="brand" href="/"><img src="/logo.svg" alt="" width="32" height="32" />Posteryard</a>
+        <a class="brand" href="/"><img src="/mark.svg" alt="" width="24" height="29" />Posteryard</a>
         <div class="nav-right">
           <a class="pill pill-solid" href="#getting-started">Install</a>
           <a class="pill pill-ghost" href="{{repo}}#readme">Documentation</a>
@@ -254,7 +255,7 @@
       <div class="tv-band">
         <div class="tv">
           <div class="bezel">
-            <div class="screen" role="img" aria-label="The Plex Home screen on Apple TV, with recently added movies and TV shows shown as Posteryard posters">
+            <div class="screen" role="img" aria-label="A Plex library on Apple TV with Posteryard posters">
               <div class="rail" aria-hidden="true">
                 <span class="avatar"></span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -262,7 +263,8 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
               </div>
               <div class="clock" aria-hidden="true">8:30 PM</div>
-              <div class="hubs" aria-hidden="true">{{tv_hubs}}</div>
+              <div class="index" aria-hidden="true">{{tv_index}}</div>
+              <div class="grid" aria-hidden="true">{{tv_grid}}</div>
             </div>
           </div>
         </div>
@@ -340,7 +342,7 @@
     <footer class="footer">
       <div class="wrap foot-in">
         <div>
-          <a class="brand" href="/"><img src="/logo.svg" alt="" width="32" height="32" />Posteryard</a>
+          <a class="brand" href="/"><img src="/mark.svg" alt="" width="24" height="29" />Posteryard</a>
           <div class="foot-links">
             <a href="{{repo}}">GitHub</a>
             <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a>
@@ -356,27 +358,51 @@
       {
         const pool = {{poster_pool}};
         const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
-        const shuffle = (list) => list.map((item) => [Math.random(), item]).sort((a, b) => a[0] - b[0]).map(([, item]) => item);
-        for (const row of document.querySelectorAll(".hub-row")) {
-          const picks = shuffle(pool.filter((p) => p.kind === row.dataset.kind));
-          row.querySelectorAll(".tile").forEach((tile, i) => {
-            const art = tile.querySelector(".art");
-            art.textContent = "";
-            const img = new Image(400, 600);
-            img.alt = "";
-            img.decoding = "async";
-            img.src = `/img/posters/${picks[i].id}.webp`;
-            art.append(img);
-            if (row.dataset.kind === "tv") {
-              const count = document.createElement("span");
-              count.className = "count";
-              const n = Math.floor(Math.random() * 14);
-              if (n < 3) count.innerHTML = check;
-              else count.textContent = String(n - 2);
-              art.append(count);
-            }
-          });
-        }
+        const sortKey = (title) => title.toLowerCase().replace(/^the /, "");
+        const letter = (title) => (/^[0-9]/.test(sortKey(title)) ? "#" : sortKey(title)[0].toUpperCase());
+        const kind = Math.random() < 0.5 ? "movie" : "tv";
+        const picks = pool
+          .filter((p) => p.kind === kind)
+          .map((p) => [Math.random(), p])
+          .sort((a, b) => a[0] - b[0])
+          .slice(0, 12)
+          .map(([, p]) => p)
+          .sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title)));
+        const grid = document.querySelector(".screen .grid");
+        grid.textContent = "";
+        picks.forEach((p, i) => {
+          const figure = document.createElement("figure");
+          figure.className = i === 0 ? "show focus" : "show";
+          const art = document.createElement("div");
+          art.className = "art";
+          const img = new Image(400, 600);
+          img.alt = "";
+          img.decoding = "async";
+          img.src = `/img/posters/${p.id}.webp`;
+          art.append(img);
+          const roll = Math.random();
+          if (kind === "tv" || roll < 0.25) {
+            const count = document.createElement("span");
+            count.className = "count";
+            if (kind === "movie" || roll < 0.2) count.innerHTML = check;
+            else count.textContent = String(1 + Math.floor(Math.random() * 12));
+            art.append(count);
+          }
+          const caption = document.createElement("figcaption");
+          const sub = document.createElement("span");
+          caption.textContent = p.title;
+          sub.textContent = kind === "movie" ? String(p.year) : `${p.seasons} ${p.seasons === 1 ? "Season" : "Seasons"}`;
+          caption.append(sub);
+          figure.append(art, caption);
+          grid.append(figure);
+        });
+        const index = document.querySelector(".screen .index");
+        index.textContent = "";
+        [...new Set(picks.map((p) => letter(p.title)))].forEach((l, i) => {
+          const el = document.createElement(i === 0 ? "b" : "span");
+          el.textContent = l;
+          index.append(el);
+        });
       }
       function openFromHash() {
         if (location.hash === "#settings") document.querySelector("#settings details").open = true;
