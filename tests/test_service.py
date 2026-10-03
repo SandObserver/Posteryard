@@ -341,3 +341,9 @@ def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> N
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "../etc"})
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "a" * 32})
     assert [key for key, _ in service.queue.queue][-1] == "a" * 32
+
+
+def test_jellyfin_posts_json_as_text() -> None:
+    body = b'{"NotificationType": "ItemAdded", "ItemId": "e58e4e34025383f58942a3e8447eb6ce", "ItemType": "Episode"}'
+    payload = parse_webhook("text/plain; charset=utf-8", body)
+    assert payload is not None and payload["ItemId"] == "e58e4e34025383f58942a3e8447eb6ce"

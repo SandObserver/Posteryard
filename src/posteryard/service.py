@@ -31,9 +31,10 @@ HEARTBEAT_SECONDS = 60
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
-    """Plex posts multipart/form-data with the event JSON in the `payload` field. Raises ValueError on bad JSON."""
+    """Plex posts multipart/form-data with the event JSON in the `payload` field. Jellyfin's Webhook plugin posts the
+    JSON itself, labelled text/plain. Raises ValueError on bad JSON."""
     raw: bytes | None = None
-    if content_type.startswith("application/json"):
+    if not content_type.startswith("multipart/"):
         raw = body
     else:
         message = BytesParser(policy=policy.HTTP).parsebytes(
@@ -51,6 +52,10 @@ def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
         data = json.loads(raw)
     except RecursionError:
         raise ValueError("the payload is nested too deeply") from None
+    except ValueError:
+        if content_type.startswith(("application/json", "multipart/")):
+            raise
+        return None
     return data if isinstance(data, dict) else None
 
 
