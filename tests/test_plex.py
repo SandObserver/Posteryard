@@ -1,0 +1,120 @@
+import json
+import urllib.parse
+from collections.abc import Callable
+from typing import Any
+
+import pytest
+
+from posteryard import http
+from posteryard.plex import Plex, labels, tmdb_id
+
+BASE = "http://plex.example:32400"
+
+
+class Server:
+    """Answers Plex requests from a table of path -> JSON, and records every call."""
+
+    def __init__(self, routes: dict[str, Any]) -> None:
+        self.routes = routes
+        self.calls: list[tuple[str, str, dict[str, str]]] = []
+
+    def __call__(self, method: str, url: str, **kwargs: Any) -> bytes:
+        parts = urllib.parse.urlsplit(url)
+        query = dict(urllib.parse.parse_qsl(parts.query))
+        assert query.pop("X-Plex-Token") == "example-token"
+        self.calls.append((method, parts.path, query))
+        answer = self.routes.get(f"{method} {parts.path}", self.routes.get(parts.path))
+        if callable(answer):
+            answer = answer(query)
+        if answer is None:
+            raise http.HttpError(404, url)
+        return answer if isinstance(answer, bytes) else json.dumps({"MediaContainer": answer}).encode()
+
+
+@pytest.fixture
+def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Plex, Server]]:
+    def start(routes: dict[str, Any]) -> tuple[Plex, Server]:
+        server = Server(routes)
+        monkeypatch.setattr(http, "request", server)
+        return Plex(BASE, "example-token"), server
+
+    return start
+
+
+def test_items_children_and_a_missing_item(serve: Any) -> None:
+    plex, _ = serve(
+        {
+            "/library/sections": {"Directory": [{"key": "3", "title": "Movies"}]},
+            "/library/metadata/1": {"Metadata": [{"ratingKey": "1"}]},
+            "/library/metadata/1/children": {"Metadata": [{"ratingKey": "2"}]},
+        }
+    )
+    assert plex.sections() == [{"key": "3", "title": "Movies"}]
+    assert plex.item("1") == {"ratingKey": "1"}
+    assert plex.item("9") is None
+    assert plex.children("1") == [{"ratingKey": "2"}]
+
+
+def test_section_items_reads_every_page(serve: Any) -> None:
+    def page(query: dict[str, str]) -> dict[str, Any]:
+        start = int(query["X-Plex-Container-Start"])
+        keys = list(range(start, min(start + 200, 450)))
+        return {"totalSize": 450, "Metadata": [{"ratingKey": str(k)} for k in keys]}
+
+    plex, server = serve({"/library/sections/3/all": page})
+    assert len(list(plex.section_items("3", "movie", label="x"))) == 450
+    assert [c[2]["X-Plex-Container-Start"] for c in server.calls] == ["0", "200", "400"]
+    assert server.calls[0][2]["label"] == "x"
+
+
+def test_changed_since_merges_added_and_updated(serve: Any) -> None:
+    def changed(query: dict[str, str]) -> dict[str, Any]:
+        keys = ["1", "2"] if "addedAt>>" in query else ["2", "3"]
+        return {"totalSize": 2, "Metadata": [{"ratingKey": k} for k in keys]}
+
+    plex, _ = serve({"/library/sections/3/all": changed})
+    assert sorted(i["ratingKey"] for i in plex.changed_since("3", "show", 100)) == ["1", "2", "3"]
+
+
+def test_upload_selects_the_new_image(serve: Any) -> None:
+    listings = iter([[{"ratingKey": "old", "selected": True}], [{"ratingKey": "old"}, {"ratingKey": "new"}]])
+    plex, server = serve(
+        {
+            "GET /library/metadata/1/posters": lambda _q: {"Metadata": next(listings)},
+            "POST /library/metadata/1/posters": b"",
+            "PUT /library/metadata/1/poster": b"",
+        }
+    )
+    assert plex.upload("1", "poster", b"jpeg") == "new"
+    assert server.calls[-1] == ("PUT", "/library/metadata/1/poster", {"url": "new"})
+
+
+def test_upload_that_leaves_nothing_fails(serve: Any) -> None:
+    plex, _ = serve({"GET /library/metadata/1/arts": {"Metadata": []}, "POST /library/metadata/1/arts": b""})
+    with pytest.raises(http.RequestError, match="no art"):
+        plex.upload("1", "art", b"jpeg")
+
+
+def test_selected_poster_bytes_label_and_lock(serve: Any) -> None:
+    plex, server = serve(
+        {
+            "/library/metadata/1/posters": {"Metadata": [{"ratingKey": "a"}, {"ratingKey": "b", "selected": True}]},
+            "/library/metadata/1/thumb/5": b"image",
+            "PUT /library/sections/3/all": b"",
+        }
+    )
+    item = {"ratingKey": "1", "type": "movie", "librarySectionID": 3, "thumb": "/library/metadata/1/thumb/5"}
+    assert plex.selected("1", "poster") == "b"
+    assert plex.poster_bytes(item) == b"image"
+    with pytest.raises(http.RequestError, match="no poster"):
+        plex.poster_bytes({**item, "thumb": "https://elsewhere.example/a.jpg"})
+    plex.remove_label(item, "posteryard-next")
+    plex.lock(item, "art")
+    assert server.calls[-2][2] == {"type": "1", "id": "1", "label[].tag.tag-": "posteryard-next"}
+    assert server.calls[-1][2] == {"type": "1", "id": "1", "art.locked": "1"}
+
+
+def test_guids_and_labels() -> None:
+    assert tmdb_id({"Guid": [{"id": "imdb://tt1"}, {"id": "tmdb://42"}]}) == 42
+    assert tmdb_id({}) is None
+    assert labels({"Label": [{"tag": "Posteryard-Next"}]}) == {"posteryard-next"}

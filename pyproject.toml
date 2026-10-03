@@ -21,6 +21,7 @@ posteryard = "posteryard.cli:main"
 dev = [
     "mypy>=1.18",
     "pytest>=8.4",
+    "pytest-cov>=7",
     "resvg-py>=0.2",
     "ruff>=0.14",
 ]
@@ -58,4 +59,12 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --cov --cov-report=term-missing:skip-covered"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["posteryard"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85

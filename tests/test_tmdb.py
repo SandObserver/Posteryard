@@ -1,0 +1,69 @@
+import io
+import json
+import urllib.parse
+from typing import Any
+
+import pytest
+from PIL import Image
+
+from posteryard import http
+from posteryard.tmdb import MAX_SIDE, Tmdb
+
+
+def answer(routes: dict[str, Any]) -> Any:
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        parts = urllib.parse.urlsplit(url)
+        query = dict(urllib.parse.parse_qsl(parts.query))
+        if "api.themoviedb.org" in url:
+            assert query.pop("api_key") == "example-key"
+        body = routes.get(parts.path.removeprefix("/3"))
+        if body is None:
+            raise http.HttpError(404, url)
+        return body if isinstance(body, bytes) else json.dumps(body).encode()
+
+    return request
+
+
+def test_images_are_sorted_and_filtered(monkeypatch: pytest.MonkeyPatch) -> None:
+    raw = {
+        "posters": [
+            {"file_path": "/low.jpg", "iso_639_1": None, "vote_average": 4, "width": 2000},
+            {"file_path": "/en.jpg", "iso_639_1": "en", "vote_average": 6, "width": 2000},
+            {"file_path": "/xx.jpg", "iso_639_1": "xx", "vote_average": 5, "width": 2000},
+            {"iso_639_1": None},
+        ],
+        "backdrops": [{"file_path": "/b.jpg", "iso_639_1": None}],
+        "logos": [{"file_path": "/l.png", "iso_639_1": "en"}, {"file_path": "/l.svg", "iso_639_1": "en"}],
+    }
+    monkeypatch.setattr(http, "request", answer({"/movie/1/images": raw}))
+    images = Tmdb("example-key").images("movie", 1)
+    assert [r.path for r in images.posters] == ["/en.jpg", "/xx.jpg", "/low.jpg"]
+    assert [r.path for r in images.textless_art()] == ["/xx.jpg", "/low.jpg", "/b.jpg"]
+    assert [r.path for r in images.english_logos()] == ["/l.png"]
+
+
+def test_missing_seasons_and_episodes_are_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http, "request", answer({"/tv/1/season/2/episode/3": {"still_path": "/s.jpg"}}))
+    tmdb = Tmdb("example-key")
+    assert tmdb.season_images(1, 9).posters == []
+    assert tmdb.episode(1, 9, 1) is None
+    assert tmdb.episode(1, 2, 3) == {"still_path": "/s.jpg"}
+
+
+def test_titles_and_providers(monkeypatch: pytest.MonkeyPatch) -> None:
+    routes = {
+        "/tv/1": {"name": "Example", "original_name": "Ejemplo"},
+        "/tv/1/alternative_titles": {"results": [{"title": "Example US"}, {"title": "Example"}]},
+        "/tv/1/watch/providers": {"results": {"CA": {"flatrate": []}}},
+    }
+    monkeypatch.setattr(http, "request", answer(routes))
+    tmdb = Tmdb("example-key")
+    assert tmdb.all_titles("tv", 1) == ["Example", "Ejemplo", "Example US"]
+    assert tmdb.watch_providers("tv", 1) == {"CA": {"flatrate": []}}
+
+
+def test_images_are_shrunk(monkeypatch: pytest.MonkeyPatch) -> None:
+    buffer = io.BytesIO()
+    Image.new("RGB", (4000, 6000)).save(buffer, "JPEG")
+    monkeypatch.setattr(http, "request", answer({"/t/p/original/a.jpg": buffer.getvalue()}))
+    assert max(Tmdb.image("/a.jpg").size) <= MAX_SIDE

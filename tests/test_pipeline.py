@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import overrides, pipeline
@@ -150,3 +151,61 @@ def test_next_art_skips_the_current_picture() -> None:
 def test_without_overrides_fingerprints_stay_the_same() -> None:
     plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
     assert "override" not in plan.inputs
+
+
+class FakePlex:
+    """A show (1) with seasons 1 and 2 (11, 12), each with two episodes."""
+
+    def __init__(self) -> None:
+        show = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
+        self.items: dict[str, dict[str, Any]] = {"1": show}
+        self.kids: dict[str, list[dict[str, Any]]] = {"1": []}
+        for season in (1, 2):
+            key = str(10 + season)
+            self.items[key] = {"ratingKey": key, "type": "season", "index": season, "parentRatingKey": "1"}
+            self.kids["1"].append(self.items[key])
+            self.kids[key] = [
+                {"ratingKey": f"{key}{n}", "type": "episode", "index": n, "parentIndex": season,
+                 "grandparentRatingKey": "1", "title": f"Episode {n}"}
+                for n in (1, 2)
+            ]  # fmt: skip
+
+    def item(self, key: str) -> dict[str, Any] | None:
+        return self.items.get(key)
+
+    def children(self, key: str) -> list[dict[str, Any]]:
+        return self.kids.get(key, [])
+
+
+def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.plex = FakePlex()  # type: ignore[assignment]
+    plans = pipeline.plan_preview(ctx, "1", episodes=1)
+    assert [(p.rating_key, p.target) for p in plans] == [
+        ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
+    ]  # fmt: skip
+    still = plans[3]
+    assert still.inputs == {"design": "episode", "still": "/still-1-1.jpg", "number": 1, "title": "Episode 1"}
+    assert still.draw().size == (1920, 1080)
+    assert [p.rating_key for p in pipeline.plan_preview(ctx, "12", episodes=None)] == ["12", "121", "122"]
+
+
+def test_preview_of_a_missing_item_fails() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    with pytest.raises(pipeline.NotFoundError, match="not configured"):
+        pipeline.plan_preview(ctx, "1")
+    ctx.plex = FakePlex()  # type: ignore[assignment]
+    with pytest.raises(pipeline.NotFoundError, match="no item"):
+        pipeline.plan_preview(ctx, "99")
+
+
+def test_tmdb_preview_without_plex() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    assert [p.target for p in pipeline.plan_tmdb(ctx, "movie", 42)] == ["poster", "art"]
+    plans = pipeline.plan_tmdb(ctx, "tv", 42, [1, 3])
+    assert [p.inputs.get("label") for p in plans] == [None, None, "Season 1", "Season 3"]
+
+
+def test_a_title_without_a_tmdb_id_is_not_found() -> None:
+    with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
+        pipeline.movie(context([ref("/textless.jpg", None)]), {**ITEM, "Guid": []})

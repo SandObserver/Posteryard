@@ -209,6 +209,10 @@ def main(argv: list[str] | None = None) -> int:
             return _find(args, cfg)
         plex = Plex(cfg.plex_url, cfg.plex_token)
         store = Store(cfg.state_path)
+    except http.RequestError as exc:
+        print(exc)
+        return 1
+    try:
         worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
             return Service(cfg, plex, store, worker).run()
@@ -216,6 +220,8 @@ def main(argv: list[str] | None = None) -> int:
     except http.RequestError as exc:
         print(exc)
         return 1
+    finally:
+        store.close()
 
 
 def _change(args: argparse.Namespace, cfg: config.Config, plex: Plex, store: Store, worker: Worker) -> int:
