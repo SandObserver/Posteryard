@@ -1,14 +1,19 @@
+import math
+
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from posteryard.quality import Badge
 from posteryard.render import inforow
 from posteryard.render.layers import (
     APPLE_BOTTOM,
+    CORNER,
     NEAR_BLACK,
     WHITE,
     cover,
     draw_tracked,
     font,
+    luminance,
     mark,
     radial_shade,
     tracked_width,
@@ -24,22 +29,58 @@ LOGO_CENTRE_WITH_CAPTION = 0.72
 CAPTION_SIZE = 13 / 219
 CAPTION_Y = 0.845
 SERVICE_HEIGHT = 0.054
+SERVICE_MAX_HEIGHT = 0.085
 SERVICE_MAX_WIDTH = 0.2
 SERVICE_MARGIN = 0.044
+# Every mark covers the area of a 3.7:1 mark at SERVICE_HEIGHT, so stacked and wide marks look the same size.
+SERVICE_AREA = SERVICE_HEIGHT**2 * 3.7
+SERVICE_CONTRAST = 4.5
+SERVICE_SHADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
+SERVICE_SHADE_MAX = 0.9
+
+
+def _service_size(service: str, width: int) -> tuple[int, int]:
+    src = mark(service, 240)
+    aspect = src.width / src.height
+    height = min(math.sqrt(SERVICE_AREA / aspect), SERVICE_MAX_HEIGHT, SERVICE_MAX_WIDTH / aspect) * width
+    return max(1, round(height * aspect)), max(1, round(height))
+
+
+def _contrast_behind(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> float:
+    """WCAG contrast of white against the brightest tenth of the pixels under the mark."""
+    behind = np.asarray(canvas.crop((*at, at[0] + logo.width, at[1] + logo.height)).convert("RGB"), dtype=np.float32)
+    covered = np.asarray(logo.getchannel("A")) > 127
+    if not covered.any():
+        return 21.0
+    lum = float(np.percentile(luminance(behind[covered]), 90))
+    return 1.05 / (lum + 0.05)
+
+
+def _service_logo(service: str, width: int) -> Image.Image:
+    logo_w, logo_h = _service_size(service, width)
+    return mark(service, logo_h).resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+
+
+def _shade_for(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> Image.Image:
+    """The lightest corner shade that gives the white mark SERVICE_CONTRAST, or the darkest step."""
+    w, h = canvas.size
+    centre = (at[0] + logo.width / 2, at[1] + logo.height / 2)
+    radii = (max(logo.width * 1.8, w * 0.4), max(logo.height * 4, h * 0.14))
+    shaded = canvas
+    for strength in SERVICE_SHADE_STEPS:
+        stops = [(x, min(a * strength, SERVICE_SHADE_MAX)) for x, a in CORNER]
+        shaded = canvas.copy()
+        shaded.alpha_composite(radial_shade(canvas.size, centre, radii, stops))
+        if _contrast_behind(shaded, logo, at) >= SERVICE_CONTRAST:
+            break
+    return shaded
 
 
 def _service(canvas: Image.Image, service: str) -> None:
-    w, h = canvas.size
-    margin = round(SERVICE_MARGIN * w)
-    logo = mark(service, round(SERVICE_HEIGHT * w))
-    max_w = round(SERVICE_MAX_WIDTH * w)
-    if logo.width > max_w:
-        logo = logo.resize((max_w, max(1, round(logo.height * max_w / logo.width))), Image.Resampling.LANCZOS)
-    x, y = margin, margin
-    canvas.alpha_composite(
-        radial_shade(canvas.size, (margin, margin), (max(logo.width * 2.2, w * 0.4), max(logo.height * 4, h * 0.14)))
-    )
-    canvas.alpha_composite(logo, (x, y))
+    margin = round(SERVICE_MARGIN * canvas.width)
+    logo = _service_logo(service, canvas.width)
+    canvas.paste(_shade_for(canvas, logo, (margin, margin)))
+    canvas.alpha_composite(logo, (margin, margin))
 
 
 def tile_poster(

@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Look up streaming services in the US by default; set `STREAMING_REGIONS` for another country.
+- Give every streaming service mark the same visual size, so stacked marks such as HBO Max are no longer small, and darken the corner behind it until the white mark reaches 4.5:1 contrast.
 - Move the streaming service mark to the top left corner, where Plex's unwatched count and watched checkmark do not cover it.
 
 ### Fixed

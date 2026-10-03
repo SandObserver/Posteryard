@@ -84,3 +84,26 @@ def test_service_mark_sits_top_left() -> None:
     w, h = designs.POSTER
     assert cols.max() < w / 2
     assert rows.max() < h / 3
+
+
+def test_stacked_marks_are_taller_than_wide_ones() -> None:
+    w = designs.POSTER[0]
+    hbo_w, hbo_h = designs._service_size("hbomax", w)
+    netflix_w, netflix_h = designs._service_size("netflix", w)
+    assert hbo_h > netflix_h
+    assert abs(hbo_w * hbo_h - netflix_w * netflix_h) / (netflix_w * netflix_h) < 0.05
+
+
+def test_service_mark_reaches_contrast_on_light_art() -> None:
+    canvas = Image.new("RGBA", designs.POSTER, (245, 245, 245, 255))
+    logo = designs._service_logo("hbomax", designs.POSTER[0])
+    at = (44, 44)
+    assert designs._contrast_behind(canvas, logo, at) < 1.1
+    assert designs._contrast_behind(designs._shade_for(canvas, logo, at), logo, at) >= designs.SERVICE_CONTRAST
+
+
+def test_service_shade_stays_light_on_dark_art() -> None:
+    canvas = Image.new("RGBA", designs.POSTER, (20, 20, 20, 255))
+    logo = designs._service_logo("netflix", designs.POSTER[0])
+    shaded = designs._shade_for(canvas, logo, (44, 44))
+    assert designs._contrast_behind(shaded, logo, (44, 44)) >= designs.SERVICE_CONTRAST
