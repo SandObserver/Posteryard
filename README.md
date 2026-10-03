@@ -186,6 +186,8 @@ Check the setup with `docker exec posteryard posteryard test-alert`. Posteryard 
 
 ## Monitoring
 
+Open `http://SERVER-IP:8000/` for the status page: health, the last sweep and full pass, failures with their errors, and the 50 latest images. It is read-only and refreshes every minute. It shows your library's titles, so keep port 8000 inside your network.
+
 The image has a Docker health check. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, it sends an alert and exits, and `restart: unless-stopped` starts it again.
 
 `GET /healthz` answers `200` when healthy and `503` when not:

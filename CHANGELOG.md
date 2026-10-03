@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add a status page at `/` with health, schedule, failures and the latest images.
 - Publish the image for 64-bit ARM hosts, such as a Raspberry Pi 4 or 5, as well as x86.
 
 ### Changed

@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import http, overrides, pipeline
+from posteryard import http, overrides, pipeline, statuspage
 from posteryard.config import Config
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
@@ -186,6 +186,7 @@ class Worker:
             self.cfg.preview_dir.mkdir(parents=True, exist_ok=True)
             image.convert("RGB").save(self.cfg.preview_dir / f"{key}-{target}.jpg", quality=JPEG_QUALITY)
             self.store.previewed(key, target, plan.name, plan.fingerprint)
+            statuspage.save_thumb(self.cfg.thumbs_dir, key, target, image)
             log.info("previewed %s %s (%s)", target, plan.name, "; ".join(plan.notes))
             return Outcome.PREVIEW
         image_key = self.plex.upload(key, target, jpeg(image))
@@ -194,6 +195,7 @@ class Worker:
         except http.RequestError as exc:
             log.warning("could not lock the %s for %s: %s", target, plan.name, exc)
         self.store.uploaded(key, target, plan.name, plan.fingerprint, image_key)
+        statuspage.save_thumb(self.cfg.thumbs_dir, key, target, image)
         log.info("uploaded %s %s (%s)", target, plan.name, "; ".join(plan.notes))
         return Outcome.UPLOADED
 
