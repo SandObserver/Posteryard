@@ -1,24 +1,34 @@
 """The day Maintainerr acts on each Plex item."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any
 
 from posteryard import http
 
 
-def action_days(collections: Iterable[Mapping[str, Any]]) -> dict[str, date]:
+def action_days(collections: Any) -> dict[str, date]:
+    if not isinstance(collections, list):
+        raise ValueError("Maintainerr did not return a list of collections")
     out: dict[str, date] = {}
     for collection in collections:
-        days = collection.get("deleteAfterDays")
-        if not collection.get("isActive") or not days:
+        if not isinstance(collection, Mapping):
             continue
-        for media in collection.get("media") or []:
+        days = collection.get("deleteAfterDays")
+        media_list = collection.get("media")
+        if not collection.get("isActive") or not days or not isinstance(media_list, list):
+            continue
+        for media in media_list:
+            if not isinstance(media, Mapping):
+                continue
             key = str(media.get("mediaServerId") or media.get("plexId") or "")
             added = media.get("addDate")
             if not key or not added:
                 continue
-            day = datetime.fromisoformat(str(added).replace("Z", "+00:00")).date() + timedelta(days=int(days))
+            try:
+                day = datetime.fromisoformat(str(added).replace("Z", "+00:00")).date() + timedelta(days=int(days))
+            except OverflowError:
+                continue
             out[key] = min(day, out.get(key, day))
     return out
 
