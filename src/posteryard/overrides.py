@@ -1,5 +1,3 @@
-"""Per-title art overrides: custom art supplied by the user, or images to skip."""
-
 import hashlib
 import io
 import ipaddress

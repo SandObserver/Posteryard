@@ -1,5 +1,3 @@
-"""Read the text printed on artwork."""
-
 import atexit
 import multiprocessing
 from collections.abc import Iterable, Sequence

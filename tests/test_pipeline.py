@@ -36,9 +36,6 @@ class FakeTmdb:
     def season_images(self, tid: int, season: int) -> Images:
         return Images([ref(f"/season{season}.jpg", None)] if season in (1, 3) else [], [], [])
 
-    def english_titles(self, kind: str, tid: int) -> list[str]:
-        return ["Example Movie"]
-
     def all_titles(self, kind: str, tid: int) -> list[str]:
         return ["Example Movie", "Película de Ejemplo"]
 

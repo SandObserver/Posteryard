@@ -1,5 +1,3 @@
-"""The poster, episode and background designs."""
-
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from posteryard.quality import Badge

@@ -1,5 +1,3 @@
-"""The day Maintainerr acts on each Plex item."""
-
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta
 from typing import Any

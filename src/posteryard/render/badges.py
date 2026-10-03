@@ -1,5 +1,3 @@
-"""Quality badges in Apple's style: brand marks for Dolby, text boxes for the rest."""
-
 from PIL import Image, ImageDraw
 
 from posteryard.quality import Badge

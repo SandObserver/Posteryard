@@ -1,5 +1,3 @@
-"""The row under the title logo: quality badges at the bottom, the Maintainerr label above them."""
-
 from dataclasses import dataclass
 
 from PIL import Image, ImageDraw
@@ -11,17 +9,11 @@ from posteryard.render.layers import APPLE_RED, WHITE, draw_tracked, font, track
 LABEL_TRACKING = 0.08
 
 
-@dataclass(frozen=True)
-class RowLayout:
-    """Sizes as fractions of the poster width; `bottom` is the badge row's centre as a fraction of the height."""
-
-    row: float = 0.046
-    badge_gap: float = 0.018
-    row_gap: float = 0.016
-    bottom: float = 0.945
-
-
-DEFAULT = RowLayout()
+# Sizes are fractions of the poster width. BOTTOM is the badge row's centre as a fraction of the height.
+ROW = 0.046
+BADGE_GAP = 0.018
+ROW_GAP = 0.016
+BOTTOM = 0.945
 
 
 @dataclass(frozen=True)
@@ -34,20 +26,20 @@ class Placed:
     height: int
 
 
-def layout(badges: list[Badge], leaving: str | None, size: tuple[int, int], spec: RowLayout = DEFAULT) -> list[Placed]:
+def layout(badges: list[Badge], leaving: str | None, size: tuple[int, int]) -> list[Placed]:
     """Badges keep one spot on every poster. The label sits above them, or in their spot when there are none."""
     width, height = size
-    row = round(spec.row * width)
-    centre_y = round(spec.bottom * height)
+    row = round(ROW * width)
+    centre_y = round(BOTTOM * height)
     placed: list[Placed] = []
     if badges:
         images = [badge(kind, row) for kind in badges]
-        gap = round(spec.badge_gap * width)
+        gap = round(BADGE_GAP * width)
         x = (width - (sum(i.width for i in images) + gap * (len(images) - 1))) // 2
         for img in images:
             placed.append(Placed(img, None, x, centre_y - img.height // 2, img.width, img.height))
             x += img.width + gap
-        centre_y -= row + round(spec.row_gap * width)
+        centre_y -= row + round(ROW_GAP * width)
     if leaving:
         face = font("SemiBold", round(row * 0.7))
         dot = round(row * 0.42)
@@ -56,10 +48,10 @@ def layout(badges: list[Badge], leaving: str | None, size: tuple[int, int], spec
     return placed
 
 
-def draw(canvas: Image.Image, badges: list[Badge], leaving: str | None, spec: RowLayout = DEFAULT) -> None:
+def draw(canvas: Image.Image, badges: list[Badge], leaving: str | None) -> None:
     pen = ImageDraw.Draw(canvas)
-    row = round(spec.row * canvas.width)
-    for p in layout(badges, leaving, canvas.size, spec):
+    row = round(ROW * canvas.width)
+    for p in layout(badges, leaving, canvas.size):
         if p.image is not None:
             canvas.alpha_composite(p.image, (p.x, p.y))
         elif p.text is not None:

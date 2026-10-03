@@ -1,5 +1,3 @@
-"""Process one Plex item: plan, skip what is unchanged, render, then preview or upload."""
-
 import io
 import json
 import logging

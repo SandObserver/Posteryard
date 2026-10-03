@@ -1,5 +1,3 @@
-"""Settings from the environment."""
-
 import os
 import re
 from collections.abc import Mapping
@@ -117,7 +115,6 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
 
 
 def require_service(cfg: Config) -> None:
-    """The extra settings `serve` needs."""
     missing = [name for name, value in (("PLEX_URL", cfg.plex_url), ("PLEX_TOKEN", cfg.plex_token),
                                         ("WEBHOOK_SECRET", cfg.webhook_secret)) if not value]  # fmt: skip
     if missing:

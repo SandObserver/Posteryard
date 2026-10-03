@@ -1,5 +1,3 @@
-"""TMDB lookups and image downloads."""
-
 import io
 import urllib.parse
 from collections.abc import Mapping, Sequence
@@ -17,7 +15,6 @@ IMAGES = "https://image.tmdb.org/t/p"
 MAX_SIDE = 2160
 # Larger images are refused before decoding. Decoding one costs about 3 bytes per pixel.
 MAX_PIXELS = 50_000_000
-ENGLISH_REGIONS = frozenset({"US", "CA", "GB", "AU", "IE", "NZ"})
 
 
 @dataclass(frozen=True)
@@ -51,9 +48,6 @@ class Images:
     posters: list[ImageRef]
     backdrops: list[ImageRef]
     logos: list[ImageRef]
-
-    def english_posters(self) -> list[ImageRef]:
-        return [r for r in self.posters if r.language == "en"]
 
     def textless_posters(self) -> list[ImageRef]:
         return [r for r in self.posters if r.language in (None, "xx")]
@@ -100,16 +94,6 @@ class Tmdb:
                 return None
             raise
         return data
-
-    def english_titles(self, kind: Kind, tmdb_id: int) -> list[str]:
-        """The title plus alternative titles used in English-speaking regions."""
-        details = self.details(kind, tmdb_id)
-        titles = [str(details.get("title") or details.get("name") or "")]
-        raw = self._get(f"/{kind}/{tmdb_id}/alternative_titles")
-        for alt in raw.get("titles") or raw.get("results") or []:
-            if alt.get("iso_3166_1") in ENGLISH_REGIONS:
-                titles.append(str(alt.get("title", "")))
-        return [t for t in dict.fromkeys(titles) if t]
 
     def all_titles(self, kind: Kind, tmdb_id: int) -> list[str]:
         details = self.details(kind, tmdb_id)
