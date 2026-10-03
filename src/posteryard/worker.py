@@ -58,6 +58,7 @@ class Worker:
             {},
             date.today(),
             plex,
+            labels=cfg.status_labels,
             choices=store,
             overrides=store.override,
         )

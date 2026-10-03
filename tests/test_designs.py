@@ -1,8 +1,11 @@
+from typing import Any
+
 import numpy as np
+import pytest
 from PIL import Image, ImageChops
 
 from posteryard.quality import Badge
-from posteryard.render import designs, inforow
+from posteryard.render import designs, lines
 from posteryard.render.layers import cover
 
 
@@ -19,45 +22,68 @@ def bright_rows(image: Image.Image) -> np.ndarray:
     return np.flatnonzero(grey.max(axis=1) > 200)
 
 
-def test_logo_fits_apples_box() -> None:
-    out = designs.tile_poster(art(), logo(), caption=None, badges=[], leaving=None, service=None)
+def tile(colour: tuple[int, int, int] = (0, 0, 0), **kwargs: Any) -> Image.Image:
+    kwargs.setdefault("lines_below", [])
+    return designs.tile_poster(art(colour=colour), logo(), **kwargs)
+
+
+def test_logo_bottom_sits_on_apples_line_without_lines() -> None:
+    out = tile()
     assert out.size == designs.POSTER
     box = Image.eval(out.convert("L"), lambda v: 255 if v > 200 else 0).getbbox()
     assert box is not None
     w, h = designs.POSTER
     assert box[2] - box[0] <= designs.LOGO_BOX[0] * w + 2
-    assert abs((box[1] + box[3]) / 2 - designs.LOGO_CENTRE * h) <= 2
+    assert abs(box[3] - lines.LOGO_ALONE * h) <= 2
 
 
-def test_caption_lifts_the_logo() -> None:
-    plain = designs.tile_poster(art(), logo(), caption=None, badges=[], leaving=None, service=None)
-    captioned = designs.tile_poster(art(), logo(), caption="Season 2", badges=[], leaving=None, service=None)
-    assert bright_rows(captioned).min() < bright_rows(plain).min()
+def test_one_line_lifts_the_logo_to_apples_caption_spot() -> None:
+    bottom, centres = lines.stack([lines.Caption("Specials")])
+    assert bottom == pytest.approx(0.828)
+    assert centres == [lines.LAST_LINE]
 
 
-def test_badges_and_label_sit_under_the_logo() -> None:
-    plain = designs.tile_poster(art(), logo(), caption=None, badges=[], leaving=None, service=None)
-    out = designs.tile_poster(
-        art(), logo(), caption=None, badges=[Badge.UHD, Badge.DOLBY_ATMOS], leaving="LEAVING IN 3 DAYS", service=None
-    )
-    diff = np.asarray(ImageChops.difference(out, plain).convert("L"))
-    rows = np.flatnonzero(diff.max(axis=1) > 8)
-    assert rows.min() > designs.POSTER[1] * 0.83
+def test_more_lines_push_the_logo_up_and_keep_the_order() -> None:
+    label = lines.Label("LEAVING IN 3 DAYS", (255, 0, 0))
+    quality = lines.Badges((Badge.UHD, Badge.DOLBY_VISION))
+    access = lines.Badges((Badge.SDH, Badge.CC))
+    bottom, centres = lines.stack([label, quality, access])
+    assert centres == sorted(centres)
+    assert centres[-1] == lines.LAST_LINE
+    assert bottom < lines.stack([label])[0]
+    assert bottom > 0.7
 
 
-def test_badges_keep_their_place_when_a_label_is_added() -> None:
-    alone = inforow.layout([Badge.UHD, Badge.DOLBY_VISION], None, designs.POSTER)
-    with_label = inforow.layout([Badge.UHD, Badge.DOLBY_VISION], "LEAVING IN 3 DAYS", designs.POSTER)
-    assert [(p.x, p.y) for p in alone] == [(p.x, p.y) for p in with_label[:2]]
-    label = with_label[2]
-    assert label.y + label.height <= with_label[0].y
+def test_caption_is_translucent() -> None:
+    out = tile(lines_below=[lines.Caption("Specials")])
+    h = designs.POSTER[1]
+    band = np.asarray(out.convert("L"))[round(0.88 * h) : round(0.93 * h)]
+    assert 100 < band.max() < 180
 
 
-def test_label_takes_the_badge_spot_without_badges() -> None:
-    badge_row = inforow.layout([Badge.UHD], None, designs.POSTER)[0]
-    label = inforow.layout([], "LEAVING IN 3 DAYS", designs.POSTER)[0]
-    assert abs((label.y + label.height / 2) - (badge_row.y + badge_row.height / 2)) <= 1
-    assert inforow.layout([], None, designs.POSTER) == []
+def test_label_draws_its_dot_in_its_colour() -> None:
+    out = np.asarray(tile(lines_below=[lines.Label("JUST ADDED", (48, 209, 88))]))
+    h = designs.POSTER[1]
+    row = out[round(lines.LAST_LINE * h)]
+    assert any(r < 80 and g > 180 and b < 120 for r, g, b in row)
+
+
+def test_wide_badge_rows_shrink_to_fit() -> None:
+    kinds = (Badge.UHD, Badge.HDR10_PLUS, Badge.DTS_X, Badge.SURROUND_7_1, Badge.SDH, Badge.CC, Badge.AD)
+    out = np.asarray(tile(colour=(0, 0, 0), lines_below=[lines.Badges(kinds)]).convert("L"))
+    cols = np.flatnonzero(out[round(0.89 * designs.POSTER[1]) : round(0.92 * designs.POSTER[1])].max(axis=0) > 100)
+    assert cols.max() - cols.min() <= lines.MAX_ROW * designs.POSTER[0] + 2
+
+
+def test_season_number_sits_top_left_and_fades() -> None:
+    out = np.asarray(tile(number=4).convert("L"))
+    w, h = designs.POSTER
+    rows = np.flatnonzero(out[: h // 3, : w // 3].max(axis=1) > 100)
+    cols = np.flatnonzero(out[: h // 3, : w // 3].max(axis=0) > 100)
+    assert abs(rows.min() - designs.NUMBER_AT[1] * h) <= 2
+    assert abs(cols.min() - designs.NUMBER_AT[0] * w) <= 2
+    assert abs((rows.max() - rows.min()) - designs.NUMBER_CAP * h) <= 0.01 * h
+    assert out[rows.min() + 5, : w // 3].max() > out[rows.max() - 3, : w // 3].max()
 
 
 def test_episode_still_keeps_the_top_and_writes_the_bottom() -> None:
@@ -74,10 +100,8 @@ def test_long_episode_titles_are_shortened() -> None:
 
 
 def test_service_mark_sits_top_left() -> None:
-    plain = designs.tile_poster(art(colour=(90, 90, 90)), logo(), caption=None, badges=[], leaving=None, service=None)
-    out = designs.tile_poster(
-        art(colour=(90, 90, 90)), logo(), caption=None, badges=[], leaving=None, service="netflix"
-    )
+    plain = tile(colour=(90, 90, 90))
+    out = tile(colour=(90, 90, 90), service="netflix")
     diff = np.asarray(ImageChops.difference(out, plain).convert("L"))
     cols = np.flatnonzero(diff.max(axis=0) > 8)
     rows = np.flatnonzero(diff.max(axis=1) > 8)

@@ -63,6 +63,18 @@ class Plex:
             if not items or start >= int(page.get("totalSize", start)):
                 return
 
+    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+        """The latest `addedAt` among matching items, such as the episodes of one show with `show.id`."""
+        page = self._get(
+            f"/library/sections/{_key(section_key)}/all",
+            type=TYPE_IDS[kind],
+            sort="addedAt:desc",
+            **filters,
+            **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1},
+        )
+        items = page.get("Metadata") or []
+        return int(items[0]["addedAt"]) if items and items[0].get("addedAt") else None
+
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         """Items added or updated after a Unix time. A replaced file only changes `updatedAt`."""
         added = list(self.section_items(section_key, kind, **{"addedAt>>": since}))

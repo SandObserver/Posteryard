@@ -35,6 +35,9 @@ class Badge(StrEnum):
     DTS_X = "dtsx"
     SURROUND_7_1 = "7.1"
     SURROUND_5_1 = "5.1"
+    SDH = "sdh"
+    CC = "cc"
+    AD = "ad"
 
 
 VIDEO_RANK = {VideoLevel.OFF: 0, VideoLevel.HD: 1, VideoLevel.FULL_HD: 2, VideoLevel.UHD: 3}

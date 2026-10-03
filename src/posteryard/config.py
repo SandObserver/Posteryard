@@ -26,6 +26,7 @@ class Config:
     maintainerr_url: str
     regions: tuple[str, ...]
     quality: QualityMinimums
+    status_labels: bool
     data_dir: Path
     libraries: tuple[str, ...]
     dry_run: bool
@@ -114,6 +115,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
             hdr=_choice(env, "QUALITY_MIN_HDR", "hdr10", HdrLevel),
             audio=_choice(env, "QUALITY_MIN_AUDIO", "atmos", AudioLevel),
         ),
+        status_labels=_bool(env, "STATUS_LABELS", default=True),
         data_dir=Path(env.get("DATA_DIR", "data")),
         libraries=libraries,
         dry_run=_bool(env, "DRY_RUN", default=True),

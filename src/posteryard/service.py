@@ -179,6 +179,7 @@ class Service:
                 "libraries": cfg.libraries,
                 "regions": cfg.regions,
                 "quality": [cfg.quality.video, cfg.quality.hdr, cfg.quality.audio],
+                "status_labels": cfg.status_labels,
             },
             sort_keys=True,
         )

@@ -3,15 +3,13 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from posteryard.quality import Badge
-from posteryard.render import inforow
+from posteryard.render import lines
 from posteryard.render.layers import (
     APPLE_BOTTOM,
     CORNER,
     NEAR_BLACK,
     WHITE,
     cover,
-    draw_tracked,
     font,
     luminance,
     mark,
@@ -23,11 +21,12 @@ from posteryard.render.layers import (
 POSTER = (1000, 1500)
 WIDE = (1920, 1080)
 
-LOGO_BOX = (0.687, 0.151)
-LOGO_CENTRE = 0.755
-LOGO_CENTRE_WITH_CAPTION = 0.72
-CAPTION_SIZE = 13 / 219
-CAPTION_Y = 0.845
+LOGO_BOX = (0.66, 0.151)
+# Apple's Top 10 rank digit: left and top edges, cap height, and white fading in the lower half.
+NUMBER_AT = (0.07, 0.05)
+NUMBER_CAP = 0.12
+NUMBER_FADE = ((0.0, 0.90), (0.5, 0.90), (1.0, 0.53))
+NUMBER_SHADE: tuple[tuple[float, float], ...] = ((0.0, 0.40), (0.5, 0.20), (1.0, 0.0))
 SERVICE_HEIGHT = 0.054
 SERVICE_MAX_HEIGHT = 0.085
 SERVICE_MAX_WIDTH = 0.2
@@ -83,14 +82,31 @@ def _service(canvas: Image.Image, service: str) -> None:
     canvas.alpha_composite(logo, (margin, margin))
 
 
+def _season_number(canvas: Image.Image, number: int) -> None:
+    w, h = canvas.size
+    canvas.alpha_composite(radial_shade(canvas.size, (0, 0), (0.58 * w, 0.42 * h), NUMBER_SHADE))
+    glyphs = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(glyphs).text(
+        (w // 4, h // 4), str(number), font=font("Bold", round(NUMBER_CAP * h / 0.727)), fill=255
+    )
+    box = glyphs.getbbox()
+    if box is None:
+        return
+    glyphs = glyphs.crop(box)
+    xs, alphas = zip(*NUMBER_FADE, strict=True)
+    fade = np.interp(np.linspace(0, 1, glyphs.height), xs, alphas)[:, None]
+    layer = Image.new("RGBA", glyphs.size, (*WHITE, 0))
+    layer.putalpha(Image.fromarray((np.asarray(glyphs, dtype=np.float32) * fade).astype(np.uint8)))
+    canvas.alpha_composite(layer, (round(NUMBER_AT[0] * w), round(NUMBER_AT[1] * h)))
+
+
 def tile_poster(
     art: Image.Image,
     logo: Image.Image,
     *,
-    caption: str | None,
-    badges: list[Badge],
-    leaving: str | None,
-    service: str | None,
+    lines_below: list[lines.Line],
+    number: int | None = None,
+    service: str | None = None,
 ) -> Image.Image:
     canvas = cover(art, *POSTER).convert("RGBA")
     w, h = canvas.size
@@ -100,20 +116,13 @@ def tile_poster(
     logo = logo.resize(
         (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
     )
-    centre = (LOGO_CENTRE_WITH_CAPTION if caption else LOGO_CENTRE) * h
-    canvas.alpha_composite(logo, ((w - logo.width) // 2, round(centre - logo.height / 2)))
-    if caption:
-        draw_tracked(
-            ImageDraw.Draw(canvas),
-            (w / 2, CAPTION_Y * h),
-            caption,
-            font("Regular", round(CAPTION_SIZE * h)),
-            (*WHITE, 179),
-            align="centre",
-        )
+    logo_bottom, centres = lines.stack(lines_below)
+    canvas.alpha_composite(logo, ((w - logo.width) // 2, round(logo_bottom * h) - logo.height))
+    lines.draw(canvas, lines_below, centres)
+    if number is not None:
+        _season_number(canvas, number)
     if service:
         _service(canvas, service)
-    inforow.draw(canvas, badges, leaving)
     return canvas.convert("RGB")
 
 
