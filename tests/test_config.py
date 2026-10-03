@@ -8,7 +8,7 @@ from posteryard.quality import AudioLevel, HdrLevel, VideoLevel
 
 def test_defaults() -> None:
     cfg = load({"TMDB_API_KEY": "example"})
-    assert cfg.regions == ("CA", "US")
+    assert cfg.regions == ("US",)
     assert (cfg.quality.video, cfg.quality.hdr, cfg.quality.audio) == (VideoLevel.UHD, HdrLevel.HDR10, AudioLevel.ATMOS)
 
 

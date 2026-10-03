@@ -84,7 +84,7 @@ Add any of these under `environment:`.
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
-| `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins. | `CA,US` |
+| `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins, such as `CA,US` for Canada with a US fallback. | `US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
 | `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
