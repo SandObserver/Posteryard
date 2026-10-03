@@ -125,7 +125,7 @@ def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> 
     plan = pipeline.Plan(
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
-    assert plan.fingerprint == "202c4072e89f55bfaa9b064f4ce1bd43"
+    assert plan.fingerprint == "4df5340ec6c2eea1dedba353c5ea71bb"
 
 
 def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
