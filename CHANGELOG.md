@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Recheck known titles missing from a full pass one by one instead of forgetting them, so manual changes survive a Plex or settings hiccup.
 - Stop a full pass and alert when no Plex library matches `PLEX_LIBRARIES`, and reject an empty `PLEX_LIBRARIES`.
 - Ignore malformed Maintainerr answers instead of failing every title.
+- Answer malformed webhook requests with an error instead of dropping the connection.
+- Refuse images over 50 megapixels and downloads over 64 MB before they use up the container's memory.
+- Reject settings and rating keys written with non-ASCII digits.
 
 ## [0.3.1] - 2026-10-02
 

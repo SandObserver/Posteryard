@@ -33,7 +33,16 @@ def test_service_settings() -> None:
     assert load({"TMDB_API_KEY": "example"}).dry_run is True
 
 
-@pytest.mark.parametrize(("name", "value"), [("DRY_RUN", "maybe"), ("DAILY_AT", "25:00"), ("SWEEP_MINUTES", "0")])
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("DRY_RUN", "maybe"),
+        ("DAILY_AT", "25:00"),
+        ("SWEEP_MINUTES", "0"),
+        ("SWEEP_MINUTES", "²"),
+        ("LISTEN_PORT", "٨٠"),
+    ],
+)
 def test_bad_service_settings(name: str, value: str) -> None:
     with pytest.raises(ConfigError, match=name):
         load({"TMDB_API_KEY": "example", name: value})

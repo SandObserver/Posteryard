@@ -134,8 +134,12 @@ def labels(item: Item) -> set[str]:
     return {str(label.get("tag", "")).lower() for label in item.get("Label") or []}
 
 
+def is_rating_key(text: str) -> bool:
+    return text.isascii() and text.isdigit()
+
+
 def _key(rating_key: str) -> str:
-    if not rating_key.isdigit():
+    if not is_rating_key(rating_key):
         raise ValueError(f"not a Plex rating key: {rating_key!r}")
     return rating_key
 

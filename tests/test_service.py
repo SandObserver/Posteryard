@@ -1,6 +1,8 @@
+import http.client
 import json
 import threading
 import time
+from http.server import ThreadingHTTPServer
 from pathlib import Path
 
 import pytest
@@ -25,9 +27,19 @@ def test_json_webhook_and_garbage() -> None:
     assert parse_webhook("text/plain", b"hello") is None
 
 
+def test_a_webhook_body_that_is_not_an_object_is_refused() -> None:
+    assert parse_webhook("application/json", b"[1, 2]") is None
+    assert parse_webhook("application/json", b'"text"') is None
+    with pytest.raises(ValueError):
+        parse_webhook("application/json", b"\xff\xfe")
+    with pytest.raises(ValueError, match="nested"):
+        parse_webhook("application/json", b"[" * 100_000 + b"]" * 100_000)
+
+
 def test_an_episode_brings_its_season_and_show() -> None:
     assert related_keys({"ratingKey": 7, "parentRatingKey": 6, "grandparentRatingKey": 5}) == ["7", "6", "5"]
     assert related_keys({"ratingKey": "9"}) == ["9"]
+    assert related_keys("x") == []
 
 
 class FakePlex:
@@ -156,3 +168,32 @@ def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path
     service.full()
     assert sorted(key for key, _ in service.queue.queue) == ["1", "2", "5"]
     assert service.store.get("5", "poster") is not None
+
+
+def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
+    service = Service(cfg, FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    server = ThreadingHTTPServer(("127.0.0.1", 0), service.handler())
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    port = server.server_address[1]
+
+    def post(path: str, body: bytes, headers: dict[str, str]) -> int:
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        connection.request("POST", path, body, headers)
+        status = connection.getresponse().status
+        connection.close()
+        return status
+
+    json_type = {"Content-Type": "application/json"}
+    good = b'{"event": "library.new", "Metadata": {"ratingKey": "7"}}'
+    try:
+        assert post("/webhook/wrong", good, json_type) == 404
+        assert post("/webhook/example-secret", b"[1]", json_type) == 200
+        assert post("/webhook/example-secret", b"{", json_type) == 400
+        assert post("/webhook/example-secret", b'{"event": "library.new", "Metadata": "x"}', json_type) == 200
+        assert post("/webhook/example-secret", good, {**json_type, "Content-Length": "abc"}) == 413
+        assert post("/webhook/example-secret", good, json_type) == 200
+        assert [key for key, _ in service.queue.queue] == ["7"]
+    finally:
+        server.shutdown()
+        server.server_close()

@@ -14,6 +14,7 @@ log = logging.getLogger(__name__)
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 SECRET_PARAMS = frozenset({"x-plex-token", "api_key", "token", "apikey"})
 USER_AGENT = "Posteryard"
+MAX_RESPONSE = 64 * 1024 * 1024
 
 
 class RequestError(Exception):
@@ -56,8 +57,10 @@ def request(
                 url, data=data, method=method, headers={"User-Agent": USER_AGENT, **(headers or {})}
             )
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                body: bytes = resp.read()
-                return body
+                body: bytes = resp.read(MAX_RESPONSE + 1)
+            if len(body) > MAX_RESPONSE:
+                raise RequestError("response larger than 64 MB", url)
+            return body
         except urllib.error.HTTPError as exc:
             text = exc.read().decode("utf-8", "replace")
             if exc.code not in RETRY_STATUSES or attempt == retries:

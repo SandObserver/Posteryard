@@ -15,6 +15,8 @@ API = "https://api.themoviedb.org/3"
 IMAGES = "https://image.tmdb.org/t/p"
 # The largest side any design draws: a 1500 px poster, a 1920 px background, with margin for crops.
 MAX_SIDE = 2160
+# Larger images are refused before decoding. Decoding one costs about 3 bytes per pixel.
+MAX_PIXELS = 50_000_000
 ENGLISH_REGIONS = frozenset({"US", "CA", "GB", "AU", "IE", "NZ"})
 
 
@@ -122,10 +124,21 @@ class Tmdb:
 
     @staticmethod
     def image(path: str, size: str = "original") -> Image.Image:
-        """Decoded and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory."""
-        body = http.request("GET", f"{IMAGES}/{size}{path}", timeout=60)
-        image = Image.open(io.BytesIO(body))
-        image.draft("RGB", (MAX_SIDE, MAX_SIDE))
-        image.load()
-        image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-        return image
+        return open_image(http.request("GET", f"{IMAGES}/{size}{path}", timeout=60))
+
+
+def open_image(data: bytes) -> Image.Image:
+    """Decoded and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory.
+
+    Raises ValueError for an image over MAX_PIXELS and OSError for data that is not an image.
+    """
+    try:
+        image = Image.open(io.BytesIO(data))
+    except Image.DecompressionBombError:
+        raise ValueError("the image has too many pixels") from None
+    if image.width * image.height > MAX_PIXELS:
+        raise ValueError(f"the image is too large: {image.width} x {image.height} pixels")
+    image.draft("RGB", (MAX_SIDE, MAX_SIDE))
+    image.load()
+    image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+    return image

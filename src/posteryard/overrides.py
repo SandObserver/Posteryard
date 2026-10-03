@@ -10,7 +10,8 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from posteryard import http
-from posteryard.tmdb import MAX_SIDE
+from posteryard.plex import is_rating_key
+from posteryard.tmdb import open_image
 
 CUSTOM_LABEL = "posteryard-custom"
 NEXT_LABEL = "posteryard-next"
@@ -34,13 +35,11 @@ def decode(data: bytes) -> Image.Image:
     if len(data) > MAX_DOWNLOAD:
         raise ArtError("the image is larger than 40 MB")
     try:
-        source = Image.open(io.BytesIO(data))
-        source.draft("RGB", (MAX_SIDE, MAX_SIDE))
-        image = source.convert("RGB")
+        return open_image(data).convert("RGB")
+    except ValueError as exc:
+        raise ArtError(str(exc)) from None
     except (UnidentifiedImageError, OSError) as exc:
         raise ArtError(f"not a readable image: {exc}") from None
-    image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
-    return image
 
 
 def from_url(url: str) -> Image.Image:
@@ -66,6 +65,8 @@ def from_file(path: Path) -> Image.Image:
 
 def save(image: Image.Image, data_dir: Path, rating_key: str) -> Path:
     """Store the art under a name that changes with its content, so the fingerprint changes with it."""
+    if not is_rating_key(rating_key):
+        raise ArtError(f"not a Plex rating key: {rating_key!r}")
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, "JPEG", quality=92)
     data = buffer.getvalue()

@@ -10,7 +10,7 @@ from pathlib import Path
 from posteryard import __version__, config, http, memory, overrides, pipeline
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.plex import Plex
+from posteryard.plex import Plex, is_rating_key
 from posteryard.service import Service
 from posteryard.store import Store
 from posteryard.tmdb import Kind, Tmdb
@@ -67,7 +67,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _keys_ok(keys: list[str]) -> bool:
-    bad = [key for key in keys if not key.isdigit()]
+    bad = [key for key in keys if not is_rating_key(key)]
     if bad:
         log.error("rating keys are numbers, not %s", ", ".join(bad))
     return not bad

@@ -31,22 +31,33 @@ TICK = 30
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
-    """Plex posts multipart/form-data with the event JSON in the `payload` field."""
+    """Plex posts multipart/form-data with the event JSON in the `payload` field. Raises ValueError on bad JSON."""
+    raw: bytes | None = None
     if content_type.startswith("application/json"):
-        data: dict[str, Any] = json.loads(body)
-        return data
-    message = BytesParser(policy=policy.HTTP).parsebytes(b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body)
-    if not message.is_multipart():
+        raw = body
+    else:
+        message = BytesParser(policy=policy.HTTP).parsebytes(
+            b"Content-Type: " + content_type.encode() + b"\r\n\r\n" + body
+        )
+        if message.is_multipart():
+            for part in message.iter_parts():
+                if part.get_param("name", header="content-disposition") == "payload":
+                    payload = part.get_payload(decode=True)
+                    raw = payload if isinstance(payload, bytes) else None
+                    break
+    if raw is None:
         return None
-    for part in message.iter_parts():
-        if part.get_param("name", header="content-disposition") == "payload":
-            payload = part.get_payload(decode=True)
-            return json.loads(payload) if isinstance(payload, bytes) else None
-    return None
+    try:
+        data = json.loads(raw)
+    except RecursionError:
+        raise ValueError("the payload is nested too deeply") from None
+    return data if isinstance(data, dict) else None
 
 
-def related_keys(item: Item) -> list[str]:
+def related_keys(item: object) -> list[str]:
     """A new episode can also need its season and show artwork."""
+    if not isinstance(item, dict):
+        return []
     keys = [item.get("ratingKey"), item.get("parentRatingKey"), item.get("grandparentRatingKey")]
     return [str(k) for k in keys if k]
 
@@ -243,7 +254,8 @@ class Service:
                 if not hmac.compare_digest(self.path.split("?")[0].encode(), webhook_path.encode()):
                     self._reply(404, {"error": "not found"})
                     return
-                length = int(self.headers.get("Content-Length") or 0)
+                raw_length = self.headers.get("Content-Length") or "0"
+                length = int(raw_length) if raw_length.isascii() and raw_length.isdigit() else 0
                 if not 0 < length <= MAX_BODY:
                     self._reply(413, {"error": "bad size"})
                     return
