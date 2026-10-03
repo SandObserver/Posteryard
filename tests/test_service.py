@@ -1,5 +1,9 @@
 import json
+import threading
+import time
 from pathlib import Path
+
+import pytest
 
 from posteryard import config
 from posteryard.service import Service, parse_webhook, related_keys
@@ -95,3 +99,60 @@ def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
     service.sweep()
     assert "5" in [service.queue.get()[0] for _ in range(service.queue.qsize())]
     assert service.store.get("5", "poster") is None
+
+
+class Alerts:
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+
+    def alert(self, subject: str, message: str) -> None:
+        self.sent.append(message)
+
+
+class BrokenPlex(FakePlex):
+    def sections(self) -> list[dict[str, str]]:
+        raise AttributeError("unexpected answer")
+
+
+def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:
+    service = make_service(tmp_path, BrokenPlex())
+    alerts = Alerts()
+    service.worker = type("W", (), {"notifier": alerts})()
+    thread = threading.Thread(target=service._schedule, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5
+    while not alerts.sent and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert thread.is_alive()
+    assert alerts.sent and "unexpected answer" in alerts.sent[0]
+    service._stop.set()
+    thread.join(timeout=5)
+
+
+def test_a_dead_thread_is_unhealthy(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    assert service.healthy()
+    dead = threading.Thread(target=lambda: None)
+    dead.start()
+    dead.join()
+    service.threads = [dead]
+    assert not service.healthy()
+
+
+def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    store.manual("1", "poster", "Example")
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_LIBRARIES": "Movie"})
+    service = Service(cfg, FakePlex(), store, worker=None)  # type: ignore[arg-type]
+    with pytest.raises(LookupError, match="Movie"):
+        service.full()
+    assert store.get("1", "poster") is not None
+    assert service.queue.empty()
+
+
+def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.store.manual("5", "poster", "Example")
+    service.full()
+    assert sorted(key for key, _ in service.queue.queue) == ["1", "2", "5"]
+    assert service.store.get("5", "poster") is not None

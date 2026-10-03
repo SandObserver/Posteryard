@@ -39,6 +39,11 @@ def test_bad_service_settings(name: str, value: str) -> None:
         load({"TMDB_API_KEY": "example", name: value})
 
 
+def test_an_empty_library_list_is_rejected() -> None:
+    with pytest.raises(ConfigError, match="PLEX_LIBRARIES"):
+        load({"TMDB_API_KEY": "example", "PLEX_LIBRARIES": " , "})
+
+
 def test_serve_needs_plex_and_a_webhook_secret() -> None:
     with pytest.raises(ConfigError, match="PLEX_URL, PLEX_TOKEN, WEBHOOK_SECRET"):
         require_service(load({"TMDB_API_KEY": "example"}))

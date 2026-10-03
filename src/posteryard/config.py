@@ -88,6 +88,9 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     tmdb_api_key = env.get("TMDB_API_KEY", "").strip()
     if not tmdb_api_key:
         raise ConfigError("TMDB_API_KEY is required")
+    libraries = _list(env, "PLEX_LIBRARIES", "Movies,TV Shows")
+    if not libraries:
+        raise ConfigError("PLEX_LIBRARIES needs at least one library name")
     return Config(
         tmdb_api_key=tmdb_api_key,
         plex_url=env.get("PLEX_URL", "").strip().rstrip("/"),
@@ -100,7 +103,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
             audio=_choice(env, "QUALITY_MIN_AUDIO", "atmos", AudioLevel),
         ),
         data_dir=Path(env.get("DATA_DIR", "data")),
-        libraries=_list(env, "PLEX_LIBRARIES", "Movies,TV Shows"),
+        libraries=libraries,
         dry_run=_bool(env, "DRY_RUN", default=True),
         only_rating_keys=frozenset(_list(env, "ONLY_RATING_KEYS")),
         webhook_secret=env.get("WEBHOOK_SECRET", "").strip(),

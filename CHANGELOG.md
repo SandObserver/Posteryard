@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Keep the schedule running after an unexpected error, alert about it, and report unhealthy if a service thread stops.
+- Recheck known titles missing from a full pass one by one instead of forgetting them, so manual changes survive a Plex or settings hiccup.
+- Stop a full pass and alert when no Plex library matches `PLEX_LIBRARIES`, and reject an empty `PLEX_LIBRARIES`.
+- Ignore malformed Maintainerr answers instead of failing every title.
+
 ## [0.3.1] - 2026-10-02
 
 ### Fixed

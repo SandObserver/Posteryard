@@ -60,6 +60,7 @@ class Service:
         self._stop = threading.Event()
         self.worker_beat = time.monotonic()
         self.last_sweep_ok = time.monotonic()
+        self.threads: list[threading.Thread] = []
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
         for key in keys:
@@ -91,7 +92,10 @@ class Service:
             self.worker_beat = time.monotonic()
 
     def _sections(self) -> list[Item]:
-        return [s for s in self.plex.sections() if s.get("title") in self.cfg.libraries and s.get("type") in KINDS]
+        sections = [s for s in self.plex.sections() if s.get("title") in self.cfg.libraries and s.get("type") in KINDS]
+        if not sections:
+            raise LookupError(f"Plex has no movie or TV library named {', '.join(self.cfg.libraries)}")
+        return sections
 
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
         """Items added or changed since the last sweep, Maintainerr's list, and retries that are due."""
@@ -141,18 +145,17 @@ class Service:
             self.full()
 
     def full(self) -> None:
-        """Every item. Forget items Plex no longer has."""
+        """Every item, and every known item that was not listed. The worker forgets those that Plex no longer has."""
         seen: set[str] = set()
         for section in self._sections():
             for kind in KINDS[str(section["type"])]:
                 seen.update(str(i["ratingKey"]) for i in self.plex.section_items(str(section["key"]), kind))
+        unlisted = sorted(self.store.keys() - seen)
         self.enqueue(sorted(seen), "daily")
+        self.enqueue(unlisted, "unlisted")
         self.store.set_meta("full_pending", "1")
-        gone = self.store.keys() - seen
-        for key in gone:
-            self.store.forget(key)
         self.store.set_meta("last_full", datetime.now().date().isoformat())
-        log.info("full pass queued %d items and forgot %d removed ones", len(seen), len(gone))
+        log.info("full pass queued %d items and %d unlisted ones", len(seen), len(unlisted))
 
     def settings_signature(self) -> str:
         cfg = self.cfg
@@ -191,16 +194,21 @@ class Service:
                     self.sweep(lookback)
                     lookback = SWEEP_LOOKBACK
                     next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
-            except (http.RequestError, OSError, ValueError) as exc:
+            except (http.RequestError, OSError, ValueError, LookupError) as exc:
                 log.warning("scheduled run failed: %s", exc)
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {exc}")
+                next_sweep = time.monotonic() + 120
+            except Exception as exc:  # The schedule thread must survive any error.
+                log.exception("scheduled run failed")
+                self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 next_sweep = time.monotonic() + 120
             self._stop.wait(TICK)
 
     def healthy(self) -> bool:
         now = time.monotonic()
         sweep_limit = max(3 * self.cfg.sweep_minutes * 60, 900)
-        return now - self.worker_beat < WORKER_STALL and now - self.last_sweep_ok < sweep_limit
+        alive = all(thread.is_alive() for thread in self.threads)
+        return alive and now - self.worker_beat < WORKER_STALL and now - self.last_sweep_ok < sweep_limit
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         service = self
@@ -251,8 +259,8 @@ class Service:
         return Handler
 
     def run(self) -> None:
-        threads = [threading.Thread(target=t, daemon=True, name=t.__name__) for t in (self._work, self._schedule)]
-        for thread in threads:
+        self.threads = [threading.Thread(target=t, daemon=True, name=t.__name__) for t in (self._work, self._schedule)]
+        for thread in self.threads:
             thread.start()
         server = ThreadingHTTPServer(("0.0.0.0", self.cfg.listen_port), self.handler())
         server.daemon_threads = True
@@ -270,5 +278,5 @@ class Service:
         )  # fmt: skip
         server.serve_forever()
         server.server_close()
-        for thread in threads:
+        for thread in self.threads:
             thread.join(timeout=20)
