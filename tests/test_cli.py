@@ -89,3 +89,8 @@ def test_commands_that_change_plex_need_plex_settings(
 def test_preview_needs_something_to_render(run: Any) -> None:
     assert run(["preview"]) == 2
     assert run(["preview", "--tmdb", "film:1"]) == 2
+
+
+def test_test_alert_needs_a_service(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
+    assert run(["test-alert"]) == 1
+    assert "NOTIFY_URLS" in capsys.readouterr().out

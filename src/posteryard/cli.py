@@ -36,6 +36,8 @@ def _parser() -> argparse.ArgumentParser:
 
     commands.add_parser("serve", help="run the service: webhook, sweep and daily pass")
 
+    commands.add_parser("test-alert", help="send a test alert to every notification service")
+
     find = commands.add_parser("find", help="list the movies and shows whose name contains WORDS")
     find.add_argument("words", nargs="+", metavar="WORDS")
 
@@ -170,6 +172,22 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
     return 0
 
 
+def _notifier(cfg: config.Config) -> Notifier:
+    return Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token, cfg.notify_urls)
+
+
+def _test_alert(cfg: config.Config) -> int:
+    notifier = _notifier(cfg)
+    if not notifier.configured:
+        print("No notification service is set up. Set NOTIFY_URLS, or NTFY_URL and NTFY_TOPIC.")
+        return 1
+    if notifier.send("test", "Alerts from Posteryard reach you."):
+        print("Test alert sent.")
+        return 0
+    print("A notification service did not accept the test alert. The log above has the details.")
+    return 1
+
+
 def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     args = _parser().parse_args(argv)
@@ -184,12 +202,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.command == "preview":
         return _preview(args, cfg)
+    if args.command == "test-alert":
+        return _test_alert(cfg)
     try:
         if args.command == "find":
             return _find(args, cfg)
         plex = Plex(cfg.plex_url, cfg.plex_token)
         store = Store(cfg.state_path)
-        worker = Worker(cfg, plex, store, Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token))
+        worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
             Service(cfg, plex, store, worker).run()
             return 0

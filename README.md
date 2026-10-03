@@ -67,7 +67,8 @@ Add any of these under `environment:`.
 | `PLEX_LIBRARIES` | The Plex libraries to manage, by name. | `Movies,TV Shows` |
 | `ONLY_RATING_KEYS` | Only handle these titles, for a first test. A show includes its seasons and episodes. Empty means everything. | |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
-| `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | Your [ntfy](https://ntfy.sh) server, topic and token. Sends an alert when something keeps failing. | |
+| `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
+| `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
@@ -96,6 +97,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `art set TITLE --file /data/my-art.jpg` | The same, with an image you put in `./data`. |
 | `art reset TITLE` | Go back to automatic art. |
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
+| `test-alert` | Send a test alert to every service in `NOTIFY_URLS` and ntfy. |
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
 | `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. |
@@ -138,6 +140,29 @@ Add these labels to a title in Plex instead of running a command. Posteryard pic
 | `posteryard-custom` | Keep the poster you uploaded in Plex as the art, with the title and badges drawn on top. Remove the label to go back to automatic art. |
 | `posteryard-ignore` | Leave this title alone. On a show it covers the show only; label seasons separately. Remove the label and it is rendered fresh. |
 
+## Alerts
+
+Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours.
+
+Set `NOTIFY_URLS` to one or more Apprise addresses:
+
+```yaml
+      - NOTIFY_URLS=discord://WEBHOOK_ID/WEBHOOK_TOKEN tgram://BOT_TOKEN/CHAT_ID
+```
+
+Common addresses:
+
+| Service | Address |
+| --- | --- |
+| ntfy | `ntfy://ntfy.sh/your-topic`, or `ntfys://user:password@your-server/topic` |
+| Discord | `discord://WEBHOOK_ID/WEBHOOK_TOKEN` (the two parts of the webhook URL) |
+| Telegram | `tgram://BOT_TOKEN/CHAT_ID` |
+| Gotify | `gotifys://your-server/APP_TOKEN` |
+| Pushover | `pover://USER_KEY@APP_TOKEN` |
+| Email | `mailtos://user:password@gmail.com` |
+
+Check the setup with `docker exec posteryard posteryard test-alert`. Posteryard refuses to start when an address is not one Apprise understands. The error names its position, never the address, because addresses hold secrets.
+
 ## What it makes
 
 | Plex image | Design |
@@ -155,7 +180,7 @@ Art that prints the title or other large text is rejected, even when TMDB marks 
 - **Sweep**, every 15 minutes: titles added or changed since the last sweep, titles Maintainerr lists, and failed titles due for a retry.
 - **Full pass**, daily and after an update or settings change: the whole library. Titles Plex no longer has are forgotten.
 
-Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours; after three failures ntfy gets one alert per cause, at most every 6 hours. `GET /healthz` reports health, queue length and image counts.
+Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. `GET /healthz` reports health, queue length and image counts.
 
 ## Development
 

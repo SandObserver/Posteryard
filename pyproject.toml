@@ -5,6 +5,7 @@ description = "Apple TV style posters, backgrounds and episode stills for Plex"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "apprise>=2.0,<3",
     "numpy>=2.3",
     "onnxruntime>=1.23,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "onnxruntime>=1.24; sys_platform != 'darwin' or platform_machine != 'x86_64'",
