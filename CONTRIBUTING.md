@@ -20,6 +20,16 @@ uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
 
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex.
 
+## Website
+
+`site/` builds the landing page at https://posteryard.sandobserver.com. Its Getting started and Settings sections and the version come from `README.md` and `CHANGELOG.md` at build time, so edit those files, not the page. Cloudflare Pages rebuilds the site on every push to `main`.
+
+```sh
+cd site && npm ci && npm run build
+```
+
+The build fails if a section it reads is missing from `README.md`.
+
 ## Branches and PRs
 
 - Branch: `type/short-description`, where type is `feat`, `fix`, `perf`, `security`, `refactor`, `docs`, `chore` or `release`.
