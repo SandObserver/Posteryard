@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
@@ -117,6 +117,27 @@ const schema = {
   author: { '@type': 'Person', name: 'SandObserver', url: 'https://github.com/SandObserver' },
 };
 
+const ROW = 7;
+const posters = JSON.parse(readFileSync(join(here, 'posters.json'), 'utf8'));
+for (const poster of posters) {
+  if (!existsSync(join(here, 'public', 'img', 'posters', `${poster.id}.webp`))) fail(`posters.json lists ${poster.id}, which has no image`);
+}
+
+function hub(kind, title) {
+  const pool = posters.filter((poster) => poster.kind === kind);
+  if (pool.length < ROW) fail(`posters.json needs at least ${ROW} ${kind} posters`);
+  const day = Number(new Date().toISOString().slice(0, 10).replaceAll('-', ''));
+  const tiles = Array.from({ length: ROW }, (_, i) => {
+    const poster = pool[(day * 7 + i) % pool.length];
+    const focus = kind === 'movie' && i === 0 ? ' focus' : '';
+    return (
+      `<div class="tile${focus}"><div class="art"><noscript>` +
+      `<img src="/img/posters/${poster.id}.webp" alt="" width="400" height="600" /></noscript></div></div>`
+    );
+  });
+  return `<div class="hub"><div class="hub-title">${title}</div><div class="hub-row" data-kind="${kind}">${tiles.join('')}</div></div>`;
+}
+
 const values = {
   site,
   repo,
@@ -128,6 +149,8 @@ const values = {
   getting_started: setup.steps,
   settings_count: String(settingsCount),
   settings: marked.parse(settings),
+  tv_hubs: hub('movie', 'Recently Added in Movies') + hub('tv', 'Recently Added in TV Shows'),
+  poster_pool: JSON.stringify(posters.map(({ id, kind }) => ({ id, kind }))),
 };
 
 function fill(file) {

@@ -84,29 +84,30 @@
       .avatar { width: 2.1cqw; height: 2.1cqw; border-radius: 50%; background: linear-gradient(135deg, #d9a066, #7a4a2a); }
       .rail svg { width: 1.2cqw; height: 1.2cqw; color: #e5e5ea; }
       .clock { position: absolute; right: 5.1cqw; top: 2.1cqw; padding: 0.55cqw 1.1cqw; border-radius: 2cqw; background: rgba(60, 60, 60, 0.7); font-size: 1.15cqw; color: #e5e5ea; }
-      .index { position: absolute; right: 2.3cqw; top: 13cqw; display: flex; flex-direction: column; align-items: center; gap: 0.25cqw; font-size: 1.05cqw; font-weight: 500; color: rgba(235, 235, 245, 0.6); }
-      .index b { display: grid; place-items: center; width: 1.75cqw; height: 1.75cqw; border-radius: 50%; border: 0.12cqw solid #fff; color: #fff; }
-      .grid { position: absolute; left: 6.65cqw; top: 7cqw; display: grid; grid-template-columns: repeat(6, 12.5cqw); column-gap: 2.2cqw; row-gap: 2.6cqw; }
-      .show { margin: 0; text-align: center; }
-      .art { position: relative; }
-      .art img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; border-radius: 0.6cqw; object-fit: cover; }
+      .hubs { position: absolute; left: 6.65cqw; right: 0; top: 3cqw; }
+      .hub + .hub { margin-top: 2.6cqw; }
+      .hub-title { margin-bottom: 1.1cqw; font-size: 1.45cqw; font-weight: 700; color: #fff; }
+      .hub-row { display: flex; gap: 1.65cqw; }
+      .tile { position: relative; flex: 0 0 12.5cqw; }
+      .art { position: relative; aspect-ratio: 2 / 3; border-radius: 0.6cqw; background: #1f1f21; }
+      .art img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
       .count { position: absolute; top: 0; right: 0; min-width: 2.3cqw; height: 2.15cqw; padding: 0 0.55cqw; border-radius: 0 0.6cqw 0 0.6cqw;
         background: rgba(20, 20, 20, 0.82); display: grid; place-items: center; font-size: 1.1cqw; font-weight: 600; color: #fff; }
       .count svg { width: 1cqw; height: 1cqw; }
       .focus .art::after { content: ""; position: absolute; inset: -0.55cqw; border: 0.22cqw solid #fff; border-radius: 1cqw; }
       .focus .art { transform: scale(1.04); }
-      .show figcaption { margin-top: 1.4cqw; font-size: 1.3cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .show figcaption span { display: block; margin-top: 0.2cqw; font-size: 1cqw; color: rgba(235, 235, 245, 0.6); }
 
       @container (max-width: 640px) {
-        .rail, .index { display: none; }
-        .grid { position: static; padding: 14cqw 4cqw 6cqw; grid-template-columns: repeat(3, 1fr); column-gap: 4cqw; row-gap: 5cqw; }
-        .art img { border-radius: 2cqw; }
+        .rail { display: none; }
+        .hubs { left: 4cqw; top: 13cqw; }
+        .hub + .hub { margin-top: 6cqw; }
+        .hub-title { margin-bottom: 3cqw; font-size: 4.2cqw; }
+        .hub-row { gap: 3.5cqw; }
+        .tile { flex-basis: 27cqw; }
+        .art { border-radius: 2cqw; }
         .count { min-width: 7cqw; height: 6.5cqw; padding: 0 1.6cqw; border-radius: 0 2cqw 0 2cqw; font-size: 3.4cqw; }
         .count svg { width: 3cqw; height: 3cqw; }
         .focus .art::after { inset: -1.6cqw; border-width: 0.7cqw; border-radius: 3.2cqw; }
-        .show figcaption { margin-top: 3.4cqw; font-size: 3.6cqw; }
-        .show figcaption span { font-size: 3cqw; }
         .clock { top: 4cqw; right: 4cqw; padding: 1.4cqw 3cqw; border-radius: 5cqw; font-size: 3.4cqw; }
       }
 
@@ -253,7 +254,7 @@
       <div class="tv-band">
         <div class="tv">
           <div class="bezel">
-            <div class="screen" role="img" aria-label="A Plex TV Shows library on Apple TV with Posteryard posters">
+            <div class="screen" role="img" aria-label="The Plex Home screen on Apple TV, with recently added movies and TV shows shown as Posteryard posters">
               <div class="rail" aria-hidden="true">
                 <span class="avatar"></span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
@@ -261,21 +262,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
               </div>
               <div class="clock" aria-hidden="true">8:30 PM</div>
-              <div class="index" aria-hidden="true"><span>#</span><b>A</b><span>B</span><span>F</span><span>L</span><span>R</span><span>S</span><span>T</span><span>W</span><span>Y</span></div>
-              <div class="grid" aria-hidden="true">
-                <figure class="show focus"><div class="art"><img src="/img/posters/andor.jpg" alt="" width="500" height="750" /></div><figcaption>Andor<span>2 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-bear.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>The Bear<span>5 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/foundation.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Foundation<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-last-of-us.jpg" alt="" width="500" height="750" /><span class="count">7</span></div><figcaption>The Last of Us<span>2 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/reacher.jpg" alt="" width="500" height="750" /><span class="count">8</span></div><figcaption>Reacher<span>4 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/severance.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Severance<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/squid-game.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Squid Game<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/succession.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Succession<span>4 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/ted-lasso.jpg" alt="" width="500" height="750" /><span class="count">12</span></div><figcaption>Ted Lasso<span>4 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/wednesday.jpg" alt="" width="500" height="750" /><span class="count">8</span></div><figcaption>Wednesday<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-white-lotus.jpg" alt="" width="500" height="750" /><span class="count">6</span></div><figcaption>The White Lotus<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/yellowjackets.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Yellowjackets<span>4 Seasons</span></figcaption></figure>
-              </div>
+              <div class="hubs" aria-hidden="true">{{tv_hubs}}</div>
             </div>
           </div>
         </div>
@@ -289,8 +276,8 @@
               <p>Official posters mix fonts, taglines and clutter, and the title is often hard to read. Posteryard picks clean art and puts the title logo in one spot, at one size, over a soft fade. A shelf of posters finally looks like one library.</p>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.jpg" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.jpg" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
@@ -300,8 +287,8 @@
               <div class="chips"><code>STREAMING_REGIONS=US</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.jpg" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.jpg" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
@@ -311,8 +298,8 @@
               <div class="chips"><code>QUALITY_MIN_VIDEO=2160</code><code>QUALITY_MIN_HDR=hdr10</code><code>QUALITY_MIN_AUDIO=atmos</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.jpg" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.jpg" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
@@ -322,8 +309,8 @@
               <div class="chips"><code>MAINTAINERR_URL</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.jpg" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.jpg" alt="Lilo &amp; Stitch, rendered by Posteryard with a Leaving in 3 days label" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" alt="Lilo &amp; Stitch, rendered by Posteryard with a Leaving in 3 days label" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
         </div>
@@ -366,6 +353,31 @@
       </div>
     </footer>
     <script>
+      {
+        const pool = {{poster_pool}};
+        const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
+        const shuffle = (list) => list.map((item) => [Math.random(), item]).sort((a, b) => a[0] - b[0]).map(([, item]) => item);
+        for (const row of document.querySelectorAll(".hub-row")) {
+          const picks = shuffle(pool.filter((p) => p.kind === row.dataset.kind));
+          row.querySelectorAll(".tile").forEach((tile, i) => {
+            const art = tile.querySelector(".art");
+            art.textContent = "";
+            const img = new Image(400, 600);
+            img.alt = "";
+            img.decoding = "async";
+            img.src = `/img/posters/${picks[i].id}.webp`;
+            art.append(img);
+            if (row.dataset.kind === "tv") {
+              const count = document.createElement("span");
+              count.className = "count";
+              const n = Math.floor(Math.random() * 14);
+              if (n < 3) count.innerHTML = check;
+              else count.textContent = String(n - 2);
+              art.append(count);
+            }
+          });
+        }
+      }
       function openFromHash() {
         if (location.hash === "#settings") document.querySelector("#settings details").open = true;
       }
