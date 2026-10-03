@@ -4,16 +4,27 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Posteryard: clean, consistent posters for Plex</title>
-    <meta name="description" content="{{tagline}}" />
+    <meta name="description" content="{{description}}" />
+    <link rel="canonical" href="{{site}}/" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-    <meta name="theme-color" content="#0d1117" />
-    <link rel="canonical" href="https://posteryard.sandobserver.com/" />
-    <meta property="og:title" content="Posteryard" />
-    <meta property="og:description" content="{{tagline}}" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta name="theme-color" content="#000000" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://posteryard.sandobserver.com/" />
-    <meta property="og:image" content="https://posteryard.sandobserver.com/img/social-card.png" />
+    <meta property="og:site_name" content="Posteryard" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="{{site}}/" />
+    <meta property="og:title" content="Posteryard: clean, consistent posters for Plex" />
+    <meta property="og:description" content="{{description}}" />
+    <meta property="og:image" content="{{site}}/img/social-card.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta property="og:image:alt" content="Official movie posters next to the clean Posteryard versions" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Posteryard: clean, consistent posters for Plex" />
+    <meta name="twitter:description" content="{{description}}" />
+    <meta name="twitter:image" content="{{site}}/img/social-card.png" />
+    <meta name="twitter:image:alt" content="Official movie posters next to the clean Posteryard versions" />
+    <script type="application/ld+json">{{schema}}</script>
     <style>
       :root {
         --bg: #000;
@@ -118,31 +129,47 @@
       .band { background: var(--bg); padding: 72px 0; }
       .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
       .lede { margin: 0 0 28px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
-      .disclosure { background: var(--bg-2); border-radius: 22px; }
-      .disclosure + .disclosure { margin-top: 12px; }
-      .disclosure summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; min-height: 44px; border-radius: 22px; }
-      .disclosure summary::-webkit-details-marker { display: none; }
-      .disclosure summary::after { content: ""; flex: none; width: 10px; height: 10px; border-right: 2px solid var(--dim); border-bottom: 2px solid var(--dim); transform: rotate(45deg) translate(-3px, -3px); transition: transform 0.2s; }
-      .disclosure[open] summary::after { transform: rotate(-135deg) translate(-3px, -3px); }
-      .disclosure summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .disclosure summary b { display: block; font-size: 18px; font-weight: 700; }
-      .disclosure summary small { display: block; margin-top: 4px; font-size: 14.5px; line-height: 1.4; color: var(--dim); }
-      .disclosure-body { padding: 0 24px 8px; border-top: 1px solid var(--separator); }
-      .more { margin-top: 24px; }
+      .setup-grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 64px; }
+      .setup-grid + .setup-grid { margin-top: 32px; padding-top: 56px; border-top: 1px solid var(--separator); }
+      .setup-side { align-self: start; position: sticky; top: 24px; }
+      .setup-side .lede { margin: 0; }
+      .setup-side .lede p { margin: 0; }
 
-      .doc > * { max-width: 860px; }
+      .doc { min-width: 0; max-width: 760px; }
       .doc p, .doc li { font-size: 16px; line-height: 1.6; color: #d1d1d6; }
       .doc code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; color: var(--label); }
-      .doc pre { margin: 20px 0; padding: 16px 18px; background: #0d1117; border: 1px solid var(--separator); border-radius: 14px; overflow-x: auto; }
-      .doc pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.55; color: #e6edf3; }
-      .table-scroll { margin: 20px 0; overflow-x: auto; border-radius: 14px; background: var(--bg-3); }
-      .doc .table-scroll code { background: #3a3a3c; }
-      .doc table { width: 100%; border-collapse: collapse; font-size: 14.5px; line-height: 1.5; }
-      .doc th { text-align: left; font-weight: 600; color: var(--dim); padding: 12px 16px; border-bottom: 1px solid var(--separator); }
-      .doc td { padding: 12px 16px; color: #d1d1d6; vertical-align: top; }
-      .doc tr + tr td { border-top: 1px solid var(--separator); }
-      .doc td:first-child code { white-space: nowrap; }
-      .table-scroll code { background: #3a3a3c; }
+      .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+      .step { position: relative; padding: 0 0 36px 54px; counter-increment: step; }
+      .step::before { content: counter(step); position: absolute; left: 0; top: -3px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; display: grid; place-items: center; }
+      .step::after { content: ""; position: absolute; left: 15px; top: 38px; bottom: 6px; width: 2px; background: var(--separator); }
+      .step:last-child { padding-bottom: 0; }
+      .step:last-child::after { display: none; }
+      .step h3 { margin: 0 0 10px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .step > p:first-of-type { margin-top: 0; }
+      .code { margin: 16px 0; border: 1px solid var(--separator); border-radius: 14px; background: #0d1117; overflow: hidden; }
+      .code-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--separator); font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
+      .copy { position: relative; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--label); font: 600 13px var(--font); cursor: pointer; }
+      .copy::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+      .copy:hover { background: var(--fill); }
+      .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .code pre { margin: 0; padding: 14px 16px; overflow-x: auto; }
+      .code pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.55; color: #e6edf3; }
+      .defs { margin: 16px 0; border-top: 1px solid var(--separator); }
+      .def { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 4px 20px; padding: 12px 0; border-bottom: 1px solid var(--separator); }
+      .def dt { font-size: 14.5px; line-height: 1.6; }
+      .def dt code { background: none; padding: 0; font-weight: 600; overflow-wrap: anywhere; }
+      .def dd { margin: 0; }
+      .def dd p { margin: 0; font-size: 15px; line-height: 1.55; }
+      .default { display: inline-block; margin-top: 6px; font-size: 13.5px; color: var(--dim); }
+      .expand summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+      .expand summary::-webkit-details-marker { display: none; }
+      .expand summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+      .expand[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+      .expand summary:hover { background: var(--fill-hover); }
+      .expand summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .expand .when-open, .expand[open] .when-closed { display: none; }
+      .expand[open] .when-open { display: inline; }
+      .expand[open] summary { margin-bottom: 8px; }
 
       .footer { padding: 40px 0 48px; }
       .foot-in { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; }
@@ -168,6 +195,9 @@
         .ftext p { font-size: 15.5px; }
         .band { padding: 52px 0; }
         .band h2 { font-size: 30px; }
+        .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+        .setup-side { position: static; }
+        .def { grid-template-columns: minmax(0, 1fr); }
       }
       @media (max-width: 600px) {
         .wrap { padding: 0 16px; }
@@ -184,24 +214,14 @@
         .band h2 { font-size: 26px; }
         .pair img { border-radius: 9px; }
         .pair { gap: 10px; }
-        .disclosure summary { padding: 18px; }
-        .disclosure-body { padding: 0 18px 6px; }
-        .doc pre { padding: 14px; }
-        .doc pre code { font-size: 12px; }
+        .code pre { padding: 12px 14px; }
+        .code pre code { font-size: 12px; }
+        .step { padding-left: 44px; }
+        .step::before { width: 28px; height: 28px; font-size: 14px; }
+        .step::after { left: 13px; top: 34px; }
         .ftext h2 { font-size: 22px; }
         .tag { font-size: 12px; margin-bottom: 8px; }
         .foot-in { flex-direction: column; gap: 20px; }
-        .doc thead { display: none; }
-        .doc table, .doc tbody, .doc tr, .doc td { display: block; }
-        .doc td { padding: 0 16px; }
-        .doc td:first-child { padding-top: 14px; }
-        .doc td:last-child { padding-bottom: 14px; }
-        .doc td + td { margin-top: 6px; }
-        .doc td:nth-child(3):empty { display: none; }
-        .doc td:nth-child(3)::before { content: "Default "; color: var(--dim); }
-        .doc td:first-child code { white-space: normal; }
-        .doc tr + tr td { border-top: 0; }
-        .doc tr + tr { border-top: 1px solid var(--separator); }
       }
     </style>
   </head>
@@ -275,6 +295,17 @@
           </div>
           <div class="feature">
             <div class="ftext">
+              <h2>See where a show streams</h2>
+              <p>Show and season posters carry the streaming service mark, looked up on TMDB for your region. It sits top left, clear of the unwatched count Plex draws top right.</p>
+              <div class="chips"><code>STREAMING_REGIONS=CA,US</code></div>
+            </div>
+            <figure class="pair fvis">
+              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.jpg" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.jpg" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
+          <div class="feature">
+            <div class="ftext">
               <h2>Quality at a glance</h2>
               <p>4K, HDR, Dolby Vision and Dolby Atmos marks come from Plex's own analysis of the file. Choose the lowest level that earns a badge, or turn each one off.</p>
               <div class="chips"><code>QUALITY_MIN_VIDEO=2160</code><code>QUALITY_MIN_HDR=hdr10</code><code>QUALITY_MIN_AUDIO=atmos</code></div>
@@ -299,22 +330,22 @@
       </section>
 
       <section class="band" id="getting-started">
-        <div class="wrap doc">
-          <h2>Get started</h2>
-          <p class="lede">{{getting_started_lead}}</p>
-          <details class="disclosure" id="setup">
-            <summary><span><b>Setup guide</b><small>The compose file, the first dry run, and going live</small></span></summary>
-            <div class="disclosure-body">
-              {{getting_started}}
-            </div>
+        <div class="wrap setup-grid">
+          <div class="setup-side">
+            <h2>Get started</h2>
+            <div class="lede">{{getting_started_lead}}</div>
+          </div>
+          <div class="doc">{{getting_started}}</div>
+        </div>
+        <div class="wrap setup-grid" id="settings">
+          <div class="setup-side">
+            <h2>Settings</h2>
+            <p class="lede">{{settings_count}} optional settings for badges, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
+          </div>
+          <details class="doc expand">
+            <summary><span class="when-closed">Show all {{settings_count}} settings</span><span class="when-open">Hide settings</span></summary>
+            {{settings}}
           </details>
-          <details class="disclosure" id="settings">
-            <summary><span><b>Settings</b><small>{{settings_count}} optional settings: badges, Maintainerr, alerts, schedule and more</small></span></summary>
-            <div class="disclosure-body">
-              {{settings}}
-            </div>
-          </details>
-          <p class="more">Commands, Plex labels, alerts and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
         </div>
       </section>
     </main>
@@ -336,12 +367,22 @@
     </footer>
     <script>
       function openFromHash() {
-        const target = location.hash && document.getElementById(location.hash.slice(1));
-        if (target instanceof HTMLDetailsElement) target.open = true;
-        if (location.hash === "#getting-started") document.getElementById("setup").open = true;
+        if (location.hash === "#settings") document.querySelector("#settings details").open = true;
       }
       addEventListener("hashchange", openFromHash);
       openFromHash();
+      for (const button of document.querySelectorAll(".copy")) {
+        button.addEventListener("click", async () => {
+          const code = button.closest(".code").querySelector("code");
+          try {
+            await navigator.clipboard.writeText(code.textContent);
+            button.textContent = "Copied";
+            setTimeout(() => (button.textContent = "Copy"), 1500);
+          } catch {
+            getSelection().selectAllChildren(code);
+          }
+        });
+      }
     </script>
   </body>
 </html>

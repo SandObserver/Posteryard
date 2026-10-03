@@ -6,6 +6,7 @@ import { Marked } from 'marked';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const dist = join(here, 'dist');
+const site = 'https://posteryard.sandobserver.com';
 const repo = 'https://github.com/SandObserver/Posteryard';
 
 const readme = readFileSync(join(root, 'README.md'), 'utf8');
@@ -22,6 +23,10 @@ function section(heading) {
   return match[1].trim();
 }
 
+function escape(text) {
+  return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+}
+
 const onPage = new Set(['getting-started', 'settings']);
 
 function href(link) {
@@ -29,6 +34,8 @@ function href(link) {
   if (link.startsWith('#')) return onPage.has(link.slice(1)) ? link : `${repo}${link}`;
   return `${repo}/blob/main/${link}`;
 }
+
+const codeLabels = { yaml: 'compose.yml', sh: 'Terminal', json: 'Response', text: 'Output' };
 
 const marked = new Marked({
   gfm: true,
@@ -39,44 +46,110 @@ const marked = new Marked({
       const external = url.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : '';
       return `<a href="${url}"${external}>${text}</a>`;
     },
+    code({ text, lang }) {
+      const label = codeLabels[lang] ?? lang ?? 'Code';
+      return (
+        `<div class="code"><div class="code-bar"><span>${escape(label)}</span>` +
+        `<button type="button" class="copy" aria-label="Copy ${escape(label)}">Copy</button></div>` +
+        `<pre><code>${escape(text)}</code></pre></div>`
+      );
+    },
+    table({ header, rows }) {
+      const names = header.map((cell) => cell.text.toLowerCase());
+      const items = rows.map((cells) => {
+        const [term, ...rest] = cells.map((cell) => this.parser.parseInline(cell.tokens));
+        const details = rest
+          .map((html, i) => {
+            if (!html) return '';
+            return names[i + 1] === 'default'
+              ? `<span class="default">Default ${html}</span>`
+              : `<p>${html}</p>`;
+          })
+          .join('');
+        return `<div class="def"><dt>${term}</dt><dd>${details}</dd></div>`;
+      });
+      return `<dl class="defs">${items.join('')}</dl>`;
+    },
   },
 });
 
-function render(markdown) {
-  return marked
-    .parse(markdown)
-    .replaceAll('<table>', '<div class="table-scroll"><table>')
-    .replaceAll('</table>', '</table></div>');
+function steps(markdown) {
+  const groups = [];
+  let lead = [];
+  for (const token of marked.lexer(markdown)) {
+    if (token.type === 'heading' && token.depth === 3) groups.push({ title: token.text, tokens: [] });
+    else if (groups.length) groups.at(-1).tokens.push(token);
+    else lead.push(token);
+  }
+  if (!groups.length) fail('README.md Getting started has no ### step headings');
+  lead.links = {};
+  const items = groups.map((group) => {
+    group.tokens.links = {};
+    return `<li class="step"><h3>${marked.parseInline(group.title)}</h3>${marked.parser(group.tokens)}</li>`;
+  });
+  return { lead: marked.parser(lead), steps: `<ol class="steps">${items.join('')}</ol>` };
 }
 
 const tagline = readme.match(/<b>(.+?)<\/b>/)?.[1] ?? fail('README.md has no bold tagline');
 const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGELOG.md has no released version');
 
-const [lead, ...setup] = section('Getting started').split('\n\n');
+const setup = steps(section('Getting started'));
 const settings = section('Settings');
 const settingsCount = settings.split('\n').filter((line) => line.startsWith('| `')).length;
 if (!settingsCount) fail('README.md Settings section has no settings table');
 
-const values = {
-  tagline,
-  getting_started_lead: marked.parseInline(lead),
-  getting_started: render(setup.join('\n\n')),
-  settings_count: String(settingsCount),
-  settings: render(settings),
-  version,
-  repo,
+const description =
+  'Clean, consistent Plex posters: textless art, the title in one spot, quality badges and streaming service marks. ' +
+  'Free and self-hosted in Docker.';
+
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Posteryard',
+  description,
+  url: `${site}/`,
+  image: `${site}/img/social-card.png`,
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Docker',
+  softwareVersion: version,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  codeRepository: repo,
+  author: { '@type': 'Person', name: 'SandObserver', url: 'https://github.com/SandObserver' },
 };
 
-let html = readFileSync(join(here, 'template.html'), 'utf8');
-html = html.replace(/\{\{(\w+)\}\}/g, (_, key) => {
-  if (!(key in values)) fail(`template.html uses an unknown value {{${key}}}`);
-  return values[key];
-});
+const values = {
+  site,
+  repo,
+  tagline,
+  description,
+  version,
+  schema: JSON.stringify(schema).replaceAll('<', '\\u003c'),
+  getting_started_lead: setup.lead,
+  getting_started: setup.steps,
+  settings_count: String(settingsCount),
+  settings: marked.parse(settings),
+};
+
+function fill(file) {
+  return readFileSync(join(here, file), 'utf8').replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    if (!(key in values)) fail(`${file} uses an unknown value {{${key}}}`);
+    return values[key];
+  });
+}
+
+const today = new Date().toISOString().slice(0, 10);
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(join(here, 'public'), dist, { recursive: true });
 cpSync(join(root, 'docs', 'logo.svg'), join(dist, 'logo.svg'));
 cpSync(join(root, 'docs', 'social-card.png'), join(dist, 'img', 'social-card.png'));
-writeFileSync(join(dist, 'index.html'), html);
+writeFileSync(join(dist, 'index.html'), fill('template.html'));
+writeFileSync(join(dist, '404.html'), fill('404.html'));
+writeFileSync(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`);
+writeFileSync(
+  join(dist, 'sitemap.xml'),
+  `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+    `  <url><loc>${site}/</loc><lastmod>${today}</lastmod></url>\n</urlset>\n`,
+);
 console.log(`site: built Posteryard ${version} into dist/`);
