@@ -6,10 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Accept title names in commands, such as `art next The Office`, plus `--season N`; a name that matches several titles or none changes nothing.
+- Add `find WORDS` to list matching movies and shows with their rating keys.
+
 ### Changed
 
 - Update onnxruntime to 1.30 in the image.
 - Make 2 fewer TMDB requests per title.
+- Render a title right away after `forget`, which now takes one title instead of several rating keys.
+- Take one title in `preview`, with `--season N` for seasons of a Plex show.
 
 ### Fixed
 

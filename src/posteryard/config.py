@@ -114,6 +114,11 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     )
 
 
+def require_plex(cfg: Config) -> None:
+    if not (cfg.plex_url and cfg.plex_token):
+        raise ConfigError("PLEX_URL and PLEX_TOKEN are required")
+
+
 def require_service(cfg: Config) -> None:
     missing = [name for name, value in (("PLEX_URL", cfg.plex_url), ("PLEX_TOKEN", cfg.plex_token),
                                         ("WEBHOOK_SECRET", cfg.webhook_secret)) if not value]  # fmt: skip
