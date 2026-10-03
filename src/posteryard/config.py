@@ -6,6 +6,7 @@ from datetime import time
 from enum import StrEnum
 from pathlib import Path
 
+from posteryard import notify
 from posteryard.quality import AudioLevel, HdrLevel, QualityMinimums, VideoLevel
 
 TRUE = frozenset({"1", "true", "yes", "on"})
@@ -35,6 +36,7 @@ class Config:
     ntfy_url: str
     ntfy_topic: str
     ntfy_token: str
+    notify_urls: tuple[str, ...]
     listen_port: int
 
     @property
@@ -86,6 +88,10 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     tmdb_api_key = env.get("TMDB_API_KEY", "").strip()
     if not tmdb_api_key:
         raise ConfigError("TMDB_API_KEY is required")
+    notify_urls = tuple(notify.split_urls(env.get("NOTIFY_URLS", "")))
+    bad = notify.invalid_urls(notify_urls)
+    if bad:
+        raise ConfigError(f"NOTIFY_URLS: address {', '.join(map(str, bad))} is not one Apprise supports")
     libraries = _list(env, "PLEX_LIBRARIES", "Movies,TV Shows")
     if not libraries:
         raise ConfigError("PLEX_LIBRARIES needs at least one library name")
@@ -110,6 +116,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         ntfy_url=env.get("NTFY_URL", "").strip().rstrip("/"),
         ntfy_topic=env.get("NTFY_TOPIC", "").strip(),
         ntfy_token=env.get("NTFY_TOKEN", "").strip(),
+        notify_urls=notify_urls,
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
     )
 

@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Accept title names in commands, such as `art next The Office`, plus `--season N`; a name that matches several titles or none changes nothing.
 - Add `find WORDS` to list matching movies and shows with their rating keys.
+- Send alerts to Discord, Telegram, Gotify, email and about 100 other services through Apprise with `NOTIFY_URLS`.
+- Add `test-alert` to check the notification setup.
 
 ### Changed
 
