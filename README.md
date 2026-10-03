@@ -15,7 +15,7 @@ Posteryard runs next to Plex and gives every movie, show, season and episode the
 
 ## Getting started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/), a free [TMDB API key](https://www.themoviedb.org/settings/api) (the short **API Key**) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) (the short **API Key**) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
 
 ### Create the compose file
 

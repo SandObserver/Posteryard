@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Publish the image for 64-bit ARM hosts, such as a Raspberry Pi 4 or 5, as well as x86.
+
 ### Changed
 
 - Look up streaming services in the US by default; set `STREAMING_REGIONS` for another country.
