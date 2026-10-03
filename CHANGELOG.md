@@ -6,14 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Fixed
-
-- Render titles whose TMDB original is too large to load, such as Fallout and Challengers, from TMDB's 1280 px copy.
-
 ### Changed
 
 - Look up streaming services in the US by default; set `STREAMING_REGIONS` for another country.
 - Move the streaming service mark to the top left corner, where Plex's unwatched count and watched checkmark do not cover it.
+
+### Fixed
+
+- Render titles whose TMDB original is too large to load, such as Fallout and Challengers, from TMDB's 1280 px copy.
 
 ## [0.4.0] - 2026-10-03
 
