@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Update onnxruntime to 1.30 in the image.
+- Make 2 fewer TMDB requests per title.
 
 ### Fixed
 
