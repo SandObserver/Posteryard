@@ -6,7 +6,7 @@
 uv sync
 ```
 
-Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs.
+Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs, and none at all after 1.23, so Intel Macs stay on `onnxruntime` 1.23 while Linux and the image get the latest.
 
 ## Before opening a PR
 
