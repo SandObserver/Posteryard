@@ -15,6 +15,8 @@ IMAGES = "https://image.tmdb.org/t/p"
 MAX_SIDE = 2160
 # Larger images are refused before decoding. Decoding one costs about 3 bytes per pixel.
 MAX_PIXELS = 50_000_000
+# TMDB serves this size for posters, backdrops and logos. Used when an original is over MAX_PIXELS.
+FALLBACK_SIZE = "w1280"
 
 
 @dataclass(frozen=True)
@@ -108,7 +110,12 @@ class Tmdb:
 
     @staticmethod
     def image(path: str, size: str = "original") -> Image.Image:
-        return open_image(http.request("GET", f"{IMAGES}/{size}{path}", timeout=60))
+        try:
+            return open_image(http.request("GET", f"{IMAGES}/{size}{path}", timeout=60))
+        except ValueError:
+            if size == FALLBACK_SIZE:
+                raise
+            return open_image(http.request("GET", f"{IMAGES}/{FALLBACK_SIZE}{path}", timeout=60))
 
 
 def open_image(data: bytes) -> Image.Image:
