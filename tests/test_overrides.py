@@ -20,6 +20,18 @@ def test_decode_shrinks_and_rejects_garbage() -> None:
         overrides.decode(b"not an image")
 
 
+def test_decode_refuses_images_with_too_many_pixels() -> None:
+    buffer = io.BytesIO()
+    Image.new("L", (8000, 8000)).save(buffer, "PNG")
+    with pytest.raises(overrides.ArtError, match="too large"):
+        overrides.decode(buffer.getvalue())
+
+
+def test_save_refuses_a_key_that_is_not_a_rating_key(tmp_path: Path) -> None:
+    with pytest.raises(overrides.ArtError):
+        overrides.save(Image.new("RGB", (4, 4)), tmp_path, "../1")
+
+
 @pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "http://127.0.0.1/a.jpg", "nope"])
 def test_only_remote_http_addresses(url: str) -> None:
     with pytest.raises(overrides.ArtError):

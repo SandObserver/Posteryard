@@ -68,7 +68,7 @@ def _bool(env: Mapping[str, str], name: str, default: bool) -> bool:
 
 def _int(env: Mapping[str, str], name: str, default: int, low: int, high: int) -> int:
     raw = env.get(name, "").strip() or str(default)
-    if not raw.isdigit() or not low <= int(raw) <= high:
+    if not (raw.isascii() and raw.isdigit()) or not low <= int(raw) <= high:
         raise ConfigError(f"{name} must be a whole number from {low} to {high}")
     return int(raw)
 
