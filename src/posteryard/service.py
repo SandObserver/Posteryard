@@ -72,7 +72,7 @@ class Service:
         self.last_sweep_ok = time.monotonic()
         self.threads: list[threading.Thread] = []
         self.exit_code = 0
-        self._last_heartbeat = 0.0
+        self._last_heartbeat = float("-inf")
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
         for key in keys:

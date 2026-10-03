@@ -236,7 +236,7 @@ def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
         service.heartbeat()
         service.heartbeat()
         assert calls == ["/api/push/example?status=up"]
-        service._last_heartbeat = 0
+        service._last_heartbeat = float("-inf")
         service.last_sweep_ok -= 10_000
         service.heartbeat()
         assert len(calls) == 1
