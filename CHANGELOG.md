@@ -12,6 +12,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add `find WORDS` to list matching movies and shows with their rating keys.
 - Send alerts to Discord, Telegram, Gotify, email and about 100 other services through Apprise with `NOTIFY_URLS`.
 - Add `test-alert` to check the notification setup.
+- Call `HEARTBEAT_URL`, such as an Uptime Kuma push monitor, every minute while healthy.
+- Report each health check, the last sweep and the last full pass on `/healthz`, and answer `HEAD /healthz`.
+- Exit when an internal thread stops, so the container restart policy starts a fresh one.
+- Lock down the example compose file with a read-only filesystem, no capabilities and `no-new-privileges`.
 
 ### Changed
 

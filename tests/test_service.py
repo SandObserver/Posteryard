@@ -2,8 +2,9 @@ import http.client
 import json
 import threading
 import time
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -194,6 +195,72 @@ def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
         assert post("/webhook/example-secret", good, {**json_type, "Content-Length": "abc"}) == 413
         assert post("/webhook/example-secret", good, json_type) == 200
         assert [key for key, _ in service.queue.queue] == ["7"]
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+        connection.request("HEAD", "/healthz")
+        assert connection.getresponse().status == 200
+        connection.close()
     finally:
         server.shutdown()
         server.server_close()
+
+
+def test_status_explains_health(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    status = service.status()
+    assert status["ok"] is True
+    assert set(status["checks"]) == {"threads_running", "worker_responsive", "sweep_recent"}
+    service.last_sweep_ok -= 10_000
+    status = service.status()
+    assert status["ok"] is False and status["checks"]["sweep_recent"] is False
+
+
+def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    class Receiver(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            calls.append(self.path)
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            pass
+
+    receiver = ThreadingHTTPServer(("127.0.0.1", 0), Receiver)
+    threading.Thread(target=receiver.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{receiver.server_address[1]}/api/push/example?status=up"
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": url})
+    service = Service(cfg, FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    try:
+        service.heartbeat()
+        service.heartbeat()
+        assert calls == ["/api/push/example?status=up"]
+        service._last_heartbeat = 0
+        service.last_sweep_ok -= 10_000
+        service.heartbeat()
+        assert len(calls) == 1
+    finally:
+        receiver.shutdown()
+        receiver.server_close()
+
+
+def test_a_bad_heartbeat_url_is_rejected() -> None:
+    with pytest.raises(config.ConfigError, match="HEARTBEAT_URL"):
+        config.load({"TMDB_API_KEY": "example", "HEARTBEAT_URL": "kuma.example/api/push/x"})
+
+
+def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    alerts = Alerts()
+    service.worker = type("W", (), {"notifier": alerts})()
+    dead = threading.Thread(target=lambda: None, name="worker")
+    dead.start()
+    dead.join()
+    service.threads = [dead]
+    stopped: list[bool] = []
+    service._watch(type("S", (), {"shutdown": lambda self: stopped.append(True)})())
+    assert stopped == [True]
+    assert service.exit_code == 1
+    assert alerts.sent and "worker" in alerts.sent[0]
