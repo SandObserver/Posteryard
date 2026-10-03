@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Posteryard: Apple TV style posters for Plex</title>
+    <title>Posteryard: clean, consistent posters for Plex</title>
     <meta name="description" content="{{tagline}}" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <meta name="theme-color" content="#0d1117" />
@@ -53,7 +53,7 @@
       .pill-ghost:hover { background: var(--fill-hover); color: var(--label); }
 
       .hero { padding: 44px 0 44px; }
-      .hero h1 { margin: 0; font-size: 74px; line-height: 1.04; letter-spacing: -0.025em; font-weight: 700; max-width: 14ch; text-wrap: balance; }
+      .hero h1 { margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 700; max-width: 17ch; text-wrap: balance; }
       .hero p { margin: 26px 0 0; font-size: 19px; line-height: 1.5; color: var(--dim); max-width: 56ch; text-wrap: pretty; }
       .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
       .btn { height: 50px; padding: 0 26px; border-radius: 25px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 600; }
@@ -100,18 +100,18 @@
       }
 
       .features { background: var(--bg-2); }
-      .feature { display: flex; align-items: center; gap: 96px; padding: 72px 0; }
+      .feature { display: flex; align-items: center; justify-content: center; gap: 72px; padding: 48px 0; }
       .feature + .feature { border-top: 1px solid var(--separator); }
       .feature:nth-child(even) { flex-direction: row-reverse; }
-      .ftext { flex: 1; min-width: 0; }
-      .ftext h2 { margin: 0 0 14px; font-size: 32px; font-weight: 700; letter-spacing: -0.025em; }
-      .ftext p { margin: 0; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 46ch; text-wrap: pretty; }
+      .ftext { flex: 0 1 440px; min-width: 0; }
+      .ftext h2 { margin: 0 0 12px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+      .ftext p { margin: 0; font-size: 16px; line-height: 1.55; color: var(--dim); max-width: 46ch; text-wrap: pretty; }
       .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
       .chips code { font-family: var(--mono); font-size: 12.5px; padding: 6px 12px; border-radius: 999px; background: var(--fill); color: var(--label); }
-      .fvis { flex: 0 0 460px; }
-      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 0; }
+      .fvis { flex: 0 0 340px; }
+      .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
       .pair div { min-width: 0; }
-      .tag { display: block; margin-bottom: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
+      .tag { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
       .tag-py { color: var(--accent); }
       .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
 
@@ -156,15 +156,16 @@
 
       @media (max-width: 1180px) {
         .wrap { padding: 0 28px; }
-        .hero h1 { font-size: 60px; }
+        .hero h1 { font-size: 54px; }
       }
       @media (max-width: 900px) {
-        .hero h1 { font-size: 46px; }
+        .hero h1 { font-size: 42px; }
         .hero p { font-size: 17px; }
-        .feature, .feature:nth-child(even) { flex-direction: column; align-items: stretch; gap: 28px; padding: 52px 0; }
-        .fvis { flex: none; width: 100%; max-width: 520px; }
-        .ftext h2 { font-size: 27px; }
-        .ftext p { font-size: 16px; }
+        .feature, .feature:nth-child(even) { flex-direction: column; align-items: stretch; gap: 22px; padding: 40px 0; }
+        .ftext { flex: none; }
+        .fvis { flex: none; width: 100%; max-width: 400px; }
+        .ftext h2 { font-size: 24px; }
+        .ftext p { font-size: 15.5px; }
         .band { padding: 52px 0; }
         .band h2 { font-size: 30px; }
       }
@@ -174,7 +175,7 @@
         .pill { padding: 0 14px; font-size: 13px; }
         .pill-ghost { display: none; }
         .hero { padding: 24px 0 32px; }
-        .hero h1 { font-size: 36px; line-height: 1.06; }
+        .hero h1 { font-size: 32px; line-height: 1.08; }
         .hero p { font-size: 15.5px; margin-top: 16px; }
         .btn { height: 46px; padding: 0 20px; font-size: 15px; }
         .tv { padding: 0 16px; }
@@ -187,7 +188,7 @@
         .disclosure-body { padding: 0 18px 6px; }
         .doc pre { padding: 14px; }
         .doc pre code { font-size: 12px; }
-        .ftext h2 { font-size: 24px; }
+        .ftext h2 { font-size: 22px; }
         .tag { font-size: 12px; margin-bottom: 8px; }
         .foot-in { flex-direction: column; gap: 20px; }
         .doc thead { display: none; }
@@ -220,8 +221,8 @@
     <main id="main">
       <div class="wrap">
         <header class="hero">
-          <h1>Apple TV style posters for Plex.</h1>
-          <p>{{intro}}</p>
+          <h1>Clean, consistent posters for your whole Plex library.</h1>
+          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for clean art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own as your library grows.</p>
           <div class="cta-row">
             <a class="btn btn-accent" href="#getting-started">Install with Docker</a>
             <a class="btn btn-quiet" href="#features">See the difference</a>
@@ -240,20 +241,20 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
               </div>
               <div class="clock" aria-hidden="true">8:30 PM</div>
-              <div class="index" aria-hidden="true"><span>#</span><span>A</span><span>B</span><span>F</span><span>L</span><span>O</span><b>S</b><span>T</span></div>
+              <div class="index" aria-hidden="true"><span>#</span><b>A</b><span>B</span><span>F</span><span>L</span><span>R</span><span>S</span><span>T</span><span>W</span><span>Y</span></div>
               <div class="grid" aria-hidden="true">
                 <figure class="show focus"><div class="art"><img src="/img/posters/andor.jpg" alt="" width="500" height="750" /></div><figcaption>Andor<span>2 Seasons</span></figcaption></figure>
                 <figure class="show"><div class="art"><img src="/img/posters/the-bear.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>The Bear<span>5 Seasons</span></figcaption></figure>
                 <figure class="show"><div class="art"><img src="/img/posters/foundation.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Foundation<span>3 Seasons</span></figcaption></figure>
                 <figure class="show"><div class="art"><img src="/img/posters/the-last-of-us.jpg" alt="" width="500" height="750" /><span class="count">7</span></div><figcaption>The Last of Us<span>2 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/the-office.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>The Office<span>9 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/reacher.jpg" alt="" width="500" height="750" /><span class="count">8</span></div><figcaption>Reacher<span>4 Seasons</span></figcaption></figure>
                 <figure class="show"><div class="art"><img src="/img/posters/severance.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Severance<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/shogun.jpg" alt="" width="500" height="750" /></div><figcaption>Shōgun<span>1 Season</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/shrinking.jpg" alt="" width="500" height="750" /><span class="count">12</span></div><figcaption>Shrinking<span>3 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/silo.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Silo<span>4 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/slow-horses.jpg" alt="" width="500" height="750" /><span class="count">6</span></div><figcaption>Slow Horses<span>6 Seasons</span></figcaption></figure>
-                <figure class="show"><div class="art"><img src="/img/posters/stranger-things.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Stranger Things<span>5 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/squid-game.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Squid Game<span>3 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/succession.jpg" alt="" width="500" height="750" /><span class="count"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span></div><figcaption>Succession<span>4 Seasons</span></figcaption></figure>
                 <figure class="show"><div class="art"><img src="/img/posters/ted-lasso.jpg" alt="" width="500" height="750" /><span class="count">12</span></div><figcaption>Ted Lasso<span>4 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/wednesday.jpg" alt="" width="500" height="750" /><span class="count">8</span></div><figcaption>Wednesday<span>3 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/the-white-lotus.jpg" alt="" width="500" height="750" /><span class="count">6</span></div><figcaption>The White Lotus<span>3 Seasons</span></figcaption></figure>
+                <figure class="show"><div class="art"><img src="/img/posters/yellowjackets.jpg" alt="" width="500" height="750" /><span class="count">10</span></div><figcaption>Yellowjackets<span>4 Seasons</span></figcaption></figure>
               </div>
             </div>
           </div>

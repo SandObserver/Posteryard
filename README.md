@@ -2,7 +2,7 @@
 
 <h1 align="center">Posteryard</h1>
 
-<p align="center"><b>Apple TV style posters for Plex, picked, rendered and kept current automatically.</b></p>
+<p align="center"><b>Clean, consistent posters for Plex, picked, rendered and kept current automatically.</b></p>
 
 <p align="center">
   <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
@@ -20,7 +20,7 @@ You need [Docker](https://docs.docker.com/get-started/get-docker/), a free [TMDB
 ```yaml
 services:
   posteryard:
-    image: ghcr.io/sandobserver/posteryard:0.4
+    image: ghcr.io/sandobserver/posteryard:latest
     container_name: posteryard
     restart: unless-stopped
     init: true

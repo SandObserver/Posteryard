@@ -50,11 +50,6 @@ function render(markdown) {
 }
 
 const tagline = readme.match(/<b>(.+?)<\/b>/)?.[1] ?? fail('README.md has no bold tagline');
-const intro =
-  readme
-    .split('\n\n')
-    .find((block) => block.startsWith('Posteryard ') && !block.startsWith('<'))
-    ?.trim() ?? fail('README.md has no intro paragraph');
 const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGELOG.md has no released version');
 
 const [lead, ...setup] = section('Getting started').split('\n\n');
@@ -64,7 +59,6 @@ if (!settingsCount) fail('README.md Settings section has no settings table');
 
 const values = {
   tagline,
-  intro: marked.parseInline(intro),
   getting_started_lead: marked.parseInline(lead),
   getting_started: render(setup.join('\n\n')),
   settings_count: String(settingsCount),
