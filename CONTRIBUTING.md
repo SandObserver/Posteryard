@@ -30,7 +30,7 @@ cd site && npm ci && npm run build
 
 The build fails if a section it reads is missing from `README.md`.
 
-The Plex preview draws 7 random movies and 7 random shows from `site/posters.json` on each visit. Each entry needs an image at `site/public/img/posters/<id>.webp`, 400 x 600, rendered with `posteryard preview --tmdb` and `STREAMING_REGIONS=US`.
+The Plex preview shows either 12 random movies or 12 random shows from `site/posters.json` on each visit, as one Plex library. Each entry needs an image at `site/public/img/posters/<id>.webp`, 400 x 600, rendered with `posteryard preview --tmdb` and `STREAMING_REGIONS=US`.
 
 ## Branches and PRs
 
