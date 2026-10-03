@@ -3,7 +3,7 @@ import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from posteryard.plex import Item, Plex, is_rating_key
+from posteryard.server import Item, MediaServer, is_item_key
 
 YEAR = re.compile(r"^(.*\S)\s+\(?(\d{4})\)?$")
 KINDS = ("movie", "show")
@@ -63,16 +63,16 @@ def _match(item: Item) -> Match:
     return Match(str(item["ratingKey"]), str(item.get("title", "")), int(year) if year else None, str(item["type"]))
 
 
-def library_titles(plex: Plex, libraries: Iterable[str]) -> list[Match]:
+def library_titles(server: MediaServer, libraries: Iterable[str]) -> list[Match]:
     """Every movie and show in the managed libraries."""
     wanted = set(libraries)
     titles: list[Match] = []
-    for section in plex.sections():
+    for section in server.sections():
         if section.get("title") not in wanted:
             continue
         kind = "movie" if section.get("type") == "movie" else "show" if section.get("type") == "show" else None
         if kind is not None:
-            titles += [_match(item) for item in plex.section_items(str(section["key"]), kind)]
+            titles += [_match(item) for item in server.section_items(str(section["key"]), kind)]
     return titles
 
 
@@ -90,17 +90,17 @@ def search(titles: Sequence[Match], query: str) -> list[Match]:
     )
 
 
-def resolve(plex: Plex, libraries: Iterable[str], text: str) -> Match:
+def resolve(server: MediaServer, libraries: Iterable[str], text: str) -> Match:
     """The one movie or show `text` names: a title, a title and year, or a rating key. Never a guess."""
     text = text.strip()
-    titles = library_titles(plex, libraries)
+    titles = library_titles(server, libraries)
     matches = [t for t in titles if _norm(t.title) == _norm(text)]
     year = YEAR.match(text)
     if year:
         name, number = _norm(year.group(1)), int(year.group(2))
         matches += [t for t in titles if _norm(t.title) == name and t.year == number and t not in matches]
-    if is_rating_key(text):
-        item = plex.item(text)
+    if is_item_key(text):
+        item = server.item(text)
         if item is not None and str(item.get("ratingKey")) not in {m.rating_key for m in matches}:
             matches.insert(0, _match(item))
     if len(matches) == 1:
@@ -110,10 +110,10 @@ def resolve(plex: Plex, libraries: Iterable[str], text: str) -> Match:
     raise TitleError(text, search(titles, text)[:MAX_SUGGESTIONS], ambiguous=False)
 
 
-def season(plex: Plex, show: Match, number: int) -> Match:
+def season(server: MediaServer, show: Match, number: int) -> Match:
     if show.kind != "show":
         raise ValueError(f"{show.label} is not a show. --season works with shows only")
-    children = plex.children(show.rating_key)
+    children = server.children(show.rating_key)
     for child in children:
         if int(child.get("index", -1)) == number:
             name = f"{show.title} ({show.year})" if show.year else show.title

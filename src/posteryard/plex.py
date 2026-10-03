@@ -1,12 +1,10 @@
 import json
 import urllib.parse
 from collections.abc import Iterator, Mapping
-from typing import Any, Literal
+from typing import Any
 
 from posteryard import http
-
-Item = Mapping[str, Any]
-Target = Literal["poster", "art", "thumb"]
+from posteryard.server import Item, Target
 
 # Posters and episode thumbnails share Plex's poster endpoints and its `thumb` field.
 ENDPOINTS: dict[Target, tuple[str, str, str]] = {
@@ -19,6 +17,8 @@ PAGE = 200
 
 
 class Plex:
+    name = "Plex"
+
     def __init__(self, url: str, token: str) -> None:
         self.url = url
         self.token = token
@@ -213,10 +213,6 @@ class Plex:
         )
 
 
-def labels(item: Item) -> set[str]:
-    return {str(label.get("tag", "")).lower() for label in item.get("Label") or []}
-
-
 def is_rating_key(text: str) -> bool:
     return text.isascii() and text.isdigit()
 
@@ -225,11 +221,3 @@ def _key(rating_key: str) -> str:
     if not is_rating_key(rating_key):
         raise ValueError(f"not a Plex rating key: {rating_key!r}")
     return rating_key
-
-
-def tmdb_id(item: Item) -> int | None:
-    for guid in item.get("Guid") or []:
-        value = str(guid.get("id", ""))
-        if value.startswith("tmdb://"):
-            return int(value.removeprefix("tmdb://"))
-    return None

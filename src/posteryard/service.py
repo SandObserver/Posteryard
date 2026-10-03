@@ -14,7 +14,7 @@ from typing import Any
 
 from posteryard import __version__, http, memory, overrides, service_collections, statuspage
 from posteryard.config import Config
-from posteryard.plex import Item, Plex
+from posteryard.server import Item, MediaServer
 from posteryard.store import Store
 from posteryard.worker import Outcome, Worker
 
@@ -62,8 +62,8 @@ def related_keys(item: object) -> list[str]:
 
 
 class Service:
-    def __init__(self, cfg: Config, plex: Plex, store: Store, worker: Worker) -> None:
-        self.cfg, self.plex, self.store, self.worker = cfg, plex, store, worker
+    def __init__(self, cfg: Config, server: MediaServer, store: Store, worker: Worker) -> None:
+        self.cfg, self.server, self.store, self.worker = cfg, server, store, worker
         self.queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self._queued: set[str] = set()
         self._lock = threading.Lock()
@@ -110,9 +110,11 @@ class Service:
         return kinds
 
     def _sections(self) -> list[Item]:
-        sections = [s for s in self.plex.sections() if s.get("title") in self.cfg.libraries and s.get("type") in KINDS]
+        sections = [
+            s for s in self.server.sections() if s.get("title") in self.cfg.libraries and s.get("type") in KINDS
+        ]
         if not sections:
-            raise LookupError(f"Plex has no movie or TV library named {', '.join(self.cfg.libraries)}")
+            raise LookupError(f"{self.server.name} has no movie or TV library named {', '.join(self.cfg.libraries)}")
         return sections
 
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
@@ -121,17 +123,17 @@ class Service:
         started = int(time.time())
         for section in self._sections():
             for kind in self._kinds(section):
-                changed = self.plex.changed_since(str(section["key"]), kind, since)
+                changed = self.server.changed_since(str(section["key"]), kind, since)
                 self.enqueue((str(i["ratingKey"]) for i in changed), "changed")
                 for label in (overrides.CUSTOM_LABEL, overrides.NEXT_LABEL):
                     # Adding a label does not change an item's updatedAt, so changed_since misses it.
-                    labelled = self.plex.section_items(str(section["key"]), kind, label=label)
+                    labelled = self.server.section_items(str(section["key"]), kind, label=label)
                     self.enqueue((str(i["ratingKey"]) for i in labelled), "label")
         ignored = {
             str(i["ratingKey"])
             for section in self._sections()
             for kind in self._kinds(section)
-            for i in self.plex.section_items(str(section["key"]), kind, label=overrides.IGNORE_LABEL)
+            for i in self.server.section_items(str(section["key"]), kind, label=overrides.IGNORE_LABEL)
         }
         # A removed label leaves updatedAt untouched too, so items that lost the ignore label are found here.
         # Their old records are dropped: a poster chosen while ignored must not count as a manual change.
@@ -163,15 +165,15 @@ class Service:
             self.full()
 
     def full(self) -> None:
-        """Every item, and every known item that was not listed. The worker forgets those that Plex no longer has."""
+        """Every item, and every known item that was not listed. The worker forgets those the server no longer has."""
         seen: set[str] = set()
         if self.cfg.service_collections:
             for section in self._sections():
                 if section.get("type") == "show":
-                    seen.update(service_collections.sync(self.plex, self.worker.ctx, str(section["key"])))
+                    seen.update(service_collections.sync(self.server, self.worker.ctx, str(section["key"])))
         for section in self._sections():
             for kind in self._kinds(section):
-                seen.update(str(i["ratingKey"]) for i in self.plex.section_items(str(section["key"]), kind))
+                seen.update(str(i["ratingKey"]) for i in self.server.section_items(str(section["key"]), kind))
         unlisted = sorted(self.store.keys() - seen)
         self.enqueue(sorted(seen), "daily")
         self.enqueue(unlisted, "unlisted")

@@ -12,6 +12,9 @@ SHOWS = {
 
 
 class FakePlex:
+    name = "Plex"
+    url = "http://plex.example:32400"
+
     def __init__(self, ours: list[dict[str, Any]]) -> None:
         self.ours = ours
         self.members: dict[str, set[str]] = {"50": {"6", "9"}}

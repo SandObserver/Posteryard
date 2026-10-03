@@ -143,7 +143,7 @@ def test_specials_keep_a_caption_and_no_number() -> None:
 
 def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.plex = DatedPlex()  # type: ignore[assignment]
+    ctx.server = DatedPlex()  # type: ignore[assignment]
     added = int(datetime(2025, 1, 1).timestamp())
     plan = pipeline.show(ctx, {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4})[0]
     assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
@@ -193,6 +193,9 @@ def test_without_overrides_fingerprints_stay_the_same() -> None:
 class FakePlex:
     """A show (1) with seasons 1 and 2 (11, 12), each with two episodes."""
 
+    name = "Plex"
+    url = "http://plex.example:32400"
+
     def __init__(self) -> None:
         show = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
         self.items: dict[str, dict[str, Any]] = {"1": show}
@@ -216,7 +219,7 @@ class FakePlex:
 
 def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.plex = FakePlex()  # type: ignore[assignment]
+    ctx.server = FakePlex()  # type: ignore[assignment]
     plans = pipeline.plan_preview(ctx, "1", episodes=1)
     assert [(p.rating_key, p.target) for p in plans] == [
         ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
@@ -260,9 +263,9 @@ def test_accessibility_badges_get_their_own_line() -> None:
 
 def test_preview_of_a_missing_item_fails() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    with pytest.raises(pipeline.NotFoundError, match="not configured"):
+    with pytest.raises(pipeline.NotFoundError, match="configured"):
         pipeline.plan_preview(ctx, "1")
-    ctx.plex = FakePlex()  # type: ignore[assignment]
+    ctx.server = FakePlex()  # type: ignore[assignment]
     with pytest.raises(pipeline.NotFoundError, match="no item"):
         pipeline.plan_preview(ctx, "99")
 
@@ -294,7 +297,7 @@ class CollectionPlex:
 
 def test_collections_take_art_from_their_newest_member() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.plex = CollectionPlex()  # type: ignore[assignment]
+    ctx.server = CollectionPlex()  # type: ignore[assignment]
     channel = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "Netflix"})[0]
     assert channel.inputs["design"] == "channel"
     assert channel.inputs["service"] == "netflix"

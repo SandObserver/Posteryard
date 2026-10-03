@@ -13,7 +13,7 @@ from posteryard import http, overrides, pipeline, service_collections, statuspag
 from posteryard.config import Config, EpisodeMode
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.plex import Item, Plex, Target, labels
+from posteryard.server import Item, MediaServer, Target, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -48,8 +48,10 @@ def jpeg(image: Image.Image) -> bytes:
 
 
 class Worker:
-    def __init__(self, cfg: Config, plex: Plex, store: Store, notifier: Notifier, tmdb: Tmdb | None = None) -> None:
-        self.cfg, self.plex, self.store, self.notifier = cfg, plex, store, notifier
+    def __init__(
+        self, cfg: Config, server: MediaServer, store: Store, notifier: Notifier, tmdb: Tmdb | None = None
+    ) -> None:
+        self.cfg, self.server, self.store, self.notifier = cfg, server, store, notifier
         self.maintainerr = Maintainerr(cfg.maintainerr_url)
         self.ctx = pipeline.Context(
             tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
@@ -57,7 +59,7 @@ class Worker:
             cfg.regions,
             {},
             date.today(),
-            plex,
+            server,
             labels=cfg.status_labels,
             accessibility=cfg.accessibility,
             episodes=cfg.episodes,
@@ -101,7 +103,7 @@ class Worker:
     def process(self, rating_key: str, *, force: bool = False) -> Outcome:
         title = rating_key
         try:
-            item = self.plex.item(rating_key)
+            item = self.server.item(rating_key)
             if item is None:
                 self.store.forget(rating_key)
                 self.store.reset_override(rating_key)
@@ -133,9 +135,9 @@ class Worker:
         return self.process(rating_key, force=True)
 
     def next_art(self, rating_key: str) -> Outcome:
-        item = self.plex.item(rating_key)
+        item = self.server.item(rating_key)
         if item is None:
-            raise pipeline.NotFoundError(f"Plex has no item {rating_key}")
+            raise pipeline.NotFoundError(f"{self.server.name} has no item {rating_key}")
         self._skip_current(item)
         return self.process(rating_key, force=True)
 
@@ -155,35 +157,37 @@ class Worker:
             self.store.add_skip(key, art)
 
     def _restore(self, item: Item, target: Target) -> None:
-        """Give back Plex's own image when Posteryard no longer makes this kind of image."""
+        """Give back the server's own image when Posteryard no longer makes this kind of image."""
         key = str(item["ratingKey"])
         record = self.store.get(key, target)
         if record is None:
             return
         if record.status == Status.UPLOADED and not self.cfg.dry_run:
-            self.plex.restore(item, target)
+            self.server.restore(item, target)
             log.info("gave %s back its own %s", item.get("title"), target)
         self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
-        """Apply the Plex labels. True when the poster must be rendered again."""
+        """Apply the labels. True when the poster must be rendered again."""
         key, tags = str(item["ratingKey"]), labels(item)
         redo = False
         if overrides.NEXT_LABEL in tags:
             self._skip_current(item)
-            self.plex.remove_label(item, overrides.NEXT_LABEL)
+            self.server.remove_label(item, overrides.NEXT_LABEL)
             log.info("switching %s to its next art", item.get("title"))
             redo = True
         current = self.store.override(key)
         if overrides.CUSTOM_LABEL in tags:
             record = self.store.get(key, "poster")
-            selected = self.plex.selected(key, "poster")
+            selected = self.server.selected(key, "poster")
             if selected and (record is None or selected != record.image_key):
-                image = overrides.decode(self.plex.poster_bytes(item))
+                image = overrides.decode(self.server.poster_bytes(item))
                 path = str(overrides.save(image, self.cfg.data_dir, key))
                 if current is None or current.custom != path:
                     self.store.set_custom(key, path, "plex")
-                    log.info("using the poster uploaded in Plex as custom art for %s", item.get("title"))
+                    log.info(
+                        "using the poster uploaded in %s as custom art for %s", self.server.name, item.get("title")
+                    )
                     redo = True
         elif current is not None and current.source == "plex":
             self.store.reset_override(key)
@@ -197,9 +201,9 @@ class Worker:
         if not self.cfg.dry_run and record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
-            if record.status == Status.UPLOADED and self.plex.selected(key, target) != record.image_key:
+            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
                 self.store.manual(key, target, plan.name)
-                log.info("%s for %s was changed in Plex, leaving it alone", target, plan.name)
+                log.info("%s for %s was changed in %s, leaving it alone", target, plan.name, self.server.name)
                 return Outcome.MANUAL
         wanted = Status.PREVIEW if self.cfg.dry_run else Status.UPLOADED
         if record and record.status == wanted and record.fingerprint == plan.fingerprint and not force:
@@ -212,9 +216,9 @@ class Worker:
             statuspage.save_thumb(self.cfg.thumbs_dir, key, target, image)
             log.info("previewed %s %s (%s)", target, plan.name, "; ".join(plan.notes))
             return Outcome.PREVIEW
-        image_key = self.plex.upload(key, target, jpeg(image))
+        image_key = self.server.upload(key, target, jpeg(image))
         try:
-            self.plex.lock(item, target)
+            self.server.lock(item, target)
         except http.RequestError as exc:
             log.warning("could not lock the %s for %s: %s", target, plan.name, exc)
         self.store.uploaded(key, target, plan.name, plan.fingerprint, image_key)
@@ -226,17 +230,17 @@ class Worker:
         failures = self.store.failed(rating_key, ITEM_TARGET, title, str(exc))
         log.warning("%s (%s) failed, attempt %d: %s", title, rating_key, failures, exc)
         if failures >= ALERT_AFTER:
-            self.notifier.alert(_upstream(exc, self.cfg.plex_url), f"{title} failed {failures} times: {exc}")
+            self.notifier.alert(_upstream(exc, self.server), f"{title} failed {failures} times: {exc}")
 
 
-def _upstream(exc: Exception, plex_url: str) -> str:
+def _upstream(exc: Exception, server: MediaServer) -> str:
     """Group alerts by what failed, so one outage sends one alert."""
     if isinstance(exc, pipeline.NotFoundError):
         return "missing artwork"
     if isinstance(exc, http.RequestError):
         host = urlsplit(exc.url).hostname or ""
-        if host == urlsplit(plex_url).hostname:
-            return "Plex"
+        if host == urlsplit(server.url).hostname:
+            return server.name
         if host.endswith("themoviedb.org") or host.endswith("tmdb.org"):
             return "TMDB"
     return "rendering"

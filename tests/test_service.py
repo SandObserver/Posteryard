@@ -45,6 +45,9 @@ def test_an_episode_brings_its_season_and_show() -> None:
 
 
 class FakePlex:
+    name = "Plex"
+    url = "http://plex.example:32400"
+
     def __init__(self) -> None:
         self.ignored: list[dict[str, str]] = []
 
