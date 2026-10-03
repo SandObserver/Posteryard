@@ -1,4 +1,5 @@
-"""The lines under the title logo: one label or caption, then quality badges, then accessibility badges.
+"""The lines under the title logo: a caption, then quality badges, then accessibility badges. A status label sits
+above the logo, so a label that comes and goes never moves the logo.
 
 Positions are fractions of the poster height, measured on Apple TV tiles: the logo's bottom edge sits at 89.6%
 alone and 82.8% above one line, and the lowest line is centred at 90.5%. More lines push the logo up.
@@ -17,7 +18,6 @@ LOGO_ALONE = 0.896
 LOGO_ABOVE_LINE = 0.077
 LAST_LINE = 0.905
 CAPTION_PITCH = 0.056
-LABEL_PITCH = 0.050
 BADGE_PITCH = 0.046
 
 CAPTION_SIZE = 0.053
@@ -27,6 +27,8 @@ LABEL_DOT = 0.015
 LABEL_GAP = 0.010
 LABEL_TRACKING = 0.08
 LABEL_ALPHA = 200
+# The label's centre sits this far above the top of the logo.
+LABEL_ABOVE = 0.032
 
 # Fractions of the poster width.
 BADGE_ROW = 0.042
@@ -50,8 +52,8 @@ class Badges:
     kinds: tuple[Badge, ...]
 
 
-Line = Label | Caption | Badges
-PITCH: dict[type, float] = {Caption: CAPTION_PITCH, Label: LABEL_PITCH, Badges: BADGE_PITCH}
+Line = Caption | Badges
+PITCH: dict[type, float] = {Caption: CAPTION_PITCH, Badges: BADGE_PITCH}
 
 
 def stack(lines: Sequence[Line]) -> tuple[float, list[float]]:
@@ -71,10 +73,12 @@ def draw(canvas: Image.Image, lines: Sequence[Line], centres: Sequence[float]) -
             case Caption(text):
                 face = font("Regular", round(CAPTION_SIZE * canvas.height))
                 draw_tracked(canvas, (canvas.width / 2, y), text, face, (*WHITE, CAPTION_ALPHA), align="centre")
-            case Label(text, colour):
-                _label(canvas, text, colour, y)
             case Badges(kinds):
                 _badges(canvas, kinds, y)
+
+
+def draw_label_above(canvas: Image.Image, label: Label, logo_top: int) -> None:
+    _label(canvas, label.text, label.colour, logo_top - LABEL_ABOVE * canvas.height)
 
 
 def _label(canvas: Image.Image, text: str, colour: RGB, y: float) -> None:

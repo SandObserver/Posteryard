@@ -8,12 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Show coloured labels under the logo for just added titles, new episodes and seasons, and a season's start date; turn them off with `STATUS_LABELS=false`.
+- Show coloured labels above the logo for just added titles, new episodes and seasons, and a season's start date; turn them off with `STATUS_LABELS=false`.
 - Draw the season number large in the top left corner of season posters.
 - Add SDH, CC and AD badges on their own line with `QUALITY_ACCESSIBILITY`.
 - Choose episode thumbnails with `EPISODE_THUMBNAILS`: `plain`, `titled` or `off`.
 - Choose title logo languages with `LOGO_LANGUAGES`.
-- Prefer wide title logos over emblems; turn it off with `PREFER_WORDMARK=false`.
+- Prefer wide title logos over emblems, including colourful ones such as red or yellow; turn it off with `PREFER_WORDMARK=false`.
+- Choose the textless poster the title logo reads best on, measuring detail, faces and contrast where the logo goes.
 - Set the title in white when TMDB has no title logo, instead of skipping the poster.
 - Add a status page at `/` with health, schedule, failures and the latest images.
 - Publish the image for 64-bit ARM hosts, such as a Raspberry Pi 4 or 5, as well as x86.

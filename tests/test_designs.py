@@ -44,13 +44,12 @@ def test_one_line_lifts_the_logo_to_apples_caption_spot() -> None:
 
 
 def test_more_lines_push_the_logo_up_and_keep_the_order() -> None:
-    label = lines.Label("LEAVING IN 3 DAYS", (255, 0, 0))
     quality = lines.Badges((Badge.UHD, Badge.DOLBY_VISION))
     access = lines.Badges((Badge.SDH, Badge.CC))
-    bottom, centres = lines.stack([label, quality, access])
+    bottom, centres = lines.stack([quality, access])
     assert centres == sorted(centres)
     assert centres[-1] == lines.LAST_LINE
-    assert bottom < lines.stack([label])[0]
+    assert bottom < lines.stack([quality])[0]
     assert bottom > 0.7
 
 
@@ -61,10 +60,14 @@ def test_caption_is_translucent() -> None:
     assert 100 < band.max() < 180
 
 
-def test_label_draws_its_dot_in_its_colour() -> None:
-    out = np.asarray(tile(lines_below=[lines.Label("JUST ADDED", (48, 209, 88))]))
+def test_a_label_sits_above_the_logo_and_never_moves_it() -> None:
+    plain = tile()
+    labelled = tile(label=lines.Label("JUST ADDED", (48, 209, 88)))
     h = designs.POSTER[1]
-    row = out[round(lines.LAST_LINE * h)]
+    diff = np.flatnonzero(np.asarray(ImageChops.difference(labelled, plain).convert("L")).max(axis=1) > 8)
+    logo_top = round(lines.LOGO_ALONE * h) - round(designs.LOGO_BOX[0] * designs.POSTER[0] / 8)
+    assert diff.max() < logo_top
+    row = np.asarray(labelled)[round(logo_top - lines.LABEL_ABOVE * h)]
     assert any(r < 80 and g > 180 and b < 120 for r, g, b in row)
 
 

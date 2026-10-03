@@ -97,7 +97,7 @@ def test_movie_uses_textless_art_that_shows_no_title() -> None:
     assert [p.target for p in plans] == ["poster", "art"]
     assert plans[0].inputs["art"] == "/textless.jpg"
     assert plans[0].inputs["design"] == "tile"
-    assert plans[0].inputs["lines"] == [Label("LEAVING IN 3 DAYS", APPLE_RED)]
+    assert plans[0].inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
     assert plans[0].draw().size == (1000, 1500)
 
 
@@ -146,16 +146,16 @@ def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
     ctx.plex = DatedPlex()  # type: ignore[assignment]
     added = int(datetime(2025, 1, 1).timestamp())
     plan = pipeline.show(ctx, {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4})[0]
-    assert plan.inputs["lines"] == [Label("NEW EPISODE", APPLE_BLUE)]
+    assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
 
 
 def test_labels_can_be_turned_off_but_leaving_stays() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.labels = False
     plan = pipeline.movie(ctx, {**ITEM, "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
-    assert plan.inputs["lines"] == [Label("LEAVING IN 3 DAYS", APPLE_RED)]
+    assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
     plan = pipeline.movie(ctx, {**ITEM, "ratingKey": "2", "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
-    assert plan.inputs["lines"] == []
+    assert plan.inputs["label"] is None
 
 
 def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> None:

@@ -107,6 +107,7 @@ def tile_poster(
     logo: Image.Image,
     *,
     lines_below: list[lines.Line],
+    label: lines.Label | None = None,
     number: int | None = None,
     service: str | None = None,
 ) -> Image.Image:
@@ -119,8 +120,11 @@ def tile_poster(
         (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
     )
     logo_bottom, centres = lines.stack(lines_below)
-    canvas.alpha_composite(logo, ((w - logo.width) // 2, round(logo_bottom * h) - logo.height))
+    logo_top = round(logo_bottom * h) - logo.height
+    canvas.alpha_composite(logo, ((w - logo.width) // 2, logo_top))
     lines.draw(canvas, lines_below, centres)
+    if label is not None:
+        lines.draw_label_above(canvas, label, logo_top)
     if number is not None:
         _season_number(canvas, number)
     if service:

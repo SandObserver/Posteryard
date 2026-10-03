@@ -226,8 +226,8 @@ def _poster(
 ) -> Plan:
     images = ctx.images(title.kind, title.tmdb_id)
     base = f"{title.kind}:{title.tmdb_id}"
-    show_art = ctx.picker.textless_art(base, images, title.all_titles)
     logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+    show_art = ctx.picker.textless_art(base, images, title.all_titles, logo)
     if show_art is None:
         raise NotFoundError(f"TMDB has no textless art for {name}")
     if season is None:
@@ -248,9 +248,7 @@ def _poster(
             note += ", no other art left to switch to"
         extra["override"] = sorted(override.skip)
     below: list[lines.Line] = []
-    if label:
-        below.append(label)
-    elif season == 0:
+    if season == 0:
         below.append(lines.Caption(_season_label(0)))
     if badges:
         below.append(lines.Badges(tuple(badges)))
@@ -262,12 +260,14 @@ def _poster(
 
     def draw() -> Image.Image:
         mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name)
-        return designs.tile_poster(ctx.load(art_path), mark, lines_below=below, number=number, service=service)
+        return designs.tile_poster(
+            ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service
+        )
 
     if logo_path is None:
         extra["text_logo"] = title.name
     inputs = {
-        "design": "tile", "art": art_path, "logo": logo_path, "lines": below,
+        "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
         "number": number, "service": service, **extra,
     }  # fmt: skip
     return Plan(key, "poster", name, inputs, draw, [note])

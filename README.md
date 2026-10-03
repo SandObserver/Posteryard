@@ -92,7 +92,7 @@ Add any of these under `environment:`.
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
-| `STATUS_LABELS` | Show a coloured label under the logo for news: `JUST ADDED` (green, 14 days), `NEW EPISODE` or `NEW SEASON` (blue, 7 days), `NEW SEASON OCT 21` (yellow, up to 30 days ahead). The Maintainerr label (red) stays on with `false`. | `true` |
+| `STATUS_LABELS` | Show a coloured label above the logo for news: `JUST ADDED` (green, 14 days), `NEW EPISODE` or `NEW SEASON` (blue, 7 days), `NEW SEASON OCT 21` (yellow, up to 30 days ahead). The Maintainerr label (red) stays on with `false`. | `true` |
 | `QUALITY_ACCESSIBILITY` | Accessibility badges on movie posters, on their own line: any of `sdh`, `cc`, `ad`, separated by commas. Read from Plex's track flags, or from track titles such as "English (SDH)". | |
 | `EPISODE_THUMBNAILS` | `plain`: the episode still with a light bottom shade. `titled`: the still with `EPISODE N` and the title. `off`: leave episodes alone and give back Plex's own thumbnails. | `plain` |
 | `LOGO_LANGUAGES` | Title logo languages to try in order, as two-letter codes, such as `fr,en`. | `en` |
@@ -220,12 +220,12 @@ Use either monitor, or both:
 
 | Plex image | Design |
 | --- | --- |
-| Movie and show poster | Textless TMDB art, the title logo and a soft black fade, laid out like an Apple TV tile. Under the logo, in this order: one status or Maintainerr label, quality badges (movies), accessibility badges (movies). The logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
+| Movie and show poster | Textless TMDB art, the title logo and a soft black fade, laid out like an Apple TV tile. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
 | Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |
 
-Art that prints the title or other large text is rejected, even when TMDB marks it as textless.
+Art that prints the title or other large text is rejected, even when TMDB marks it as textless. Of the textless posters left, Posteryard takes the one the title logo reads best on: the least detail and no faces where the logo goes, and enough contrast with the logo's colours. Status labels such as `JUST ADDED` sit above the logo, so they never move it.
 
 ## How it works
 
@@ -254,4 +254,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and releases. Changes a
 
 ## Credits
 
-Artwork and metadata come from [TMDB](https://www.themoviedb.org). Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
+Artwork and metadata come from [TMDB](https://www.themoviedb.org). Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`. Face detection: [YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet) by Shiqi Yu, MIT License, in `src/posteryard/assets/models/LICENSE-yunet.txt`.

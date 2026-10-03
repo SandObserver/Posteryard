@@ -1,3 +1,4 @@
+import numpy as np
 from PIL import Image
 
 from posteryard.artwork import MemoryChoices, Picker
@@ -62,3 +63,36 @@ def test_logo_languages_fall_back_in_order() -> None:
     images = Images([], [], [ImageRef("/en.png", "en", 1000, 300, 5, 1), ImageRef("/fr.png", "fr", 1000, 300, 5, 1)])
     assert picker.logo("movie:1", images, ("fr", "en")) == "/fr.png"
     assert picker.logo("movie:1", images, ("de", "en")) == "/en.png"
+
+
+def test_a_colourful_wordmark_beats_a_white_emblem_and_dark_logos_are_skipped() -> None:
+    colours = {
+        "/red-wide.png": (220, 40, 30, 255),
+        "/white-emblem.png": (255, 255, 255, 255),
+        "/black-wide.png": (5, 5, 5, 255),
+    }
+    picker = Picker(MemoryChoices(), lambda path: Image.new("RGBA", (10, 10), colours[path]), lambda image: [])
+    black = ImageRef("/black-wide.png", "en", 1000, 300, 9, 9)
+    emblem = ImageRef("/white-emblem.png", "en", 500, 500, 8, 8)
+    red = ImageRef("/red-wide.png", "en", 1000, 300, 1, 1)
+    assert picker.logo("movie:1", Images([], [], [black, emblem, red])) == "/red-wide.png"
+    assert picker.logo("movie:2", Images([], [], [black, emblem])) == "/white-emblem.png"
+
+
+def test_with_a_logo_the_calmest_textless_art_wins() -> None:
+    def fetch(path: str) -> Image.Image:
+        if path.endswith(".png"):
+            return Image.new("RGBA", (600, 150), (255, 255, 255, 255))
+        if path == "/busy.jpg":
+            rng = np.random.default_rng(2)
+            return Image.fromarray(rng.integers(0, 255, (1500, 1000, 3), dtype=np.uint8))
+        return Image.new("RGB", (1000, 1500), (20, 20, 30))
+
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    posters = [ImageRef("/busy.jpg", None, 2000, 3000, 9, 9), ImageRef("/calm.jpg", None, 2000, 3000, 1, 1)]
+    picked = picker.textless_art("movie:1", Images(posters, [], []), ["Example"], "/logo.png")
+    assert picked is not None and picked.path == "/calm.jpg"
+    assert picker.textless_art("movie:1", Images(posters, [], []), ["Example"]) == picker.textless(
+        "movie:1:posters", posters, ["Example"]
+    )
+    assert picker.textless_art("movie:3", Images([], [], []), ["Example"], "/logo.png") is None
