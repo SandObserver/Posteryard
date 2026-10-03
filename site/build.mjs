@@ -57,11 +57,18 @@ const intro =
     ?.trim() ?? fail('README.md has no intro paragraph');
 const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGELOG.md has no released version');
 
+const [lead, ...setup] = section('Getting started').split('\n\n');
+const settings = section('Settings');
+const settingsCount = settings.split('\n').filter((line) => line.startsWith('| `')).length;
+if (!settingsCount) fail('README.md Settings section has no settings table');
+
 const values = {
   tagline,
   intro: marked.parseInline(intro),
-  getting_started: render(section('Getting started')),
-  settings: render(section('Settings')),
+  getting_started_lead: marked.parseInline(lead),
+  getting_started: render(setup.join('\n\n')),
+  settings_count: String(settingsCount),
+  settings: render(settings),
   version,
   repo,
 };
