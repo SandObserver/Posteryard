@@ -264,3 +264,27 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
     assert stopped == [True]
     assert service.exit_code == 1
     assert alerts.sent and "worker" in alerts.sent[0]
+
+
+def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    done: list[str] = []
+
+    def process(key: str) -> str:
+        done.append(key)
+        if key == "2":
+            raise RuntimeError("unexpected")
+        return "uploaded"
+
+    service.worker = type("W", (), {"process": staticmethod(process)})()
+    service.enqueue(["1", "2", "1"], "test")
+    thread = threading.Thread(target=service._work, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5
+    while len(done) < 2 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    service._stop.set()
+    thread.join(timeout=5)
+    assert done == ["1", "2"]
+    assert not thread.is_alive()

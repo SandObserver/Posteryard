@@ -16,6 +16,8 @@ CI runs the same checks:
 uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
 ```
 
+`pytest` measures coverage and fails below 85% or on any warning.
+
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex.
 
 ## Branches and PRs

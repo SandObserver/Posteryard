@@ -65,6 +65,10 @@ class Store:
         self._db.executescript(SCHEMA)
         self._lock = threading.Lock()
 
+    def close(self) -> None:
+        with self._lock:
+            self._db.close()
+
     def get(self, rating_key: str, target: str) -> Record | None:
         with self._lock:
             row = self._db.execute(
