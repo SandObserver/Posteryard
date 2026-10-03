@@ -26,6 +26,7 @@ RESTART_LOOKBACK = 6 * 3600
 SWEEP_LOOKBACK = 60
 WORKER_STALL = 600
 TICK = 30
+HEARTBEAT_SECONDS = 60
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
@@ -70,6 +71,8 @@ class Service:
         self.worker_beat = time.monotonic()
         self.last_sweep_ok = time.monotonic()
         self.threads: list[threading.Thread] = []
+        self.exit_code = 0
+        self._last_heartbeat = 0.0
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
         for key in keys:
@@ -211,13 +214,55 @@ class Service:
                 log.exception("scheduled run failed")
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 next_sweep = time.monotonic() + 120
+            self.heartbeat()
             self._stop.wait(TICK)
 
-    def healthy(self) -> bool:
+    def heartbeat(self) -> None:
+        """Call HEARTBEAT_URL while healthy, so a push monitor notices when the calls stop."""
+        now = time.monotonic()
+        if not self.cfg.heartbeat_url or now - self._last_heartbeat < HEARTBEAT_SECONDS or not self.healthy():
+            return
+        self._last_heartbeat = now
+        try:
+            http.request("GET", self.cfg.heartbeat_url, timeout=10, retries=1)
+        except http.HttpError as exc:
+            log.warning("HEARTBEAT_URL answered HTTP %d", exc.status)
+        except http.RequestError:
+            log.warning("HEARTBEAT_URL could not be reached")
+
+    def status(self) -> dict[str, Any]:
         now = time.monotonic()
         sweep_limit = max(3 * self.cfg.sweep_minutes * 60, 900)
-        alive = all(thread.is_alive() for thread in self.threads)
-        return alive and now - self.worker_beat < WORKER_STALL and now - self.last_sweep_ok < sweep_limit
+        checks = {
+            "threads_running": all(thread.is_alive() for thread in self.threads),
+            "worker_responsive": now - self.worker_beat < WORKER_STALL,
+            "sweep_recent": now - self.last_sweep_ok < sweep_limit,
+        }
+        return {
+            "ok": all(checks.values()),
+            "checks": checks,
+            "last_sweep_seconds_ago": round(now - self.last_sweep_ok),
+            "last_full_pass": self.store.meta("last_full") or None,
+            "full_pass_running": self.store.meta("full_pending") == "1",
+            "queue": self.queue.qsize(),
+            "images": self.store.counts(),
+            "dry_run": self.cfg.dry_run,
+            "version": __version__,
+        }
+
+    def healthy(self) -> bool:
+        return bool(self.status()["ok"])
+
+    def _watch(self, server: ThreadingHTTPServer) -> None:
+        """Exit when a service thread has stopped, so the container's restart policy starts a fresh one."""
+        while not self._stop.wait(TICK):
+            dead = [thread.name for thread in self.threads if not thread.is_alive()]
+            if dead:
+                log.error("service thread %s stopped, exiting so the container restarts", ", ".join(dead))
+                self.worker.notifier.alert("restart", f"Posteryard restarts because {', '.join(dead)} stopped.")
+                self.exit_code = 1
+                self._stop.set()
+                server.shutdown()
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         service = self
@@ -238,15 +283,19 @@ class Service:
                 self.wfile.write(data)
 
             def do_GET(self) -> None:
-                if self.path != "/healthz":
+                if self.path.split("?")[0] != "/healthz":
                     self._reply(404, {"error": "not found"})
                     return
-                ok = service.healthy()
-                self._reply(
-                    200 if ok else 503,
-                    {"ok": ok, "queue": service.queue.qsize(), "images": service.store.counts(),
-                     "dry_run": service.cfg.dry_run, "version": __version__},
-                )  # fmt: skip
+                status = service.status()
+                self._reply(200 if status["ok"] else 503, status)
+
+            def do_HEAD(self) -> None:
+                if self.path.split("?")[0] != "/healthz":
+                    self.send_response(404)
+                else:
+                    self.send_response(200 if service.healthy() else 503)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
 
             def do_POST(self) -> None:
                 if not hmac.compare_digest(self.path.split("?")[0].encode(), webhook_path.encode()):
@@ -268,8 +317,11 @@ class Service:
 
         return Handler
 
-    def run(self) -> None:
-        self.threads = [threading.Thread(target=t, daemon=True, name=t.__name__) for t in (self._work, self._schedule)]
+    def run(self) -> int:
+        self.threads = [
+            threading.Thread(target=self._work, daemon=True, name="worker"),
+            threading.Thread(target=self._schedule, daemon=True, name="schedule"),
+        ]
         for thread in self.threads:
             thread.start()
         server = ThreadingHTTPServer(("0.0.0.0", self.cfg.listen_port), self.handler())
@@ -286,7 +338,9 @@ class Service:
             "Posteryard %s listening on %d, dry_run=%s, only=%s",
             __version__, self.cfg.listen_port, self.cfg.dry_run, sorted(self.cfg.only_rating_keys) or "all",
         )  # fmt: skip
+        threading.Thread(target=self._watch, args=(server,), daemon=True, name="watch").start()
         server.serve_forever()
         server.server_close()
         for thread in self.threads:
             thread.join(timeout=20)
+        return self.exit_code

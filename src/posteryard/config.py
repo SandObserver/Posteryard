@@ -38,6 +38,7 @@ class Config:
     ntfy_token: str
     notify_urls: tuple[str, ...]
     listen_port: int
+    heartbeat_url: str
 
     @property
     def preview_dir(self) -> Path:
@@ -92,6 +93,9 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     bad = notify.invalid_urls(notify_urls)
     if bad:
         raise ConfigError(f"NOTIFY_URLS: address {', '.join(map(str, bad))} is not one Apprise supports")
+    heartbeat_url = env.get("HEARTBEAT_URL", "").strip()
+    if heartbeat_url and not heartbeat_url.startswith(("http://", "https://")):
+        raise ConfigError("HEARTBEAT_URL must start with http:// or https://")
     libraries = _list(env, "PLEX_LIBRARIES", "Movies,TV Shows")
     if not libraries:
         raise ConfigError("PLEX_LIBRARIES needs at least one library name")
@@ -118,6 +122,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         ntfy_token=env.get("NTFY_TOKEN", "").strip(),
         notify_urls=notify_urls,
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
+        heartbeat_url=heartbeat_url,
     )
 
 

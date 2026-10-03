@@ -23,6 +23,14 @@ services:
     image: ghcr.io/sandobserver/posteryard:0.3
     container_name: posteryard
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - TMDB_API_KEY=your-tmdb-api-key
       - PLEX_URL=http://192.168.1.10:32400
@@ -49,7 +57,7 @@ mkdir -p data && sudo chown 1000:1000 data
 docker compose up -d
 ```
 
-Posteryard runs as user 1000, so it needs to own `./data`.
+Posteryard runs as user 1000, so it needs to own `./data`. The `read_only`, `cap_drop` and `security_opt` lines lock the container down; Posteryard writes only to `/data` and `/tmp`.
 
 It starts with `DRY_RUN=true`: posters are saved to `./data/previews` and Plex is not touched. Happy with them? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters are now uploaded and locked, so Plex keeps them.
 
@@ -75,6 +83,7 @@ Add any of these under `environment:`.
 | `STREAMING_REGIONS` | Countries to look up the streaming service in, in order. | `CA,US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library. | `04:15` |
+| `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
 | `LISTEN_PORT` | Port inside the container. | `8000` |
 | `DATA_DIR` | Where the database and previews are kept. | `/data` |
 
@@ -163,6 +172,31 @@ Common addresses:
 
 Check the setup with `docker exec posteryard posteryard test-alert`. Posteryard refuses to start when an address is not one Apprise understands. The error names its position, never the address, because addresses hold secrets.
 
+## Monitoring
+
+The image has a Docker health check. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, it sends an alert and exits, and `restart: unless-stopped` starts it again.
+
+`GET /healthz` answers `200` when healthy and `503` when not:
+
+```json
+{"ok": true, "checks": {"threads_running": true, "worker_responsive": true, "sweep_recent": true},
+ "last_sweep_seconds_ago": 312, "last_full_pass": "2026-10-03", "full_pass_running": false,
+ "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.4.0"}
+```
+
+| Check | Fails when |
+| --- | --- |
+| `threads_running` | The worker or the schedule has stopped. |
+| `worker_responsive` | One title has been processing for more than 10 minutes. |
+| `sweep_recent` | No sweep has succeeded for 3 sweep intervals (at least 15 minutes), for example while Plex is down. |
+
+### Uptime Kuma
+
+Use either monitor, or both:
+
+- **HTTP**: add an **HTTP(s) - Keyword** monitor for `http://YOUR-SERVER-IP:8000/healthz` with the keyword `"ok": true`. It alerts when Posteryard is unhealthy or unreachable.
+- **Push**: add a **Push** monitor with a heartbeat interval of 300 seconds, copy its push URL, and set it as `HEARTBEAT_URL`. Posteryard calls it every minute while healthy, so this works even when Uptime Kuma cannot reach port 8000. [healthchecks.io](https://healthchecks.io) ping URLs work the same way.
+
 ## What it makes
 
 | Plex image | Design |
@@ -180,7 +214,7 @@ Art that prints the title or other large text is rejected, even when TMDB marks 
 - **Sweep**, every 15 minutes: titles added or changed since the last sweep, titles Maintainerr lists, and failed titles due for a retry.
 - **Full pass**, daily and after an update or settings change: the whole library. Titles Plex no longer has are forgotten.
 
-Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. `GET /healthz` reports health, queue length and image counts.
+Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. See [Monitoring](#monitoring) for health checks.
 
 ## Development
 

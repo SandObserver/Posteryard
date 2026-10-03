@@ -211,8 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         store = Store(cfg.state_path)
         worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
-            Service(cfg, plex, store, worker).run()
-            return 0
+            return Service(cfg, plex, store, worker).run()
         return _change(args, cfg, plex, store, worker)
     except http.RequestError as exc:
         print(exc)

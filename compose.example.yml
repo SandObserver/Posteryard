@@ -3,6 +3,14 @@ services:
     image: ghcr.io/sandobserver/posteryard:0.3
     container_name: posteryard
     restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       - TMDB_API_KEY=your-tmdb-api-key
       - PLEX_URL=http://192.168.1.10:32400
