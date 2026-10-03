@@ -27,6 +27,28 @@ LOGO_BOX = (0.66, 0.151)
 NUMBER_AT = (0.07, 0.05)
 NUMBER_CAP = 0.12
 NUMBER_FADE = ((0.0, 0.90), (0.5, 0.90), (1.0, 0.53))
+# Apple TV's "Explore Channels" tile, measured on Paramount+, Disney+, Crave, Prime Video and Gem.
+CHANNEL_SEAM = 0.627
+CHANNEL_TOP_SHADE = ((0.0, 0.45), (0.22, 0.0), (1.0, 0.0))
+CHANNEL_LOGO_BOX = (0.42, 0.075)
+CHANNEL_LOGO_TOP = 0.045
+# Service marks cover the same area, as a fraction of the tile; compact marks stop at the height cap.
+CHANNEL_MARK_AREA = 0.067
+CHANNEL_MARK_MAX_HEIGHT = 0.12
+CHANNEL_MARK_MAX_WIDTH = 0.77
+CHANNEL_DEFAULT_BAND = ((44, 44, 48), (28, 28, 30))
+CHANNEL_BANDS: dict[str, tuple[tuple[int, int, int], tuple[int, int, int]]] = {
+    "paramountplus": ((47, 86, 186), (54, 94, 196)),
+    "disney": ((58, 95, 96), (76, 120, 118)),
+    "crave": ((65, 60, 80), (50, 54, 74)),
+    "prime": ((35, 88, 200), (34, 84, 183)),
+    "netflix": ((150, 12, 20), (128, 8, 16)),
+    "appletv": ((44, 44, 48), (28, 28, 30)),
+    "hbomax": ((38, 52, 178), (32, 42, 150)),
+    "hulu": ((24, 120, 80), (20, 100, 68)),
+    "peacock": ((40, 40, 44), (24, 24, 26)),
+    "youtube": ((170, 24, 24), (142, 18, 18)),
+}
 PLAIN_STILL = ((0.0, 0.0), (0.65, 0.0), (1.0, 0.35))
 NUMBER_SHADE: tuple[tuple[float, float], ...] = ((0.0, 0.40), (0.5, 0.20), (1.0, 0.0))
 SERVICE_HEIGHT = 0.054
@@ -163,6 +185,33 @@ def _fit(text: str, face: ImageFont.FreeTypeFont, max_width: int) -> str:
     while text and tracked_width(text + "…", face, 0) > max_width:
         text = text[:-1].rstrip()
     return text + "…"
+
+
+def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Image.Image:
+    """Apple TV's channel tile: art with the featured title's logo on top, over a band with the service mark."""
+    w, h = POSTER
+    split = round(CHANNEL_SEAM * h)
+    canvas = Image.new("RGBA", POSTER)
+    canvas.paste(cover(art, w, split, (0.5, 0.25)), (0, 0))
+    canvas.alpha_composite(vertical_gradient((w, split), CHANNEL_TOP_SHADE), (0, 0))
+    if logo is not None:
+        logo = logo.convert("RGBA")
+        scale = min(CHANNEL_LOGO_BOX[0] * w / logo.width, CHANNEL_LOGO_BOX[1] * h / logo.height)
+        logo = logo.resize(
+            (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
+        )
+        canvas.alpha_composite(logo, ((w - logo.width) // 2, round(CHANNEL_LOGO_TOP * h)))
+    top, bottom = CHANNEL_BANDS.get(service, CHANNEL_DEFAULT_BAND)
+    band = np.linspace(np.array(top, float), np.array(bottom, float), h - split)[:, None, :].repeat(w, axis=1)
+    canvas.paste(Image.fromarray(band.astype(np.uint8), "RGB"), (0, split))
+    src = mark(service, 400)
+    aspect = src.width / src.height
+    height = min(
+        math.sqrt(CHANNEL_MARK_AREA * w / h / aspect), CHANNEL_MARK_MAX_HEIGHT, CHANNEL_MARK_MAX_WIDTH * w / h / aspect
+    )
+    sign = mark(service, max(1, round(height * h)))
+    canvas.alpha_composite(sign, ((w - sign.width) // 2, round((split + h) / 2 - sign.height / 2)))
+    return canvas.convert("RGB")
 
 
 def text_logo(title: str) -> Image.Image:

@@ -12,7 +12,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, memory, overrides, statuspage
+from posteryard import __version__, http, memory, overrides, service_collections, statuspage
 from posteryard.config import Config
 from posteryard.plex import Item, Plex
 from posteryard.store import Store
@@ -103,6 +103,12 @@ class Service:
             memory.release()
             self.worker_beat = time.monotonic()
 
+    def _kinds(self, section: Item) -> tuple[str, ...]:
+        kinds = KINDS[str(section["type"])]
+        if self.cfg.collection_posters or self.cfg.service_collections:
+            kinds = (*kinds, "collection")
+        return kinds
+
     def _sections(self) -> list[Item]:
         sections = [s for s in self.plex.sections() if s.get("title") in self.cfg.libraries and s.get("type") in KINDS]
         if not sections:
@@ -114,7 +120,7 @@ class Service:
         since = int(self.store.meta("sweep_cursor", "0")) - lookback
         started = int(time.time())
         for section in self._sections():
-            for kind in KINDS[str(section["type"])]:
+            for kind in self._kinds(section):
                 changed = self.plex.changed_since(str(section["key"]), kind, since)
                 self.enqueue((str(i["ratingKey"]) for i in changed), "changed")
                 for label in (overrides.CUSTOM_LABEL, overrides.NEXT_LABEL):
@@ -124,7 +130,7 @@ class Service:
         ignored = {
             str(i["ratingKey"])
             for section in self._sections()
-            for kind in KINDS[str(section["type"])]
+            for kind in self._kinds(section)
             for i in self.plex.section_items(str(section["key"]), kind, label=overrides.IGNORE_LABEL)
         }
         # A removed label leaves updatedAt untouched too, so items that lost the ignore label are found here.
@@ -159,8 +165,12 @@ class Service:
     def full(self) -> None:
         """Every item, and every known item that was not listed. The worker forgets those that Plex no longer has."""
         seen: set[str] = set()
+        if self.cfg.service_collections:
+            for section in self._sections():
+                if section.get("type") == "show":
+                    seen.update(service_collections.sync(self.plex, self.worker.ctx, str(section["key"])))
         for section in self._sections():
-            for kind in KINDS[str(section["type"])]:
+            for kind in self._kinds(section):
                 seen.update(str(i["ratingKey"]) for i in self.plex.section_items(str(section["key"]), kind))
         unlisted = sorted(self.store.keys() - seen)
         self.enqueue(sorted(seen), "daily")
@@ -184,6 +194,8 @@ class Service:
                 "episodes": cfg.episodes,
                 "logo_languages": cfg.logo_languages,
                 "prefer_wordmark": cfg.prefer_wordmark,
+                "collection_posters": cfg.collection_posters,
+                "service_collections": cfg.service_collections,
             },
             sort_keys=True,
         )

@@ -368,6 +368,44 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
     return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
 
 
+def collection(ctx: Context, item: Item) -> list[Plan]:
+    """A service collection gets Apple's channel tile; any other collection a tile with its name in text.
+
+    The art comes from the member added last, so the poster follows the collection as it grows.
+    """
+    if ctx.plex is None:
+        raise NotFoundError("Plex is not configured")
+    key, name = str(item["ratingKey"]), str(item.get("title", ""))
+    members = [m for m in ctx.plex.collection_children(key) if m.get("type") in ("movie", "show") and tmdb_id(m)]
+    if not members:
+        return []
+    featured = max(members, key=lambda m: int(m.get("addedAt") or 0))
+    kind: Kind = "movie" if featured["type"] == "movie" else "tv"
+    title = ctx.title(kind, tmdb_id(featured) or 0, str(featured.get("title", "")))
+    images = ctx.images(kind, title.tmdb_id)
+    base = f"{kind}:{title.tmdb_id}"
+    art = ctx.picker.textless_art(base, images, title.all_titles)
+    if art is None:
+        raise NotFoundError(f"TMDB has no textless art for {title.name}, the newest title in {name}")
+    art_path = art.path
+    service = services.service_for(name)
+    if service:
+        logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+
+        def channel() -> Image.Image:
+            featured_logo = trim(ctx.fetch(logo)) if logo else designs.text_logo(title.name)
+            return designs.channel_tile(ctx.fetch(art_path), featured_logo, service)
+
+        inputs = {"design": "channel", "art": art_path, "logo": logo, "featured": title.name, "service": service}
+        return [Plan(key, "poster", name, inputs, channel, [f"art {art_path} from {title.name}"])]
+
+    def tile() -> Image.Image:
+        return designs.tile_poster(ctx.fetch(art_path), designs.text_logo(name), lines_below=[])
+
+    inputs = {"design": "collection", "art": art_path, "title": name}
+    return [Plan(key, "poster", name, inputs, tile, [f"art {art_path} from {title.name}"])]
+
+
 def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
     if ctx.plex is None:
         raise NotFoundError("Plex is not configured")
@@ -390,6 +428,8 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
         return season(ctx, title, item, status.from_timestamp(show_item.get("addedAt")))
     if kind == "episode":
         return episode(ctx, _show(ctx, item)[0], item)
+    if kind == "collection":
+        return collection(ctx, item)
     return []
 
 

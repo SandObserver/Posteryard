@@ -149,3 +149,21 @@ def test_plain_episode_still_has_no_text() -> None:
     out = np.asarray(designs.episode_still(still, 3, None).convert("L"))
     assert out[: round(0.6 * 1080)].min() > 190
     assert out[-1].max() < out[0].min()
+
+
+def test_channel_tile_splits_art_and_band() -> None:
+    out = np.asarray(designs.channel_tile(art(colour=(200, 200, 200)), logo(), "netflix"))
+    h = designs.POSTER[1]
+    seam = round(designs.CHANNEL_SEAM * h)
+    assert tuple(out[seam + 5, 5]) == pytest.approx(designs.CHANNEL_BANDS["netflix"][0], abs=3)
+    assert out[seam - 5, 5].mean() > 150
+    band = out[seam:, :, :].max(axis=2)
+    rows = np.flatnonzero(band.max(axis=1) > 240)
+    assert rows.size and abs((rows.min() + rows.max()) / 2 - (h - seam) / 2) < 0.02 * h
+
+
+def test_compact_marks_stop_at_the_height_cap() -> None:
+    out = np.asarray(designs.channel_tile(art(), None, "appletv").convert("L"))
+    seam = round(designs.CHANNEL_SEAM * designs.POSTER[1])
+    rows = np.flatnonzero(out[seam:].max(axis=1) > 240)
+    assert rows.max() - rows.min() <= designs.CHANNEL_MARK_MAX_HEIGHT * designs.POSTER[1] + 2
