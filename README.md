@@ -167,7 +167,7 @@ Posteryard works with Jellyfin instead of Plex. It is tested on Jellyfin 12.1.
 2. In the compose file, replace `PLEX_URL` and `PLEX_TOKEN` with `JELLYFIN_URL=http://192.168.1.10:8096` and `JELLYFIN_API_KEY=your-key`. Set only one server.
 3. Set `LIBRARIES` to your Jellyfin library names, such as `LIBRARIES=Movies,Shows`.
 
-For new titles right away, install the **Webhook** plugin from the Jellyfin catalog. Add a **Generic** destination with the URL `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`, the notification type **Item Added**, the item types you want, and **Send All Properties** on. Jellyfin sends the event after the item's metadata is ready, so it can arrive a few minutes after the file. Without the plugin, new titles get posters at the next sweep.
+For new titles right away, install the **Webhook** plugin from the Jellyfin catalog. Add a **Generic** destination with the URL `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`, the notification type **Item Added**, the item types you want, and **Send All Properties** on. Restart Jellyfin once after saving the destination; until then the plugin sends nothing. It sends new items about every 30 seconds. Without the plugin, new titles get posters at the next sweep.
 
 Differences from Plex:
 
