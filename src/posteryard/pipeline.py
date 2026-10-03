@@ -25,7 +25,7 @@ from posteryard.tmdb import Images, Kind, Tmdb
 TITLE_CACHE_SECONDS = 600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.2.1"
+DESIGN_VERSION = "0.2.2"
 # Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.

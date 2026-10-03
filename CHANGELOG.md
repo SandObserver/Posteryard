@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Move the streaming service mark to the top left corner, where Plex's unwatched count and watched checkmark do not cover it.
+
 ## [0.4.0] - 2026-10-03
 
 ### Added
