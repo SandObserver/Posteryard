@@ -67,3 +67,21 @@ def test_images_are_shrunk(monkeypatch: pytest.MonkeyPatch) -> None:
     Image.new("RGB", (4000, 6000)).save(buffer, "JPEG")
     monkeypatch.setattr(http, "request", answer({"/t/p/original/a.jpg": buffer.getvalue()}))
     assert max(Tmdb.image("/a.jpg").size) <= MAX_SIDE
+
+
+def test_oversized_originals_fall_back_to_a_smaller_copy(monkeypatch: pytest.MonkeyPatch) -> None:
+    huge, small = io.BytesIO(), io.BytesIO()
+    Image.new("1", (10000, 6000)).save(huge, "PNG")
+    Image.new("RGBA", (1280, 168)).save(small, "PNG")
+    routes = {"/t/p/original/logo.png": huge.getvalue(), "/t/p/w1280/logo.png": small.getvalue()}
+    monkeypatch.setattr(http, "request", answer(routes))
+    assert Tmdb.image("/logo.png").size == (1280, 168)
+
+
+def test_an_oversized_fallback_is_still_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    huge = io.BytesIO()
+    Image.new("1", (10000, 6000)).save(huge, "PNG")
+    routes = {"/t/p/original/logo.png": huge.getvalue(), "/t/p/w1280/logo.png": huge.getvalue()}
+    monkeypatch.setattr(http, "request", answer(routes))
+    with pytest.raises(ValueError, match="too large"):
+        Tmdb.image("/logo.png")
