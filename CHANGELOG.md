@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add collection posters with `COLLECTION_POSTERS`, with Apple TV's channel tile for streaming service collections.
+- Keep one collection per streaming service in TV libraries with `SERVICE_COLLECTIONS`.
 - Show coloured labels above the logo for just added titles, new episodes and seasons, and a season's start date; turn them off with `STATUS_LABELS=false`.
 - Draw the season number large in the top left corner of season posters.
 - Add SDH, CC and AD badges on their own line with `QUALITY_ACCESSIBILITY`.
