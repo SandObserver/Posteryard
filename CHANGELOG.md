@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Call `HEARTBEAT_URL`, such as an Uptime Kuma push monitor, every minute while healthy.
 - Report each health check, the last sweep and the last full pass on `/healthz`, and answer `HEAD /healthz`.
 - Exit when an internal thread stops, so the container restart policy starts a fresh one.
+- Explain each setup value, rating keys, Plex labels and common errors in the README.
 - Lock down the example compose file with a read-only filesystem, no capabilities and `no-new-privileges`.
 
 ### Changed

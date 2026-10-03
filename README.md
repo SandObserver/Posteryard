@@ -36,6 +36,7 @@ services:
       - PLEX_URL=http://192.168.1.10:32400
       - PLEX_TOKEN=your-plex-token
       - WEBHOOK_SECRET=any-long-random-text
+      - TZ=America/New_York
       - DRY_RUN=true
     volumes:
       - ./data:/data
@@ -47,10 +48,11 @@ Change these:
 
 | Setting | Set it to |
 | --- | --- |
-| `TMDB_API_KEY` | Your TMDB API key. |
-| `PLEX_URL` | Your Plex address, as the container sees it. |
+| `TMDB_API_KEY` | Your TMDB API key: the short **API Key**, not the long Read Access Token. |
+| `PLEX_URL` | Your Plex server's address and port. Use the server's network IP, such as `http://192.168.1.10:32400`. `localhost` does not work: inside the container it means the container itself. If Plex runs in Docker on the same Docker network, use its container name, such as `http://plex:32400`. |
 | `PLEX_TOKEN` | Your Plex token. |
 | `WEBHOOK_SECRET` | Any long random text. `openssl rand -hex 16` makes one. |
+| `TZ` | Your [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), so the daily pass runs at your local `DAILY_AT`. |
 
 ```sh
 mkdir -p data && sudo chown 1000:1000 data
@@ -59,9 +61,11 @@ docker compose up -d
 
 Posteryard runs as user 1000, so it needs to own `./data`. The `read_only`, `cap_drop` and `security_opt` lines lock the container down; Posteryard writes only to `/data` and `/tmp`.
 
-It starts with `DRY_RUN=true`: posters are saved to `./data/previews` and Plex is not touched. Happy with them? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters are now uploaded and locked, so Plex keeps them.
+It starts with `DRY_RUN=true`: Plex is not touched. Every image is saved to `./data/previews` instead, named by rating key and image type, such as `5646-poster.jpg`. The first run renders the whole library and takes a while; `docker logs -f posteryard` shows progress.
 
-With Plex Pass, add a webhook in Plex Web under **Settings > Webhooks** so new titles get posters right away: `http://YOUR-SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`. Without Plex Pass, they get them within 15 minutes.
+Happy with the previews? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters, backgrounds and episode thumbnails are now uploaded to Plex and locked, so a Plex metadata refresh keeps them. To try it on a few titles first, also set `ONLY_RATING_KEYS`.
+
+With Plex Pass, add a webhook in Plex Web under **Settings > Webhooks** so new titles get posters right away: `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`, where `SERVER-IP` is the address of the machine running Posteryard. Without Plex Pass, new titles get posters at the next sweep, within 15 minutes.
 
 Turn off poster overlays in other tools, such as Kometa. Two tools writing posters keep overwriting each other.
 
@@ -72,20 +76,20 @@ Add any of these under `environment:`.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `DRY_RUN` | `true` saves previews only. `false` uploads to Plex. | `true` |
-| `PLEX_LIBRARIES` | The Plex libraries to manage, by name. | `Movies,TV Shows` |
-| `ONLY_RATING_KEYS` | Only handle these titles, for a first test. A show includes its seasons and episodes. Empty means everything. | |
+| `PLEX_LIBRARIES` | The Plex libraries to manage, by their exact names in the Plex sidebar, separated by commas. Movie and TV libraries only. | `Movies,TV Shows` |
+| `ONLY_RATING_KEYS` | Only handle these titles, for a first test: [rating keys](#rating-keys) separated by commas. `find` shows them. A show includes its seasons and episodes. Empty means everything. | |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
 | `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
 | `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
-| `STREAMING_REGIONS` | Countries to look up the streaming service in, in order. | `CA,US` |
+| `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins. | `CA,US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
-| `DAILY_AT` | Time of the daily full pass over the whole library. | `04:15` |
+| `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
 | `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
-| `LISTEN_PORT` | Port inside the container. | `8000` |
-| `DATA_DIR` | Where the database and previews are kept. | `/data` |
+| `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
+| `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
 
 Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
 
@@ -141,7 +145,7 @@ A rating key is the number Plex uses for a title. Every command accepts one in p
 
 ## Plex labels
 
-Add these labels to a title in Plex instead of running a command. Posteryard picks them up within 15 minutes.
+Add these labels to a title in Plex instead of running a command. In Plex Web, open the title, choose **Edit** (the pencil), then **Tags**, and type the label under **Labels**. Posteryard picks it up at the next sweep, within 15 minutes.
 
 | Label | What it does |
 | --- | --- |
@@ -214,7 +218,20 @@ Art that prints the title or other large text is rejected, even when TMDB marks 
 - **Sweep**, every 15 minutes: titles added or changed since the last sweep, titles Maintainerr lists, and failed titles due for a retry.
 - **Full pass**, daily and after an update or settings change: the whole library. Titles Plex no longer has are forgotten.
 
-Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. See [Monitoring](#monitoring) for health checks.
+Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget TITLE`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. See [Monitoring](#monitoring) for health checks.
+
+## Troubleshooting
+
+Read the log first: `docker logs --tail 100 posteryard`.
+
+| Message | What to do |
+| --- | --- |
+| `Plex has no movie or TV library named ...` | Set `PLEX_LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
+| `... has no TMDB id in Plex` | The title is unmatched or uses a legacy agent. In Plex, choose **Fix Match** or **Refresh Metadata**. |
+| `TMDB has no textless art or title logo for ...` | TMDB has no usable art yet. Use `art set` with your own image, or add the `posteryard-ignore` label. |
+| `URLError for http://.../library/sections` | Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
+| `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
+| A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |
 
 ## Development
 
