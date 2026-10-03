@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-03
+
 ### Added
 
 - Accept title names in commands, such as `art next The Office`, plus `--season N`; a name that matches several titles or none changes nothing.
@@ -15,12 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Call `HEARTBEAT_URL`, such as an Uptime Kuma push monitor, every minute while healthy.
 - Report each health check, the last sweep and the last full pass on `/healthz`, and answer `HEAD /healthz`.
 - Exit when an internal thread stops, so the container restart policy starts a fresh one.
-- Explain each setup value, rating keys, Plex labels and common errors in the README.
-- Lock down the example compose file with a read-only filesystem, no capabilities and `no-new-privileges`.
 
 ### Changed
 
 - Update onnxruntime to 1.30 in the image.
+- Explain each setup value, rating keys, Plex labels and common errors in the README.
+- Lock down the example compose file with a read-only filesystem, no capabilities and `no-new-privileges`.
 - Make 2 fewer TMDB requests per title.
 - Render a title right away after `forget`, which now takes one title instead of several rating keys.
 - Take one title in `preview`, with `--season N` for seasons of a Plex show.
@@ -107,7 +109,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/SandObserver/Posteryard/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/SandObserver/Posteryard/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SandObserver/Posteryard/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SandObserver/Posteryard/compare/v0.2.1...v0.2.2

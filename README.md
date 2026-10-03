@@ -20,7 +20,7 @@ You need [Docker](https://docs.docker.com/get-started/get-docker/), a free [TMDB
 ```yaml
 services:
   posteryard:
-    image: ghcr.io/sandobserver/posteryard:0.3
+    image: ghcr.io/sandobserver/posteryard:0.4
     container_name: posteryard
     restart: unless-stopped
     init: true
