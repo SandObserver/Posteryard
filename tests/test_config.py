@@ -53,9 +53,24 @@ def test_an_empty_library_list_is_rejected() -> None:
         load({"TMDB_API_KEY": "example", "PLEX_LIBRARIES": " , "})
 
 
-def test_serve_needs_plex_and_a_webhook_secret() -> None:
-    with pytest.raises(ConfigError, match="PLEX_URL, PLEX_TOKEN, WEBHOOK_SECRET"):
+def test_serve_needs_one_server_and_a_webhook_secret() -> None:
+    with pytest.raises(ConfigError, match="PLEX_URL and PLEX_TOKEN are required"):
         require_service(load({"TMDB_API_KEY": "example"}))
+    plex = {"TMDB_API_KEY": "example", "PLEX_URL": "http://plex.example:32400", "PLEX_TOKEN": "example"}
+    with pytest.raises(ConfigError, match="WEBHOOK_SECRET"):
+        require_service(load(plex))
+    jellyfin = {"TMDB_API_KEY": "example", "JELLYFIN_URL": "http://jellyfin.example:8096", "WEBHOOK_SECRET": "x"}
+    with pytest.raises(ConfigError, match="both required"):
+        require_service(load(jellyfin))
+    require_service(load({**jellyfin, "JELLYFIN_API_KEY": "example"}))
+    with pytest.raises(ConfigError, match="not both"):
+        require_service(load({**plex, **jellyfin, "JELLYFIN_API_KEY": "example"}))
+
+
+def test_libraries_setting_wins_over_the_plex_name() -> None:
+    cfg = load({"TMDB_API_KEY": "example", "LIBRARIES": "Films,Series", "PLEX_LIBRARIES": "Movies"})
+    assert cfg.libraries == ("Films", "Series")
+    assert load({"TMDB_API_KEY": "example", "PLEX_LIBRARIES": "Movies"}).libraries == ("Movies",)
 
 
 def test_poster_options() -> None:

@@ -11,7 +11,7 @@
 
 <p align="center"><img src="docs/before-after.jpg" alt="Deadpool & Wolverine, Thunderbolts* and Lilo & Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label"></p>
 
-Posteryard runs next to Plex and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
+Posteryard runs next to Plex, or [Jellyfin](#jellyfin), and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
 
 ## Getting started
 
@@ -84,8 +84,9 @@ Add any of these under `environment:`.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `DRY_RUN` | `true` saves previews only. `false` uploads to Plex. | `true` |
-| `PLEX_LIBRARIES` | The Plex libraries to manage, by their exact names in the Plex sidebar, separated by commas. Movie and TV libraries only. | `Movies,TV Shows` |
+| `LIBRARIES` | The libraries to manage, by their exact names in the sidebar, separated by commas. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
 | `ONLY_RATING_KEYS` | Only handle these titles, for a first test: [rating keys](#rating-keys) separated by commas. `find` shows them. A show includes its seasons and episodes. Empty means everything. | |
+| `JELLYFIN_URL`, `JELLYFIN_API_KEY` | Use Jellyfin instead of Plex. See [Jellyfin](#jellyfin). | |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
 | `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
 | `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |
@@ -157,6 +158,22 @@ Add the year, or use the number shown. A misspelled name lists the closest title
 ### Rating keys
 
 A rating key is the number Plex uses for a title. Every command accepts one in place of a name. `find` shows them. You only need them for `ONLY_RATING_KEYS`, or for a title whose name is a number, such as `1917`: write `1917 2019` or use its key.
+
+## Jellyfin
+
+Posteryard works with Jellyfin instead of Plex. It is tested on Jellyfin 12.1.
+
+1. In the Jellyfin dashboard, open **API Keys**, add a key named `Posteryard`, and copy it.
+2. In the compose file, replace `PLEX_URL` and `PLEX_TOKEN` with `JELLYFIN_URL=http://192.168.1.10:8096` and `JELLYFIN_API_KEY=your-key`. Set only one server.
+3. Set `LIBRARIES` to your Jellyfin library names, such as `LIBRARIES=Movies,Shows`.
+
+For new titles right away, install the **Webhook** plugin from the Jellyfin catalog. Add a **Generic** destination with the URL `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`, the notification type **Item Added**, the item types you want, and **Send All Properties** on. Jellyfin sends the event after the item's metadata is ready, so it can arrive a few minutes after the file. Without the plugin, new titles get posters at the next sweep.
+
+Differences from Plex:
+
+- The labels below are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
+- Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
+- Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` should run with one TV library.
 
 ## Plex labels
 

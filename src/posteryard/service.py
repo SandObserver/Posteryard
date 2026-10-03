@@ -14,13 +14,14 @@ from typing import Any
 
 from posteryard import __version__, http, memory, overrides, service_collections, statuspage
 from posteryard.config import Config
-from posteryard.server import Item, MediaServer
+from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.store import Store
 from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger(__name__)
 MAX_BODY = 2 * 1024 * 1024
 NEW_EVENTS = frozenset({"library.new"})
+JELLYFIN_EVENTS = frozenset({"ItemAdded"})
 KINDS = {"movie": ("movie",), "show": ("show", "season", "episode")}
 RESTART_LOOKBACK = 6 * 3600
 SWEEP_LOOKBACK = 60
@@ -81,6 +82,18 @@ class Service:
                     continue
                 self._queued.add(key)
             self.queue.put((key, reason))
+
+    def jellyfin_event(self, payload: dict[str, Any]) -> None:
+        """The Jellyfin webhook plugin sends the item id only; the item names its season and show."""
+        key = str(payload.get("ItemId") or "").replace("-", "").lower()
+        if not is_item_key(key):
+            return
+        try:
+            item = self.server.item(key)
+        except http.RequestError as exc:
+            log.warning("webhook item %s could not be read: %s", key, exc)
+            item = None
+        self.enqueue(related_keys(dict(item)) if item else [key], "webhook")
 
     def _work(self) -> None:
         while not self._stop.is_set():
@@ -350,6 +363,8 @@ class Service:
                     return
                 if payload and payload.get("event") in NEW_EVENTS and payload.get("Metadata"):
                     service.enqueue(related_keys(payload["Metadata"]), "webhook")
+                elif payload and payload.get("NotificationType") in JELLYFIN_EVENTS:
+                    service.jellyfin_event(payload)
                 self._reply(200, {"ok": True})
 
         return Handler
