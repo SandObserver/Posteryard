@@ -57,3 +57,13 @@ jobs:
           done
           docker logs posteryard
           test "$state" = healthy
+
+  image-arm64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      - run: docker build --platform linux/arm64 --tag posteryard:arm64 .
+      - run: >-
+          docker run --rm --platform linux/arm64 --read-only --tmpfs /tmp --entrypoint python posteryard:arm64 -c
+          "from PIL import Image; from posteryard import ocr; ocr.read(Image.new('RGB', (480, 720)))"
