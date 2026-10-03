@@ -205,7 +205,7 @@ Use either monitor, or both:
 
 | Plex image | Design |
 | --- | --- |
-| Movie and show poster | Textless TMDB art, the title logo in a fixed spot and a soft black fade. Quality badges (movies) and the Maintainerr label sit under the logo. Shows get their streaming service mark top right. |
+| Movie and show poster | Textless TMDB art, the title logo in a fixed spot and a soft black fade. Quality badges (movies) and the Maintainerr label sit under the logo. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. |
 | Season poster | The same, with `Season N` or `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
 | Episode thumbnail | The episode still, with the bottom blurred and faded, `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |

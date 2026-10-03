@@ -35,11 +35,9 @@ def _service(canvas: Image.Image, service: str) -> None:
     max_w = round(SERVICE_MAX_WIDTH * w)
     if logo.width > max_w:
         logo = logo.resize((max_w, max(1, round(logo.height * max_w / logo.width))), Image.Resampling.LANCZOS)
-    x, y = w - margin - logo.width, margin
+    x, y = margin, margin
     canvas.alpha_composite(
-        radial_shade(
-            canvas.size, (w - margin, margin), (max(logo.width * 2.2, w * 0.4), max(logo.height * 4, h * 0.14))
-        )
+        radial_shade(canvas.size, (margin, margin), (max(logo.width * 2.2, w * 0.4), max(logo.height * 4, h * 0.14)))
     )
     canvas.alpha_composite(logo, (x, y))
 

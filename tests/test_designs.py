@@ -71,3 +71,16 @@ def test_episode_still_keeps_the_top_and_writes_the_bottom() -> None:
 
 def test_long_episode_titles_are_shortened() -> None:
     assert designs.episode_still(Image.new("RGB", (1920, 1080)), 5, "word " * 80).size == designs.WIDE
+
+
+def test_service_mark_sits_top_left() -> None:
+    plain = designs.tile_poster(art(colour=(90, 90, 90)), logo(), caption=None, badges=[], leaving=None, service=None)
+    out = designs.tile_poster(
+        art(colour=(90, 90, 90)), logo(), caption=None, badges=[], leaving=None, service="netflix"
+    )
+    diff = np.asarray(ImageChops.difference(out, plain).convert("L"))
+    cols = np.flatnonzero(diff.max(axis=0) > 8)
+    rows = np.flatnonzero(diff.max(axis=1) > 8)
+    w, h = designs.POSTER
+    assert cols.max() < w / 2
+    assert rows.max() < h / 3
