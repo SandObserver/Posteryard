@@ -9,6 +9,7 @@
   <Support>https://github.com/SandObserver/Posteryard/issues</Support>
   <Project>https://github.com/SandObserver/Posteryard</Project>
   <ReadMe>https://github.com/SandObserver/Posteryard/blob/main/README.md</ReadMe>
+  <License>https://github.com/SandObserver/Posteryard/blob/main/LICENSE</License>
   <Overview>Clean, consistent posters for Plex and Jellyfin, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add a webhook in Plex under Settings, Webhooks: http://UNRAID-IP:8000/webhook/YOUR-WEBHOOK-SECRET. Without it, new titles get posters within 15 minutes.</Overview>
   <Changes>https://github.com/SandObserver/Posteryard/blob/main/CHANGELOG.md</Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>

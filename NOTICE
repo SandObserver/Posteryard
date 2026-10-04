@@ -1,0 +1,13 @@
+Posteryard
+Copyright 2026 SandObserver
+
+Licensed under the Apache License, Version 2.0.
+
+"Posteryard" and the Posteryard logo are marks of the project author. The
+Apache License does not grant permission to use them (see Section 6). Forks and
+derivative works are welcome, but must use a different name and must not present
+themselves as the original project.
+
+The Inter font is licensed under the SIL Open Font License 1.1; see
+src/posteryard/assets/fonts/OFL.txt. Service and Dolby marks are listed with
+their sources in assets/marks-src/SOURCES.md and belong to their owners.
