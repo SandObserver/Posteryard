@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import http, overrides, pipeline, statuspage
+from posteryard import http, overrides, pipeline, service_collections, statuspage
 from posteryard.config import Config, EpisodeMode
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
@@ -18,7 +18,7 @@ from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
 log = logging.getLogger(__name__)
-SUPPORTED = frozenset({"movie", "show", "season", "episode"})
+SUPPORTED = frozenset({"movie", "show", "season", "episode", "collection"})
 ALERT_AFTER = 3
 LEAVING_CACHE_SECONDS = 600
 ITEM_TARGET = "item"
@@ -85,6 +85,11 @@ class Worker:
 
     def allowed(self, item: Item) -> bool:
         if item.get("type") not in SUPPORTED:
+            return False
+        if item.get("type") == "collection" and not (
+            self.cfg.collection_posters
+            or (self.cfg.service_collections and service_collections.MANAGED_LABEL in labels(item))
+        ):
             return False
         section = item.get("librarySectionTitle")
         if section and section not in self.cfg.libraries:

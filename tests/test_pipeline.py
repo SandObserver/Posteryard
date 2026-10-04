@@ -277,3 +277,30 @@ def test_tmdb_preview_without_plex() -> None:
 def test_a_title_without_a_tmdb_id_is_not_found() -> None:
     with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
         pipeline.movie(context([ref("/textless.jpg", None)]), {**ITEM, "Guid": []})
+
+
+class CollectionPlex:
+    def collection_children(self, key: str) -> list[dict[str, Any]]:
+        return (
+            [
+                {"ratingKey": "1", "type": "show", "title": "Old Show", "addedAt": 100, "Guid": [{"id": "tmdb://41"}]},
+                {"ratingKey": "2", "type": "show", "title": "New Show", "addedAt": 200, "Guid": [{"id": "tmdb://42"}]},
+                {"ratingKey": "3", "type": "show", "title": "No Id", "addedAt": 300},
+            ]
+            if key != "9"
+            else []
+        )
+
+
+def test_collections_take_art_from_their_newest_member() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.plex = CollectionPlex()  # type: ignore[assignment]
+    channel = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "Netflix"})[0]
+    assert channel.inputs["design"] == "channel"
+    assert channel.inputs["service"] == "netflix"
+    assert channel.inputs["featured"] == "New Show"
+    assert channel.draw().size == (1000, 1500)
+    plain = pipeline.plan_item(ctx, {"ratingKey": "8", "type": "collection", "title": "Star Wars"})[0]
+    assert plain.inputs == {"design": "collection", "art": "/textless.jpg", "title": "Star Wars"}
+    assert plain.draw().size == (1000, 1500)
+    assert pipeline.plan_item(ctx, {"ratingKey": "9", "type": "collection", "title": "Empty"}) == []

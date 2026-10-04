@@ -97,6 +97,8 @@ Add any of these under `environment:`.
 | `EPISODE_THUMBNAILS` | `plain`: the episode still with a light bottom shade. `titled`: the still with `EPISODE N` and the title. `off`: leave episodes alone and give back Plex's own thumbnails. | `plain` |
 | `LOGO_LANGUAGES` | Title logo languages to try in order, as two-letter codes, such as `fr,en`. | `en` |
 | `PREFER_WORDMARK` | Prefer a wide title logo (the name) over a square emblem when TMDB has both. | `true` |
+| `COLLECTION_POSTERS` | Posters for Plex collections too. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get the regular tile with their name set in white. | `false` |
+| `SERVICE_COLLECTIONS` | Keep one collection per streaming service in each TV library, with every show whose mark is that service, once a service has 3 shows. Posteryard only changes collections it made; they carry the `posteryard-collection` label. If another tool already keeps service collections, leave this off and use `COLLECTION_POSTERS`. | `false` |
 | `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins, such as `CA,US` for Canada with a US fallback. | `US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
@@ -224,6 +226,7 @@ Use either monitor, or both:
 | Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |
+| Collection poster | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. Service collections: the newest show's art and logo over a band in the service's colour with its mark. Other collections: the tile design with the collection's name. |
 
 Art that prints the title or other large text is rejected, even when TMDB marks it as textless. Status labels such as `JUST ADDED` sit above the logo, so they never move it.
 

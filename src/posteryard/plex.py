@@ -1,3 +1,4 @@
+import json
 import urllib.parse
 from collections.abc import Iterator, Mapping
 from typing import Any, Literal
@@ -13,7 +14,7 @@ ENDPOINTS: dict[Target, tuple[str, str, str]] = {
     "thumb": ("posters", "poster", "thumb"),
     "art": ("arts", "art", "art"),
 }
-TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4}
+TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4, "collection": 18}
 PAGE = 200
 
 
@@ -21,6 +22,7 @@ class Plex:
     def __init__(self, url: str, token: str) -> None:
         self.url = url
         self.token = token
+        self._machine_id: str | None = None
 
     def _url(self, path: str, **params: Any) -> str:
         return f"{self.url}{path}?{urllib.parse.urlencode({**params, 'X-Plex-Token': self.token})}"
@@ -74,6 +76,55 @@ class Plex:
         )
         items = page.get("Metadata") or []
         return int(items[0]["addedAt"]) if items and items[0].get("addedAt") else None
+
+    def machine_id(self) -> str:
+        if self._machine_id is None:
+            self._machine_id = str(http.get_json(self._url("/identity"))["MediaContainer"]["machineIdentifier"])
+        return self._machine_id
+
+    def _uri(self, rating_keys: list[str]) -> str:
+        keys = ",".join(_key(k) for k in rating_keys)
+        return f"server://{self.machine_id()}/com.plexapp.plugins.library/library/metadata/{keys}"
+
+    def collection_children(self, rating_key: str) -> list[Item]:
+        items: list[Item] = self._get(f"/library/collections/{_key(rating_key)}/children", includeGuids=1).get(
+            "Metadata", []
+        )
+        return items
+
+    def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
+        url = self._url(
+            "/library/collections",
+            type=TYPE_IDS[kind],
+            title=title,
+            smart=0,
+            sectionId=_key(section_key),
+            uri=self._uri(rating_keys),
+        )
+        answer = http.request("POST", url, headers={"Accept": "application/json"})
+        created = json.loads(answer)["MediaContainer"]["Metadata"][0]
+        return str(created["ratingKey"])
+
+    def add_to_collection(self, rating_key: str, members: list[str]) -> None:
+        http.request("PUT", self._url(f"/library/collections/{_key(rating_key)}/items", uri=self._uri(members)))
+
+    def remove_from_collection(self, rating_key: str, member: str) -> None:
+        http.request("DELETE", self._url(f"/library/collections/{_key(rating_key)}/items/{_key(member)}"))
+
+    def delete_collection(self, rating_key: str) -> None:
+        http.request("DELETE", self._url(f"/library/collections/{_key(rating_key)}"))
+
+    def set_label(self, section_key: str, kind: str, rating_key: str, label: str) -> None:
+        """Replace the item's labels with one label."""
+        http.request(
+            "PUT",
+            self._url(
+                f"/library/sections/{_key(section_key)}/all",
+                type=TYPE_IDS[kind],
+                id=_key(rating_key),
+                **{"label[0].tag.tag": label, "label.locked": 1},
+            ),
+        )
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         """Items added or updated after a Unix time. A replaced file only changes `updatedAt`."""

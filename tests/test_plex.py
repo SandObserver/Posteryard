@@ -139,3 +139,28 @@ def test_newest_added(serve: Any) -> None:
     assert plex.newest_added("4", "episode", **{"show.id": "9"}) == 1700000000
     assert server.calls[-1][2]["sort"] == "addedAt:desc"
     assert server.calls[-1][2]["show.id"] == "9"
+
+
+def test_collection_calls(serve: Any) -> None:
+    plex, server = serve(
+        {
+            "/identity": {"machineIdentifier": "abc"},
+            "POST /library/collections": {"Metadata": [{"ratingKey": "60"}]},
+            "PUT /library/collections/60/items": b"",
+            "DELETE /library/collections/60/items/2": b"",
+            "DELETE /library/collections/60": b"",
+            "PUT /library/sections/4/all": b"",
+            "/library/collections/60/children": {"Metadata": [{"ratingKey": "1"}]},
+        }
+    )
+    assert plex.create_collection("4", "show", "Netflix", ["1", "2"]) == "60"
+    created = server.calls[-1][2]
+    assert created["uri"] == "server://abc/com.plexapp.plugins.library/library/metadata/1,2"
+    assert (created["type"], created["sectionId"], created["title"]) == ("2", "4", "Netflix")
+    plex.add_to_collection("60", ["3"])
+    plex.remove_from_collection("60", "2")
+    plex.set_label("4", "collection", "60", "posteryard-collection")
+    assert server.calls[-1][2]["type"] == "18"
+    assert [c["ratingKey"] for c in plex.collection_children("60")] == ["1"]
+    plex.delete_collection("60")
+    assert [c[:2] for c in server.calls].count(("GET", "/identity")) == 1
