@@ -179,6 +179,19 @@ Differences from Plex:
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
 - Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps them for the first TV library in `LIBRARIES` only.
 
+## Unraid
+
+Save the template to your flash drive from the Unraid terminal:
+
+```sh
+curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-Posteryard.xml \
+  https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml
+```
+
+Then pick **Posteryard** under **Docker**, **Add Container**, **Template**. Fill in the TMDB API key, the Plex URL and token, and a webhook secret. Previews land in `/mnt/user/appdata/posteryard/previews`.
+
+The template runs Posteryard as Unraid's `nobody` user (`--user=99:100`) with the same lockdown as the compose file. Run commands from the container's **Console**, such as `posteryard find office`.
+
 ## Plex labels
 
 Add these labels to a title in Plex instead of running a command. In Plex Web, open the title, choose **Edit** (the pencil), then **Tags**, and type the label under **Labels**. Posteryard picks it up at the next sweep, within 15 minutes.

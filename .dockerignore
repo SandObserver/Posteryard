@@ -9,3 +9,5 @@ assets
 **/__pycache__
 *.pyc
 site
+templates
+ca_profile.xml

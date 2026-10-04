@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Posteryard</Name>
+  <Repository>ghcr.io/sandobserver/posteryard:latest</Repository>
+  <Registry>https://github.com/SandObserver/Posteryard/pkgs/container/posteryard</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <ExtraParams>--user=99:100 --init --read-only --tmpfs=/tmp --cap-drop=ALL --security-opt=no-new-privileges:true --memory=1536m</ExtraParams>
+  <Support>https://github.com/SandObserver/Posteryard/issues</Support>
+  <Project>https://github.com/SandObserver/Posteryard</Project>
+  <ReadMe>https://github.com/SandObserver/Posteryard/blob/main/README.md</ReadMe>
+  <Overview>Clean, consistent posters for Plex and Jellyfin, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add a webhook in Plex under Settings, Webhooks: http://UNRAID-IP:8000/webhook/YOUR-WEBHOOK-SECRET. Without it, new titles get posters within 15 minutes.</Overview>
+  <Changes>https://github.com/SandObserver/Posteryard/blob/main/CHANGELOG.md</Changes>
+  <Category>MediaApp:Video Tools:Utilities</Category>
+  <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/SandObserver/Posteryard/main/docs/logo.svg</Icon>
+  <Screenshot>https://raw.githubusercontent.com/SandObserver/Posteryard/main/docs/before-after.jpg</Screenshot>
+  <ExtraSearchTerms>plex jellyfin posters artwork tmdb kometa textless</ExtraSearchTerms>
+  <DonateText>If Posteryard is useful to you, you can buy me a coffee.</DonateText>
+  <DonateLink>https://buymeacoffee.com/sandobserver</DonateLink>
+  <Config Name="Webhook Port" Target="8000" Default="8000" Mode="tcp" Description="Port for the Plex or Jellyfin webhook and the /healthz check." Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+  <Config Name="Data" Target="/data" Default="/mnt/user/appdata/posteryard" Mode="rw" Description="Database, previews and custom art. Keep this, or every image is rendered and uploaded again." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/posteryard</Config>
+  <Config Name="TMDB API Key" Target="TMDB_API_KEY" Default="" Mode="" Description="A free key from themoviedb.org, under Settings, API." Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Plex URL" Target="PLEX_URL" Default="" Mode="" Description="Address of your Plex server, such as http://192.168.1.10:32400. Leave empty for Jellyfin." Type="Variable" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Plex Token" Target="PLEX_TOKEN" Default="" Mode="" Description="Your Plex token. Leave empty for Jellyfin." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+  <Config Name="Webhook Secret" Target="WEBHOOK_SECRET" Default="" Mode="" Description="Any long random text. It is part of the webhook address." Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Dry Run" Target="DRY_RUN" Default="true" Mode="" Description="true saves previews to the previews folder in Data and leaves the server alone. false uploads." Type="Variable" Display="always" Required="true" Mask="false">true</Config>
+  <Config Name="Libraries" Target="LIBRARIES" Default="Movies,TV Shows" Mode="" Description="Libraries to manage, by their exact names, separated by commas." Type="Variable" Display="always" Required="true" Mask="false">Movies,TV Shows</Config>
+  <Config Name="Streaming Regions" Target="STREAMING_REGIONS" Default="US" Mode="" Description="Two-letter country codes to look up a show's streaming service in, in order, such as CA,US." Type="Variable" Display="advanced" Required="false" Mask="false">US</Config>
+  <Config Name="Notify URLs" Target="NOTIFY_URLS" Default="" Mode="" Description="Apprise addresses for alerts, separated by spaces, such as discord://ID/TOKEN or ntfys://tk_TOKEN@host/topic." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Jellyfin URL" Target="JELLYFIN_URL" Default="" Mode="" Description="Address of your Jellyfin server. Use instead of Plex URL and Plex Token." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Jellyfin API Key" Target="JELLYFIN_API_KEY" Default="" Mode="" Description="A Jellyfin API key, from Dashboard, API Keys." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Maintainerr URL" Target="MAINTAINERR_URL" Default="" Mode="" Description="Your Maintainerr address, for the Leaving in N days label." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="fanart.tv API Key" Target="FANART_API_KEY" Default="" Mode="" Description="Optional second art source when TMDB has no clean art." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Apple TV Art" Target="APPLE_ART" Default="false" Mode="" Description="true uses Apple TV key art as poster art when a title has it." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Only Rating Keys" Target="ONLY_RATING_KEYS" Default="" Mode="" Description="Only handle these titles, for a first test. Empty means everything." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Minimum Video Badge" Target="QUALITY_MIN_VIDEO" Default="2160" Mode="" Description="Lowest resolution that gets a badge: off, 720, 1080, 2160." Type="Variable" Display="advanced" Required="false" Mask="false">2160</Config>
+  <Config Name="Minimum HDR Badge" Target="QUALITY_MIN_HDR" Default="hdr10" Mode="" Description="Lowest HDR format that gets a badge: off, hdr10, hdr10plus, dolbyvision." Type="Variable" Display="advanced" Required="false" Mask="false">hdr10</Config>
+  <Config Name="Minimum Audio Badge" Target="QUALITY_MIN_AUDIO" Default="atmos" Mode="" Description="Lowest audio that gets a badge: off, 5.1, 7.1, atmos." Type="Variable" Display="advanced" Required="false" Mask="false">atmos</Config>
+  <Config Name="Accessibility Badges" Target="QUALITY_ACCESSIBILITY" Default="" Mode="" Description="Any of sdh, cc, ad, separated by commas." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+  <Config Name="Status Labels" Target="STATUS_LABELS" Default="true" Mode="" Description="Labels such as JUST ADDED and NEW SEASON above the logo." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Episode Thumbnails" Target="EPISODE_THUMBNAILS" Default="plain" Mode="" Description="plain, titled or off." Type="Variable" Display="advanced" Required="false" Mask="false">plain</Config>
+  <Config Name="Logo Languages" Target="LOGO_LANGUAGES" Default="en" Mode="" Description="Title logo languages to try in order, such as fr,en." Type="Variable" Display="advanced" Required="false" Mask="false">en</Config>
+  <Config Name="Prefer Wordmark" Target="PREFER_WORDMARK" Default="true" Mode="" Description="Prefer a wide title logo over a square emblem." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+  <Config Name="Collection Posters" Target="COLLECTION_POSTERS" Default="false" Mode="" Description="Posters for Plex collections too." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Service Collections" Target="SERVICE_COLLECTIONS" Default="false" Mode="" Description="Keep one collection per streaming service in each TV library." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Sweep Minutes" Target="SWEEP_MINUTES" Default="15" Mode="" Description="How often to check for new and changed titles." Type="Variable" Display="advanced" Required="false" Mask="false">15</Config>
+  <Config Name="Daily Pass At" Target="DAILY_AT" Default="04:15" Mode="" Description="Time of the daily full pass, as HH:MM." Type="Variable" Display="advanced" Required="false" Mask="false">04:15</Config>
+  <Config Name="Heartbeat URL" Target="HEARTBEAT_URL" Default="" Mode="" Description="An address to call every minute while healthy, such as an Uptime Kuma push URL." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+  <Config Name="Log Level" Target="LOG_LEVEL" Default="info" Mode="" Description="debug, info, warning or error." Type="Variable" Display="advanced" Required="false" Mask="false">info</Config>
+</Container>

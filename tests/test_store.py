@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -81,3 +82,12 @@ def test_replaced_and_reset_custom_art_files_are_deleted(tmp_path: Path) -> None
     store.set_custom("2", str(outside), "command")
     store.reset_override("2")
     assert outside.exists()
+
+
+def test_a_folder_it_cannot_write_is_refused(tmp_path: Path) -> None:
+    tmp_path.chmod(0o500)
+    try:
+        with pytest.raises(StoreError, match=f"{tmp_path} is not writable by user {os.getuid()}:{os.getgid()}"):
+            Store(tmp_path / "state.db")
+    finally:
+        tmp_path.chmod(0o700)

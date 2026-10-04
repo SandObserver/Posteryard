@@ -74,7 +74,7 @@ jobs:
           "from PIL import Image; from posteryard import ocr; ocr.read(Image.new('RGB', (480, 720)))"
       - name: Check the container becomes healthy
         run: |
-          docker run -d --name posteryard --read-only --tmpfs /tmp --cap-drop ALL \
+          docker run -d --name posteryard --user 99:100 --read-only --tmpfs /tmp --tmpfs /data:uid=99,gid=100 --cap-drop ALL \
             -e TMDB_API_KEY=example -e PLEX_URL=http://127.0.0.1:9 -e PLEX_TOKEN=example \
             -e WEBHOOK_SECRET=example posteryard:ci
           for _ in $(seq 30); do

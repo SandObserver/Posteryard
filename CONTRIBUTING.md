@@ -62,6 +62,8 @@ UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
 
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 
+A new setting also goes into the Unraid template, `templates/posteryard.xml`, with its default as the value. `tests/test_unraid.py` fails when a template default does not load or a template setting is missing from `README.md`.
+
 ## Website
 
 `site/` builds the landing page at https://posteryard.sandobserver.com. Its Getting started and Settings sections and the version come from `README.md` and `CHANGELOG.md` at build time, so edit those files, not the page. Cloudflare Pages rebuilds the site on every push to `main`.
