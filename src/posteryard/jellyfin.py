@@ -130,7 +130,7 @@ class Jellyfin:
 
     def _shape(self, raw: Mapping[str, Any]) -> Item:
         kind = TYPES.get(str(raw.get("Type")), str(raw.get("Type", "")).lower())
-        item: dict[str, Any] = {
+        item: Item = {
             "ratingKey": str(raw["Id"]),
             "type": kind,
             "title": str(raw.get("Name", "")),
@@ -142,14 +142,15 @@ class Jellyfin:
                 if (value := (raw.get("ProviderIds") or {}).get(name))
             ],
         }
-        for field, source in (("index", "IndexNumber"), ("parentIndex", "ParentIndexNumber")):
-            if raw.get(source) is not None:
-                item[field] = int(raw[source])
+        if raw.get("IndexNumber") is not None:
+            item["index"] = int(raw["IndexNumber"])
+        if raw.get("ParentIndexNumber") is not None:
+            item["parentIndex"] = int(raw["ParentIndexNumber"])
         if kind == "season":
-            item["parentRatingKey"] = raw.get("SeriesId")
+            item["parentRatingKey"] = str(raw.get("SeriesId") or "")
         elif kind == "episode":
-            item["parentRatingKey"] = raw.get("SeasonId")
-            item["grandparentRatingKey"] = raw.get("SeriesId")
+            item["parentRatingKey"] = str(raw.get("SeasonId") or "")
+            item["grandparentRatingKey"] = str(raw.get("SeriesId") or "")
         path = str(raw.get("Path") or "")
         library = next((s for s in self.sections() if any(path.startswith(p) for p in s["paths"])), None)
         if library is not None:
