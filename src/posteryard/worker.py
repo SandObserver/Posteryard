@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from PIL import Image
 
 from posteryard import http, overrides, pipeline, service_collections
+from posteryard.automarks import AutoMarks
 from posteryard.config import Config, EpisodeMode
 from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
@@ -77,6 +78,7 @@ class Worker:
             choices=store,
             overrides=store.override,
             fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
+            marks=AutoMarks(cfg.data_dir / "marks", store),
         )
         self._leaving: Leaving | None = None
 

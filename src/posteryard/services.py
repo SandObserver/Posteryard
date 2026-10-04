@@ -1,4 +1,5 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 # First match wins. Keep longer names before their prefixes.
@@ -19,6 +20,19 @@ SERVICE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("hulu", "hulu"),
     ("peacock", "peacock"),
     ("youtube", "youtube"),
+    ("crunchyroll", "crunchyroll"),
+    ("tubi tv", "tubi"),
+    ("tubi", "tubi"),
+    ("pluto tv", "plutotv"),
+    ("starz", "starz"),
+    ("mubi", "mubi"),
+    ("viaplay", "viaplay"),
+    ("sky go", "sky"),
+    ("now tv", "now"),
+    ("now", "now"),
+    ("rtl+", "rtl"),
+    ("movistar plus+", "movistar"),
+    ("channel 4", "channel4"),
 )
 NAMES = {
     "appletv": "Apple TV",
@@ -31,8 +45,23 @@ NAMES = {
     "peacock": "Peacock",
     "prime": "Prime Video",
     "youtube": "YouTube",
+    "crunchyroll": "Crunchyroll",
+    "tubi": "Tubi",
+    "plutotv": "Pluto TV",
+    "starz": "Starz",
+    "mubi": "MUBI",
+    "viaplay": "Viaplay",
+    "sky": "Sky",
+    "now": "NOW",
+    "rtl": "RTL+",
+    "movistar": "Movistar Plus+",
+    "channel4": "Channel 4",
 }
-EXCLUDED_WORDS = ("channel", "store", "youtube tv", "fubo", "stacktv", "live tv")
+# Add-on channels sold through another service, stores, live TV bundles and aggregators.
+EXCLUDED_WORDS = (
+    "amazon channel", "apple tv channel", "roku premium channel", "plex channel", "store", "youtube tv", "fubo",
+    "stacktv", "live tv", "justwatch",
+)  # fmt: skip
 OFFER_TYPES = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")
 
@@ -49,12 +78,25 @@ def service_for(provider_name: str) -> str | None:
     return None
 
 
-def pick(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> str | None:
+@dataclass(frozen=True)
+class Offer:
+    provider_id: int
+    name: str
+    logo_path: str
+
+
+def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> Iterator[Offer]:
+    """Subscription, free and ad-supported offers: by region, then offer type, then TMDB's display priority."""
     for region in regions:
-        offers = providers_by_region.get(region) or {}
+        by_type = providers_by_region.get(region) or {}
         for offer_type in OFFER_TYPES:
-            for provider in sorted(offers.get(offer_type) or [], key=lambda p: p.get("display_priority", 999)):
-                service = service_for(str(provider.get("provider_name", "")))
-                if service:
-                    return service
-    return None
+            for provider in sorted(by_type.get(offer_type) or [], key=lambda p: p.get("display_priority", 999)):
+                name = str(provider.get("provider_name", ""))
+                if any(word in name.lower() for word in EXCLUDED_WORDS):
+                    continue
+                yield Offer(int(provider.get("provider_id") or 0), name, str(provider.get("logo_path") or ""))
+
+
+def pick(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> str | None:
+    """The first offer with a built-in mark."""
+    return next((key for offer in offers(providers_by_region, regions) if (key := service_for(offer.name))), None)
