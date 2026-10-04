@@ -88,6 +88,7 @@ Add any of these under `environment:`.
 | `ONLY_RATING_KEYS` | Only handle these titles, for a first test: [rating keys](#rating-keys) separated by commas. `find` shows them. A show includes its seasons and episodes. Empty means everything. | |
 | `JELLYFIN_URL`, `JELLYFIN_API_KEY` | Use Jellyfin instead of Plex. See [Jellyfin](#jellyfin). | |
 | `FANART_API_KEY` | A personal API key from [fanart.tv](https://fanart.tv), from your account profile. When TMDB has no clean art, title logo or backdrop for a title, fanart.tv's are tried, with the same check for printed text. | |
+| `APPLE_ART` | Use Apple TV's own key art as the poster art when a title has it, found through its Apple TV id on Wikidata, in the store of the first `STREAMING_REGIONS` country. Other titles keep TMDB's art. `art next`, `art set` and the labels still override it. It reads Apple's web pages, which can change without notice. | `false` |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
 | `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
 | `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |

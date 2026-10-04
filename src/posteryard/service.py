@@ -251,6 +251,7 @@ class Service:
                 "collection_posters": cfg.collection_posters,
                 "service_collections": cfg.service_collections,
                 "fanart": bool(cfg.fanart_api_key),
+                "apple_art": cfg.apple_art,
             },
             sort_keys=True,
         )

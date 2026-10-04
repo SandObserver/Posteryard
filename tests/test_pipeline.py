@@ -1,5 +1,5 @@
 import hashlib
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -7,8 +7,8 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
+from posteryard import apple, overrides, pipeline
 from posteryard import http as posteryard_http
-from posteryard import overrides, pipeline
 from posteryard.config import EpisodeMode
 from posteryard.fanart import FanartImages
 from posteryard.ocr import TextLine
@@ -400,3 +400,34 @@ def test_collections_use_imdb_ids_too() -> None:
     )()
     plans = pipeline.collection(ctx, {"ratingKey": "9", "type": "collection", "title": "Favourites"})
     assert plans[0].inputs["art"] == "/textless.jpg"
+
+
+APPLE_URL = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/1680x3636nr.jpg"
+
+
+def test_apple_art_comes_first_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def find(kind: str, details: Any, region: str) -> str:
+        calls.append(region)
+        return APPLE_URL
+
+    monkeypatch.setattr(apple, "find", find)
+    ctx = context([ref("/textless.jpg", None), ref("/second.jpg", None)])
+    ctx.apple_region = "CA"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+    pipeline.movie(ctx, ITEM)
+    assert calls == ["CA"]
+    ctx.overrides = lambda key: overrides.Override(skip=frozenset({APPLE_URL}))
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+
+
+def test_apple_art_is_looked_up_again_after_a_month(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: calls.append(region))
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.apple_region = "CA"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
+    pipeline.movie(ctx, ITEM)
+    assert len(calls) == 2
