@@ -458,7 +458,7 @@ def test_an_apple_outage_keeps_the_last_apple_art_or_uses_other_art(monkeypatch:
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
-    other = {**ITEM, "Guid": [{"id": "tmdb://43"}]}
+    other: Item = {**ITEM, "Guid": [{"id": "tmdb://43"}]}
     assert pipeline.movie(ctx, other)[0].inputs["art"] == "/textless.jpg"
 
 
