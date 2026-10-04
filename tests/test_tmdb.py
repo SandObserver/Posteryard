@@ -35,7 +35,7 @@ def test_images_are_sorted_and_filtered(monkeypatch: pytest.MonkeyPatch) -> None
         "backdrops": [{"file_path": "/b.jpg", "iso_639_1": None}],
         "logos": [{"file_path": "/l.png", "iso_639_1": "en"}, {"file_path": "/l.svg", "iso_639_1": "en"}],
     }
-    monkeypatch.setattr(http, "request", answer({"/movie/1/images": raw}))
+    monkeypatch.setattr(http, "request", answer({"/movie/1": {"images": raw}}))
     images = Tmdb("example-key").images("movie", 1)
     assert [r.path for r in images.posters] == ["/en.jpg", "/xx.jpg", "/low.jpg"]
     assert [r.path for r in images.textless_art()] == ["/xx.jpg", "/low.jpg", "/b.jpg"]
@@ -43,23 +43,36 @@ def test_images_are_sorted_and_filtered(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_missing_seasons_and_episodes_are_empty(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(http, "request", answer({"/tv/1/season/2/episode/3": {"still_path": "/s.jpg"}}))
+    season = {"episodes": [{"episode_number": 3, "still_path": "/s.jpg"}], "images": {"posters": []}}
+    monkeypatch.setattr(http, "request", answer({"/tv/1/season/2": season}))
     tmdb = Tmdb("example-key")
     assert tmdb.season_images(1, 9).posters == []
     assert tmdb.episode(1, 9, 1) is None
-    assert tmdb.episode(1, 2, 3) == {"still_path": "/s.jpg"}
+    assert tmdb.episode(1, 2, 4) is None
+    assert tmdb.episode(1, 2, 3) == {"episode_number": 3, "still_path": "/s.jpg"}
 
 
 def test_titles_and_providers(monkeypatch: pytest.MonkeyPatch) -> None:
-    routes = {
-        "/tv/1": {"name": "Example", "original_name": "Ejemplo"},
-        "/tv/1/alternative_titles": {"results": [{"title": "Example US"}, {"title": "Example"}]},
-        "/tv/1/watch/providers": {"results": {"CA": {"flatrate": []}}},
+    show = {
+        "name": "Example",
+        "original_name": "Ejemplo",
+        "alternative_titles": {"results": [{"title": "Example US"}, {"title": "Example"}]},
+        "watch/providers": {"results": {"CA": {"flatrate": []}}},
     }
-    monkeypatch.setattr(http, "request", answer(routes))
+    calls: list[str] = []
+    route = answer({"/tv/1": show})
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        calls.append(url)
+        return bytes(route(method, url, **kwargs))
+
+    monkeypatch.setattr(http, "request", request)
     tmdb = Tmdb("example-key")
     assert tmdb.all_titles("tv", 1) == ["Example", "Ejemplo", "Example US"]
     assert tmdb.watch_providers("tv", 1) == {"CA": {"flatrate": []}}
+    assert tmdb.details("tv", 1)["name"] == "Example"
+    assert len(calls) == 1
+    assert "append_to_response=images%2Calternative_titles%2Cwatch%2Fproviders" in calls[0]
 
 
 def test_images_are_shrunk(monkeypatch: pytest.MonkeyPatch) -> None:

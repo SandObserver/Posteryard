@@ -12,6 +12,7 @@ dependencies = [
     "opencv-python-headless>=4.12,<5",
     "pillow>=12",
     "rapidocr>=3.9",
+    "urllib3>=2.5,<3",
 ]
 
 [project.scripts]

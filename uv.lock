@@ -387,6 +387,7 @@ dependencies = [
     { name = "opencv-python-headless" },
     { name = "pillow" },
     { name = "rapidocr" },
+    { name = "urllib3" },
 ]
 
 [package.dev-dependencies]
@@ -407,6 +408,7 @@ requires-dist = [
     { name = "opencv-python-headless", specifier = ">=4.12,<5" },
     { name = "pillow", specifier = ">=12" },
     { name = "rapidocr", specifier = ">=3.9" },
+    { name = "urllib3", specifier = ">=2.5,<3" },
 ]
 
 [package.metadata.requires-dev]
