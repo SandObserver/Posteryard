@@ -176,6 +176,7 @@ rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
 cpSync(join(here, 'public'), dist, { recursive: true });
 cpSync(join(root, 'docs', 'logo.svg'), join(dist, 'logo.svg'));
+cpSync(join(root, 'docs', 'tmdb.svg'), join(dist, 'tmdb.svg'));
 cpSync(join(root, 'docs', 'social-card.png'), join(dist, 'img', 'social-card.png'));
 writeFileSync(join(dist, 'index.html'), fill('template.html'));
 writeFileSync(join(dist, '404.html'), fill('404.html'));
