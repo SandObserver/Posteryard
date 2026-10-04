@@ -91,7 +91,6 @@ Add any of these under `environment:`.
 | `APPLE_ART` | Use Apple TV's own key art as the poster art when a title has it, found through its Apple TV id on Wikidata, in the store of the first `STREAMING_REGIONS` country. Other titles keep TMDB's art. `art next`, `art set` and the labels still override it. It reads Apple's web pages, which can change without notice. | `false` |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
 | `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
-| `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
@@ -109,7 +108,7 @@ Add any of these under `environment:`.
 | `LOG_LEVEL` | How much the log shows: `debug`, `info`, `warning` or `error`. | `info` |
 | `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
 | `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
-| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NTFY_TOKEN`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
+| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
 
 Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
 
@@ -130,7 +129,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `art set TITLE --file /data/my-art.jpg` | The same, with an image you put in `./data`. |
 | `art reset TITLE` | Go back to automatic art. |
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
-| `test-alert` | Send a test alert to every service in `NOTIFY_URLS` and ntfy. |
+| `test-alert` | Send a test alert to every service in `NOTIFY_URLS`. |
 | `restore --all` | Give every image Posteryard uploaded back to the server's own. See [Uninstalling](#uninstalling). |
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
@@ -206,7 +205,7 @@ Common addresses:
 
 | Service | Address |
 | --- | --- |
-| ntfy | `ntfy://ntfy.sh/your-topic`, or `ntfys://user:password@your-server/topic` |
+| ntfy | `ntfy://ntfy.sh/your-topic`, `ntfys://tk_ACCESS_TOKEN@your-server/topic` or `ntfys://user:password@your-server/topic` |
 | Discord | `discord://WEBHOOK_ID/WEBHOOK_TOKEN` (the two parts of the webhook URL) |
 | Telegram | `tgram://BOT_TOKEN/CHAT_ID` |
 | Gotify | `gotifys://your-server/APP_TOKEN` |

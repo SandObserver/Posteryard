@@ -60,7 +60,7 @@ class FakePlex:
 
 class Alerts(Notifier):
     def __init__(self) -> None:
-        super().__init__("", "", "")
+        super().__init__()
         self.sent: list[str] = []
 
     def alert(self, subject: str, message: str) -> None:
