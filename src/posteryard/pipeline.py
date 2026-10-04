@@ -160,7 +160,16 @@ class Context:
         hit = self.choices.get_choice(key)
         if hit is not None and (self.today - date.fromisoformat(str(hit["checked"]))).days < APPLE_ART_DAYS:
             return str(hit["url"]) or None
-        url = apple.find(title.kind, self.tmdb.details(title.kind, title.tmdb_id), region)
+        details = self.tmdb.details(title.kind, title.tmdb_id)
+        try:
+            url = apple.find(title.kind, details, region)
+        except (http.RequestError, ValueError) as exc:
+            known = (str(hit["url"]) or None) if hit is not None else None
+            log.warning(
+                "Apple TV art lookup for %s failed, using %s: %s",
+                title.name, "the last Apple TV art found" if known else "other art", exc,
+            )  # fmt: skip
+            return known
         self.choices.put_choice(key, {"url": url or "", "checked": self.today.isoformat()})
         return url
 
@@ -169,7 +178,11 @@ class Context:
         url = self.apple_art(title)
         if url is not None:
             ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
-            picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
+            try:
+                picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
+            except http.RequestError as exc:
+                log.warning("Apple TV art for %s could not be loaded, using other art: %s", title.name, exc)
+                picked = None
             if picked is not None:
                 return picked
         picked = self.picker.textless_art(base, self.images(title.kind, title.tmdb_id), title.all_titles)
