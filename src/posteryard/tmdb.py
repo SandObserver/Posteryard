@@ -78,7 +78,15 @@ class Tmdb:
     def _image_languages(self) -> str:
         return ",".join(dict.fromkeys([*self.languages, "en", "null", "xx"]))
 
+    @property
+    def _is_token(self) -> bool:
+        """TMDB's Read Access Token is a JWT. The short API Key has no dots."""
+        return self.api_key.count(".") == 2
+
     def _get(self, path: str, **params: Any) -> Any:
+        if self._is_token:
+            url = f"{API}{path}?{urllib.parse.urlencode(params)}"
+            return http.get_json(url, {"Authorization": f"Bearer {self.api_key}"})
         return http.get_json(f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}")
 
     def details(self, kind: Kind, tmdb_id: int) -> Mapping[str, Any]:

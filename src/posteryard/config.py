@@ -12,6 +12,9 @@ from posteryard.quality import ACCESSIBILITY, AudioLevel, Badge, HdrLevel, Quali
 TRUE = frozenset({"1", "true", "yes", "on"})
 FALSE = frozenset({"0", "false", "no", "off"})
 CLOCK = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
+SECRETS = (
+    "TMDB_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NTFY_TOKEN", "NOTIFY_URLS", "HEARTBEAT_URL",
+)  # fmt: skip
 
 
 class ConfigError(Exception):
@@ -117,7 +120,24 @@ def _clock(env: Mapping[str, str], name: str, default: str) -> time:
     return time(int(match.group(1)), int(match.group(2)))
 
 
+def _with_secret_files(env: Mapping[str, str]) -> dict[str, str]:
+    """Read NAME_FILE into NAME for each secret, as Docker and Portainer secrets provide them."""
+    merged = dict(env)
+    for name in SECRETS:
+        path = env.get(f"{name}_FILE", "").strip()
+        if not path:
+            continue
+        if env.get(name, "").strip():
+            raise ConfigError(f"Set {name} or {name}_FILE, not both")
+        try:
+            merged[name] = Path(path).read_text(encoding="utf-8").strip()
+        except (OSError, UnicodeDecodeError) as exc:
+            raise ConfigError(f"{name}_FILE could not be read: {type(exc).__name__}") from None
+    return merged
+
+
 def load(env: Mapping[str, str] = os.environ) -> Config:
+    env = _with_secret_files(env)
     tmdb_api_key = env.get("TMDB_API_KEY", "").strip()
     if not tmdb_api_key:
         raise ConfigError("TMDB_API_KEY is required")

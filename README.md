@@ -15,7 +15,7 @@ Posteryard runs next to Plex, or [Jellyfin](#jellyfin), and gives every movie, s
 
 ## Getting started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) (the short **API Key**) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
 
 ### Create the compose file
 
@@ -50,7 +50,7 @@ Change these:
 
 | Setting | Set it to |
 | --- | --- |
-| `TMDB_API_KEY` | Your TMDB API key: the short **API Key**, not the long Read Access Token. |
+| `TMDB_API_KEY` | Your TMDB **API Key** or **API Read Access Token**. Either works. |
 | `PLEX_URL` | Your Plex server's address and port. Use the server's network IP, such as `http://192.168.1.10:32400`. `localhost` does not work: inside the container it means the container itself. If Plex runs in Docker on the same Docker network, use its container name, such as `http://plex:32400`. |
 | `PLEX_TOKEN` | Your Plex token. |
 | `WEBHOOK_SECRET` | Any long random text. `openssl rand -hex 16` makes one. |
@@ -106,6 +106,7 @@ Add any of these under `environment:`.
 | `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
 | `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
 | `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
+| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NTFY_TOKEN`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
 
 Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
 
