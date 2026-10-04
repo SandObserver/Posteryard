@@ -12,7 +12,7 @@ from typing import Any
 
 from posteryard.overrides import Override
 
-SCHEMA = """
+SCHEMA_1 = """
 CREATE TABLE IF NOT EXISTS images (
     rating_key  TEXT NOT NULL,
     target      TEXT NOT NULL,
@@ -34,9 +34,15 @@ CREATE TABLE IF NOT EXISTS overrides (
 CREATE TABLE IF NOT EXISTS choices (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
+# Append only. Entry N brings the database from version N to N + 1. Never edit a released entry.
+MIGRATIONS = (SCHEMA_1,)
 COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at"
 RETRY_FIRST = 900
 RETRY_MAX = 12 * 3600
+
+
+class StoreError(Exception):
+    pass
 
 
 class Status(StrEnum):
@@ -63,8 +69,18 @@ class Store:
         path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
-        self._db.executescript(SCHEMA)
+        self._migrate()
         self._lock = threading.Lock()
+
+    def _migrate(self) -> None:
+        version = int(self._db.execute("PRAGMA user_version").fetchone()[0])
+        if version > len(MIGRATIONS):
+            self._db.close()
+            raise StoreError(
+                f"state.db has schema version {version}, newer than this Posteryard supports. Run a newer release."
+            )
+        for number, script in enumerate(MIGRATIONS[version:], version + 1):
+            self._db.executescript(f"BEGIN; {script} PRAGMA user_version={number}; COMMIT;")
 
     def close(self) -> None:
         with self._lock:

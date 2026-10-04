@@ -1,3 +1,5 @@
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -94,3 +96,12 @@ def test_preview_needs_something_to_render(run: Any) -> None:
 def test_test_alert_needs_a_service(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["test-alert"]) == 1
     assert "NOTIFY_URLS" in capsys.readouterr().out
+
+
+def test_a_database_from_a_newer_release_stops_the_command(
+    run: Any, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with closing(sqlite3.connect(tmp_path / "state.db")) as db:
+        db.execute("PRAGMA user_version=999")
+    assert run(["forget", "5646"]) == 2
+    assert "newer than this Posteryard supports" in capsys.readouterr().out
