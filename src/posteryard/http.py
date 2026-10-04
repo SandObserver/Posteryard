@@ -75,5 +75,5 @@ def request(
     raise AssertionError("unreachable")
 
 
-def get_json(url: str) -> Any:
-    return json.loads(request("GET", url, headers={"Accept": "application/json"}))
+def get_json(url: str, headers: dict[str, str] | None = None) -> Any:
+    return json.loads(request("GET", url, headers={"Accept": "application/json", **(headers or {})}))

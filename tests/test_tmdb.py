@@ -93,3 +93,17 @@ def test_find_maps_an_imdb_id_to_tmdb_ids(monkeypatch: pytest.MonkeyPatch) -> No
     assert Tmdb("example-key").find("imdb", "tt0133093") == {"movie": 603}
     monkeypatch.setattr(http, "request", answer({"/find/0": {}}))
     assert Tmdb("example-key").find("tvdb", "0") == {}
+
+
+def test_a_read_access_token_is_sent_as_a_bearer_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, dict[str, str]]] = []
+
+    def request(method: str, url: str, *, headers: dict[str, str], **kwargs: Any) -> bytes:
+        sent.append((url, headers))
+        return b'{"title": "Example"}'
+
+    monkeypatch.setattr(http, "request", request)
+    Tmdb("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJleGFtcGxlIn0.c2lnbmF0dXJl").details("movie", 1)
+    url, headers = sent[0]
+    assert "api_key" not in url
+    assert headers["Authorization"].startswith("Bearer eyJ")

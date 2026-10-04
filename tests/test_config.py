@@ -1,4 +1,5 @@
 from datetime import time
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +19,16 @@ def test_quality_minimums_are_validated() -> None:
     assert cfg.quality.audio == AudioLevel.OFF
     with pytest.raises(ConfigError, match="QUALITY_MIN_HDR"):
         load({"TMDB_API_KEY": "example", "QUALITY_MIN_HDR": "hdr12"})
+
+
+def test_secrets_can_come_from_files(tmp_path: Path) -> None:
+    (tmp_path / "tmdb").write_text("from-file\n")
+    cfg = load({"TMDB_API_KEY_FILE": str(tmp_path / "tmdb")})
+    assert cfg.tmdb_api_key == "from-file"
+    with pytest.raises(ConfigError, match="not both"):
+        load({"TMDB_API_KEY": "a", "TMDB_API_KEY_FILE": str(tmp_path / "tmdb")})
+    with pytest.raises(ConfigError, match="PLEX_TOKEN_FILE could not be read: FileNotFoundError"):
+        load({"TMDB_API_KEY": "a", "PLEX_TOKEN_FILE": str(tmp_path / "missing")})
 
 
 def test_tmdb_key_is_required() -> None:
