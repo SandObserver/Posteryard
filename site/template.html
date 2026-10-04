@@ -121,6 +121,11 @@
       .tag-py { color: var(--accent); }
       .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
 
+      .set { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0; }
+      .set div { min-width: 0; }
+      .set .wide { grid-column: 1 / -1; }
+      .set img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
+      .set .wide img { aspect-ratio: 16 / 9; }
       .band { background: var(--bg); padding: 72px 0; }
       .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
       .lede { margin: 0 0 28px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
@@ -290,6 +295,18 @@
             <figure class="pair fvis">
               <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" srcset="/img/compare/thunderbolts-before-336.webp 336w, /img/compare/thunderbolts-before.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
               <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" srcset="/img/compare/thunderbolts-after-336.webp 336w, /img/compare/thunderbolts-after.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
+            </figure>
+          </div>
+          <div class="feature">
+            <div class="ftext">
+              <h2>Seasons, collections and episodes</h2>
+              <p>Season posters carry the season number. Collections named after a streaming service get a channel tile. Episode thumbnails can show their number and title.</p>
+              <div class="chips"><code>SERVICE_COLLECTIONS</code><code>COLLECTION_POSTERS</code><code>EPISODE_THUMBNAILS=titled</code></div>
+            </div>
+            <figure class="set fvis">
+              <div><span class="tag tag-py">Season</span><img src="/img/compare/severance-season-2.webp" srcset="/img/compare/severance-season-2-336.webp 336w, /img/compare/severance-season-2.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Severance Season 2 poster with a large 2 in the top left corner" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Collection</span><img src="/img/compare/netflix-collection.webp" srcset="/img/compare/netflix-collection-336.webp 336w, /img/compare/netflix-collection.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Netflix collection tile with Wednesday art over a red Netflix band" width="432" height="648" loading="lazy" /></div>
+              <div class="wide"><span class="tag tag-py">Episode</span><img src="/img/compare/severance-episode.webp" srcset="/img/compare/severance-episode-512.webp 512w, /img/compare/severance-episode.webp 768w" sizes="(max-width: 900px) 92vw, 340px" alt="Severance episode thumbnail titled Episode 1, Good News About Hell" width="768" height="432" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
