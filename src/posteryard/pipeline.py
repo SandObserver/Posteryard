@@ -16,7 +16,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from posteryard import maintainerr, ocr, overrides, quality, services, status
+from posteryard import apple, http, maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
@@ -26,10 +26,11 @@ from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
 from posteryard.render.layers import cover, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
-from posteryard.tmdb import Images, Kind, Tmdb
+from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
 
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
+APPLE_ART_DAYS = 30
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
 DESIGN_VERSION = "0.3.0"
@@ -48,6 +49,8 @@ class NotFoundError(Exception):
 
 
 def fetch_art(path: str) -> Image.Image:
+    if apple.is_apple(path):
+        return open_image(http.request("GET", path, timeout=60, redirects=False))
     return Fanart.image(path) if is_fanart(path) else Tmdb.image(path)
 
 
@@ -94,6 +97,7 @@ class Context:
     fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(fetch_art))
     fanart: Fanart | None = None
     marks: AutoMarks | None = None
+    apple_region: str | None = None
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -155,9 +159,28 @@ class Context:
         images: FanartImages = self.remember(("fanart", kind, str(tid)), load)
         return images
 
+    def apple_art(self, title: "Title") -> str | None:
+        """Apple TV's tall art for the title, looked up again after APPLE_ART_DAYS."""
+        region = self.apple_region
+        if region is None:
+            return None
+        key = f"apple:{title.kind}:{title.tmdb_id}:{region}"
+        hit = self.choices.get_choice(key)
+        if hit is not None and (self.today - date.fromisoformat(str(hit["checked"]))).days < APPLE_ART_DAYS:
+            return str(hit["url"]) or None
+        url = apple.find(title.kind, self.tmdb.details(title.kind, title.tmdb_id), region)
+        self.choices.put_choice(key, {"url": url or "", "checked": self.today.isoformat()})
+        return url
+
     def art(self, title: "Title") -> Picked | None:
-        """The best textless TMDB art, else fanart.tv's."""
+        """Apple TV's art with APPLE_ART, else the best textless TMDB art, else fanart.tv's."""
         base = f"{title.kind}:{title.tmdb_id}"
+        url = self.apple_art(title)
+        if url is not None:
+            ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
+            picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
+            if picked is not None:
+                return picked
         picked = self.picker.textless_art(base, self.images(title.kind, title.tmdb_id), title.all_titles)
         if picked is None and self.fanart is not None:
             extra = self.fanart_images(title.kind, title.tmdb_id).images

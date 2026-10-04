@@ -67,6 +67,7 @@ class Config:
     heartbeat_url: str
     log_level: LogLevel = LogLevel.INFO
     fanart_api_key: str = ""
+    apple_art: bool = False
 
     @property
     def preview_dir(self) -> Path:
@@ -197,6 +198,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         heartbeat_url=heartbeat_url,
         log_level=_choice(env, "LOG_LEVEL", "info", LogLevel),
         fanart_api_key=env.get("FANART_API_KEY", "").strip(),
+        apple_art=_bool(env, "APPLE_ART", default=False),
     )
 
 

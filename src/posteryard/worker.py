@@ -79,6 +79,7 @@ class Worker:
             overrides=store.override,
             fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
             marks=AutoMarks(cfg.data_dir / "marks", store),
+            apple_region=cfg.regions[0] if cfg.apple_art and cfg.regions else None,
         )
         self._leaving: Leaving | None = None
 

@@ -171,6 +171,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
         prefer_wordmark=cfg.prefer_wordmark,
         fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
         marks=AutoMarks(cfg.data_dir / "marks", MemoryChoices()),
+        apple_region=cfg.regions[0] if cfg.apple_art and cfg.regions else None,
     )
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)

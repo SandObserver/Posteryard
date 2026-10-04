@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Use Apple TV's own key art as poster art with `APPLE_ART`; per-title overrides still win.
 - Add service marks for Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4.
 - Give other streaming services a mark cut from their TMDB icon when the icon is clean, such as BBC iPlayer, Stan, Canal+ and CBC Gem.
 - Try fanart.tv art, title logos and backdrops when TMDB has none usable, with `FANART_API_KEY`.
