@@ -6,11 +6,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Changed
-
-- Make fewer TMDB requests: one per title and one per season, instead of up to five per title and one per episode.
-- Keep connections to Plex, Jellyfin and TMDB open between requests, and wait as long as a server asks with `Retry-After`.
-
 ### Added
 
 - Find a title's TMDB id from its IMDb or TVDB id, including titles matched by Plex's legacy agents.
@@ -18,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add `restore --all` to give every uploaded image back to the server's own before removing Posteryard.
 - Read secrets from files with `TMDB_API_KEY_FILE`, `PLEX_TOKEN_FILE` and the other `_FILE` settings.
 - Accept TMDB's API Read Access Token as `TMDB_API_KEY`.
+
+### Changed
+
+- Make fewer TMDB requests: one per title and one per season, instead of up to five per title and one per episode.
+- Keep connections to Plex, Jellyfin and TMDB open between requests, and wait as long as a server asks with `Retry-After`.
 
 ### Fixed
 
