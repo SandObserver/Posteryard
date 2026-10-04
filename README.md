@@ -224,7 +224,7 @@ The image has a Docker health check. `docker ps` shows `healthy` or `unhealthy` 
 ```json
 {"ok": true, "checks": {"threads_running": true, "worker_responsive": true, "sweep_recent": true},
  "last_sweep_seconds_ago": 312, "last_full_pass": "2026-10-03", "full_pass_running": false,
- "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.5.1"}
+ "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.6.0"}
 ```
 
 | Check | Fails when |
