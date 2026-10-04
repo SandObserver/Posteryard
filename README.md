@@ -127,6 +127,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `art reset TITLE` | Go back to automatic art. |
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
 | `test-alert` | Send a test alert to every service in `NOTIFY_URLS` and ntfy. |
+| `restore --all` | Give every image Posteryard uploaded back to the server's own. See [Uninstalling](#uninstalling). |
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
 | `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. |
@@ -185,6 +186,8 @@ Add these labels to a title in Plex instead of running a command. In Plex Web, o
 | `posteryard-custom` | Keep the poster you uploaded in Plex as the art, with the title and badges drawn on top. Remove the label to go back to automatic art. |
 | `posteryard-ignore` | Leave this title alone. On a show it covers the show only; label seasons separately. Remove the label and it is rendered fresh. |
 
+On collections, only `posteryard-ignore` applies.
+
 ## Alerts
 
 Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours.
@@ -217,7 +220,7 @@ The image has a Docker health check. `docker ps` shows `healthy` or `unhealthy` 
 ```json
 {"ok": true, "checks": {"threads_running": true, "worker_responsive": true, "sweep_recent": true},
  "last_sweep_seconds_ago": 312, "last_full_pass": "2026-10-03", "full_pass_running": false,
- "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.4.0"}
+ "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.5.1"}
 ```
 
 | Check | Fails when |
@@ -232,8 +235,6 @@ Use either monitor, or both:
 
 - **HTTP**: add an **HTTP(s) - Keyword** monitor for `http://YOUR-SERVER-IP:8000/healthz` with the keyword `"ok": true`. It alerts when Posteryard is unhealthy or unreachable.
 - **Push**: add a **Push** monitor with a heartbeat interval of 300 seconds, copy its push URL, and set it as `HEARTBEAT_URL`. Posteryard calls it every minute while healthy, so this works even when Uptime Kuma cannot reach port 8000. [healthchecks.io](https://healthchecks.io) ping URLs work the same way.
-
-On collections, only `posteryard-ignore` applies.
 
 ## What it makes
 
@@ -263,12 +264,31 @@ Read the log first: `docker logs --tail 100 posteryard`.
 
 | Message | What to do |
 | --- | --- |
-| `Plex has no movie or TV library named ...` | Set `PLEX_LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
+| `Plex has no movie or TV library named ...` | Set `LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
 | `... has no TMDB id in Plex` | The title is unmatched or uses a legacy agent. In Plex, choose **Fix Match** or **Refresh Metadata**. |
 | `TMDB has no textless art or title logo for ...` | TMDB has no usable art yet. Use `art set` with your own image, or add the `posteryard-ignore` label. |
 | `URLError for http://.../library/sections` | Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
 | A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |
+
+## Upgrading
+
+```sh
+docker compose pull && docker compose up -d
+```
+
+After an update, the first full pass checks every title. Only images whose design changed are rendered and uploaded again. Going back to an older release is not supported: it refuses to start with a database from a newer one.
+
+## Backups
+
+Back up `./data`. `state.db` records the art chosen for each title and what was uploaded, and `custom/` holds the art you set with `art set` or `posteryard-custom`. `previews/` can be deleted at any time.
+
+## Uninstalling
+
+1. Stop the service, so it uploads nothing new: `docker compose stop posteryard`.
+2. Give every uploaded image back to the server's own and unlock it: `docker compose run --rm posteryard posteryard restore --all`. Images you changed by hand stay as they are.
+3. With `SERVICE_COLLECTIONS`, delete the collections that carry the `posteryard-collection` label (a tag in Jellyfin).
+4. Remove the container and its data: `docker compose down`, then delete `./data`.
 
 ## Development
 

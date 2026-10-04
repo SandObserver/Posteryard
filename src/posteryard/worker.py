@@ -5,6 +5,7 @@ import time
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
+from typing import cast
 from urllib.parse import urlsplit
 
 from PIL import Image
@@ -13,7 +14,7 @@ from posteryard import http, overrides, pipeline, service_collections
 from posteryard.config import Config, EpisodeMode
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.server import Item, MediaServer, Target, labels
+from posteryard.server import TARGETS, Item, MediaServer, Target, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -33,6 +34,13 @@ class Outcome(StrEnum):
     PREVIEW = "preview"
     UPLOADED = "uploaded"
     FAILED = "failed"
+
+
+@dataclass
+class Restored:
+    restored: int = 0
+    kept: int = 0
+    failed: int = 0
 
 
 @dataclass
@@ -144,6 +152,30 @@ class Worker:
     def reset_art(self, rating_key: str) -> Outcome:
         self.store.reset_override(rating_key)
         return self.process(rating_key, force=True)
+
+    def restore_all(self) -> Restored:
+        """Give every uploaded image back to the server's own, also while DRY_RUN is on.
+
+        Images changed by hand are left as they are. A failed item keeps its record, so a second run retries it.
+        """
+        counts = Restored()
+        for record in self.store.with_status(Status.UPLOADED):
+            if record.target not in TARGETS:
+                continue
+            target = cast(Target, record.target)
+            try:
+                item = self.server.item(record.rating_key)
+                if item is not None and self.server.selected(record.rating_key, target) == record.image_key:
+                    self.server.restore(item, target)
+                    counts.restored += 1
+                elif item is not None:
+                    counts.kept += 1
+            except (http.RequestError, ValueError) as exc:
+                log.warning("could not restore the %s of %s: %s", target, record.title, exc)
+                counts.failed += 1
+                continue
+            self.store.forget_target(record.rating_key, record.target)
+        return counts
 
     def _skip_current(self, item: Item) -> None:
         key = str(item["ratingKey"])

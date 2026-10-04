@@ -129,6 +129,13 @@ class Store:
         due = {key for key, fails, at in rows if now - at >= min(RETRY_FIRST * 2 ** (fails - 1), RETRY_MAX)}
         return sorted(due)
 
+    def with_status(self, status: Status) -> list[Record]:
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT {COLUMNS} FROM images WHERE status=? ORDER BY rating_key, target", (status,)
+            ).fetchall()
+        return [Record(*row) for row in rows]
+
     def keys(self) -> set[str]:
         with self._lock:
             return {row[0] for row in self._db.execute("SELECT DISTINCT rating_key FROM images")}

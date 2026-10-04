@@ -13,7 +13,16 @@ body:
     id: version
     attributes:
       label: Posteryard version
-      placeholder: "0.3.1"
+      placeholder: "0.5.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: server
+    attributes:
+      label: Media server
+      options:
+        - Plex
+        - Jellyfin
     validations:
       required: true
   - type: textarea
