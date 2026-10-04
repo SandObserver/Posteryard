@@ -253,6 +253,8 @@ Art that prints the title or other large text is rejected, even when TMDB marks 
 - **Sweep**, every 15 minutes: titles added or changed since the last sweep, titles Maintainerr lists, and failed titles due for a retry.
 - **Full pass**, daily and after an update or settings change: the whole library. Titles Plex no longer has are forgotten.
 
+Webhook and label changes go ahead of a running full pass.
+
 Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget TITLE`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. See [Monitoring](#monitoring) for health checks.
 
 ## Troubleshooting

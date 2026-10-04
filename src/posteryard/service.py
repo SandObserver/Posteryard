@@ -1,4 +1,5 @@
 import hmac
+import itertools
 import json
 import logging
 import queue
@@ -28,6 +29,8 @@ SWEEP_LOOKBACK = 60
 WORKER_STALL = 600
 TICK = 30
 HEARTBEAT_SECONDS = 60
+URGENT = frozenset({"webhook", "label", "unignored"})
+BACKGROUND = frozenset({"daily", "unlisted"})
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
@@ -70,8 +73,9 @@ def related_keys(item: object) -> list[str]:
 class Service:
     def __init__(self, cfg: Config, server: MediaServer, store: Store, worker: Worker) -> None:
         self.cfg, self.server, self.store, self.worker = cfg, server, store, worker
-        self.queue: queue.Queue[tuple[str, str]] = queue.Queue()
-        self._queued: set[str] = set()
+        self.queue: queue.PriorityQueue[tuple[int, int, str, str]] = queue.PriorityQueue()
+        self._queued: dict[str, int] = {}
+        self._order = itertools.count()
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self.worker_beat = time.monotonic()
@@ -81,12 +85,29 @@ class Service:
         self._last_heartbeat = float("-inf")
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
+        """Webhooks and labels go first, the full pass last. A queued key moves up when asked for more urgently."""
+        priority = 0 if reason in URGENT else 2 if reason in BACKGROUND else 1
         for key in keys:
             with self._lock:
-                if key in self._queued:
+                if self._queued.get(key, priority + 1) <= priority:
                     continue
-                self._queued.add(key)
-            self.queue.put((key, reason))
+                self._queued[key] = priority
+                self.queue.put((priority, next(self._order), key, reason))
+
+    def take(self, timeout: float) -> tuple[str, str]:
+        """The most urgent queued key and why it was queued. Raises queue.Empty after `timeout`."""
+        while True:
+            priority, _, key, reason = self.queue.get(timeout=timeout)
+            with self._lock:
+                if self._queued.get(key) == priority:
+                    del self._queued[key]
+                    return key, reason
+
+    def queued(self) -> list[str]:
+        """The queued keys in the order they will be processed."""
+        with self._lock:
+            entries = sorted(self.queue.queue)
+            return [key for priority, _, key, _ in entries if self._queued.get(key) == priority]
 
     def jellyfin_event(self, payload: dict[str, Any]) -> None:
         """The Jellyfin webhook plugin sends the item id only; the item names its season and show."""
@@ -103,13 +124,11 @@ class Service:
     def _work(self) -> None:
         while not self._stop.is_set():
             try:
-                key, reason = self.queue.get(timeout=TICK)
+                key, reason = self.take(TICK)
             except queue.Empty:
                 self.worker_beat = time.monotonic()
                 self.idle()
                 continue
-            with self._lock:
-                self._queued.discard(key)
             started = time.monotonic()
             try:
                 outcome = self.worker.process(key)
@@ -171,7 +190,7 @@ class Service:
     def idle(self) -> None:
         """Called when the queue has been empty for a tick. Marks a full pass as finished."""
         with self._lock:
-            busy = bool(self._queued) or not self.queue.empty()
+            busy = bool(self._queued)
         if not busy and self.store.meta("full_pending") == "1":
             self.store.set_meta("full_pending", "0")
             log.info("full pass finished")
@@ -296,7 +315,7 @@ class Service:
             "last_sweep_seconds_ago": round(now - self.last_sweep_ok),
             "last_full_pass": self.store.meta("last_full") or None,
             "full_pass_running": self.store.meta("full_pending") == "1",
-            "queue": self.queue.qsize(),
+            "queue": len(self._queued),
             "images": self.store.counts(),
             "dry_run": self.cfg.dry_run,
             "version": __version__,
