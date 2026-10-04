@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS overrides (
 CREATE TABLE IF NOT EXISTS choices (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
-COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at, last_error"
+COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at"
 RETRY_FIRST = 900
 RETRY_MAX = 12 * 3600
 
@@ -56,7 +56,6 @@ class Record:
     status: str
     failures: int
     updated_at: int
-    last_error: str = ""
 
 
 class Store:
@@ -117,21 +116,6 @@ class Store:
     def keys(self) -> set[str]:
         with self._lock:
             return {row[0] for row in self._db.execute("SELECT DISTINCT rating_key FROM images")}
-
-    def recent(self, limit: int) -> list[Record]:
-        with self._lock:
-            rows = self._db.execute(
-                f"SELECT {COLUMNS} FROM images WHERE status != ? ORDER BY updated_at DESC LIMIT ?",
-                (Status.FAILED, limit),
-            ).fetchall()
-        return [Record(*row) for row in rows]
-
-    def failures(self) -> list[Record]:
-        with self._lock:
-            rows = self._db.execute(
-                f"SELECT {COLUMNS} FROM images WHERE status = ? ORDER BY updated_at DESC", (Status.FAILED,)
-            ).fetchall()
-        return [Record(*row) for row in rows]
 
     def counts(self) -> dict[str, int]:
         with self._lock:

@@ -60,10 +60,6 @@ class Config:
         return self.data_dir / "previews"
 
     @property
-    def thumbs_dir(self) -> Path:
-        return self.data_dir / "recent"
-
-    @property
     def state_path(self) -> Path:
         return self.data_dir / "state.db"
 
