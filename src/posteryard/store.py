@@ -1,5 +1,3 @@
-"""What was rendered or uploaded where, so the service is idempotent and leaves manual picks alone."""
-
 import json
 import sqlite3
 import threading
@@ -120,7 +118,6 @@ class Store:
             self._db.execute("DELETE FROM images WHERE rating_key=?", (rating_key,))
 
     def retry_due(self, now: float | None = None) -> list[str]:
-        """Failed items whose backoff has passed: 15 minutes, doubling, at most 12 hours."""
         now = time.time() if now is None else now
         with self._lock:
             rows = self._db.execute(
@@ -129,15 +126,7 @@ class Store:
         due = {key for key, fails, at in rows if now - at >= min(RETRY_FIRST * 2 ** (fails - 1), RETRY_MAX)}
         return sorted(due)
 
-    def with_status(self, status: Status) -> list[Record]:
-        with self._lock:
-            rows = self._db.execute(
-                f"SELECT {COLUMNS} FROM images WHERE status=? ORDER BY rating_key, target", (status,)
-            ).fetchall()
-        return [Record(*row) for row in rows]
-
     def with_upload(self) -> list[Record]:
-        """Records of images uploaded at some point, whatever their status now."""
         with self._lock:
             rows = self._db.execute(
                 f"SELECT {COLUMNS} FROM images WHERE image_key != '' ORDER BY rating_key, target"

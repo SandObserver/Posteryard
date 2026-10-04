@@ -63,7 +63,6 @@ def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
 
 
 def related_keys(item: object) -> list[str]:
-    """A new episode can also need its season and show artwork."""
     if not isinstance(item, dict):
         return []
     keys = [item.get("ratingKey"), item.get("parentRatingKey"), item.get("grandparentRatingKey")]
@@ -85,7 +84,6 @@ class Service:
         self._last_heartbeat = float("-inf")
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
-        """Webhooks and labels go first, the full pass last. A queued key moves up when asked for more urgently."""
         priority = 0 if reason in URGENT else 2 if reason in BACKGROUND else 1
         for key in keys:
             with self._lock:
@@ -95,7 +93,6 @@ class Service:
                 self.queue.put((priority, next(self._order), key, reason))
 
     def take(self, timeout: float) -> tuple[str, str]:
-        """The most urgent queued key and why it was queued. Raises queue.Empty after `timeout`."""
         while True:
             priority, _, key, reason = self.queue.get(timeout=timeout)
             with self._lock:
@@ -103,14 +100,7 @@ class Service:
                     del self._queued[key]
                     return key, reason
 
-    def queued(self) -> list[str]:
-        """The queued keys in the order they will be processed."""
-        with self._lock:
-            entries = sorted(self.queue.queue)
-            return [key for priority, _, key, _ in entries if self._queued.get(key) == priority]
-
     def jellyfin_event(self, payload: dict[str, Any]) -> None:
-        """The Jellyfin webhook plugin sends the item id only; the item names its season and show."""
         key = str(payload.get("ItemId") or "").replace("-", "").lower()
         if not is_item_key(key):
             return
@@ -132,7 +122,7 @@ class Service:
             started = time.monotonic()
             try:
                 outcome = self.worker.process(key)
-            except Exception:  # the last line of defence; process() handles expected errors
+            except Exception:
                 log.exception("unexpected error on %s", key)
                 outcome = Outcome.FAILED
             if outcome not in (Outcome.UNCHANGED, Outcome.SKIPPED):
@@ -155,7 +145,6 @@ class Service:
         return sections
 
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
-        """Items added or changed since the last sweep, Maintainerr's list, and retries that are due."""
         since = int(self.store.meta("sweep_cursor", "0")) - lookback
         started = int(time.time())
         for section in self._sections():
@@ -188,7 +177,6 @@ class Service:
         self.last_sweep_ok = time.monotonic()
 
     def idle(self) -> None:
-        """Called when the queue has been empty for a tick. Marks a full pass as finished."""
         with self._lock:
             busy = bool(self._queued)
         if not busy and self.store.meta("full_pending") == "1":
@@ -196,13 +184,11 @@ class Service:
             log.info("full pass finished")
 
     def resume(self) -> None:
-        """A restart drops the queue. Run an unfinished full pass again; unchanged items are skipped quickly."""
         if self.store.meta("full_pending") == "1":
             log.info("resuming an unfinished full pass")
             self.full()
 
     def _sync_collections(self) -> None:
-        """Service collections never stop the full pass. A failure is logged and alerted; the pass goes on."""
         shows = [s for s in self._sections() if s.get("type") == "show"]
         if self.cfg.dry_run:
             log.info("DRY_RUN is on: service collections are not changed")
@@ -219,7 +205,6 @@ class Service:
                 self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")
 
     def full(self) -> None:
-        """Every item, and every known item that was not listed. The worker forgets those the server no longer has."""
         seen: set[str] = set()
         if self.cfg.service_collections:
             self._sync_collections()
@@ -291,7 +276,6 @@ class Service:
             self._stop.wait(TICK)
 
     def heartbeat(self) -> None:
-        """Call HEARTBEAT_URL while healthy, so a push monitor notices when the calls stop."""
         now = time.monotonic()
         if not self.cfg.heartbeat_url or now - self._last_heartbeat < HEARTBEAT_SECONDS or not self.healthy():
             return
@@ -327,7 +311,6 @@ class Service:
         return bool(self.status()["ok"])
 
     def _watch(self, server: ThreadingHTTPServer) -> None:
-        """Exit when a service thread has stopped, so the container's restart policy starts a fresh one."""
         while not self._stop.wait(TICK):
             dead = [thread.name for thread in self.threads if not thread.is_alive()]
             if dead:

@@ -15,7 +15,6 @@ from posteryard import memory
 READ_WIDTH = 480
 # Each onnxruntime thread holds its own buffers. More threads push the service past its memory limit.
 OCR_THREADS = 2
-# The OCR process is replaced after this many reads, which returns everything it allocated.
 READS_PER_PROCESS = 100
 READ_TIMEOUT = 120
 MIN_SCORE = 0.6
@@ -73,7 +72,6 @@ def read(image: Image.Image) -> list[TextLine]:
 
 
 def _read_pixels(pixels: np.ndarray) -> list[TextLine]:
-    """Runs in the OCR process. Sizes are fractions of the image."""
     height, width = pixels.shape[:2]
     result = _engine()(pixels)
     lines = []

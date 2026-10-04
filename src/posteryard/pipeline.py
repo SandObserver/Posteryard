@@ -1,5 +1,3 @@
-"""Plan the images for one media server item. A plan knows what decides the image before anything is drawn."""
-
 import hashlib
 import json
 import logging
@@ -34,11 +32,8 @@ APPLE_ART_DAYS = 30
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
 DESIGN_VERSION = "0.3.0"
-# Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
-# Lookups held in memory, oldest dropped first. Each is a few kilobytes at most.
 LOOKUP_SIZE = 4096
-# The TMDB details fields planning reads. The full response holds images and providers for every country.
 DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
@@ -128,11 +123,9 @@ class Context:
         return value
 
     def load(self, path: str) -> Image.Image:
-        """TMDB art by path, or the user's custom art by its `file:` path."""
         return overrides.load(path) if path.startswith(overrides.FILE_PREFIX) else self.fetch(path)
 
     def image_hash(self, path: str) -> int:
-        """A 64-bit difference hash of the picture as a poster crop shows it, cached with the art choices."""
         hit = self.choices.get_choice(f"poster-hash:{path}")
         if hit is not None:
             return int(hit["hash"])
@@ -160,7 +153,6 @@ class Context:
         return images
 
     def apple_art(self, title: "Title") -> str | None:
-        """Apple TV's tall art for the title, looked up again after APPLE_ART_DAYS."""
         region = self.apple_region
         if region is None:
             return None
@@ -173,7 +165,6 @@ class Context:
         return url
 
     def art(self, title: "Title") -> Picked | None:
-        """Apple TV's art with APPLE_ART, else the best textless TMDB art, else fanart.tv's."""
         base = f"{title.kind}:{title.tmdb_id}"
         url = self.apple_art(title)
         if url is not None:
@@ -188,7 +179,6 @@ class Context:
         return picked
 
     def logo(self, title: "Title", *, dark: bool = False) -> str | None:
-        """The best TMDB title logo, else fanart.tv's. With `dark`, only a dark logo for light art."""
         base = f"{title.kind}:{title.tmdb_id}"
         images = self.images(title.kind, title.tmdb_id)
         path = self.picker.logo(base, images, self.logo_languages, self.prefer_wordmark, dark=dark)
@@ -198,7 +188,6 @@ class Context:
         return path
 
     def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line]) -> float:
-        """How much deeper than Apple's the fade under a white logo must be, cached with the art choices."""
         key = f"poster-fade:{art}:{logo or name}:{','.join(type(line).__name__ for line in below)}"
         hit = self.choices.get_choice(key)
         if hit is None:
@@ -208,7 +197,6 @@ class Context:
         return float(hit["strength"])
 
     def tone(self, path: str) -> designs.Tone:
-        """Where the poster crop of this art takes dark ink, cached with the art choices."""
         hit = self.choices.get_choice(f"poster-tone:{path}")
         if hit is None:
             found = designs.tone(self.load(path))
@@ -242,7 +230,6 @@ class Context:
         return details
 
     def find(self, kind: Kind, source: str, external_id: str) -> int | None:
-        """The TMDB id for an IMDb or TVDB id. Found ids are kept with the art choices; misses for a while only."""
         key = f"find:{source}:{external_id}"
         hit = self.choices.get_choice(key)
         if hit is None:
@@ -254,7 +241,6 @@ class Context:
         return int(value) if value else None
 
     def service(self, providers: Mapping[str, Any]) -> str | None:
-        """The first offer with a built-in mark, or with a clean automatic one."""
         for offer in services.offers(providers, self.regions):
             if key := services.service_for(offer.name):
                 return key
@@ -274,7 +260,6 @@ class Context:
 
 
 def resolve_tmdb(ctx: Context, item: Item, kind: Kind) -> int | None:
-    """The item's TMDB id, else the one TMDB gives for its IMDb or TVDB id."""
     tid = tmdb_id(item)
     if tid is not None:
         return tid
@@ -299,7 +284,6 @@ def _season_label(number: int) -> str:
 
 
 def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers: Sequence[int]) -> tuple[str, str]:
-    """Look up this season in the show's assignment. See `_assign_seasons`."""
     key = ("seasons", str(title.tmdb_id), *map(str, numbers))
     assignment: dict[int, tuple[str, str]] = ctx.remember(key, lambda: _assign_seasons(ctx, title, show_art, numbers))
     return assignment.get(season, (show_art, f"show art {show_art}"))
@@ -308,7 +292,6 @@ def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers:
 def _season_assignment_paths(
     ctx: Context, title: Title, show_art: str, siblings: Sequence[int], season: int | None
 ) -> list[str]:
-    """Art the show poster and the other seasons use, which a replacement must not repeat."""
     if season is None:
         return []
     key = ("seasons", str(title.tmdb_id), *map(str, siblings))
@@ -317,10 +300,7 @@ def _season_assignment_paths(
 
 
 def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
-    """Each season gets its own textless art, else a series image nothing else uses, else the show's art.
-
-    TMDB stores the same picture under several file names, so "used" compares pictures, not names.
-    """
+    """TMDB stores one picture under several file names, so "used" compares pictures, not names."""
     base = f"{title.kind}:{title.tmdb_id}"
     used = [ctx.image_hash(show_art)]
     assignment: dict[int, tuple[str, str]] = {}
@@ -348,7 +328,6 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
 
 
 def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str]) -> str | None:
-    """The best series image that is none of the pictures in `avoid` or `skip`."""
     base = f"{title.kind}:{title.tmdb_id}"
     pool = ctx.picker.textless_all(
         f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
@@ -497,7 +476,6 @@ def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date |
 
 
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
-    """The seasons that share the show's images: the ones on the server, or TMDB's list without one."""
     parent = str(item.get("parentRatingKey", ""))
     if ctx.server is not None and parent:
         children = ctx.remember(("children", parent), lambda: ctx.server.children(parent) if ctx.server else [])
@@ -529,10 +507,6 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
 
 
 def collection(ctx: Context, item: Item) -> list[Plan]:
-    """A service collection gets Apple's channel tile; any other collection a tile with its name in text.
-
-    The art comes from the member added last, so the poster follows the collection as it grows.
-    """
     if ctx.server is None:
         raise NotFoundError("No media server is configured")
     key, name = str(item["ratingKey"]), str(item.get("title", ""))
@@ -580,7 +554,6 @@ def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
 
 
 def plan_item(ctx: Context, item: Item) -> list[Plan]:
-    """Plans for one Plex item alone. A show's seasons and episodes are items of their own."""
     kind = item.get("type")
     if kind == "movie":
         return movie(ctx, item)
@@ -597,7 +570,6 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
 
 
 def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> list[Plan]:
-    """The item, and for a show or season its seasons and first `episodes` episodes. None means all episodes."""
     if ctx.server is None:
         raise NotFoundError("No media server is configured")
     item = ctx.server.item(rating_key)
@@ -616,7 +588,6 @@ def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> lis
 
 
 def plan_tmdb(ctx: Context, kind: Kind, tid: int, seasons: Sequence[int] = ()) -> list[Plan]:
-    """Plans from TMDB alone, without Plex: no badges, labels or episodes."""
     details = ctx.tmdb.details(kind, tid)
     name = str(details.get("title") or details.get("name") or tid)
     item: Item = {"ratingKey": f"tmdb-{kind}-{tid}", "title": name, "Guid": [{"id": f"tmdb://{tid}"}]}

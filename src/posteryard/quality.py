@@ -138,7 +138,6 @@ def badges(quality: MediaQuality, minimums: QualityMinimums) -> list[Badge]:
 
 
 def accessibility(media_list: Sequence[Mapping[str, Any]], wanted: frozenset[Badge]) -> list[Badge]:
-    """SDH, CC and AD from Plex's stream flags, or from track titles when a file sets no flag."""
     found: set[Badge] = set()
     for media in media_list:
         for s in _streams(media, 3):

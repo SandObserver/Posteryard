@@ -1,5 +1,3 @@
-"""Marks for streaming services without a built-in one, cut from TMDB's provider icon when the cut is clean."""
-
 import threading
 from pathlib import Path
 
@@ -13,15 +11,12 @@ from posteryard.tmdb import Tmdb
 
 # Part of every automatic mark's key. Change it when the cut changes, so posters using these marks render again.
 VERSION = 1
-# Icons whose border varies more than this have no flat background to cut away.
 MAX_BORDER_SPREAD = 10.0
-# Gradients and shadows leave many half-transparent pixels; a clean logo leaves few.
 MAX_SOFT = 0.15
 INK_FROM, INK_RANGE = 40.0, 60.0
 
 
 def cut(icon: Image.Image) -> Image.Image | None:
-    """The icon's logo as a white mark on transparency, or None when the icon has no clean flat background."""
     px = np.asarray(icon.convert("RGB"), dtype=np.float32)
     border = np.concatenate([px[0], px[-1], px[:, 0], px[:, -1]])
     background = np.median(border, axis=0)
@@ -44,7 +39,6 @@ class AutoMarks:
         layers.add_mark_dir(folder)
 
     def get(self, offer: Offer) -> str | None:
-        """The mark's name for `layers.mark`, or None when TMDB's icon does not give a clean mark."""
         if offer.provider_id <= 0 or not offer.logo_path:
             return None
         name = f"auto-{offer.provider_id}-v{VERSION}"

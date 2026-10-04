@@ -1,5 +1,3 @@
-"""Apple TV's own textless key art, found through the title's Apple TV id on Wikidata. Opt-in with APPLE_ART."""
-
 import json
 import logging
 import re
@@ -26,7 +24,6 @@ def is_apple(path: str) -> bool:
 
 
 def apple_id(kind: Kind, details: Mapping[str, Any]) -> str | None:
-    """The Apple TV id Wikidata records for the TMDB title, from the details' `external_ids`."""
     qid = str((details.get("external_ids") or {}).get("wikidata_id") or "")
     if not QID.match(qid):
         return None
@@ -47,7 +44,6 @@ def apple_id(kind: Kind, details: Mapping[str, Any]) -> str | None:
 
 
 def tall_art(kind: Kind, umc: str, region: str) -> str | None:
-    """The URL of the title's tall hero art on Apple TV, or None when the page has none."""
     page = http.request(
         "GET", PAGE.format(region=region.lower(), kind="show" if kind == "tv" else "movie", umc=umc), headers=HEADERS
     ).decode("utf-8", "replace")

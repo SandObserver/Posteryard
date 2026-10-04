@@ -48,7 +48,6 @@ def _resolution(width: int, height: int) -> str:
 
 
 def _streams(raw: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """Jellyfin streams as Plex streams, with the fields `quality` reads."""
     out: list[dict[str, Any]] = []
     for s in raw:
         titles = {"title": s.get("Title"), "displayTitle": s.get("DisplayTitle")}
@@ -103,7 +102,6 @@ class Jellyfin:
         return http.request(method, self._url(path, **params), headers=headers, data=body, timeout=120)
 
     def user(self) -> str:
-        """Item details need a user. The first administrator sees every library."""
         if self._user is None:
             users = self._get("/Users")
             admin = next(

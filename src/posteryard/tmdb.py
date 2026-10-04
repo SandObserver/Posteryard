@@ -14,13 +14,10 @@ from posteryard import http
 Kind = Literal["movie", "tv"]
 API = "https://api.themoviedb.org/3"
 IMAGES = "https://image.tmdb.org/t/p"
-# The largest side any design draws: a 1500 px poster, a 1920 px background, with margin for crops.
 MAX_SIDE = 2160
 # Larger images are refused before decoding. Decoding one costs about 3 bytes per pixel.
 MAX_PIXELS = 50_000_000
-# TMDB serves this size for posters, backdrops and logos. Used when an original is over MAX_PIXELS.
 FALLBACK_SIZE = "w1280"
-# One request returns a title's details, images, alternative titles and providers. Kept for a while, bounded.
 CACHE_SECONDS = 600
 CACHE_SIZE = 64
 TITLE_PARTS = "images,alternative_titles,watch/providers,external_ids"
@@ -68,7 +65,6 @@ class Images:
         return self.textless_posters() + self.textless_backdrops()
 
     def logos_in(self, languages: Sequence[str]) -> list[ImageRef]:
-        """PNG logos in the first language that has any, best first."""
         for language in languages:
             found = [r for r in self.logos if r.language == language and r.path.endswith(".png")]
             if found:
@@ -89,7 +85,6 @@ class Tmdb:
 
     @property
     def _is_token(self) -> bool:
-        """TMDB's Read Access Token is a JWT. The short API Key has no dots."""
         return self.api_key.count(".") == 2
 
     def _get(self, path: str, **params: Any) -> Any:
@@ -114,7 +109,6 @@ class Tmdb:
         return value
 
     def details(self, kind: Kind, tmdb_id: int) -> Mapping[str, Any]:
-        """Details with `images`, `alternative_titles` and `watch/providers` appended."""
         details: Mapping[str, Any] = self._cached(
             f"{kind}/{tmdb_id}",
             lambda: self._get(
@@ -132,7 +126,6 @@ class Tmdb:
         return Images(_refs(raw.get("posters", [])), _refs(raw.get("backdrops", [])), _refs(raw.get("logos", [])))
 
     def _season(self, show_id: int, season: int) -> Mapping[str, Any]:
-        """A season with its episodes and `images`. Empty when TMDB has no such season."""
 
         def load() -> Mapping[str, Any]:
             try:
@@ -166,7 +159,6 @@ class Tmdb:
         return [t for t in dict.fromkeys(titles) if t]
 
     def find(self, source: str, external_id: str) -> dict[str, int]:
-        """TMDB ids by kind for an IMDb or TVDB id. Empty when TMDB does not know it."""
         raw = self._get(f"/find/{urllib.parse.quote(external_id, safe='')}", external_source=f"{source}_id")
         found: dict[str, int] = {}
         for kind, field in (("movie", "movie_results"), ("tv", "tv_results")):

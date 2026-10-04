@@ -1,4 +1,10 @@
-from posteryard.services import offers, pick, service_for
+from typing import Any
+
+from posteryard.services import offers, service_for
+
+
+def pick(providers: dict[str, Any], regions: list[str]) -> str | None:
+    return next((key for offer in offers(providers, regions) if (key := service_for(offer.name))), None)
 
 
 def test_service_names() -> None:

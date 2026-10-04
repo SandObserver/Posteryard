@@ -33,7 +33,6 @@ MARK_DIRS: list[Path] = []
 
 
 def add_mark_dir(folder: Path) -> None:
-    """Also look for marks in `folder`, after the built-in ones."""
     if folder not in MARK_DIRS:
         MARK_DIRS.append(folder)
 
@@ -131,7 +130,6 @@ def luminance(rgb: np.ndarray) -> np.ndarray:
 
 
 def mean_luminance(image: Image.Image) -> float:
-    """Relative luminance averaged over the visible pixels."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32)
     alpha = rgba[..., 3] / 255
     return float((luminance(rgba[..., :3]) * alpha).sum() / max(alpha.sum(), 1.0))

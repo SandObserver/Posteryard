@@ -1,5 +1,3 @@
-"""Alerts, at most one per subject per six hours, to ntfy and to any service Apprise supports."""
-
 import logging
 import re
 import time
@@ -46,7 +44,6 @@ class Notifier:
         self.send(subject, message)
 
     def send(self, subject: str, message: str) -> bool:
-        """Send now, without the quiet period. True when every service accepted it."""
         ok = True
         if self.url and self.topic:
             headers = {"Title": f"Posteryard: {subject}", "Tags": "frame_with_picture"}

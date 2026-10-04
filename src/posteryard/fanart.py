@@ -1,5 +1,3 @@
-"""fanart.tv, the second art source. Tried only when TMDB has no usable art, logo or backdrop."""
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -13,7 +11,6 @@ API = "https://webservice.fanart.tv/v3"
 ASSETS = ("https://assets.fanart.tv/", "http://assets.fanart.tv/")
 # fanart.tv marks images without text with the language "00".
 TEXTLESS = frozenset({"00", ""})
-# fanart.tv publishes every image of a type at one size.
 POSTER = (1000, 1426)
 BACKGROUND = (1920, 1080)
 HD_LOGO = (800, 310)
@@ -59,7 +56,6 @@ class Fanart:
         self.api_key = api_key
 
     def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
-        """Movies are looked up by TMDB id, shows by TVDB id. Empty when fanart.tv has nothing."""
         if kind == "tv" and not tvdb_id:
             return FanartImages()
         path = f"/movies/{tmdb_id}" if kind == "movie" else f"/tv/{tvdb_id}"

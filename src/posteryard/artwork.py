@@ -1,8 +1,3 @@
-"""Choose source art from TMDB for each design.
-
-Choices are cached by the list of candidates they were made from, so OCR runs again only when TMDB's list changes.
-"""
-
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -16,13 +11,9 @@ from posteryard.tmdb import ImageRef, Images
 MAX_CANDIDATES = 6
 POOL_SIZE = 12
 MIN_BACKDROP_WIDTH = 1920
-# Logos at least this wide for their height are wordmarks; narrower ones are emblems or stacked badges.
 WORDMARK_ASPECT = 1.8
-# Logos darker than this vanish on the black fade under them. Saturated reds and yellows stay above it.
 VISIBLE_LUMINANCE = 0.12
-# White and pale logos, preferred over coloured ones of the same shape.
 LIGHT_LUMINANCE = 0.4
-# Logos this dark or darker are drawn on light art without a fade.
 DARK_LUMINANCE = 0.3
 
 Fetch = Callable[[str], Image.Image]
@@ -82,13 +73,11 @@ class Picker:
         return picked
 
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        """Reject any art that OCR finds a title or display text on, whatever its language tag says."""
         return self._cached(f"textless:{key}", refs, lambda lines: _textless(lines, titles))
 
     def textless_all(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
     ) -> list[str]:
-        """Every acceptable textless image among the first `limit` candidates, best first."""
         candidates = [r.path for r in refs[:limit]]
         hit = self.cache.get_choice(f"textless-all:{key}")
         if hit is not None and hit.get("candidates") == candidates:
@@ -115,7 +104,6 @@ class Picker:
         *,
         dark: bool = False,
     ) -> str | None:
-        """The best logo for the dark fade, or with `dark` the best dark logo for light art, or None."""
         refs = images.logos_in(languages)[:MAX_CANDIDATES]
         candidates = [r.path for r in refs]
         cache_key = f"logo3:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"

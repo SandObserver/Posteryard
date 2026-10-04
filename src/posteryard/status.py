@@ -1,5 +1,3 @@
-"""One short label under the logo: leaving, new, just added or coming. Leaving wins, then the newest event."""
-
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -11,7 +9,6 @@ from posteryard.render.lines import Label
 NEW_DAYS = 7
 ADDED_DAYS = 14
 COMING_DAYS = 30
-# Episodes and seasons added within this time of the title itself arrived with it.
 SAME_ADD = timedelta(days=1)
 
 
@@ -55,7 +52,6 @@ def from_timestamp(value: Any) -> date | None:
 
 
 def next_season(details: Mapping[str, Any]) -> date | None:
-    """The air date of the next episode when it opens a new season."""
     upcoming = details.get("next_episode_to_air") or {}
     if not isinstance(upcoming, Mapping) or upcoming.get("episode_number") != 1:
         return None
