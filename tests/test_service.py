@@ -79,9 +79,8 @@ def test_a_full_pass_stays_pending_until_the_queue_drains(tmp_path: Path) -> Non
     assert service.store.meta("full_pending") == "1"
     service.idle()
     assert service.store.meta("full_pending") == "1"
-    while not service.queue.empty():
-        key, _ = service.queue.get()
-        service._queued.discard(key)
+    while service.queued():
+        service.take(0)
     service.idle()
     assert service.store.meta("full_pending") == "0"
 
@@ -90,19 +89,18 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
     make_service(tmp_path).full()
     restarted = make_service(tmp_path)
     restarted.resume()
-    assert restarted.queue.qsize() == 2
+    assert len(restarted.queued()) == 2
     finished = make_service(tmp_path)
     finished.store.set_meta("full_pending", "0")
     finished.resume()
-    assert finished.queue.empty()
+    assert finished.queued() == []
 
 
 def test_the_sweep_queues_labelled_items(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
     service.sweep()
-    queued = [service.queue.get()[0] for _ in range(service.queue.qsize())]
-    assert queued == ["9"]
+    assert service.queued() == ["9"]
 
 
 def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
@@ -111,11 +109,11 @@ def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
     service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
     plex.ignored = [{"ratingKey": "5"}]
     service.sweep()
-    assert "5" not in [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    assert "5" not in service.queued()
     service.store.uploaded("5", "poster", "Example", "fp", "old-upload")
     plex.ignored = []
     service.sweep()
-    assert "5" in [service.queue.get()[0] for _ in range(service.queue.qsize())]
+    assert "5" in service.queued()
     assert service.store.get("5", "poster") is None
 
 
@@ -165,14 +163,14 @@ def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) ->
     with pytest.raises(LookupError, match="Movie"):
         service.full()
     assert store.get("1", "poster") is not None
-    assert service.queue.empty()
+    assert service.queued() == []
 
 
 def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.store.manual("5", "poster", "Example")
     service.full()
-    assert sorted(key for key, _ in service.queue.queue) == ["1", "2", "5"]
+    assert sorted(service.queued()) == ["1", "2", "5"]
     assert service.store.get("5", "poster") is not None
 
 
@@ -199,7 +197,7 @@ def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
         assert post("/webhook/example-secret", b'{"event": "library.new", "Metadata": "x"}', json_type) == 200
         assert post("/webhook/example-secret", good, {**json_type, "Content-Length": "abc"}) == 413
         assert post("/webhook/example-secret", good, json_type) == 200
-        assert [key for key, _ in service.queue.queue] == ["7"]
+        assert service.queued() == ["7"]
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         connection.request("HEAD", "/healthz")
         assert connection.getresponse().status == 200
@@ -300,10 +298,23 @@ def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> N
     episode = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
     service.server.item = lambda key: episode if key == "d" * 32 else None  # type: ignore[method-assign, assignment]
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "dddddddd-dddd-dddd-dddd-dddddddddddd"})
-    assert [key for key, _ in service.queue.queue] == ["d" * 32, "c" * 32, "b" * 32]
+    assert service.queued() == ["d" * 32, "c" * 32, "b" * 32]
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "../etc"})
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "a" * 32})
-    assert [key for key, _ in service.queue.queue][-1] == "a" * 32
+    assert service.queued()[-1] == "a" * 32
+
+
+def test_webhook_items_go_before_the_full_pass(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.enqueue(["1", "2", "3"], "daily")
+    service.enqueue(["4"], "changed")
+    service.enqueue(["3", "5"], "webhook")
+    service.enqueue(["5"], "daily")
+    assert service.queued() == ["3", "5", "4", "1", "2"]
+    assert [service.take(0) for _ in range(5)] == [
+        ("3", "webhook"), ("5", "webhook"), ("4", "changed"), ("1", "daily"), ("2", "daily"),
+    ]  # fmt: skip
+    assert service.status()["queue"] == 0
 
 
 def test_jellyfin_posts_json_as_text() -> None:
