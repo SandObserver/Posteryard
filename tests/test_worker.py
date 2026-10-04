@@ -177,8 +177,24 @@ def test_the_ignore_label_leaves_the_item_alone(tmp_path: Path) -> None:
 
 def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false", EPISODE_THUMBNAILS="off")
-    plex.items["5"] = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404"}
+    episode = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+               "librarySectionTitle": "TV Shows"}  # fmt: skip
+    plex.items["5"], plex.items["6"] = episode, {**episode, "ratingKey": "6"}
     store.uploaded("5", "thumb", "Pilot", "abc", "upload-1")
+    plex.selected_keys[("5", "thumb")] = "upload-1"
     worker.process("5")
     assert plex.restored == [("5", "thumb")]
     assert store.get("5", "thumb") is None
+    store.uploaded("6", "thumb", "Pilot", "abc", "upload-2")
+    plex.selected_keys[("6", "thumb")] = "chosen-by-hand"
+    worker.process("6")
+    assert plex.restored == [("5", "thumb")]
+    assert store.get("6", "thumb") is None
+
+
+def test_items_outside_the_libraries_are_skipped(tmp_path: Path) -> None:
+    worker, plex, _, _ = make(tmp_path)
+    plex.items["7"] = {**MOVIE, "ratingKey": "7", "librarySectionTitle": "Home Videos"}
+    plex.items["8"] = {k: v for k, v in MOVIE.items() if k != "librarySectionTitle"} | {"ratingKey": "8"}
+    assert worker.process("7") == Outcome.SKIPPED
+    assert worker.process("8") == Outcome.SKIPPED

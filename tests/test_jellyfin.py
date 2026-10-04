@@ -104,21 +104,24 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
 def test_a_missing_item_is_none_and_bad_ids_are_refused(serve: Any) -> None:
     jellyfin, _ = serve({})
     assert jellyfin.item("9" * 32) is None
+    assert jellyfin.item("../Users") is None
+    assert jellyfin.item("1917") is None
     with pytest.raises(ValueError, match="not a Jellyfin item id"):
-        jellyfin.item("../Users")
+        jellyfin.children("../Users")
 
 
 def test_section_items_filters_and_pages(serve: Any) -> None:
     pages = iter([{"Items": [FORD], "TotalRecordCount": 2}, {"Items": [FORD], "TotalRecordCount": 2}])
     jellyfin, server = serve({"/Items": lambda q: next(pages)})
-    found = list(jellyfin.section_items(LIBRARY, "movie", label="posteryard-next", **{"addedAt>>": 1791065111}))
+    found = list(jellyfin.section_items(LIBRARY, "movie", label="posteryard-next", **{"updatedAt>>": 1791065111}))
     assert len(found) == 2
     item_calls = [c for c in server.calls if c[1] == "/Items"]
     query = item_calls[0][2]
     assert query["ParentId"] == LIBRARY
     assert query["IncludeItemTypes"] == "Movie"
     assert query["Tags"] == "posteryard-next"
-    assert query["MinDateCreated"] == "2026-10-03T22:05:11Z"
+    assert query["MinDateLastSaved"] == "2026-10-03T22:05:11Z"
+    assert "MinDateCreated" not in query
     assert item_calls[1][2]["StartIndex"] == "1"
 
 
@@ -200,3 +203,16 @@ def test_accessibility_from_jellyfin_streams(serve: Any) -> None:
     movie = jellyfin.item(MOVIE)
     assert movie is not None
     assert accessibility(movie["Media"], frozenset({Badge.SDH})) == [Badge.SDH]
+
+
+def test_missing_numbers_are_left_out(serve: Any) -> None:
+    unnumbered = {k: v for k, v in EPISODE_RAW.items() if k not in ("IndexNumber", "ParentIndexNumber")}
+    jellyfin, _ = serve({f"/Items/{EPISODE}": unnumbered})
+    episode = jellyfin.item(EPISODE)
+    assert episode is not None and "index" not in episode and "parentIndex" not in episode
+
+
+def test_changed_since_uses_the_save_date(serve: Any) -> None:
+    jellyfin, server = serve({"/Items": {"Items": [FORD], "TotalRecordCount": 1}})
+    assert [i["ratingKey"] for i in jellyfin.changed_since(LIBRARY, "movie", 1791065111)] == [MOVIE]
+    assert [c[2].get("MinDateLastSaved") for c in server.calls if c[1] == "/Items"] == ["2026-10-03T22:05:11Z"]

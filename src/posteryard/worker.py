@@ -94,7 +94,7 @@ class Worker:
         ):
             return False
         section = item.get("librarySectionTitle")
-        if section and section not in self.cfg.libraries:
+        if section not in self.cfg.libraries and item.get("type") != "collection":
             return False
         only = self.cfg.only_rating_keys
         related = {str(item.get(k, "")) for k in ("ratingKey", "parentRatingKey", "grandparentRatingKey")}
@@ -163,14 +163,19 @@ class Worker:
         if record is None:
             return
         if record.status == Status.UPLOADED and not self.cfg.dry_run:
-            self.server.restore(item, target)
-            log.info("gave %s back its own %s", item.get("title"), target)
+            if self.server.selected(key, target) != record.image_key:
+                log.info("%s for %s was changed by hand, leaving it", target, item.get("title"))
+            else:
+                self.server.restore(item, target)
+                log.info("gave %s back its own %s", item.get("title"), target)
         self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
         """Apply the labels. True when the poster must be rendered again."""
         key, tags = str(item["ratingKey"]), labels(item)
         redo = False
+        if item.get("type") == "collection":
+            return redo
         if overrides.NEXT_LABEL in tags:
             self._skip_current(item)
             self.server.remove_label(item, overrides.NEXT_LABEL)

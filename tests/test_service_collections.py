@@ -1,9 +1,12 @@
 from datetime import date
 from typing import Any
 
-from posteryard import pipeline, service_collections
+import pytest
+
+from posteryard import http, pipeline, service_collections
 from posteryard.pipeline import Title
 from posteryard.quality import QualityMinimums
+from posteryard.tmdb import Kind
 
 SHOWS = {
     "1": "netflix", "2": "netflix", "3": "netflix",
@@ -44,6 +47,34 @@ class FakePlex:
 
     def delete_collection(self, key: str) -> None:
         self.calls.append(("delete", key))
+
+
+class FailingLabel(FakePlex):
+    def set_label(self, section: str, kind: str, key: str, label: str) -> None:
+        raise http.RequestError("HTTP 500", "http://plex.example:32400/library/sections/4/all")
+
+
+def test_a_collection_that_cannot_be_labelled_is_removed() -> None:
+    plex = FailingLabel([])
+    with pytest.raises(http.RequestError):
+        service_collections.sync(plex, context(), "4")  # type: ignore[arg-type]
+    assert ("delete", "60") in plex.calls
+
+
+def test_a_show_whose_lookup_fails_keeps_its_membership() -> None:
+    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    ctx = context()
+    real = ctx.title
+
+    def title(kind: Kind, tid: int, name: str) -> Title:
+        if tid == 6:
+            raise http.HttpError(404, "https://api.themoviedb.org/3/tv/6")
+        return real(kind, tid, name)
+
+    ctx.title = title  # type: ignore[method-assign]
+    plex.members["50"] = {"6", "7", "8"}
+    assert "50" in service_collections.sync(plex, ctx, "4")  # type: ignore[arg-type]
+    assert not any(c[0] in ("remove", "delete") for c in plex.calls)
 
 
 def context() -> pipeline.Context:

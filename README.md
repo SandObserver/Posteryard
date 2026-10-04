@@ -99,7 +99,7 @@ Add any of these under `environment:`.
 | `LOGO_LANGUAGES` | Title logo languages to try in order, as two-letter codes, such as `fr,en`. | `en` |
 | `PREFER_WORDMARK` | Prefer a wide title logo (the name) over a square emblem when TMDB has both. | `true` |
 | `COLLECTION_POSTERS` | Posters for Plex collections too. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get the regular tile with their name set in white. | `false` |
-| `SERVICE_COLLECTIONS` | Keep one collection per streaming service in each TV library, with every show whose mark is that service, once a service has 3 shows. Posteryard only changes collections it made; they carry the `posteryard-collection` label. If another tool already keeps service collections, leave this off and use `COLLECTION_POSTERS`. | `false` |
+| `SERVICE_COLLECTIONS` | Keep one collection per streaming service in each TV library, with every show whose mark is that service, once a service has 3 shows. Posteryard only changes collections it made; they carry the `posteryard-collection` label. Nothing changes while `DRY_RUN` is on. If a show's service cannot be looked up, that pass only adds. If another tool already keeps service collections, leave this off and use `COLLECTION_POSTERS`. | `false` |
 | `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins, such as `CA,US` for Canada with a US fallback. | `US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
@@ -173,7 +173,7 @@ Differences from Plex:
 
 - The labels below are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
-- Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` should run with one TV library.
+- Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps them for the first TV library in `LIBRARIES` only.
 
 ## Plex labels
 
@@ -234,6 +234,8 @@ Use either monitor, or both:
 
 - **HTTP**: add an **HTTP(s) - Keyword** monitor for `http://YOUR-SERVER-IP:8000/healthz` with the keyword `"ok": true`. It alerts when Posteryard is unhealthy or unreachable.
 - **Push**: add a **Push** monitor with a heartbeat interval of 300 seconds, copy its push URL, and set it as `HEARTBEAT_URL`. Posteryard calls it every minute while healthy, so this works even when Uptime Kuma cannot reach port 8000. [healthchecks.io](https://healthchecks.io) ping URLs work the same way.
+
+On collections, only `posteryard-ignore` applies.
 
 ## What it makes
 

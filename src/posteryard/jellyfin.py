@@ -79,6 +79,7 @@ def _streams(raw: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
 
 class Jellyfin:
     name = "Jellyfin"
+    collections_per_library = False
 
     def __init__(self, url: str, api_key: str) -> None:
         self.url = url
@@ -133,12 +134,13 @@ class Jellyfin:
             "ratingKey": str(raw["Id"]),
             "type": kind,
             "title": str(raw.get("Name", "")),
-            "index": raw.get("IndexNumber"),
-            "parentIndex": raw.get("ParentIndexNumber"),
             "addedAt": _timestamp(raw.get("DateCreated")),
             "Label": [{"tag": tag} for tag in raw.get("Tags") or []],
             "Guid": [{"id": f"tmdb://{tmdb}"}] if (tmdb := (raw.get("ProviderIds") or {}).get("Tmdb")) else [],
         }
+        for field, source in (("index", "IndexNumber"), ("parentIndex", "ParentIndexNumber")):
+            if raw.get(source) is not None:
+                item[field] = int(raw[source])
         if kind == "season":
             item["parentRatingKey"] = raw.get("SeriesId")
         elif kind == "episode":
@@ -157,6 +159,8 @@ class Jellyfin:
         return item
 
     def item(self, rating_key: str) -> Item | None:
+        if not ID.match(rating_key):
+            return None
         try:
             raw = self._get(f"/Items/{_id(rating_key)}", userId=self.user())
         except http.HttpError as exc:
@@ -188,16 +192,14 @@ class Jellyfin:
             params["ParentId"] = _id(section_key)
         if "label" in filters:
             params["Tags"] = filters["label"]
-        if "addedAt>>" in filters:
-            params["MinDateCreated"] = _iso(int(filters["addedAt>>"]))
-        if "updatedAt>>" in filters:
-            params["MinDateLastSaved"] = _iso(int(filters["updatedAt>>"]))
+        # Jellyfin has no created-date filter and ignores MinDateCreated. A new item's save date is its added date.
+        since = filters.get("updatedAt>>", filters.get("addedAt>>"))
+        if since is not None:
+            params["MinDateLastSaved"] = _iso(int(since))
         return self._items(**params)
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
-        added = list(self.section_items(section_key, kind, **{"addedAt>>": since}))
-        updated = list(self.section_items(section_key, kind, **{"updatedAt>>": since}))
-        return list({str(i["ratingKey"]): i for i in added + updated}.values())
+        return list(self.section_items(section_key, kind, **{"updatedAt>>": since}))
 
     def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
         parent = filters.get("show.id") or filters.get("season.id") or section_key
