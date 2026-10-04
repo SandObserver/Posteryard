@@ -212,7 +212,7 @@ def test_restore_all_gives_back_uploads_and_keeps_hand_changes(tmp_path: Path) -
     counts = worker.restore_all()
     assert (counts.restored, counts.kept, counts.failed) == (2, 1, 0)
     assert plex.restored == [("1", "art"), ("1", "poster")]
-    assert store.with_status(Status.UPLOADED) == []
+    assert store.with_upload() == []
     assert store.get("1", "item") is not None
 
 

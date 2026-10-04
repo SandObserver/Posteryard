@@ -64,7 +64,6 @@ def _match(item: Item) -> Match:
 
 
 def library_titles(server: MediaServer, libraries: Iterable[str]) -> list[Match]:
-    """Every movie and show in the managed libraries."""
     wanted = set(libraries)
     titles: list[Match] = []
     for section in server.sections():
@@ -77,7 +76,6 @@ def library_titles(server: MediaServer, libraries: Iterable[str]) -> list[Match]
 
 
 def search(titles: Sequence[Match], query: str) -> list[Match]:
-    """Titles that contain the query, then titles spelled almost like it."""
     key = _norm(query)
     if not key:
         return []

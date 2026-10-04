@@ -1,8 +1,4 @@
-"""Streaming service collections in TV libraries: one per service, kept in step with the service marks.
-
-Only collections that carry MANAGED_LABEL are changed or deleted. A collection of the same name made by hand or by
-another tool is left alone.
-"""
+"""Only collections that carry MANAGED_LABEL are changed or deleted."""
 
 import logging
 

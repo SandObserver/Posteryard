@@ -17,11 +17,6 @@ def logo() -> Image.Image:
     return Image.new("RGBA", (800, 100), (255, 255, 255, 255))
 
 
-def bright_rows(image: Image.Image) -> np.ndarray:
-    grey = np.asarray(image.convert("L"))
-    return np.flatnonzero(grey.max(axis=1) > 200)
-
-
 def tile(colour: tuple[int, int, int] = (0, 0, 0), **kwargs: Any) -> Image.Image:
     kwargs.setdefault("lines_below", [])
     return designs.tile_poster(art(colour=colour), logo(), **kwargs)

@@ -6,7 +6,6 @@ from typing import Any
 from posteryard import http
 from posteryard.server import Item, Target
 
-# Posters and episode thumbnails share Plex's poster endpoints and its `thumb` field.
 ENDPOINTS: dict[Target, tuple[str, str, str]] = {
     "poster": ("posters", "poster", "thumb"),
     "thumb": ("posters", "poster", "thumb"),
@@ -67,7 +66,6 @@ class Plex:
                 return
 
     def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
-        """The latest `addedAt` among matching items, such as the episodes of one show with `show.id`."""
         page = self._get(
             f"/library/sections/{_key(section_key)}/all",
             type=TYPE_IDS[kind],
@@ -160,7 +158,6 @@ class Plex:
         return image_key
 
     def restore(self, item: Item, target: Target) -> None:
-        """Select the image Plex's agent chose before any upload, and unlock the field again."""
         rating_key = str(item["ratingKey"])
         _, select, field = ENDPOINTS[target]
         original = next(
@@ -201,7 +198,6 @@ class Plex:
         )
 
     def lock(self, item: Item, target: Target) -> None:
-        """Lock the field so a metadata refresh keeps the uploaded image."""
         _, _, field = ENDPOINTS[target]
         http.request(
             "PUT",

@@ -22,29 +22,23 @@ from posteryard.render.layers import (
 )
 
 POSTER = (1000, 1500)
-# Where the logo and its lines sit, and the top-left corner with the season number and service mark: (x0, y0, x1, y1).
 BOTTOM_AREA = (0.15, 0.66, 0.85, 0.95)
 CORNER_AREA = (0.0, 0.0, 0.35, 0.2)
-# Dark ink needs a mostly light area that still gives near-black this contrast against its darkest tenth.
 LIGHT_MEDIAN = 0.5
 DARK_INK_CONTRAST = 4.5
-# A white logo needs this contrast against the brightest tenth of the faded art under it. The fade deepens in steps.
 LOGO_CONTRAST = 4.5
 FADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
 FADE_MAX = 0.92
 WIDE = (1920, 1080)
 
 LOGO_BOX = (0.66, 0.151)
-# Apple's Top 10 rank digit: left and top edges, cap height, and white fading in the lower half.
 NUMBER_AT = (0.07, 0.05)
 NUMBER_CAP = 0.12
 NUMBER_FADE = ((0.0, 0.90), (0.5, 0.90), (1.0, 0.53))
-# Apple TV's "Explore Channels" tile, measured on Paramount+, Disney+, Crave, Prime Video and Gem.
 CHANNEL_SEAM = 0.627
 CHANNEL_TOP_SHADE = ((0.0, 0.45), (0.22, 0.0), (1.0, 0.0))
 CHANNEL_LOGO_BOX = (0.42, 0.075)
 CHANNEL_LOGO_TOP = 0.045
-# Service marks cover the same area, as a fraction of the tile; compact marks stop at the height cap.
 CHANNEL_MARK_AREA = 0.067
 CHANNEL_MARK_MAX_HEIGHT = 0.12
 CHANNEL_MARK_MAX_WIDTH = 0.77
@@ -67,7 +61,6 @@ SERVICE_HEIGHT = 0.054
 SERVICE_MAX_HEIGHT = 0.085
 SERVICE_MAX_WIDTH = 0.2
 SERVICE_MARGIN = 0.044
-# Every mark covers the area of a 3.7:1 mark at SERVICE_HEIGHT, so stacked and wide marks look the same size.
 SERVICE_AREA = SERVICE_HEIGHT**2 * 3.7
 SERVICE_CONTRAST = 4.5
 SERVICE_SHADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
@@ -82,7 +75,6 @@ def _service_size(service: str, width: int) -> tuple[int, int]:
 
 
 def _contrast_behind(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> float:
-    """WCAG contrast of white against the brightest tenth of the pixels under the mark."""
     behind = np.asarray(canvas.crop((*at, at[0] + logo.width, at[1] + logo.height)).convert("RGB"), dtype=np.float32)
     covered = np.asarray(logo.getchannel("A")) > 127
     if not covered.any():
@@ -97,7 +89,6 @@ def _service_logo(service: str, width: int) -> Image.Image:
 
 
 def _shade_for(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> Image.Image:
-    """The lightest corner shade that gives the white mark SERVICE_CONTRAST, or the darkest step."""
     w, h = canvas.size
     centre = (at[0] + logo.width / 2, at[1] + logo.height / 2)
     radii = (max(logo.width * 1.8, w * 0.4), max(logo.height * 4, h * 0.14))
@@ -113,14 +104,11 @@ def _shade_for(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> I
 
 @dataclass(frozen=True)
 class Tone:
-    """Whether dark ink reads well over the poster's logo area and over its top-left corner."""
-
     dark_bottom: bool
     dark_corner: bool
 
 
 def tone(art: Image.Image) -> Tone:
-    """Measured on the art as the tile crops it, before any fade."""
     lum = luminance(np.asarray(cover(art, 200, 300), dtype=np.float32))
     return Tone(_takes_dark_ink(lum, BOTTOM_AREA), _takes_dark_ink(lum, CORNER_AREA))
 
@@ -166,7 +154,6 @@ def _season_number(canvas: Image.Image, number: int, ink: RGB = WHITE) -> None:
 def _place_logo(
     size: tuple[int, int], logo: Image.Image, lines_below: list[lines.Line]
 ) -> tuple[Image.Image, tuple[int, int], list[float]]:
-    """The logo scaled into Apple's box, its top-left corner, and the centres of the lines under it."""
     w, h = size
     logo = logo.convert("RGBA")
     scale = min(LOGO_BOX[0] * w / logo.width, LOGO_BOX[1] * h / logo.height)
@@ -182,7 +169,6 @@ def _fade(size: tuple[int, int], strength: float) -> Image.Image:
 
 
 def fade_strength(art: Image.Image, logo: Image.Image, lines_below: list[lines.Line]) -> float:
-    """The lightest fade step that gives the white logo LOGO_CONTRAST, or the darkest step."""
     canvas = cover(art, *POSTER).convert("RGBA")
     logo, at, _ = _place_logo(canvas.size, logo, lines_below)
     for strength in FADE_STEPS:
@@ -205,8 +191,6 @@ def tile_poster(
     corner_ink: RGB = WHITE,
     fade: float = 1.0,
 ) -> Image.Image:
-    """`ink` is for the logo area: with dark ink there is no fade, otherwise `fade` scales Apple's fade.
-    `corner_ink` is for the season number and mark."""
     canvas = cover(art, *POSTER).convert("RGBA")
     if ink == WHITE:
         canvas.alpha_composite(_fade(canvas.size, fade))
@@ -224,7 +208,6 @@ def tile_poster(
 
 
 def episode_still(still: Image.Image, number: int, title: str | None) -> Image.Image:
-    """Without a title, the still with Apple's light bottom shade only. Plex prints the episode details beside it."""
     image = cover(still, *WIDE, (0.5, 0.5))
     if title is None:
         shaded = image.convert("RGBA")
@@ -257,7 +240,6 @@ def _fit(text: str, face: ImageFont.FreeTypeFont, max_width: int) -> str:
 
 
 def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Image.Image:
-    """Apple TV's channel tile: art with the featured title's logo on top, over a band with the service mark."""
     w, h = POSTER
     split = round(CHANNEL_SEAM * h)
     canvas = Image.new("RGBA", POSTER)
@@ -284,7 +266,6 @@ def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Im
 
 
 def text_logo(title: str, ink: RGB = WHITE) -> Image.Image:
-    """The title set in white, for titles TMDB has no logo for: one line, or the two-line split that sets it largest."""
     words = title.split() or [title]
     options = [[" ".join(words)]]
     for cut in range(1, len(words)):

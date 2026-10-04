@@ -57,7 +57,6 @@ NAMES = {
     "movistar": "Movistar Plus+",
     "channel4": "Channel 4",
 }
-# Add-on channels sold through another service, stores, live TV bundles and aggregators.
 EXCLUDED_WORDS = (
     "amazon channel", "apple tv channel", "roku premium channel", "plex channel", "store", "youtube tv", "fubo",
     "stacktv", "live tv", "justwatch",
@@ -86,7 +85,6 @@ class Offer:
 
 
 def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> Iterator[Offer]:
-    """Subscription, free and ad-supported offers: by region, then offer type, then TMDB's display priority."""
     for region in regions:
         by_type = providers_by_region.get(region) or {}
         for offer_type in OFFER_TYPES:
@@ -95,8 +93,3 @@ def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> It
                 if any(word in name.lower() for word in EXCLUDED_WORDS):
                     continue
                 yield Offer(int(provider.get("provider_id") or 0), name, str(provider.get("logo_path") or ""))
-
-
-def pick(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> str | None:
-    """The first offer with a built-in mark."""
-    return next((key for offer in offers(providers_by_region, regions) if (key := service_for(offer.name))), None)

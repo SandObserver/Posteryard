@@ -84,7 +84,6 @@ class Worker:
         self._leaving: Leaving | None = None
 
     def leaving_days(self) -> dict[str, date]:
-        """Maintainerr's schedule. While Maintainerr is down, the last known one."""
         if self._leaving and time.monotonic() - self._leaving.fetched < LEAVING_CACHE_SECONDS:
             return self._leaving.days
         try:
@@ -196,7 +195,6 @@ class Worker:
             self.store.add_skip(key, art)
 
     def _restore(self, item: Item, target: Target) -> None:
-        """Give back the server's own image when Posteryard no longer makes this kind of image."""
         key = str(item["ratingKey"])
         record = self.store.get(key, target)
         if record is None:
@@ -210,7 +208,6 @@ class Worker:
         self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
-        """Apply the labels. True when the poster must be rendered again."""
         key, tags = str(item["ratingKey"]), labels(item)
         redo = False
         if item.get("type") == "collection":
@@ -276,7 +273,6 @@ class Worker:
 
 
 def _upstream(exc: Exception, server: MediaServer) -> str:
-    """Group alerts by what failed, so one outage sends one alert."""
     if isinstance(exc, pipeline.NotFoundError):
         return "missing artwork"
     if isinstance(exc, http.RequestError):

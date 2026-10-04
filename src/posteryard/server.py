@@ -1,8 +1,4 @@
-"""What Posteryard needs from a media server. Plex and Jellyfin both answer with Plex-shaped items:
-`ratingKey`, `type` (movie, show, season, episode, collection), `title`, `index`, `parentIndex`,
-`parentRatingKey`, `grandparentRatingKey`, `Guid`, `addedAt`, `Label`, `librarySectionID`,
-`librarySectionTitle` and `Media` with Plex stream fields.
-"""
+"""Plex and Jellyfin both answer with the Plex-shaped `Item`."""
 
 import re
 from collections.abc import Iterable
@@ -24,7 +20,6 @@ class Item(TypedDict, total=False):
     Label: list[dict[str, str]]
     librarySectionID: int | str
     librarySectionTitle: str
-    librarySectionKey: str
     Media: list[dict[str, Any]]
     thumb: str
     key: str
@@ -41,7 +36,6 @@ LEGACY_GUID = re.compile(r"^com\.plexapp\.agents\.(\w+)://([^/?]+)")
 
 
 def is_item_key(text: str) -> bool:
-    """A Plex rating key (digits) or a Jellyfin item id (32 hex digits)."""
     return bool(ITEM_KEY.match(text))
 
 
@@ -75,7 +69,6 @@ def labels(item: Item) -> set[str]:
 
 
 def external_ids(item: Item) -> dict[str, str]:
-    """The item's tmdb, imdb and tvdb ids, from the `Guid` list or the single `guid` of a legacy Plex agent."""
     ids: dict[str, str] = {}
     for guid in item.get("Guid") or []:
         source, _, value = str(guid.get("id", "")).partition("://")

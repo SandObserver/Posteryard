@@ -1,10 +1,3 @@
-"""The lines under the title logo: a caption, then quality badges, then accessibility badges. A status label sits
-above the logo, so a label that comes and goes never moves the logo.
-
-Positions are fractions of the poster height, measured on Apple TV tiles: the logo's bottom edge sits at 89.6%
-alone and 82.8% above one line, and the lowest line is centred at 90.5%. More lines push the logo up.
-"""
-
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -27,10 +20,8 @@ LABEL_DOT = 0.015
 LABEL_GAP = 0.010
 LABEL_TRACKING = 0.08
 LABEL_ALPHA = 200
-# The label's centre sits this far above the top of the logo.
 LABEL_ABOVE = 0.032
 
-# Fractions of the poster width.
 BADGE_ROW = 0.042
 BADGE_GAP = 0.018
 MAX_ROW = 0.80
@@ -57,7 +48,6 @@ PITCH: dict[type, float] = {Caption: CAPTION_PITCH, Badges: BADGE_PITCH}
 
 
 def stack(lines: Sequence[Line]) -> tuple[float, list[float]]:
-    """The logo's bottom edge and each line's centre, top to bottom."""
     centres: list[float] = []
     y = LAST_LINE
     for line in reversed(lines):

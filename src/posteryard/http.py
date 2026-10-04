@@ -14,7 +14,6 @@ SECRET_PARAMS = frozenset({"x-plex-token", "api_key", "token", "apikey"})
 USER_AGENT = "Posteryard"
 MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
-# Keeps connections to Plex, Jellyfin and TMDB open between requests. Redirects are followed; retries are below.
 POOL = urllib3.PoolManager(
     num_pools=16,
     maxsize=4,
@@ -107,7 +106,6 @@ def request(
 
 
 def retry_after(value: str | None) -> float:
-    """Seconds a server asks to wait, as a number or an HTTP date, at most RETRY_AFTER_MAX."""
     if not value:
         return 0.0
     try:

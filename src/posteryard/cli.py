@@ -101,7 +101,6 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _options(args: argparse.Namespace) -> str:
-    """The options to repeat in a suggested command."""
     parts: list[str] = []
     seasons = args.season if isinstance(args.season, list) else [args.season] if args.season is not None else []
     for number in seasons:

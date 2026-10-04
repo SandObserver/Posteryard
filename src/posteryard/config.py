@@ -132,7 +132,6 @@ def _clock(env: Mapping[str, str], name: str, default: str) -> time:
 
 
 def _with_secret_files(env: Mapping[str, str]) -> dict[str, str]:
-    """Read NAME_FILE into NAME for each secret, as Docker and Portainer secrets provide them."""
     merged = dict(env)
     for name in SECRETS:
         path = env.get(f"{name}_FILE", "").strip()
