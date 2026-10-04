@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Refuse to start with a `state.db` from a newer release, so a downgrade cannot damage it.
+- Add `restore --all` to give every uploaded image back to the server's own before removing Posteryard.
+
 ### Fixed
 
 - Handle titles from the webhook and labels before the rest of a running full pass, instead of after it.
