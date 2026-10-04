@@ -178,8 +178,10 @@
       .foot-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; }
       .foot-links a { font-size: 14px; color: var(--dim); display: inline-flex; align-items: center; min-height: 44px; }
       .foot-links a:hover { color: var(--label); }
-      .tmdb { display: inline-flex; align-items: center; min-height: 44px; margin-top: 4px; }
-      .tmdb img { display: block; height: 12px; width: auto; }
+      .sources { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.5); }
+      .sources a { display: inline-flex; align-items: center; min-height: 44px; }
+      .sources img { display: block; height: 11px; width: auto; opacity: 0.75; }
+      .sources a:hover img { opacity: 1; }
       .credit { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.5); max-width: 60ch; line-height: 1.5; }
       .verbadge { display: flex; align-items: center; min-height: 44px; overflow: hidden; font-size: 12px; font-weight: 600; }
       .verbadge span { padding: 4px 8px; border-radius: 5px 0 0 5px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
@@ -329,8 +331,8 @@
             <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a>
             <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
           </div>
-          <a class="tmdb" href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a>
-          <p class="credit">This website uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Streaming data by JustWatch. Plex, Jellyfin, Apple TV and streaming service marks belong to their owners; Posteryard is not affiliated with them.</p>
+          <div class="sources"><span>Data from</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a><a href="https://www.justwatch.com" target="_blank" rel="noopener noreferrer"><img src="/justwatch.svg" alt="JustWatch" width="74" height="11" /></a></div>
+          <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB. Not affiliated with Plex, Jellyfin or Apple.</p>
         </div>
         <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}"><span>release</span> <b>v{{version}}</b></a>
       </div>
