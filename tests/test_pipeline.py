@@ -1,5 +1,5 @@
 import hashlib
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -8,8 +8,11 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import overrides, pipeline
+from posteryard.config import EpisodeMode
 from posteryard.ocr import TextLine
-from posteryard.quality import QualityMinimums
+from posteryard.quality import Badge, QualityMinimums
+from posteryard.render.layers import APPLE_BLUE, APPLE_RED
+from posteryard.render.lines import Badges, Caption, Label
 from posteryard.tmdb import ImageRef, Images
 
 
@@ -23,6 +26,7 @@ class FakeTmdb:
     def __init__(self, posters: list[ImageRef], seasons: int = 4) -> None:
         self.posters = posters
         self.seasons = seasons
+        self.logos = [ref("/logo.png", "en")]
 
     def details(self, kind: str, tid: int) -> dict[str, Any]:
         return {"title": "Example Movie", "seasons": [{"season_number": n} for n in range(1, self.seasons + 1)]}
@@ -32,7 +36,7 @@ class FakeTmdb:
             ImageRef("/backdrop.jpg", None, 3840, 2160, 5, 10),
             ImageRef("/backdrop2.jpg", None, 3840, 2160, 4, 1),
         ]
-        return Images(self.posters, backdrops, [ref("/logo.png", "en")])
+        return Images(self.posters, backdrops, self.logos)
 
     def season_images(self, tid: int, season: int) -> Images:
         return Images([ref(f"/season{season}.jpg", None)] if season in (1, 3) else [], [], [])
@@ -78,6 +82,13 @@ def context(posters: list[ImageRef], seasons: int = 4) -> pipeline.Context:
     )
 
 
+class DatedPlex:
+    def newest_added(self, section: str, kind: str, **filters: Any) -> int | None:
+        if kind == "episode":
+            return int(datetime(2026, 9, 29).timestamp())
+        return int(datetime(2025, 1, 1).timestamp())
+
+
 ITEM = {"ratingKey": "1", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}], "Media": []}
 
 
@@ -86,7 +97,7 @@ def test_movie_uses_textless_art_that_shows_no_title() -> None:
     assert [p.target for p in plans] == ["poster", "art"]
     assert plans[0].inputs["art"] == "/textless.jpg"
     assert plans[0].inputs["design"] == "tile"
-    assert plans[0].inputs["leaving"] == "LEAVING IN 3 DAYS"
+    assert plans[0].inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
     assert plans[0].draw().size == (1000, 1500)
 
 
@@ -118,14 +129,40 @@ def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
     title = ctx.title("tv", 42, "Example Show")
     plan = pipeline.season(ctx, title, {"ratingKey": "17", "index": 7})[0]
     assert plan.inputs["art"] == "/textless.jpg"
-    assert plan.inputs["label"] == "Season 7"
+    assert plan.inputs["number"] == 7
+    assert plan.inputs["service"] is None
+
+
+def test_specials_keep_a_caption_and_no_number() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    title = ctx.title("tv", 42, "Example Show")
+    plan = pipeline.season(ctx, title, {"ratingKey": "10", "index": 0})[0]
+    assert plan.inputs["number"] is None
+    assert plan.inputs["lines"] == [Caption("Specials")]
+
+
+def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.plex = DatedPlex()  # type: ignore[assignment]
+    added = int(datetime(2025, 1, 1).timestamp())
+    plan = pipeline.show(ctx, {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4})[0]
+    assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
+
+
+def test_labels_can_be_turned_off_but_leaving_stays() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.labels = False
+    plan = pipeline.movie(ctx, {**ITEM, "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
+    assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
+    plan = pipeline.movie(ctx, {**ITEM, "ratingKey": "2", "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
+    assert plan.inputs["label"] is None
 
 
 def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> None:
     plan = pipeline.Plan(
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
-    assert plan.fingerprint == "4df5340ec6c2eea1dedba353c5ea71bb"
+    assert plan.fingerprint == "88b5b08c3e5d3dcb12fb17c06a9f7857"
 
 
 def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
@@ -185,9 +222,40 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
         ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
     ]  # fmt: skip
     still = plans[3]
-    assert still.inputs == {"design": "episode", "still": "/still-1-1.jpg", "number": 1, "title": "Episode 1"}
+    assert still.inputs == {"design": "episode", "still": "/still-1-1.jpg", "mode": "plain"}
     assert still.draw().size == (1920, 1080)
     assert [p.rating_key for p in pipeline.plan_preview(ctx, "12", episodes=None)] == ["12", "121", "122"]
+
+
+def test_episode_modes() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    title = ctx.title("tv", 42, "Example Show")
+    item = {"ratingKey": "111", "index": 1, "parentIndex": 1, "title": "Pilot"}
+    ctx.episodes = EpisodeMode.TITLED
+    titled = pipeline.episode(ctx, title, item)[0]
+    assert titled.inputs["title"] == "Pilot"
+    assert titled.draw().size == (1920, 1080)
+    ctx.episodes = EpisodeMode.OFF
+    assert pipeline.episode(ctx, title, item) == []
+
+
+def test_a_title_without_a_logo_is_set_in_text() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.tmdb.logos = []  # type: ignore[attr-defined]
+    plan = pipeline.movie(ctx, ITEM)[0]
+    assert plan.inputs["logo"] is None
+    assert plan.inputs["text_logo"] == "Example Movie"
+    assert plan.draw().size == (1000, 1500)
+
+
+def test_accessibility_badges_get_their_own_line() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.accessibility = frozenset({Badge.SDH, Badge.AD})
+    media = [
+        {"Part": [{"Stream": [{"streamType": 3, "hearingImpaired": True}, {"streamType": 2, "title": "English AD"}]}]}
+    ]
+    plan = pipeline.movie(ctx, {**ITEM, "ratingKey": "2", "Media": media})[0]
+    assert plan.inputs["lines"] == [Badges((Badge.SDH, Badge.AD))]
 
 
 def test_preview_of_a_missing_item_fails() -> None:
@@ -203,7 +271,7 @@ def test_tmdb_preview_without_plex() -> None:
     ctx = context([ref("/textless.jpg", None)])
     assert [p.target for p in pipeline.plan_tmdb(ctx, "movie", 42)] == ["poster", "art"]
     plans = pipeline.plan_tmdb(ctx, "tv", 42, [1, 3])
-    assert [p.inputs.get("label") for p in plans] == [None, None, "Season 1", "Season 3"]
+    assert [p.inputs.get("number") for p in plans] == [None, None, 1, 3]
 
 
 def test_a_title_without_a_tmdb_id_is_not_found() -> None:

@@ -92,6 +92,11 @@ Add any of these under `environment:`.
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
+| `STATUS_LABELS` | Show a coloured label above the logo for news: `JUST ADDED` (green, 14 days), `NEW EPISODE` or `NEW SEASON` (blue, 7 days), `NEW SEASON OCT 21` (yellow, up to 30 days ahead). The Maintainerr label (red) stays on with `false`. | `true` |
+| `QUALITY_ACCESSIBILITY` | Accessibility badges on movie posters, on their own line: any of `sdh`, `cc`, `ad`, separated by commas. Read from Plex's track flags, or from track titles such as "English (SDH)". | |
+| `EPISODE_THUMBNAILS` | `plain`: the episode still with a light bottom shade. `titled`: the still with `EPISODE N` and the title. `off`: leave episodes alone and give back Plex's own thumbnails. | `plain` |
+| `LOGO_LANGUAGES` | Title logo languages to try in order, as two-letter codes, such as `fr,en`. | `en` |
+| `PREFER_WORDMARK` | Prefer a wide title logo (the name) over a square emblem when TMDB has both. | `true` |
 | `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins, such as `CA,US` for Canada with a US fallback. | `US` |
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
@@ -215,12 +220,12 @@ Use either monitor, or both:
 
 | Plex image | Design |
 | --- | --- |
-| Movie and show poster | Textless TMDB art, the title logo in a fixed spot and a soft black fade. Quality badges (movies) and the Maintainerr label sit under the logo. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. |
-| Season poster | The same, with `Season N` or `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
-| Episode thumbnail | The episode still, with the bottom blurred and faded, `EPISODE N` and the title. |
+| Movie and show poster | Textless TMDB art, the title logo and a soft black fade, laid out like an Apple TV tile. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
+| Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
+| Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |
 
-Art that prints the title or other large text is rejected, even when TMDB marks it as textless.
+Art that prints the title or other large text is rejected, even when TMDB marks it as textless. Status labels such as `JUST ADDED` sit above the logo, so they never move it.
 
 ## How it works
 

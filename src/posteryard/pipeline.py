@@ -13,19 +13,20 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from posteryard import maintainerr, ocr, overrides, quality, services
+from posteryard import maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
+from posteryard.config import EpisodeMode
 from posteryard.overrides import Override
 from posteryard.plex import Item, Plex, Target, tmdb_id
-from posteryard.quality import QualityMinimums
-from posteryard.render import designs
+from posteryard.quality import Badge, QualityMinimums
+from posteryard.render import designs, lines
 from posteryard.render.layers import cover, trim
 from posteryard.tmdb import Images, Kind, Tmdb
 
 TITLE_CACHE_SECONDS = 600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.2.3"
+DESIGN_VERSION = "0.3.0"
 # Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
@@ -68,6 +69,11 @@ class Context:
     action_days: Mapping[str, date]
     today: date
     plex: Plex | None = None
+    labels: bool = True
+    accessibility: frozenset[Badge] = frozenset()
+    episodes: EpisodeMode = EpisodeMode.PLAIN
+    logo_languages: tuple[str, ...] = ("en",)
+    prefer_wordmark: bool = True
     choices: ChoiceCache = field(default_factory=MemoryChoices)
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
     overrides: Callable[[str], Override | None] = field(default=lambda _key: None)
@@ -215,14 +221,15 @@ def _poster(
     season: int | None,
     siblings: Sequence[int] = (),
     badges: list[quality.Badge],
-    leaving: str | None,
+    label: lines.Label | None,
+    access: list[quality.Badge] | None = None,
 ) -> Plan:
     images = ctx.images(title.kind, title.tmdb_id)
     base = f"{title.kind}:{title.tmdb_id}"
     show_art = ctx.picker.textless_art(base, images, title.all_titles)
-    logo = ctx.picker.logo(base, images)
-    if show_art is None or logo is None:
-        raise NotFoundError(f"TMDB has no textless art or title logo for {name}")
+    logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+    if show_art is None:
+        raise NotFoundError(f"TMDB has no textless art for {name}")
     if season is None:
         art_path, note = show_art.path, f"art {show_art.path}"
     else:
@@ -240,22 +247,28 @@ def _poster(
         else:
             note += ", no other art left to switch to"
         extra["override"] = sorted(override.skip)
-    label = None if season is None else _season_label(season)
+    below: list[lines.Line] = []
+    if season == 0:
+        below.append(lines.Caption(_season_label(0)))
+    if badges:
+        below.append(lines.Badges(tuple(badges)))
+    if access:
+        below.append(lines.Badges(tuple(access)))
+    number = season or None
+    service = title.service if season is None else None
     logo_path = logo
 
     def draw() -> Image.Image:
+        mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name)
         return designs.tile_poster(
-            ctx.load(art_path),
-            trim(ctx.fetch(logo_path)),
-            caption=label,
-            badges=badges,
-            leaving=leaving,
-            service=title.service,
+            ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service
         )
 
+    if logo_path is None:
+        extra["text_logo"] = title.name
     inputs = {
-        "design": "tile", "art": art_path, "logo": logo_path, "label": label,
-        "badges": badges, "leaving": leaving, "service": title.service, **extra,
+        "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
+        "number": number, "service": service, **extra,
     }  # fmt: skip
     return Plan(key, "poster", name, inputs, draw, [note])
 
@@ -277,23 +290,50 @@ def movie(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
     title = ctx.title("movie", _require_tmdb(item), str(item.get("title", "")))
     badges = quality.badges(quality.best(item.get("Media") or []), ctx.minimums)
-    poster = _poster(ctx, title, key, title.name, season=None, badges=badges, leaving=ctx.leaving(key))
+    access = quality.accessibility(item.get("Media") or [], ctx.accessibility)
+    label = _label(ctx, status.Dates(added=status.from_timestamp(item.get("addedAt"))), ctx.leaving(key))
+    poster = _poster(ctx, title, key, title.name, season=None, badges=badges, label=label, access=access)
     return [poster, *_background(ctx, title, key)]
 
 
 def show(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
     title = ctx.title("tv", _require_tmdb(item), str(item.get("title", "")))
-    poster = _poster(ctx, title, key, title.name, season=None, badges=[], leaving=ctx.leaving(key))
+    dates = status.Dates(
+        added=status.from_timestamp(item.get("addedAt")),
+        newest_season=_newest(ctx, item, "season", "show.id", key),
+        newest_episode=_newest(ctx, item, "episode", "show.id", key),
+        next_season=status.next_season(ctx.details("tv", title.tmdb_id)) if ctx.labels else None,
+    )
+    poster = _poster(ctx, title, key, title.name, season=None, badges=[], label=_label(ctx, dates, ctx.leaving(key)))
     return [poster, *_background(ctx, title, key)]
 
 
-def season(ctx: Context, title: Title, item: Item) -> list[Plan]:
+def season(ctx: Context, title: Title, item: Item, show_added: date | None = None) -> list[Plan]:
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
     leaving = ctx.leaving(key, str(item.get("parentRatingKey", "")))
+    dates = status.Dates(
+        added=show_added,
+        newest_season=status.from_timestamp(item.get("addedAt")),
+        newest_episode=_newest(ctx, item, "episode", "season.id", key),
+    )
     name = f"{title.name} · {_season_label(number)}"
     siblings = _sibling_seasons(ctx, title, item)
-    return [_poster(ctx, title, key, name, season=number, siblings=siblings, badges=[], leaving=leaving)]
+    label = _label(ctx, dates, leaving)
+    return [_poster(ctx, title, key, name, season=number, siblings=siblings, badges=[], label=label)]
+
+
+def _label(ctx: Context, dates: status.Dates, leaving: str | None) -> lines.Label | None:
+    return status.label(dates if ctx.labels else status.Dates(), ctx.today, leaving)
+
+
+def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date | None:
+    section = str(item.get("librarySectionID", ""))
+    if not ctx.labels or ctx.plex is None or not section.isdigit():
+        return None
+    plex = ctx.plex
+    found = ctx.remember(("newest", kind, field, key), lambda: plex.newest_added(section, kind, **{field: key}))
+    return status.from_timestamp(found)
 
 
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
@@ -306,6 +346,8 @@ def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
 
 
 def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
+    if ctx.episodes == EpisodeMode.OFF:
+        return []
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
     season_number, name = int(item.get("parentIndex", 0)), str(item.get("title", ""))
     still = (ctx.tmdb.episode(title.tmdb_id, season_number, number) or {}).get("still_path")
@@ -313,21 +355,27 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
         return []
     path = str(still)
 
-    def draw() -> Image.Image:
-        return designs.episode_still(ctx.fetch(path), number, name)
+    titled = ctx.episodes == EpisodeMode.TITLED
 
-    inputs = {"design": "episode", "still": path, "number": number, "title": name}
+    def draw() -> Image.Image:
+        return designs.episode_still(ctx.fetch(path), number, name if titled else None)
+
+    inputs = {
+        "design": "episode",
+        "still": path,
+        **({"number": number, "title": name} if titled else {"mode": "plain"}),
+    }
     return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
 
 
-def _show_title(ctx: Context, item: Item) -> Title:
+def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
     if ctx.plex is None:
         raise NotFoundError("Plex is not configured")
     show_key = str(item["parentRatingKey"] if item.get("type") == "season" else item["grandparentRatingKey"])
     show_item = ctx.plex.item(show_key)
     if show_item is None:
         raise NotFoundError(f"Plex has no show {show_key}")
-    return ctx.title("tv", _require_tmdb(show_item), str(show_item.get("title", "")))
+    return ctx.title("tv", _require_tmdb(show_item), str(show_item.get("title", ""))), show_item
 
 
 def plan_item(ctx: Context, item: Item) -> list[Plan]:
@@ -338,9 +386,10 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
     if kind == "show":
         return show(ctx, item)
     if kind == "season":
-        return season(ctx, _show_title(ctx, item), item)
+        title, show_item = _show(ctx, item)
+        return season(ctx, title, item, status.from_timestamp(show_item.get("addedAt")))
     if kind == "episode":
-        return episode(ctx, _show_title(ctx, item), item)
+        return episode(ctx, _show(ctx, item)[0], item)
     return []
 
 

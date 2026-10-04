@@ -10,12 +10,18 @@ from typing import Any, Protocol
 from PIL import Image
 
 from posteryard import ocr
-from posteryard.render.layers import is_light, trim
+from posteryard.render.layers import mean_luminance, trim
 from posteryard.tmdb import ImageRef, Images
 
 MAX_CANDIDATES = 6
 POOL_SIZE = 12
 MIN_BACKDROP_WIDTH = 1920
+# Logos at least this wide for their height are wordmarks; narrower ones are emblems or stacked badges.
+WORDMARK_ASPECT = 1.8
+# Logos darker than this vanish on the black fade under them. Saturated reds and yellows stay above it.
+VISIBLE_LUMINANCE = 0.12
+# White and pale logos, preferred over coloured ones of the same shape.
+LIGHT_LUMINANCE = 0.4
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -77,9 +83,11 @@ class Picker:
         """Reject any art that OCR finds a title or display text on, whatever its language tag says."""
         return self._cached(f"textless:{key}", refs, lambda lines: _textless(lines, titles))
 
-    def textless_all(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> list[str]:
-        """Every acceptable textless image among the first POOL_SIZE candidates, best first."""
-        candidates = [r.path for r in refs[:POOL_SIZE]]
+    def textless_all(
+        self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
+    ) -> list[str]:
+        """Every acceptable textless image among the first `limit` candidates, best first."""
+        candidates = [r.path for r in refs[:limit]]
         hit = self.cache.get_choice(f"textless-all:{key}")
         if hit is not None and hit.get("candidates") == candidates:
             return [str(p) for p in hit.get("paths", [])]
@@ -96,14 +104,23 @@ class Picker:
         refs = sorted(images.textless_backdrops(), key=lambda r: r.width < MIN_BACKDROP_WIDTH)
         return self.textless(f"{key}:background", refs, titles)
 
-    def logo(self, key: str, images: Images) -> str | None:
-        candidates = [r.path for r in images.english_logos()[:MAX_CANDIDATES]]
-        hit = self.cache.get_choice(f"logo:{key}")
+    def logo(
+        self, key: str, images: Images, languages: Sequence[str] = ("en",), prefer_wordmark: bool = True
+    ) -> str | None:
+        refs = images.logos_in(languages)[:MAX_CANDIDATES]
+        candidates = [r.path for r in refs]
+        cache_key = f"logo3:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
-        light = next((path for path in candidates if is_light(trim(self.fetch(path)))), None)
-        path = light or (candidates[0] if candidates else None)
-        self.cache.put_choice(f"logo:{key}", {"candidates": candidates, "path": path})
+        brightness = {r.path: mean_luminance(trim(self.fetch(r.path))) for r in refs}
+        visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
+        light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
+        wide = [r for r in visible if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
+        wide_light = [r for r in wide if r in light]
+        pool = wide_light or wide or light or visible or refs
+        path = pool[0].path if pool else None
+        self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
         return path
 
 

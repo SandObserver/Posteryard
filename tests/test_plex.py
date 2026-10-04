@@ -118,3 +118,24 @@ def test_guids_and_labels() -> None:
     assert tmdb_id({"Guid": [{"id": "imdb://tt1"}, {"id": "tmdb://42"}]}) == 42
     assert tmdb_id({}) is None
     assert labels({"Label": [{"tag": "Posteryard-Next"}]}) == {"posteryard-next"}
+
+
+def test_restore_selects_the_agents_image_and_unlocks(serve: Any) -> None:
+    images = [{"ratingKey": "upload://posters/1"}, {"ratingKey": "metadata://posters/agent"}]
+    plex, server = serve(
+        {
+            "GET /library/metadata/7/posters": {"Metadata": images},
+            "PUT /library/metadata/7/poster": b"",
+            "PUT /library/sections/4/all": b"",
+        }
+    )
+    plex.restore({"ratingKey": "7", "type": "episode", "librarySectionID": 4}, "thumb")
+    assert ("PUT", "/library/metadata/7/poster", {"url": "metadata://posters/agent"}) in server.calls
+    assert server.calls[-1][2]["thumb.locked"] == "0"
+
+
+def test_newest_added(serve: Any) -> None:
+    plex, server = serve({"/library/sections/4/all": lambda q: {"Metadata": [{"addedAt": 1700000000}]}})
+    assert plex.newest_added("4", "episode", **{"show.id": "9"}) == 1700000000
+    assert server.calls[-1][2]["sort"] == "addedAt:desc"
+    assert server.calls[-1][2]["show.id"] == "9"

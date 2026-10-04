@@ -7,7 +7,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from posteryard import notify
-from posteryard.quality import AudioLevel, HdrLevel, QualityMinimums, VideoLevel
+from posteryard.quality import ACCESSIBILITY, AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel
 
 TRUE = frozenset({"1", "true", "yes", "on"})
 FALSE = frozenset({"0", "false", "no", "off"})
@@ -18,6 +18,12 @@ class ConfigError(Exception):
     pass
 
 
+class EpisodeMode(StrEnum):
+    PLAIN = "plain"
+    TITLED = "titled"
+    OFF = "off"
+
+
 @dataclass(frozen=True)
 class Config:
     tmdb_api_key: str
@@ -26,6 +32,11 @@ class Config:
     maintainerr_url: str
     regions: tuple[str, ...]
     quality: QualityMinimums
+    status_labels: bool
+    accessibility: frozenset[Badge]
+    episodes: EpisodeMode
+    logo_languages: tuple[str, ...]
+    prefer_wordmark: bool
     data_dir: Path
     libraries: tuple[str, ...]
     dry_run: bool
@@ -82,6 +93,23 @@ def _list(env: Mapping[str, str], name: str, default: str = "") -> tuple[str, ..
     return tuple(part.strip() for part in env.get(name, default).split(",") if part.strip())
 
 
+def _accessibility(env: Mapping[str, str]) -> frozenset[Badge]:
+    allowed = {badge.value: badge for badge in ACCESSIBILITY}
+    names = [name.lower() for name in _list(env, "QUALITY_ACCESSIBILITY")]
+    unknown = [name for name in names if name not in allowed]
+    if unknown:
+        raise ConfigError(f"QUALITY_ACCESSIBILITY takes sdh, cc and ad, not {', '.join(unknown)}")
+    return frozenset(allowed[name] for name in names)
+
+
+def _languages(env: Mapping[str, str]) -> tuple[str, ...]:
+    languages = tuple(code.lower() for code in _list(env, "LOGO_LANGUAGES", "en"))
+    bad = [code for code in languages if not (len(code) == 2 and code.isascii() and code.isalpha())]
+    if bad or not languages:
+        raise ConfigError("LOGO_LANGUAGES takes two-letter language codes such as fr,en")
+    return languages
+
+
 def _clock(env: Mapping[str, str], name: str, default: str) -> time:
     match = CLOCK.match(env.get(name, "").strip() or default)
     if not match:
@@ -114,6 +142,11 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
             hdr=_choice(env, "QUALITY_MIN_HDR", "hdr10", HdrLevel),
             audio=_choice(env, "QUALITY_MIN_AUDIO", "atmos", AudioLevel),
         ),
+        status_labels=_bool(env, "STATUS_LABELS", default=True),
+        accessibility=_accessibility(env),
+        episodes=_choice(env, "EPISODE_THUMBNAILS", "plain", EpisodeMode),
+        logo_languages=_languages(env),
+        prefer_wordmark=_bool(env, "PREFER_WORDMARK", default=True),
         data_dir=Path(env.get("DATA_DIR", "data")),
         libraries=libraries,
         dry_run=_bool(env, "DRY_RUN", default=True),

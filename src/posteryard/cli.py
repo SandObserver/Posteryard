@@ -134,7 +134,19 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
     except (http.RequestError, ValueError) as exc:
         log.warning("Maintainerr unavailable, rendering without leaving labels: %s", exc)
         days = {}
-    ctx = pipeline.Context(Tmdb(cfg.tmdb_api_key), cfg.quality, cfg.regions, days, date.today(), plex)
+    ctx = pipeline.Context(
+        Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
+        cfg.quality,
+        cfg.regions,
+        days,
+        date.today(),
+        plex,
+        labels=cfg.status_labels,
+        accessibility=cfg.accessibility,
+        episodes=cfg.episodes,
+        logo_languages=cfg.logo_languages,
+        prefer_wordmark=cfg.prefer_wordmark,
+    )
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     episodes = None if args.episodes < 0 else args.episodes

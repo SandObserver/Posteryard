@@ -63,6 +63,18 @@ class Plex:
             if not items or start >= int(page.get("totalSize", start)):
                 return
 
+    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+        """The latest `addedAt` among matching items, such as the episodes of one show with `show.id`."""
+        page = self._get(
+            f"/library/sections/{_key(section_key)}/all",
+            type=TYPE_IDS[kind],
+            sort="addedAt:desc",
+            **filters,
+            **{"X-Plex-Container-Start": 0, "X-Plex-Container-Size": 1},
+        )
+        items = page.get("Metadata") or []
+        return int(items[0]["addedAt"]) if items and items[0].get("addedAt") else None
+
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         """Items added or updated after a Unix time. A replaced file only changes `updatedAt`."""
         added = list(self.section_items(section_key, kind, **{"addedAt>>": since}))
@@ -94,6 +106,30 @@ class Plex:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/library/metadata/{rating_key}"))
         http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=image_key))
         return image_key
+
+    def restore(self, item: Item, target: Target) -> None:
+        """Select the image Plex's agent chose before any upload, and unlock the field again."""
+        rating_key = str(item["ratingKey"])
+        _, select, field = ENDPOINTS[target]
+        original = next(
+            (
+                str(i["ratingKey"])
+                for i in self.images(rating_key, target)
+                if not str(i.get("ratingKey", "")).startswith("upload://")
+            ),
+            None,
+        )
+        if original:
+            http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=original))
+        http.request(
+            "PUT",
+            self._url(
+                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+                type=TYPE_IDS[str(item["type"])],
+                id=rating_key,
+                **{f"{field}.locked": 0},
+            ),
+        )
 
     def poster_bytes(self, item: Item) -> bytes:
         thumb = str(item.get("thumb") or "")

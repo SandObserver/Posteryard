@@ -10,10 +10,10 @@ from urllib.parse import urlsplit
 from PIL import Image
 
 from posteryard import http, overrides, pipeline, statuspage
-from posteryard.config import Config
+from posteryard.config import Config, EpisodeMode
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.plex import Item, Plex, labels
+from posteryard.plex import Item, Plex, Target, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -52,12 +52,17 @@ class Worker:
         self.cfg, self.plex, self.store, self.notifier = cfg, plex, store, notifier
         self.maintainerr = Maintainerr(cfg.maintainerr_url)
         self.ctx = pipeline.Context(
-            tmdb or Tmdb(cfg.tmdb_api_key),
+            tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
             cfg.quality,
             cfg.regions,
             {},
             date.today(),
             plex,
+            labels=cfg.status_labels,
+            accessibility=cfg.accessibility,
+            episodes=cfg.episodes,
+            logo_languages=cfg.logo_languages,
+            prefer_wordmark=cfg.prefer_wordmark,
             choices=store,
             overrides=store.override,
         )
@@ -102,6 +107,8 @@ class Worker:
             self.ctx.action_days = self.leaving_days()
             self.ctx.today = date.today()
             redo_poster = self._follow_labels(item)
+            if item.get("type") == "episode" and self.cfg.episodes == EpisodeMode.OFF:
+                self._restore(item, "thumb")
             outcomes = [
                 self._apply(plan, item, force or (redo_poster and plan.target == "poster"))
                 for plan in pipeline.plan_item(self.ctx, item)
@@ -141,6 +148,17 @@ class Worker:
             self.store.reset_override(key)
         else:
             self.store.add_skip(key, art)
+
+    def _restore(self, item: Item, target: Target) -> None:
+        """Give back Plex's own image when Posteryard no longer makes this kind of image."""
+        key = str(item["ratingKey"])
+        record = self.store.get(key, target)
+        if record is None:
+            return
+        if record.status == Status.UPLOADED and not self.cfg.dry_run:
+            self.plex.restore(item, target)
+            log.info("gave %s back its own %s", item.get("title"), target)
+        self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
         """Apply the Plex labels. True when the poster must be rendered again."""

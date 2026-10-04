@@ -60,13 +60,23 @@ class Images:
     def textless_art(self) -> list[ImageRef]:
         return self.textless_posters() + self.textless_backdrops()
 
-    def english_logos(self) -> list[ImageRef]:
-        return [r for r in self.logos if r.language == "en" and r.path.endswith(".png")]
+    def logos_in(self, languages: Sequence[str]) -> list[ImageRef]:
+        """PNG logos in the first language that has any, best first."""
+        for language in languages:
+            found = [r for r in self.logos if r.language == language and r.path.endswith(".png")]
+            if found:
+                return found
+        return []
 
 
 class Tmdb:
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, languages: Sequence[str] = ("en",)) -> None:
         self.api_key = api_key
+        self.languages = tuple(languages)
+
+    @property
+    def _image_languages(self) -> str:
+        return ",".join(dict.fromkeys([*self.languages, "en", "null", "xx"]))
 
     def _get(self, path: str, **params: Any) -> Any:
         return http.get_json(f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}")
@@ -76,12 +86,12 @@ class Tmdb:
         return details
 
     def images(self, kind: Kind, tmdb_id: int) -> Images:
-        raw = self._get(f"/{kind}/{tmdb_id}/images", include_image_language="en,null,xx")
+        raw = self._get(f"/{kind}/{tmdb_id}/images", include_image_language=self._image_languages)
         return Images(_refs(raw.get("posters", [])), _refs(raw.get("backdrops", [])), _refs(raw.get("logos", [])))
 
     def season_images(self, show_id: int, season: int) -> Images:
         try:
-            raw = self._get(f"/tv/{show_id}/season/{season}/images", include_image_language="en,null,xx")
+            raw = self._get(f"/tv/{show_id}/season/{season}/images", include_image_language=self._image_languages)
         except http.HttpError as exc:
             if exc.status == 404:
                 return Images([], [], [])

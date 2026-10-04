@@ -11,6 +11,9 @@ TEXT = {
     Badge.DTS_X: "DTS:X",
     Badge.SURROUND_7_1: "7.1",
     Badge.SURROUND_5_1: "5.1",
+    Badge.SDH: "SDH",
+    Badge.CC: "CC",
+    Badge.AD: "AD",
 }
 MARKS = {Badge.DOLBY_VISION: "dolbyvision", Badge.DOLBY_ATMOS: "dolbyatmos"}
 FILLED = frozenset({Badge.UHD})

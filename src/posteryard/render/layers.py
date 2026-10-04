@@ -13,6 +13,9 @@ Stops = Sequence[tuple[float, float]]
 WHITE: RGB = (255, 255, 255)
 NEAR_BLACK: RGB = (29, 29, 31)
 APPLE_RED: RGB = (255, 69, 58)
+APPLE_GREEN: RGB = (48, 209, 88)
+APPLE_BLUE: RGB = (10, 132, 255)
+APPLE_YELLOW: RGB = (255, 214, 10)
 
 APPLE_BOTTOM: Stops = ((0.0, 0.0), (0.54, 0.0), (0.70, 0.40), (0.85, 0.65), (1.0, 0.75))
 CORNER: Stops = ((0.0, 0.72), (0.2, 0.5), (0.4, 0.32), (0.6, 0.14), (0.8, 0.03), (1.0, 0.0))
@@ -80,7 +83,7 @@ def tracked_width(text: str, face: ImageFont.FreeTypeFont, tracking: float) -> f
 
 
 def draw_tracked(
-    draw: ImageDraw.ImageDraw,
+    canvas: Image.Image,
     xy: tuple[float, float],
     text: str,
     face: ImageFont.FreeTypeFont,
@@ -89,13 +92,19 @@ def draw_tracked(
     tracking: float = 0.0,
     align: str = "left",
 ) -> None:
-    """`xy` sets the left edge, or the centre with align="centre", and the vertical middle of the line."""
+    """`xy` sets the left edge, or the centre with align="centre", and the vertical middle of the line.
+
+    Drawn on its own layer: ImageDraw on an RGBA canvas replaces pixels, so a translucent fill would turn opaque.
+    """
+    layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
     x, y = xy
     if align == "centre":
         x -= tracked_width(text, face, tracking) / 2
     for ch in text:
         draw.text((x, y), ch, font=face, fill=fill, anchor="lm")
         x += face.getlength(ch) + tracking * face.size
+    canvas.alpha_composite(layer)
 
 
 def luminance(rgb: np.ndarray) -> np.ndarray:
@@ -105,8 +114,8 @@ def luminance(rgb: np.ndarray) -> np.ndarray:
     return result
 
 
-def is_light(image: Image.Image) -> bool:
+def mean_luminance(image: Image.Image) -> float:
+    """Relative luminance averaged over the visible pixels."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32)
     alpha = rgba[..., 3] / 255
-    lum = luminance(rgba[..., :3])
-    return float((lum * alpha).sum() / max(alpha.sum(), 1.0)) > 0.4
+    return float((luminance(rgba[..., :3]) * alpha).sum() / max(alpha.sum(), 1.0))

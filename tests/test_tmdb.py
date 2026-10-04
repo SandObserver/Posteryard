@@ -39,7 +39,7 @@ def test_images_are_sorted_and_filtered(monkeypatch: pytest.MonkeyPatch) -> None
     images = Tmdb("example-key").images("movie", 1)
     assert [r.path for r in images.posters] == ["/en.jpg", "/xx.jpg", "/low.jpg"]
     assert [r.path for r in images.textless_art()] == ["/xx.jpg", "/low.jpg", "/b.jpg"]
-    assert [r.path for r in images.english_logos()] == ["/l.png"]
+    assert [r.path for r in images.logos_in(["en"])] == ["/l.png"]
 
 
 def test_missing_seasons_and_episodes_are_empty(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -3,31 +3,32 @@ import math
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-from posteryard.quality import Badge
-from posteryard.render import inforow
+from posteryard.render import lines
 from posteryard.render.layers import (
     APPLE_BOTTOM,
     CORNER,
     NEAR_BLACK,
     WHITE,
     cover,
-    draw_tracked,
     font,
     luminance,
     mark,
     radial_shade,
     tracked_width,
+    trim,
     vertical_gradient,
 )
 
 POSTER = (1000, 1500)
 WIDE = (1920, 1080)
 
-LOGO_BOX = (0.687, 0.151)
-LOGO_CENTRE = 0.755
-LOGO_CENTRE_WITH_CAPTION = 0.72
-CAPTION_SIZE = 13 / 219
-CAPTION_Y = 0.845
+LOGO_BOX = (0.66, 0.151)
+# Apple's Top 10 rank digit: left and top edges, cap height, and white fading in the lower half.
+NUMBER_AT = (0.07, 0.05)
+NUMBER_CAP = 0.12
+NUMBER_FADE = ((0.0, 0.90), (0.5, 0.90), (1.0, 0.53))
+PLAIN_STILL = ((0.0, 0.0), (0.65, 0.0), (1.0, 0.35))
+NUMBER_SHADE: tuple[tuple[float, float], ...] = ((0.0, 0.40), (0.5, 0.20), (1.0, 0.0))
 SERVICE_HEIGHT = 0.054
 SERVICE_MAX_HEIGHT = 0.085
 SERVICE_MAX_WIDTH = 0.2
@@ -83,14 +84,32 @@ def _service(canvas: Image.Image, service: str) -> None:
     canvas.alpha_composite(logo, (margin, margin))
 
 
+def _season_number(canvas: Image.Image, number: int) -> None:
+    w, h = canvas.size
+    canvas.alpha_composite(radial_shade(canvas.size, (0, 0), (0.58 * w, 0.42 * h), NUMBER_SHADE))
+    glyphs = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(glyphs).text(
+        (w // 4, h // 4), str(number), font=font("Bold", round(NUMBER_CAP * h / 0.727)), fill=255
+    )
+    box = glyphs.getbbox()
+    if box is None:
+        return
+    glyphs = glyphs.crop(box)
+    xs, alphas = zip(*NUMBER_FADE, strict=True)
+    fade = np.interp(np.linspace(0, 1, glyphs.height), xs, alphas)[:, None]
+    layer = Image.new("RGBA", glyphs.size, (*WHITE, 0))
+    layer.putalpha(Image.fromarray((np.asarray(glyphs, dtype=np.float32) * fade).astype(np.uint8)))
+    canvas.alpha_composite(layer, (round(NUMBER_AT[0] * w), round(NUMBER_AT[1] * h)))
+
+
 def tile_poster(
     art: Image.Image,
     logo: Image.Image,
     *,
-    caption: str | None,
-    badges: list[Badge],
-    leaving: str | None,
-    service: str | None,
+    lines_below: list[lines.Line],
+    label: lines.Label | None = None,
+    number: int | None = None,
+    service: str | None = None,
 ) -> Image.Image:
     canvas = cover(art, *POSTER).convert("RGBA")
     w, h = canvas.size
@@ -100,25 +119,26 @@ def tile_poster(
     logo = logo.resize(
         (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
     )
-    centre = (LOGO_CENTRE_WITH_CAPTION if caption else LOGO_CENTRE) * h
-    canvas.alpha_composite(logo, ((w - logo.width) // 2, round(centre - logo.height / 2)))
-    if caption:
-        draw_tracked(
-            ImageDraw.Draw(canvas),
-            (w / 2, CAPTION_Y * h),
-            caption,
-            font("Regular", round(CAPTION_SIZE * h)),
-            (*WHITE, 179),
-            align="centre",
-        )
+    logo_bottom, centres = lines.stack(lines_below)
+    logo_top = round(logo_bottom * h) - logo.height
+    canvas.alpha_composite(logo, ((w - logo.width) // 2, logo_top))
+    lines.draw(canvas, lines_below, centres)
+    if label is not None:
+        lines.draw_label_above(canvas, label, logo_top)
+    if number is not None:
+        _season_number(canvas, number)
     if service:
         _service(canvas, service)
-    inforow.draw(canvas, badges, leaving)
     return canvas.convert("RGB")
 
 
-def episode_still(still: Image.Image, number: int, title: str) -> Image.Image:
+def episode_still(still: Image.Image, number: int, title: str | None) -> Image.Image:
+    """Without a title, the still with Apple's light bottom shade only. Plex prints the episode details beside it."""
     image = cover(still, *WIDE, (0.5, 0.5))
+    if title is None:
+        shaded = image.convert("RGBA")
+        shaded.alpha_composite(vertical_gradient(shaded.size, PLAIN_STILL))
+        return shaded.convert("RGB")
     w, h = image.size
     colour = image.resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
     assert isinstance(colour, tuple)
@@ -143,6 +163,29 @@ def _fit(text: str, face: ImageFont.FreeTypeFont, max_width: int) -> str:
     while text and tracked_width(text + "…", face, 0) > max_width:
         text = text[:-1].rstrip()
     return text + "…"
+
+
+def text_logo(title: str) -> Image.Image:
+    """The title set in white, for titles TMDB has no logo for: one line, or the two-line split that sets it largest."""
+    words = title.split() or [title]
+    options = [[" ".join(words)]]
+    for cut in range(1, len(words)):
+        options.append([" ".join(words[:cut]), " ".join(words[cut:])])
+    face = font("Bold", 200)
+    box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
+
+    def scale(rows: list[str]) -> float:
+        width = max(face.getlength(row) for row in rows)
+        return min(box[0] / width, box[1] / (len(rows) * face.size * 1.1))
+
+    rows = max(options, key=scale)
+    width = round(max(face.getlength(row) for row in rows)) + 20
+    height = round(len(rows) * face.size * 1.1) + 20
+    layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(layer)
+    for i, row in enumerate(rows):
+        pen.text((width / 2, 10 + (i + 0.5) * face.size * 1.1), row, font=face, fill=(*WHITE, 255), anchor="mm")
+    return trim(layer)
 
 
 def background(art: Image.Image) -> Image.Image:
