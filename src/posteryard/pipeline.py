@@ -24,7 +24,7 @@ from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
-from posteryard.render.layers import cover, trim
+from posteryard.render.layers import NEAR_BLACK, WHITE, cover, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
 
@@ -187,15 +187,24 @@ class Context:
             picked = self.picker.textless_art(f"{base}:fanart", extra, title.all_titles)
         return picked
 
-    def logo(self, title: "Title") -> str | None:
-        """The best TMDB title logo, else fanart.tv's."""
+    def logo(self, title: "Title", *, dark: bool = False) -> str | None:
+        """The best TMDB title logo, else fanart.tv's. With `dark`, only a dark logo for light art."""
         base = f"{title.kind}:{title.tmdb_id}"
         images = self.images(title.kind, title.tmdb_id)
-        path = self.picker.logo(base, images, self.logo_languages, self.prefer_wordmark)
+        path = self.picker.logo(base, images, self.logo_languages, self.prefer_wordmark, dark=dark)
         if path is None and self.fanart is not None:
             extra = self.fanart_images(title.kind, title.tmdb_id).images
-            path = self.picker.logo(f"{base}:fanart", extra, self.logo_languages, self.prefer_wordmark)
+            path = self.picker.logo(f"{base}:fanart", extra, self.logo_languages, self.prefer_wordmark, dark=dark)
         return path
+
+    def tone(self, path: str) -> designs.Tone:
+        """Where the poster crop of this art takes dark ink, cached with the art choices."""
+        hit = self.choices.get_choice(f"poster-tone:{path}")
+        if hit is None:
+            found = designs.tone(self.load(path))
+            hit = {"bottom": found.dark_bottom, "corner": found.dark_corner}
+            self.choices.put_choice(f"poster-tone:{path}", hit)
+        return designs.Tone(bool(hit["bottom"]), bool(hit["corner"]))
 
     def backdrop(self, title: "Title") -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"
@@ -384,16 +393,27 @@ def _poster(
         below.append(lines.Badges(tuple(access)))
     number = season or None
     service = title.service if season is None else None
-    logo_path = logo
+    tone = ctx.tone(art_path)
+    dark_logo = ctx.logo(title, dark=True) if tone.dark_bottom and logo is not None else None
+    dark_bottom = tone.dark_bottom and (logo is None or dark_logo is not None)
+    dark_corner = tone.dark_corner and (number is not None or bool(service))
+    logo_path = dark_logo or logo
+    ink = NEAR_BLACK if dark_bottom else WHITE
+    corner_ink = NEAR_BLACK if dark_corner else WHITE
 
     def draw() -> Image.Image:
-        mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name)
+        mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name, ink)
         return designs.tile_poster(
-            ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service
-        )
+            ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service,
+            ink=ink, corner_ink=corner_ink,
+        )  # fmt: skip
 
     if logo_path is None:
         extra["text_logo"] = title.name
+    if dark_bottom:
+        extra["ink"] = "dark"
+    if dark_corner:
+        extra["corner"] = "dark"
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
         "number": number, "service": service, **extra,

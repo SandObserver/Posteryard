@@ -66,22 +66,22 @@ def stack(lines: Sequence[Line]) -> tuple[float, list[float]]:
     return (centres[0] - LOGO_ABOVE_LINE if centres else LOGO_ALONE), centres
 
 
-def draw(canvas: Image.Image, lines: Sequence[Line], centres: Sequence[float]) -> None:
+def draw(canvas: Image.Image, lines: Sequence[Line], centres: Sequence[float], ink: RGB = WHITE) -> None:
     for line, centre in zip(lines, centres, strict=True):
         y = centre * canvas.height
         match line:
             case Caption(text):
                 face = font("Regular", round(CAPTION_SIZE * canvas.height))
-                draw_tracked(canvas, (canvas.width / 2, y), text, face, (*WHITE, CAPTION_ALPHA), align="centre")
+                draw_tracked(canvas, (canvas.width / 2, y), text, face, (*ink, CAPTION_ALPHA), align="centre")
             case Badges(kinds):
-                _badges(canvas, kinds, y)
+                _badges(canvas, kinds, y, ink)
 
 
-def draw_label_above(canvas: Image.Image, label: Label, logo_top: int) -> None:
-    _label(canvas, label.text, label.colour, logo_top - LABEL_ABOVE * canvas.height)
+def draw_label_above(canvas: Image.Image, label: Label, logo_top: int, ink: RGB = WHITE) -> None:
+    _label(canvas, label.text, label.colour, logo_top - LABEL_ABOVE * canvas.height, ink)
 
 
-def _label(canvas: Image.Image, text: str, colour: RGB, y: float) -> None:
+def _label(canvas: Image.Image, text: str, colour: RGB, y: float, ink: RGB = WHITE) -> None:
     h = canvas.height
     face = font("SemiBold", round(LABEL_SIZE * h))
     dot, gap = round(LABEL_DOT * h), round(LABEL_GAP * h)
@@ -90,22 +90,22 @@ def _label(canvas: Image.Image, text: str, colour: RGB, y: float) -> None:
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ImageDraw.Draw(layer).ellipse((x, y - dot / 2, x + dot, y + dot / 2), fill=(*colour, 255))
     canvas.alpha_composite(layer)
-    draw_tracked(canvas, (x + dot + gap, y), text, face, (*WHITE, LABEL_ALPHA), tracking=LABEL_TRACKING)
+    draw_tracked(canvas, (x + dot + gap, y), text, face, (*ink, LABEL_ALPHA), tracking=LABEL_TRACKING)
 
 
-def _row(kinds: Sequence[Badge], height: int, gap: int) -> tuple[list[Image.Image], int]:
-    images = [badge(kind, height) for kind in kinds]
+def _row(kinds: Sequence[Badge], height: int, gap: int, ink: RGB) -> tuple[list[Image.Image], int]:
+    images = [badge(kind, height, ink) for kind in kinds]
     return images, sum(i.width for i in images) + gap * (len(images) - 1)
 
 
-def _badges(canvas: Image.Image, kinds: Sequence[Badge], y: float) -> None:
+def _badges(canvas: Image.Image, kinds: Sequence[Badge], y: float, ink: RGB) -> None:
     w = canvas.width
     height, gap = round(BADGE_ROW * w), round(BADGE_GAP * w)
-    images, total = _row(kinds, height, gap)
+    images, total = _row(kinds, height, gap, ink)
     if total > MAX_ROW * w:
         scale = MAX_ROW * w / total
         height, gap = round(height * scale), round(gap * scale)
-        images, total = _row(kinds, height, gap)
+        images, total = _row(kinds, height, gap, ink)
     x = (w - total) // 2
     for image in images:
         canvas.alpha_composite(image, (x, round(y - image.height / 2)))

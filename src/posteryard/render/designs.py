@@ -1,4 +1,5 @@
 import math
+from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -8,6 +9,7 @@ from posteryard.render.layers import (
     APPLE_BOTTOM,
     CORNER,
     NEAR_BLACK,
+    RGB,
     WHITE,
     cover,
     font,
@@ -20,6 +22,12 @@ from posteryard.render.layers import (
 )
 
 POSTER = (1000, 1500)
+# Where the logo and its lines sit, and the top-left corner with the season number and service mark: (x0, y0, x1, y1).
+BOTTOM_AREA = (0.15, 0.66, 0.85, 0.95)
+CORNER_AREA = (0.0, 0.0, 0.35, 0.2)
+# Dark ink needs a mostly light area that still gives near-black this contrast against its darkest tenth.
+LIGHT_MEDIAN = 0.5
+DARK_INK_CONTRAST = 4.5
 WIDE = (1920, 1080)
 
 LOGO_BOX = (0.66, 0.151)
@@ -99,16 +107,43 @@ def _shade_for(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> I
     return shaded
 
 
-def _service(canvas: Image.Image, service: str) -> None:
+@dataclass(frozen=True)
+class Tone:
+    """Whether dark ink reads well over the poster's logo area and over its top-left corner."""
+
+    dark_bottom: bool
+    dark_corner: bool
+
+
+def tone(art: Image.Image) -> Tone:
+    """Measured on the art as the tile crops it, before any fade."""
+    lum = luminance(np.asarray(cover(art, 200, 300), dtype=np.float32))
+    return Tone(_takes_dark_ink(lum, BOTTOM_AREA), _takes_dark_ink(lum, CORNER_AREA))
+
+
+def _takes_dark_ink(lum: np.ndarray, area: tuple[float, float, float, float]) -> bool:
+    h, w = lum.shape
+    x0, y0, x1, y1 = area
+    region = lum[round(y0 * h) : round(y1 * h), round(x0 * w) : round(x1 * w)]
+    darkest = float(np.percentile(region, 10))
+    ink = float(luminance(np.array(NEAR_BLACK, dtype=np.float32)))
+    return float(np.median(region)) >= LIGHT_MEDIAN and (darkest + 0.05) / (ink + 0.05) >= DARK_INK_CONTRAST
+
+
+def _service(canvas: Image.Image, service: str, ink: RGB = WHITE) -> None:
     margin = round(SERVICE_MARGIN * canvas.width)
     logo = _service_logo(service, canvas.width)
-    canvas.paste(_shade_for(canvas, logo, (margin, margin)))
+    if ink == WHITE:
+        canvas.paste(_shade_for(canvas, logo, (margin, margin)))
+    else:
+        logo = mark(service, logo.height, ink).resize(logo.size, Image.Resampling.LANCZOS)
     canvas.alpha_composite(logo, (margin, margin))
 
 
-def _season_number(canvas: Image.Image, number: int) -> None:
+def _season_number(canvas: Image.Image, number: int, ink: RGB = WHITE) -> None:
     w, h = canvas.size
-    canvas.alpha_composite(radial_shade(canvas.size, (0, 0), (0.58 * w, 0.42 * h), NUMBER_SHADE))
+    if ink == WHITE:
+        canvas.alpha_composite(radial_shade(canvas.size, (0, 0), (0.58 * w, 0.42 * h), NUMBER_SHADE))
     glyphs = Image.new("L", (w, h), 0)
     ImageDraw.Draw(glyphs).text(
         (w // 4, h // 4), str(number), font=font("Bold", round(NUMBER_CAP * h / 0.727)), fill=255
@@ -119,7 +154,7 @@ def _season_number(canvas: Image.Image, number: int) -> None:
     glyphs = glyphs.crop(box)
     xs, alphas = zip(*NUMBER_FADE, strict=True)
     fade = np.interp(np.linspace(0, 1, glyphs.height), xs, alphas)[:, None]
-    layer = Image.new("RGBA", glyphs.size, (*WHITE, 0))
+    layer = Image.new("RGBA", glyphs.size, (*ink, 0))
     layer.putalpha(Image.fromarray((np.asarray(glyphs, dtype=np.float32) * fade).astype(np.uint8)))
     canvas.alpha_composite(layer, (round(NUMBER_AT[0] * w), round(NUMBER_AT[1] * h)))
 
@@ -132,10 +167,14 @@ def tile_poster(
     label: lines.Label | None = None,
     number: int | None = None,
     service: str | None = None,
+    ink: RGB = WHITE,
+    corner_ink: RGB = WHITE,
 ) -> Image.Image:
+    """`ink` is for the logo area: with dark ink there is no fade. `corner_ink` is for the season number and mark."""
     canvas = cover(art, *POSTER).convert("RGBA")
     w, h = canvas.size
-    canvas.alpha_composite(vertical_gradient(canvas.size, APPLE_BOTTOM))
+    if ink == WHITE:
+        canvas.alpha_composite(vertical_gradient(canvas.size, APPLE_BOTTOM))
     logo = logo.convert("RGBA")
     scale = min(LOGO_BOX[0] * w / logo.width, LOGO_BOX[1] * h / logo.height)
     logo = logo.resize(
@@ -144,13 +183,13 @@ def tile_poster(
     logo_bottom, centres = lines.stack(lines_below)
     logo_top = round(logo_bottom * h) - logo.height
     canvas.alpha_composite(logo, ((w - logo.width) // 2, logo_top))
-    lines.draw(canvas, lines_below, centres)
+    lines.draw(canvas, lines_below, centres, ink)
     if label is not None:
-        lines.draw_label_above(canvas, label, logo_top)
+        lines.draw_label_above(canvas, label, logo_top, ink)
     if number is not None:
-        _season_number(canvas, number)
+        _season_number(canvas, number, corner_ink)
     if service:
-        _service(canvas, service)
+        _service(canvas, service, corner_ink)
     return canvas.convert("RGB")
 
 
@@ -214,7 +253,7 @@ def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Im
     return canvas.convert("RGB")
 
 
-def text_logo(title: str) -> Image.Image:
+def text_logo(title: str, ink: RGB = WHITE) -> Image.Image:
     """The title set in white, for titles TMDB has no logo for: one line, or the two-line split that sets it largest."""
     words = title.split() or [title]
     options = [[" ".join(words)]]
@@ -233,7 +272,7 @@ def text_logo(title: str) -> Image.Image:
     layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     pen = ImageDraw.Draw(layer)
     for i, row in enumerate(rows):
-        pen.text((width / 2, 10 + (i + 0.5) * face.size * 1.1), row, font=face, fill=(*WHITE, 255), anchor="mm")
+        pen.text((width / 2, 10 + (i + 0.5) * face.size * 1.1), row, font=face, fill=(*ink, 255), anchor="mm")
     return trim(layer)
 
 

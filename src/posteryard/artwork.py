@@ -22,6 +22,8 @@ WORDMARK_ASPECT = 1.8
 VISIBLE_LUMINANCE = 0.12
 # White and pale logos, preferred over coloured ones of the same shape.
 LIGHT_LUMINANCE = 0.4
+# Logos this dark or darker are drawn on light art without a fade.
+DARK_LUMINANCE = 0.3
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -105,15 +107,31 @@ class Picker:
         return self.textless(f"{key}:background", refs, titles)
 
     def logo(
-        self, key: str, images: Images, languages: Sequence[str] = ("en",), prefer_wordmark: bool = True
+        self,
+        key: str,
+        images: Images,
+        languages: Sequence[str] = ("en",),
+        prefer_wordmark: bool = True,
+        *,
+        dark: bool = False,
     ) -> str | None:
+        """The best logo for the dark fade, or with `dark` the best dark logo for light art, or None."""
         refs = images.logos_in(languages)[:MAX_CANDIDATES]
         candidates = [r.path for r in refs]
         cache_key = f"logo3:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        if dark:
+            cache_key += ":dark"
         hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
         brightness = {r.path: mean_luminance(trim(self.fetch(r.path))) for r in refs}
+        if dark:
+            dark_refs = [r for r in refs if brightness[r.path] <= DARK_LUMINANCE]
+            wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
+            chosen = (wide_dark if prefer_wordmark and wide_dark else dark_refs)[:1]
+            path = chosen[0].path if chosen else None
+            self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
+            return path
         visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
         light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
         wide = [r for r in visible if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
