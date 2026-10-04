@@ -444,6 +444,38 @@ def test_apple_art_is_looked_up_again_after_a_month(monkeypatch: pytest.MonkeyPa
     assert len(calls) == 2
 
 
+def test_an_apple_outage_keeps_the_last_apple_art_or_uses_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
+    found: list[str | None] = [APPLE_URL]
+
+    def find(kind: str, details: Any, region: str) -> str | None:
+        if not found:
+            raise posteryard_http.HttpError(429, "https://www.wikidata.org/wiki/Special:EntityData/Q1.json")
+        return found.pop()
+
+    monkeypatch.setattr(apple, "find", find)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.apple_region = "CA"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+    ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+    other: Item = {**ITEM, "Guid": [{"id": "tmdb://43"}]}
+    assert pipeline.movie(ctx, other)[0].inputs["art"] == "/textless.jpg"
+
+
+def test_apple_art_that_cannot_be_loaded_falls_back_to_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.apple_region = "CA"
+
+    def fetch_or_fail(path: str) -> Image.Image:
+        if path == APPLE_URL:
+            raise posteryard_http.HttpError(503, path)
+        return fetch(path)
+
+    ctx.fetch = fetch_or_fail
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+
+
 def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.tmdb.logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]  # type: ignore[attr-defined]
