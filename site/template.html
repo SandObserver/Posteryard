@@ -133,31 +133,32 @@
       .band { background: var(--bg); padding: 72px 0; }
       .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
       .lede { margin: 0 0 28px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
-      .setup-grid { display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 64px; }
+      .setup-grid { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 40px; }
       .setup-grid + .setup-grid { margin-top: 32px; padding-top: 56px; border-top: 1px solid var(--separator); }
       .setup-side { align-self: start; position: sticky; top: 24px; }
       .setup-side .lede { margin: 0; }
       .setup-side .lede p { margin: 0; }
 
-      .doc { min-width: 0; max-width: 760px; }
-      .doc p, .doc li { font-size: 16px; line-height: 1.6; color: #d1d1d6; }
+      .doc { min-width: 0; max-width: 860px; }
+      .doc p, .doc li { font-size: 15px; line-height: 1.5; color: #d1d1d6; }
       .doc code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; color: var(--label); }
       .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
-      .step { position: relative; padding: 0 0 36px 54px; counter-increment: step; }
-      .step::before { content: counter(step); position: absolute; left: 0; top: -3px; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 15px; display: grid; place-items: center; }
-      .step::after { content: ""; position: absolute; left: 15px; top: 38px; bottom: 6px; width: 2px; background: var(--separator); }
+      .step { position: relative; padding: 0 0 22px 44px; counter-increment: step; }
+      .step::before { content: counter(step); position: absolute; left: 0; top: -1px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
+      .step::after { content: ""; position: absolute; left: 12px; top: 32px; bottom: 6px; width: 2px; background: var(--separator); }
       .step:last-child { padding-bottom: 0; }
       .step:last-child::after { display: none; }
-      .step h3 { margin: 0 0 10px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+      .step h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
       .step > p:first-of-type { margin-top: 0; }
-      .code { margin: 16px 0; border: 1px solid var(--separator); border-radius: 14px; background: #0d1117; overflow: hidden; }
+      .code { margin: 10px 0; border: 1px solid var(--separator); border-radius: 12px; background: #0d1117; overflow: hidden; }
       .code-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--separator); font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
       .copy { position: relative; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--label); font: 600 13px var(--font); cursor: pointer; }
       .copy::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
       .copy:hover { background: var(--fill); }
       .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-      .code pre { margin: 0; padding: 14px 16px; overflow-x: auto; }
-      .code pre code { background: none; padding: 0; font-size: 13.5px; line-height: 1.55; color: #e6edf3; }
+      .code pre { margin: 0; padding: 10px 14px; overflow-x: auto; }
+      .code pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.4; color: #e6edf3; }
+      .code .cm { color: #8b949e; }
       .defs { margin: 16px 0; border-top: 1px solid var(--separator); }
       .def { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 4px 20px; padding: 12px 0; border-bottom: 1px solid var(--separator); }
       .def dt { font-size: 14.5px; line-height: 1.6; }
@@ -234,11 +235,7 @@
         .bezel { border-radius: 18px 18px 0 0; padding: 7px 7px 0; }
         .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
-        .code pre { padding: 12px 14px; }
         .code pre code { font-size: 12px; }
-        .step { padding-left: 44px; }
-        .step::before { width: 28px; height: 28px; font-size: 14px; }
-        .step::after { left: 13px; top: 34px; }
         .foot-in { flex-direction: column; gap: 20px; }
       }
     </style>

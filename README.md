@@ -15,7 +15,7 @@ Posteryard runs next to Plex, or [Jellyfin](#jellyfin), and gives every movie, s
 
 ## Getting started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). Using Jellyfin instead? Follow the same steps with the changes under [Jellyfin](#jellyfin).
+You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or ARM64 host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). For Jellyfin, see [Jellyfin](#jellyfin).
 
 ### Create the compose file
 
@@ -34,10 +34,14 @@ services:
     security_opt:
       - no-new-privileges:true
     environment:
+      # TMDB API Key or API Read Access Token
       - TMDB_API_KEY=your-tmdb-api-key
+      # Plex's network address. Not localhost.
       - PLEX_URL=http://192.168.1.10:32400
       - PLEX_TOKEN=your-plex-token
+      # Any long random text: openssl rand -hex 16
       - WEBHOOK_SECRET=any-long-random-text
+      # The daily pass runs at DAILY_AT in this time zone
       - TZ=America/New_York
       - DRY_RUN=true
     volumes:
@@ -46,15 +50,7 @@ services:
       - "8000:8000"
 ```
 
-Change these:
-
-| Setting | Set it to |
-| --- | --- |
-| `TMDB_API_KEY` | Your TMDB **API Key** or **API Read Access Token**. Either works. |
-| `PLEX_URL` | Your Plex server's address and port. Use the server's network IP, such as `http://192.168.1.10:32400`. `localhost` does not work: inside the container it means the container itself. If Plex runs in Docker on the same Docker network, use its container name, such as `http://plex:32400`. |
-| `PLEX_TOKEN` | Your Plex token. |
-| `WEBHOOK_SECRET` | Any long random text. `openssl rand -hex 16` makes one. |
-| `TZ` | Your [time zone](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), so the daily pass runs at your local `DAILY_AT`. |
+Plex in Docker on the same network? Use its container name, such as `http://plex:32400`.
 
 ### Start it
 
@@ -63,19 +59,18 @@ mkdir -p data && sudo chown 1000:1000 data
 docker compose up -d
 ```
 
-Posteryard runs as user 1000, so it needs to own `./data`. The `read_only`, `cap_drop` and `security_opt` lines lock the container down; Posteryard writes only to `/data` and `/tmp`.
+Posteryard runs as user 1000 and writes only to `./data` and `/tmp`.
 
-### Check the previews
+### Preview, then go live
 
-It starts with `DRY_RUN=true`: Plex is not touched. Every image is saved to `./data/previews` instead, named by rating key and image type, such as `5646-poster.jpg`. The first run renders the whole library and takes a while; `docker logs -f posteryard` shows progress.
+With `DRY_RUN=true`, Plex is not touched: images go to `./data/previews`, such as `5646-poster.jpg`. `docker logs -f posteryard` shows progress through the first full run.
 
-### Go live
+When you like them, set `DRY_RUN=false` and run `docker compose up -d` again. Images are uploaded and locked, so a Plex refresh keeps them. `ONLY_RATING_KEYS` limits a first run to a few titles.
 
-Happy with the previews? Set `DRY_RUN=false` and run `docker compose up -d` again. Posters, backgrounds and episode thumbnails are now uploaded to Plex and locked, so a Plex metadata refresh keeps them. To try it on a few titles first, also set `ONLY_RATING_KEYS`.
+After that:
 
-With Plex Pass, add a webhook in Plex Web under **Settings > Webhooks** so new titles get posters right away: `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET`, where `SERVER-IP` is the address of the machine running Posteryard. Without Plex Pass, new titles get posters at the next sweep, within 15 minutes.
-
-Turn off poster overlays in other tools, such as Kometa. Two tools writing posters keep overwriting each other.
+- With Plex Pass, add `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET` under **Settings > Webhooks** so new titles get posters right away. Without it, they follow within 15 minutes.
+- Turn off poster overlays in other tools, such as Kometa, or the two overwrite each other.
 
 ## Settings
 

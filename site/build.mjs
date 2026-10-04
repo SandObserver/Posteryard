@@ -51,7 +51,7 @@ const marked = new Marked({
       return (
         `<div class="code"><div class="code-bar"><span>${escape(label)}</span>` +
         `<button type="button" class="copy" aria-label="Copy ${escape(label)}">Copy</button></div>` +
-        `<pre><code>${escape(text)}</code></pre></div>`
+        `<pre><code>${escape(text).replace(/^(\s*)(#.*)$/gm, '$1<span class="cm">$2</span>')}</code></pre></div>`
       );
     },
     table({ header, rows }) {
