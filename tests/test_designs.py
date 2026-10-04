@@ -6,7 +6,7 @@ from PIL import Image, ImageChops
 
 from posteryard.quality import Badge
 from posteryard.render import designs, lines
-from posteryard.render.layers import cover
+from posteryard.render.layers import NEAR_BLACK, cover
 
 
 def art(size: tuple[int, int] = (2000, 3000), colour: tuple[int, int, int] = (0, 0, 0)) -> Image.Image:
@@ -167,3 +167,25 @@ def test_compact_marks_stop_at_the_height_cap() -> None:
     seam = round(designs.CHANNEL_SEAM * designs.POSTER[1])
     rows = np.flatnonzero(out[seam:].max(axis=1) > 240)
     assert rows.max() - rows.min() <= designs.CHANNEL_MARK_MAX_HEIGHT * designs.POSTER[1] + 2
+
+
+def test_tone_takes_dark_ink_only_on_mostly_light_areas() -> None:
+    assert designs.tone(art(colour=(250, 250, 250))) == designs.Tone(dark_bottom=True, dark_corner=True)
+    assert designs.tone(art(colour=(20, 20, 20))) == designs.Tone(dark_bottom=False, dark_corner=False)
+    half = art(colour=(250, 250, 250))
+    half.paste((0, 0, 0), (0, 2000, 2000, 3000))
+    assert designs.tone(half) == designs.Tone(dark_bottom=False, dark_corner=True)
+
+
+def test_dark_ink_drops_the_fade_and_draws_dark() -> None:
+    light = tile(colour=(250, 250, 250), ink=NEAR_BLACK, corner_ink=NEAR_BLACK, number=2, service="netflix")
+    pixels = np.asarray(light.convert("L"))
+    assert pixels[-5, 5] > 240
+    assert pixels.min() < 60
+
+
+def test_the_fade_deepens_until_a_white_logo_reads() -> None:
+    assert designs.fade_strength(art(colour=(20, 20, 20)), logo(), []) == 1.0
+    assert designs.fade_strength(art(colour=(255, 255, 255)), logo(), []) >= 1.0
+    strong, weak = tile(colour=(255, 255, 255), fade=1.8), tile(colour=(255, 255, 255))
+    assert np.asarray(strong.convert("L"))[-200].mean() < np.asarray(weak.convert("L"))[-200].mean()

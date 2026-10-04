@@ -28,6 +28,10 @@ CORNER_AREA = (0.0, 0.0, 0.35, 0.2)
 # Dark ink needs a mostly light area that still gives near-black this contrast against its darkest tenth.
 LIGHT_MEDIAN = 0.5
 DARK_INK_CONTRAST = 4.5
+# A white logo needs this contrast against the brightest tenth of the faded art under it. The fade deepens in steps.
+LOGO_CONTRAST = 4.5
+FADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
+FADE_MAX = 0.92
 WIDE = (1920, 1080)
 
 LOGO_BOX = (0.66, 0.151)
@@ -159,6 +163,36 @@ def _season_number(canvas: Image.Image, number: int, ink: RGB = WHITE) -> None:
     canvas.alpha_composite(layer, (round(NUMBER_AT[0] * w), round(NUMBER_AT[1] * h)))
 
 
+def _place_logo(
+    size: tuple[int, int], logo: Image.Image, lines_below: list[lines.Line]
+) -> tuple[Image.Image, tuple[int, int], list[float]]:
+    """The logo scaled into Apple's box, its top-left corner, and the centres of the lines under it."""
+    w, h = size
+    logo = logo.convert("RGBA")
+    scale = min(LOGO_BOX[0] * w / logo.width, LOGO_BOX[1] * h / logo.height)
+    logo = logo.resize(
+        (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
+    )
+    logo_bottom, centres = lines.stack(lines_below)
+    return logo, ((w - logo.width) // 2, round(logo_bottom * h) - logo.height), centres
+
+
+def _fade(size: tuple[int, int], strength: float) -> Image.Image:
+    return vertical_gradient(size, [(x, min(a * strength, FADE_MAX)) for x, a in APPLE_BOTTOM])
+
+
+def fade_strength(art: Image.Image, logo: Image.Image, lines_below: list[lines.Line]) -> float:
+    """The lightest fade step that gives the white logo LOGO_CONTRAST, or the darkest step."""
+    canvas = cover(art, *POSTER).convert("RGBA")
+    logo, at, _ = _place_logo(canvas.size, logo, lines_below)
+    for strength in FADE_STEPS:
+        faded = canvas.copy()
+        faded.alpha_composite(_fade(canvas.size, strength))
+        if _contrast_behind(faded, logo, at) >= LOGO_CONTRAST:
+            return strength
+    return FADE_STEPS[-1]
+
+
 def tile_poster(
     art: Image.Image,
     logo: Image.Image,
@@ -169,20 +203,16 @@ def tile_poster(
     service: str | None = None,
     ink: RGB = WHITE,
     corner_ink: RGB = WHITE,
+    fade: float = 1.0,
 ) -> Image.Image:
-    """`ink` is for the logo area: with dark ink there is no fade. `corner_ink` is for the season number and mark."""
+    """`ink` is for the logo area: with dark ink there is no fade, otherwise `fade` scales Apple's fade.
+    `corner_ink` is for the season number and mark."""
     canvas = cover(art, *POSTER).convert("RGBA")
-    w, h = canvas.size
     if ink == WHITE:
-        canvas.alpha_composite(vertical_gradient(canvas.size, APPLE_BOTTOM))
-    logo = logo.convert("RGBA")
-    scale = min(LOGO_BOX[0] * w / logo.width, LOGO_BOX[1] * h / logo.height)
-    logo = logo.resize(
-        (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
-    )
-    logo_bottom, centres = lines.stack(lines_below)
-    logo_top = round(logo_bottom * h) - logo.height
-    canvas.alpha_composite(logo, ((w - logo.width) // 2, logo_top))
+        canvas.alpha_composite(_fade(canvas.size, fade))
+    logo, at, centres = _place_logo(canvas.size, logo, lines_below)
+    logo_top = at[1]
+    canvas.alpha_composite(logo, at)
     lines.draw(canvas, lines_below, centres, ink)
     if label is not None:
         lines.draw_label_above(canvas, label, logo_top, ink)

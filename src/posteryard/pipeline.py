@@ -197,6 +197,16 @@ class Context:
             path = self.picker.logo(f"{base}:fanart", extra, self.logo_languages, self.prefer_wordmark, dark=dark)
         return path
 
+    def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line]) -> float:
+        """How much deeper than Apple's the fade under a white logo must be, cached with the art choices."""
+        key = f"poster-fade:{art}:{logo or name}:{','.join(type(line).__name__ for line in below)}"
+        hit = self.choices.get_choice(key)
+        if hit is None:
+            image = trim(self.fetch(logo)) if logo else designs.text_logo(name)
+            hit = {"strength": designs.fade_strength(self.load(art), image, below)}
+            self.choices.put_choice(key, hit)
+        return float(hit["strength"])
+
     def tone(self, path: str) -> designs.Tone:
         """Where the poster crop of this art takes dark ink, cached with the art choices."""
         hit = self.choices.get_choice(f"poster-tone:{path}")
@@ -400,12 +410,13 @@ def _poster(
     logo_path = dark_logo or logo
     ink = NEAR_BLACK if dark_bottom else WHITE
     corner_ink = NEAR_BLACK if dark_corner else WHITE
+    fade = 1.0 if dark_bottom else ctx.fade(art_path, logo_path, title.name, below)
 
     def draw() -> Image.Image:
         mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name, ink)
         return designs.tile_poster(
             ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service,
-            ink=ink, corner_ink=corner_ink,
+            ink=ink, corner_ink=corner_ink, fade=fade,
         )  # fmt: skip
 
     if logo_path is None:
@@ -414,6 +425,8 @@ def _poster(
         extra["ink"] = "dark"
     if dark_corner:
         extra["corner"] = "dark"
+    if fade != 1.0:
+        extra["fade"] = fade
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
         "number": number, "service": service, **extra,

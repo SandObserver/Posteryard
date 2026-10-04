@@ -431,3 +431,19 @@ def test_apple_art_is_looked_up_again_after_a_month(monkeypatch: pytest.MonkeyPa
     ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
     pipeline.movie(ctx, ITEM)
     assert len(calls) == 2
+
+
+def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.tmdb.logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]  # type: ignore[attr-defined]
+    ctx.fetch = lambda path: (
+        Image.new("RGBA", (600, 120), (20, 20, 20, 255))
+        if path == "/dark.png"
+        else Image.new("RGBA", (600, 120), (255, 255, 255, 255))
+        if path.endswith(".png")
+        else Image.new("RGB", (200, 300), "white")
+    )
+    poster = pipeline.movie(ctx, ITEM)[0]
+    assert poster.inputs["logo"] == "/dark.png"
+    assert poster.inputs["ink"] == "dark"
+    assert "fade" not in poster.inputs
