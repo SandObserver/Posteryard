@@ -14,6 +14,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Read secrets from files with `TMDB_API_KEY_FILE`, `PLEX_TOKEN_FILE` and the other `_FILE` settings.
 - Accept TMDB's API Read Access Token as `TMDB_API_KEY`.
 
+### Changed
+
+- Make fewer TMDB requests: one per title and one per season, instead of up to five per title and one per episode.
+- Keep connections to Plex, Jellyfin and TMDB open between requests, and wait as long as a server asks with `Retry-After`.
+
 ### Fixed
 
 - Handle titles from the webhook and labels before the rest of a running full pass, instead of after it.

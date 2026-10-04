@@ -1,7 +1,7 @@
-import io
-import urllib.error
-import urllib.request
-from email.message import Message
+import threading
+from collections.abc import Iterator
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 import pytest
 
@@ -31,53 +31,90 @@ def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
             Plex("http://plex.example:32400", SECRET).item(key)
 
 
-class Response:
-    def __init__(self, body: bytes) -> None:
-        self.body = body
+class Server:
+    """A local HTTP server that answers each request with the next queued (status, headers, body)."""
 
-    def __enter__(self) -> "Response":
-        return self
+    def __init__(self) -> None:
+        self.answers: list[tuple[int, dict[str, str], bytes]] = []
+        self.connections: set[int] = set()
+        server = self
 
-    def __exit__(self, *args: object) -> None:
-        pass
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
 
-    def read(self, size: int = -1) -> bytes:
-        return self.body if size < 0 else self.body[:size]
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+            def do_GET(self) -> None:
+                server.connections.add(self.client_address[1])
+                status, headers, body = server.answers.pop(0)
+                self.send_response(status)
+                for name, value in {"Content-Length": str(len(body)), **headers}.items():
+                    self.send_header(name, value)
+                self.end_headers()
+                self.wfile.write(body)
+
+        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self.httpd.shutdown()
+        self.httpd.server_close()
 
 
-def test_transient_failures_are_retried(monkeypatch: pytest.MonkeyPatch) -> None:
-    answers: list[Exception | bytes] = [
-        urllib.error.HTTPError("http://x.example", 503, "busy", Message(), io.BytesIO(b"busy")),
-        urllib.error.URLError("refused"),
-        b"ok",
-    ]
+@pytest.fixture
+def server() -> Iterator[Server]:
+    running = Server()
+    yield running
+    running.close()
+
+
+def test_transient_failures_are_retried(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     sleeps: list[float] = []
-
-    def urlopen(request: object, timeout: float) -> Response:
-        answer = answers.pop(0)
-        if isinstance(answer, Exception):
-            raise answer
-        return Response(answer)
-
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
     monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
-    assert http.request("GET", f"http://x.example/a?api_key={SECRET}") == b"ok"
-    assert sleeps == [2.0, 4.0]
+    server.answers = [(503, {}, b"busy"), (429, {"Retry-After": "30"}, b"slow down"), (200, {}, b"ok")]
+    assert http.request("GET", f"{server.url}/a?api_key={SECRET}") == b"ok"
+    assert sleeps == [2.0, 30.0]
 
 
-def test_client_errors_are_not_retried_and_hide_secrets(monkeypatch: pytest.MonkeyPatch) -> None:
-    def urlopen(request: object, timeout: float) -> Response:
-        raise urllib.error.HTTPError("http://x.example", 401, "no", Message(), io.BytesIO(b"denied"))
+def test_connections_are_reused(server: Server) -> None:
+    server.answers = [(200, {}, b"one"), (200, {}, b"two")]
+    assert http.request("GET", f"{server.url}/a") == b"one"
+    assert http.request("GET", f"{server.url}/b") == b"two"
+    assert len(server.connections) == 1
 
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+
+def test_redirects_are_followed(server: Server) -> None:
+    server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"moved")]
+    assert http.request("GET", f"{server.url}/a") == b"moved"
+
+
+def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: None)
+    with pytest.raises(http.RequestError, match="NewConnectionError") as caught:
+        http.request("GET", f"http://127.0.0.1:9/a?X-Plex-Token={SECRET}", retries=2)
+    assert SECRET not in str(caught.value)
+
+
+def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:
+    server.answers = [(401, {}, b"denied")]
     with pytest.raises(http.HttpError) as caught:
-        http.request("GET", f"http://x.example/a?X-Plex-Token={SECRET}")
+        http.request("GET", f"{server.url}/a?X-Plex-Token={SECRET}")
     assert caught.value.status == 401
     assert SECRET not in str(caught.value)
 
 
-def test_oversized_responses_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_oversized_responses_are_refused(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(http, "MAX_RESPONSE", 4)
-    monkeypatch.setattr(urllib.request, "urlopen", lambda request, timeout: Response(b"too long"))
+    server.answers = [(200, {}, b"too long")]
     with pytest.raises(http.RequestError, match="larger than"):
-        http.request("GET", "http://x.example/a")
+        http.request("GET", f"{server.url}/a")
+
+
+def test_retry_after_is_read_as_seconds_or_a_date() -> None:
+    assert http.retry_after(None) == 0
+    assert http.retry_after("5") == 5
+    assert http.retry_after("3600") == http.RETRY_AFTER_MAX
+    assert http.retry_after("Wed, 21 Oct 2015 07:28:00 GMT") == 0
+    assert http.retry_after("soon") == 0
