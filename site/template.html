@@ -117,6 +117,7 @@
       .f-arrow:focus-visible, .f-track:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
       .f-track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 48px) / 2.8); gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
       .f-track::-webkit-scrollbar { display: none; }
+      @media (pointer: fine) { .f-track { scroll-snap-type: none; } }
       .f-card { scroll-snap-align: start; display: grid; align-content: start; gap: 18px; min-width: 0; }
       .f-media { padding: 22px 26px 26px; border-radius: 22px; background: var(--bg-3); }
       .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
@@ -282,27 +283,27 @@
           <h2 class="f-title">What Posteryard changes</h2>
           <div class="f-track" id="f-track" tabindex="0" role="region" aria-label="Features">
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" srcset="/img/compare/deadpool-wolverine-before-200.webp 200w, /img/compare/deadpool-wolverine-before-336.webp 336w, /img/compare/deadpool-wolverine-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" srcset="/img/compare/deadpool-wolverine-clean-200.webp 200w, /img/compare/deadpool-wolverine-clean-336.webp 336w, /img/compare/deadpool-wolverine-clean.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" srcset="/img/compare/deadpool-wolverine-before-200.webp 200w, /img/compare/deadpool-wolverine-before-336.webp 336w, /img/compare/deadpool-wolverine-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" srcset="/img/compare/deadpool-wolverine-clean-200.webp 200w, /img/compare/deadpool-wolverine-clean-336.webp 336w, /img/compare/deadpool-wolverine-clean.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Clean art.</h3> <p>Textless art from TMDB, Apple TV or fanart.tv, with the title logo in one spot at one size.</p></div>
               <div class="chips"><code>TMDB_API_KEY</code><code>APPLE_ART=true</code><code>FANART_API_KEY</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" srcset="/img/compare/wednesday-before-200.webp 200w, /img/compare/wednesday-before-336.webp 336w, /img/compare/wednesday-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" srcset="/img/compare/wednesday-after-200.webp 200w, /img/compare/wednesday-after-336.webp 336w, /img/compare/wednesday-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Wednesday, rendered by Posteryard" width="432" height="648" loading="lazy" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" srcset="/img/compare/wednesday-before-200.webp 200w, /img/compare/wednesday-before-336.webp 336w, /img/compare/wednesday-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Wednesday, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" srcset="/img/compare/wednesday-after-200.webp 200w, /img/compare/wednesday-after-336.webp 336w, /img/compare/wednesday-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Wednesday, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Where it streams.</h3> <p>The mark of the service a show streams on, looked up on TMDB for the countries you list.</p></div>
               <div class="chips"><code>STREAMING_REGIONS</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" srcset="/img/compare/thunderbolts-before-200.webp 200w, /img/compare/thunderbolts-before-336.webp 336w, /img/compare/thunderbolts-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" srcset="/img/compare/thunderbolts-after-200.webp 200w, /img/compare/thunderbolts-after-336.webp 336w, /img/compare/thunderbolts-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Thunderbolts*, rendered by Posteryard" width="432" height="648" loading="lazy" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" srcset="/img/compare/thunderbolts-before-200.webp 200w, /img/compare/thunderbolts-before-336.webp 336w, /img/compare/thunderbolts-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" srcset="/img/compare/thunderbolts-after-200.webp 200w, /img/compare/thunderbolts-after-336.webp 336w, /img/compare/thunderbolts-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Thunderbolts*, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Quality badges.</h3> <p>Resolution, HDR and audio badges from each file, starting at the level you set.</p></div>
               <div class="chips"><code>QUALITY_MIN_VIDEO</code><code>QUALITY_MIN_HDR</code><code>QUALITY_MIN_AUDIO</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" srcset="/img/compare/lilo-stitch-before-200.webp 200w, /img/compare/lilo-stitch-before-336.webp 336w, /img/compare/lilo-stitch-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" srcset="/img/compare/lilo-stitch-after-200.webp 200w, /img/compare/lilo-stitch-after-336.webp 336w, /img/compare/lilo-stitch-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, rendered by Posteryard" width="432" height="648" loading="lazy" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" srcset="/img/compare/lilo-stitch-before-200.webp 200w, /img/compare/lilo-stitch-before-336.webp 336w, /img/compare/lilo-stitch-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" srcset="/img/compare/lilo-stitch-after-200.webp 200w, /img/compare/lilo-stitch-after-336.webp 336w, /img/compare/lilo-stitch-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Status labels.</h3> <p>Just added, New season Oct 15 or Leaving in 3 days, updated as dates pass.</p></div>
               <div class="chips"><code>STATUS_LABELS</code><code>MAINTAINERR_URL</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/severance-season-2-before.webp" srcset="/img/compare/severance-season-2-before-200.webp 200w, /img/compare/severance-season-2-before-336.webp 336w, /img/compare/severance-season-2-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Severance Season 2, official poster" width="432" height="648" loading="lazy" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/severance-season-2.webp" srcset="/img/compare/severance-season-2-200.webp 200w, /img/compare/severance-season-2-336.webp 336w, /img/compare/severance-season-2.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Severance Season 2, rendered by Posteryard" width="432" height="648" loading="lazy" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/severance-season-2-before.webp" srcset="/img/compare/severance-season-2-before-200.webp 200w, /img/compare/severance-season-2-before-336.webp 336w, /img/compare/severance-season-2-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Severance Season 2, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/severance-season-2.webp" srcset="/img/compare/severance-season-2-200.webp 200w, /img/compare/severance-season-2-336.webp 336w, /img/compare/severance-season-2.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Severance Season 2, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Seasons, collections, episodes.</h3> <p>Season numbers, channel tiles for service collections, and episode thumbnails with their title.</p></div>
               <div class="chips"><code>SERVICE_COLLECTIONS</code><code>COLLECTION_POSTERS</code><code>EPISODE_THUMBNAILS</code></div>
             </article>
@@ -396,16 +397,26 @@
         const track = document.getElementById("f-track");
         const prev = document.getElementById("f-prev");
         const next = document.getElementById("f-next");
-        const step = () => track.querySelector(".f-card").offsetWidth + parseFloat(getComputedStyle(track).columnGap);
-        const behavior = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
-        const update = () => {
-          prev.disabled = track.scrollLeft < 4;
-          next.disabled = track.scrollLeft + track.clientWidth > track.scrollWidth - 4;
+        const cards = track.querySelectorAll(".f-card");
+        const go = (direction) => {
+          const origin = track.getBoundingClientRect().left - track.scrollLeft;
+          const edges = [...cards].map((card) => card.getBoundingClientRect().left - origin);
+          const max = track.scrollWidth - track.clientWidth;
+          const here = track.scrollLeft;
+          const target = direction > 0 ? edges.find((x) => x > here + 2) : edges.findLast((x) => x < here - 2);
+          if (target === undefined) return;
+          track.scrollTo({ left: Math.min(target, max), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
         };
-        prev.addEventListener("click", () => track.scrollBy({ left: -step(), behavior: behavior() }));
-        next.addEventListener("click", () => track.scrollBy({ left: step(), behavior: behavior() }));
-        track.addEventListener("scroll", () => requestAnimationFrame(update), { passive: true });
-        addEventListener("resize", update);
+        prev.addEventListener("click", () => go(-1));
+        next.addEventListener("click", () => go(1));
+        const ends = new Map([[cards[0], prev], [cards[cards.length - 1], next]]);
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) ends.get(entry.target).disabled = entry.intersectionRatio > 0.95;
+          },
+          { root: track, threshold: [0, 0.95, 1] },
+        );
+        for (const card of ends.keys()) observer.observe(card);
       }
       function openFromHash() {
         if (location.hash === "#settings") document.querySelector("#settings details").open = true;
