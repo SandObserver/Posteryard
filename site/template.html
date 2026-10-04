@@ -165,21 +165,39 @@
       .def dd { margin: 0; }
       .def dd p { margin: 0; font-size: 15px; line-height: 1.55; }
       .default { display: inline-block; margin-top: 6px; font-size: 13.5px; color: var(--dim); }
-      .expand summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
-      .expand summary::-webkit-details-marker { display: none; }
-      .expand summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
-      .expand[open] summary::after { transform: translateY(2px) rotate(-135deg); }
-      .expand summary:hover { background: var(--fill-hover); }
-      .expand summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .recipes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+      .recipe { min-width: 0; padding: 14px; border-radius: 14px; background: var(--bg-2); }
+      .recipe h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+      .doc .recipe p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+      .recipe .code { margin: 0; }
+      .set-group { margin: 20px 0 2px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+      .set-group:first-child { margin-top: 8px; }
+      .set { border-bottom: 1px solid var(--separator); }
+      .set summary { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto 10px; gap: 2px 14px; align-items: baseline; padding: 7px 0; cursor: pointer; list-style: none; }
+      .set summary::-webkit-details-marker { display: none; }
+      .set summary::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim); transform: translateY(-3px) rotate(45deg); align-self: center; }
+      .set[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+      .set summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .doc .set-name code { padding: 0; background: none; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+      .set-sum { font-size: 14px; color: #d1d1d6; }
+      .set summary:hover .set-sum, .set[open] .set-sum { color: var(--label); }
+      .doc .set-default code { padding: 0; background: none; font-size: 12px; color: var(--dim); }
+      .doc .set p { margin: 0 0 10px; padding-left: 214px; font-size: 13.5px; line-height: 1.5; color: var(--dim); }
+      .expand > summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
+      .expand > summary::-webkit-details-marker { display: none; }
+      .expand > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+      .expand[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+      .expand > summary:hover { background: var(--fill-hover); }
+      .expand > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       .expand .when-open, .expand[open] .when-closed { display: none; }
       .expand[open] .when-open { display: inline; }
       .expand-body { padding-top: 8px; overflow: hidden; }
       .expand.closing .when-open { display: none; }
       .expand.closing .when-closed { display: inline; }
-      .expand summary::after { transition: transform 0.35s var(--ease); }
-      .expand.closing summary::after { transform: translateY(-2px) rotate(45deg); }
-      .pill, .btn, .copy, .f-arrow, .expand summary { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
-      .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled), .expand summary:active { transform: scale(0.97); }
+      .expand > summary::after { transition: transform 0.35s var(--ease); }
+      .expand.closing > summary::after { transform: translateY(-2px) rotate(45deg); }
+      .pill, .btn, .copy, .f-arrow, .expand > summary { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
+      .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled), .expand > summary:active { transform: scale(0.97); }
       a, .sources img { transition: color 0.2s ease, opacity 0.2s ease; }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
       @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
@@ -216,6 +234,10 @@
         .def { grid-template-columns: minmax(0, 1fr); }
       }
       @media (max-width: 600px) {
+        .recipes { grid-template-columns: minmax(0, 1fr); }
+        .set summary { grid-template-columns: minmax(0, 1fr) auto 10px; }
+        .set-sum { grid-column: 1 / 3; grid-row: 2; }
+        .doc .set p { padding-left: 0; }
         .f-title { font-size: 26px; margin-bottom: 20px; }
         .f-ctrl { display: none; }
         .f-media { padding: 16px 18px 20px; }
@@ -325,10 +347,25 @@
             <h2>Settings</h2>
             <p class="lede">{{settings_count}} optional settings for badges, status labels, collections, Jellyfin, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
           </div>
-          <details class="doc expand">
-            <summary><span class="when-closed">Show all {{settings_count}} settings</span><span class="when-open">Hide settings</span></summary>
-            <div class="expand-body">{{settings}}</div>
-          </details>
+          <div class="doc">
+            <div class="recipes">
+              <div class="recipe"><h3>Use Jellyfin instead of Plex</h3><p>Replace <code>PLEX_URL</code> and <code>PLEX_TOKEN</code> with these two lines.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use jellyfin instead of plex">Copy</button></div><pre><code>- JELLYFIN_URL=http://192.168.1.10:8096
+- JELLYFIN_API_KEY=your-jellyfin-api-key</code></pre></div></div>
+              <div class="recipe"><h3>Get alerts in Discord</h3><p>Use the two parts of your Discord webhook URL. Any Apprise address works, such as <code>ntfys://</code> or <code>mailtos://</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy get alerts in discord">Copy</button></div><pre><code>- NOTIFY_URLS=discord://WEBHOOK_ID/WEBHOOK_TOKEN</code></pre></div></div>
+              <div class="recipe"><h3>Count down to Maintainerr deletions</h3><p>Titles Maintainerr will delete get <code>LEAVING IN 5 DAYS</code>, then <code>TOMORROW</code>, then <code>TODAY</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy count down to maintainerr deletions">Copy</button></div><pre><code>- MAINTAINERR_URL=http://192.168.1.10:6246</code></pre></div></div>
+              <div class="recipe"><h3>Streaming services outside the US</h3><p>The default is <code>US</code>. Put your country first and keep <code>US</code> as a fallback. This example is the UK.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy streaming services outside the us">Copy</button></div><pre><code>- STREAMING_REGIONS=GB,US</code></pre></div></div>
+              <div class="recipe"><h3>Badges for 1080p and 5.1 too</h3><p>By default only 4K, HDR10 or better, and Dolby Atmos get a badge.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy badges for 1080p and 5.1 too">Copy</button></div><pre><code>- QUALITY_MIN_VIDEO=1080
+- QUALITY_MIN_AUDIO=5.1</code></pre></div></div>
+              <div class="recipe"><h3>Use Apple TV art where it exists</h3><p>Titles Apple TV does not have keep TMDB art.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use apple tv art where it exists">Copy</button></div><pre><code>- APPLE_ART=true</code></pre></div></div>
+              <div class="recipe"><h3>Go live on two titles first</h3><p><code>posteryard find NAME</code> lists rating keys. Remove <code>ONLY_RATING_KEYS</code> when you are happy.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy go live on two titles first">Copy</button></div><pre><code>- DRY_RUN=false
+- ONLY_RATING_KEYS=5646,8730</code></pre></div></div>
+              <div class="recipe"><h3>Show the episode title on thumbnails</h3><p>Adds <code>EPISODE N</code> and the title to each episode still.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy show the episode title on thumbnails">Copy</button></div><pre><code>- EPISODE_THUMBNAILS=titled</code></pre></div></div>
+            </div>
+            <details class="expand">
+              <summary><span class="when-closed">Show all {{settings_count}} settings</span><span class="when-open">Hide settings</span></summary>
+              <div class="expand-body">{{settings}}</div>
+            </details>
+          </div>
         </div>
       </section>
     </main>
