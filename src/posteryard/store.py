@@ -154,6 +154,7 @@ class Store:
         return Override(custom=row[0] or None, source=row[1], skip=frozenset(json.loads(row[2])))
 
     def set_custom(self, rating_key: str, path: str, source: str) -> None:
+        self._release_custom(rating_key, keep=path)
         with self._lock:
             self._db.execute(
                 "INSERT INTO overrides(rating_key, custom, source, skip) VALUES(?, ?, ?, '[]') "
@@ -162,6 +163,7 @@ class Store:
             )
 
     def add_skip(self, rating_key: str, art: str) -> None:
+        self._release_custom(rating_key)
         current = self.override(rating_key)
         skip = sorted((current.skip if current else frozenset()) | {art})
         with self._lock:
@@ -172,8 +174,15 @@ class Store:
             )
 
     def reset_override(self, rating_key: str) -> None:
+        self._release_custom(rating_key)
         with self._lock:
             self._db.execute("DELETE FROM overrides WHERE rating_key=?", (rating_key,))
+
+    def _release_custom(self, rating_key: str, keep: str = "") -> None:
+        """Delete the custom art file the override no longer uses. Only files in a `custom` folder are touched."""
+        current = self.override(rating_key)
+        if current and current.custom and current.custom != keep and Path(current.custom).parent.name == "custom":
+            Path(current.custom).unlink(missing_ok=True)
 
     def get_choice(self, key: str) -> Mapping[str, Any] | None:
         with self._lock:

@@ -60,3 +60,24 @@ def test_a_database_from_a_newer_release_is_refused(tmp_path: Path) -> None:
         db.execute(f"PRAGMA user_version={len(MIGRATIONS) + 1}")
     with pytest.raises(StoreError, match="newer"):
         Store(tmp_path / "state.db")
+
+
+def test_replaced_and_reset_custom_art_files_are_deleted(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    folder = tmp_path / "custom"
+    folder.mkdir()
+    first, second = folder / "1-a.jpg", folder / "1-b.jpg"
+    first.write_bytes(b"a")
+    second.write_bytes(b"b")
+    store.set_custom("1", str(first), "command")
+    store.set_custom("1", str(first), "command")
+    assert first.exists()
+    store.set_custom("1", str(second), "command")
+    assert not first.exists() and second.exists()
+    store.reset_override("1")
+    assert not second.exists()
+    outside = tmp_path / "mine.jpg"
+    outside.write_bytes(b"c")
+    store.set_custom("2", str(outside), "command")
+    store.reset_override("2")
+    assert outside.exists()
