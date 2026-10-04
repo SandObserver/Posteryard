@@ -40,6 +40,13 @@ def _parser() -> argparse.ArgumentParser:
 
     commands.add_parser("test-alert", help="send a test alert to every notification service")
 
+    restore = commands.add_parser(
+        "restore",
+        help="give every uploaded image back to the server's own, before you remove Posteryard",
+        description="Give every uploaded image back to the server's own and unlock it. Stop the service first.",
+    )
+    restore.add_argument("--all", action="store_true", required=True, help="every movie, show, season and episode")
+
     find = commands.add_parser("find", help="list the movies and shows whose name contains WORDS")
     find.add_argument("words", nargs="+", metavar="WORDS")
 
@@ -218,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = config.load()
         if args.command == "serve":
             config.require_service(cfg)
-        elif args.command in ("art", "forget", "find"):
+        elif args.command in ("art", "forget", "find", "restore"):
             config.require_server(cfg)
     except config.ConfigError as exc:
         print(exc)
@@ -242,12 +249,25 @@ def main(argv: list[str] | None = None) -> int:
         worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
             return Service(cfg, plex, store, worker).run()
+        if args.command == "restore":
+            return _restore(worker)
         return _change(args, cfg, plex, store, worker)
     except http.RequestError as exc:
         print(exc)
         return 1
     finally:
         store.close()
+
+
+def _restore(worker: Worker) -> int:
+    counts = worker.restore_all()
+    print(f"Gave {counts.restored} images back to {worker.server.name}.")
+    if counts.kept:
+        print(f"Left {counts.kept} images that were changed by hand.")
+    if counts.failed:
+        print(f"{counts.failed} images could not be restored. The log above has the details. Run the command again.")
+        return 1
+    return 0
 
 
 def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store: Store, worker: Worker) -> int:

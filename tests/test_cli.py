@@ -105,3 +105,8 @@ def test_a_database_from_a_newer_release_stops_the_command(
         db.execute("PRAGMA user_version=999")
     assert run(["forget", "5646"]) == 2
     assert "newer than this Posteryard supports" in capsys.readouterr().out
+
+
+def test_restore_needs_all(run: Any) -> None:
+    with pytest.raises(SystemExit):
+        run(["restore"])

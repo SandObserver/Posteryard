@@ -198,3 +198,27 @@ def test_items_outside_the_libraries_are_skipped(tmp_path: Path) -> None:
     plex.items["8"] = {k: v for k, v in MOVIE.items() if k != "librarySectionTitle"} | {"ratingKey": "8"}
     assert worker.process("7") == Outcome.SKIPPED
     assert worker.process("8") == Outcome.SKIPPED
+
+
+def test_restore_all_gives_back_uploads_and_keeps_hand_changes(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="true")
+    plex.items["2"] = {**MOVIE, "ratingKey": "2"}
+    store.uploaded("1", "poster", "One", "fp", "upload-1")
+    store.uploaded("1", "art", "One", "fp", "upload-2")
+    store.uploaded("2", "poster", "Two", "fp", "upload-3")
+    store.uploaded("3", "poster", "Gone", "fp", "upload-4")
+    store.failed("1", "item", "One", "boom")
+    plex.selected_keys = {("1", "poster"): "upload-1", ("1", "art"): "upload-2", ("2", "poster"): "by-hand"}
+    counts = worker.restore_all()
+    assert (counts.restored, counts.kept, counts.failed) == (2, 1, 0)
+    assert plex.restored == [("1", "art"), ("1", "poster")]
+    assert store.with_status(Status.UPLOADED) == []
+    assert store.get("1", "item") is not None
+
+
+def test_restore_all_keeps_records_it_could_not_restore(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path)
+    store.uploaded("1", "poster", "One", "fp", "upload-1")
+    plex.fail = True
+    assert worker.restore_all().failed == 1
+    assert store.get("1", "poster") is not None

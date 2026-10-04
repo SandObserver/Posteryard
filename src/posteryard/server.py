@@ -10,6 +10,7 @@ from typing import Any, Literal, Protocol
 
 Item = Mapping[str, Any]
 Target = Literal["poster", "art", "thumb"]
+TARGETS: frozenset[str] = frozenset({"poster", "art", "thumb"})
 ITEM_KEY = re.compile(r"^(\d{1,12}|[0-9a-f]{32})$")
 
 

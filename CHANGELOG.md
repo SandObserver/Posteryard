@@ -8,8 +8,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- Refuse to start with a `state.db` from a newer release, so a downgrade cannot damage it.
-
 ### Fixed
 
 - Handle titles from the webhook and labels before the rest of a running full pass, instead of after it.
