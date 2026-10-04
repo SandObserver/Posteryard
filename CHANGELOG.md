@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Use custom art from `art set` or `posteryard-custom` for titles that have no clean art on TMDB, Apple TV or fanart.tv.
 - Skip cable and live TV services such as Spectrum On Demand, Philo and Sling TV when choosing a show's streaming mark.
 
 ## [0.6.0] - 2026-10-04

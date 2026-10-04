@@ -354,25 +354,26 @@ def _poster(
 ) -> Plan:
     show_art = ctx.art(title)
     logo = ctx.logo(title)
-    if show_art is None:
-        raise ctx.no_art(name)
-    if season is None:
-        art_path, note = show_art.path, f"art {show_art.path}"
-    else:
-        art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
     override = ctx.overrides(key)
     extra: dict[str, Any] = {}
     if override and override.custom:
         art_path, note = overrides.FILE_PREFIX + override.custom, "custom art"
         extra["override"] = Path(override.custom).name
-    elif override and override.skip:
-        others = _season_assignment_paths(ctx, title, show_art.path, siblings, season)
-        replacement = _next_unused(ctx, title, others, override.skip)
-        if replacement is not None:
-            art_path, note = replacement, f"next art {replacement}"
+    elif show_art is None:
+        raise ctx.no_art(name)
+    else:
+        if season is None:
+            art_path, note = show_art.path, f"art {show_art.path}"
         else:
-            note += ", no other art left to switch to"
-        extra["override"] = sorted(override.skip)
+            art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
+        if override and override.skip:
+            others = _season_assignment_paths(ctx, title, show_art.path, siblings, season)
+            replacement = _next_unused(ctx, title, others, override.skip)
+            if replacement is not None:
+                art_path, note = replacement, f"next art {replacement}"
+            else:
+                note += ", no other art left to switch to"
+            extra["override"] = sorted(override.skip)
     below: list[lines.Line] = []
     if season == 0:
         below.append(lines.Caption(_season_label(0)))
