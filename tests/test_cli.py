@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 from contextlib import closing
 from pathlib import Path
@@ -110,3 +111,11 @@ def test_a_database_from_a_newer_release_stops_the_command(
 def test_restore_needs_all(run: Any) -> None:
     with pytest.raises(SystemExit):
         run(["restore"])
+
+
+def test_debug_logging_keeps_url_logging_libraries_quiet(run: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LOG_LEVEL", "debug")
+    run(["find", "dune"])
+    assert logging.getLogger().level == logging.DEBUG
+    assert logging.getLogger("urllib3").level == logging.WARNING
+    logging.getLogger().setLevel(logging.WARNING)

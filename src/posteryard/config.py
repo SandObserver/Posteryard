@@ -21,6 +21,13 @@ class ConfigError(Exception):
     pass
 
 
+class LogLevel(StrEnum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+
+
 class EpisodeMode(StrEnum):
     PLAIN = "plain"
     TITLED = "titled"
@@ -57,6 +64,7 @@ class Config:
     notify_urls: tuple[str, ...]
     listen_port: int
     heartbeat_url: str
+    log_level: LogLevel = LogLevel.INFO
 
     @property
     def preview_dir(self) -> Path:
@@ -185,6 +193,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         notify_urls=notify_urls,
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
         heartbeat_url=heartbeat_url,
+        log_level=_choice(env, "LOG_LEVEL", "info", LogLevel),
     )
 
 

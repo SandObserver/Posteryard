@@ -104,6 +104,7 @@ Add any of these under `environment:`.
 | `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
 | `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
 | `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
+| `LOG_LEVEL` | How much the log shows: `debug`, `info`, `warning` or `error`. | `info` |
 | `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
 | `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
 | `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NTFY_TOKEN`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
