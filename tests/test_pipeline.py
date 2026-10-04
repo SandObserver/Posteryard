@@ -9,6 +9,7 @@ from PIL import Image, ImageDraw
 
 from posteryard import overrides, pipeline
 from posteryard.config import EpisodeMode
+from posteryard.fanart import FanartImages
 from posteryard.ocr import TextLine
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
@@ -324,3 +325,30 @@ def test_collections_take_art_from_their_newest_member() -> None:
     assert plain.inputs == {"design": "collection", "art": "/textless.jpg", "title": "Star Wars"}
     assert plain.draw().size == (1000, 1500)
     assert pipeline.plan_item(ctx, {"ratingKey": "9", "type": "collection", "title": "Empty"}) == []
+
+
+class FakeFanart:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+        self.calls += 1
+        poster = ref("https://assets.fanart.tv/fanart/movies/42/movieposter/clean.jpg", None)
+        logo = ref("https://assets.fanart.tv/fanart/movies/42/hdmovielogo/logo.png", "en")
+        return FanartImages(Images([poster], [], [logo]))
+
+
+def test_fanart_is_used_only_when_tmdb_has_nothing_usable() -> None:
+    ctx = context([ref("/english.jpg", "en")])
+    ctx.tmdb.images = lambda kind, tid: Images([ref("/english.jpg", "en")], [], [])  # type: ignore[method-assign, assignment]
+    with pytest.raises(pipeline.NotFoundError, match="TMDB has no textless art"):
+        pipeline.movie(ctx, ITEM)
+    ctx.fanart = FakeFanart()  # type: ignore[assignment]
+    poster = pipeline.movie(ctx, ITEM)[0]
+    assert poster.inputs["art"] == "https://assets.fanart.tv/fanart/movies/42/movieposter/clean.jpg"
+    assert poster.inputs["logo"] == "https://assets.fanart.tv/fanart/movies/42/hdmovielogo/logo.png"
+    with_tmdb_art = context([ref("/textless.jpg", None)])
+    fanart = FakeFanart()
+    with_tmdb_art.fanart = fanart  # type: ignore[assignment]
+    assert pipeline.movie(with_tmdb_art, ITEM)[0].inputs["art"] == "/textless.jpg"
+    assert fanart.calls == 0

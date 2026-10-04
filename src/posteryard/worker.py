@@ -12,6 +12,7 @@ from PIL import Image
 
 from posteryard import http, overrides, pipeline, service_collections
 from posteryard.config import Config, EpisodeMode
+from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.server import TARGETS, Item, MediaServer, Target, labels
@@ -75,6 +76,7 @@ class Worker:
             prefer_wordmark=cfg.prefer_wordmark,
             choices=store,
             overrides=store.override,
+            fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
         )
         self._leaving: Leaving | None = None
 

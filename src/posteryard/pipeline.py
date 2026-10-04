@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import logging
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
@@ -13,9 +14,10 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from posteryard import maintainerr, ocr, overrides, quality, services, status
-from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
+from posteryard import http, maintainerr, ocr, overrides, quality, services, status
+from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.config import EpisodeMode
+from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
@@ -23,6 +25,7 @@ from posteryard.render.layers import cover, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.tmdb import Images, Kind, Tmdb
 
+log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
@@ -35,6 +38,10 @@ FETCH_CACHE = 8
 
 class NotFoundError(Exception):
     pass
+
+
+def fetch_art(path: str) -> Image.Image:
+    return Fanart.image(path) if is_fanart(path) else Tmdb.image(path)
 
 
 @dataclass
@@ -77,7 +84,8 @@ class Context:
     choices: ChoiceCache = field(default_factory=MemoryChoices)
     read: Callable[[Image.Image], list[ocr.TextLine]] = ocr.read
     overrides: Callable[[str], Override | None] = field(default=lambda _key: None)
-    fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(Tmdb.image))
+    fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(fetch_art))
+    fanart: Fanart | None = None
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     lookups: dict[tuple[str, ...], tuple[float, Any]] = field(default_factory=dict)
 
@@ -119,6 +127,53 @@ class Context:
     def images(self, kind: Kind, tid: int) -> Images:
         images: Images = self.remember(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))
         return images
+
+    def fanart_images(self, kind: Kind, tid: int) -> FanartImages:
+        """fanart.tv's images, or none while it is off or unreachable."""
+        fanart = self.fanart
+        if fanart is None:
+            return FanartImages()
+
+        def load() -> FanartImages:
+            try:
+                return fanart.images(kind, tid, self.tmdb.tvdb_id(kind, tid) if kind == "tv" else None)
+            except (http.RequestError, ValueError) as exc:
+                log.warning("fanart.tv unavailable for %s:%s: %s", kind, tid, exc)
+                return FanartImages()
+
+        images: FanartImages = self.remember(("fanart", kind, str(tid)), load)
+        return images
+
+    def art(self, title: "Title") -> Picked | None:
+        """The best textless TMDB art, else fanart.tv's."""
+        base = f"{title.kind}:{title.tmdb_id}"
+        picked = self.picker.textless_art(base, self.images(title.kind, title.tmdb_id), title.all_titles)
+        if picked is None and self.fanart is not None:
+            extra = self.fanart_images(title.kind, title.tmdb_id).images
+            picked = self.picker.textless_art(f"{base}:fanart", extra, title.all_titles)
+        return picked
+
+    def logo(self, title: "Title") -> str | None:
+        """The best TMDB title logo, else fanart.tv's."""
+        base = f"{title.kind}:{title.tmdb_id}"
+        images = self.images(title.kind, title.tmdb_id)
+        path = self.picker.logo(base, images, self.logo_languages, self.prefer_wordmark)
+        if path is None and self.fanart is not None:
+            extra = self.fanart_images(title.kind, title.tmdb_id).images
+            path = self.picker.logo(f"{base}:fanart", extra, self.logo_languages, self.prefer_wordmark)
+        return path
+
+    def backdrop(self, title: "Title") -> Picked | None:
+        base = f"{title.kind}:{title.tmdb_id}"
+        picked = self.picker.background(base, self.images(title.kind, title.tmdb_id), title.all_titles)
+        if picked is None and self.fanart is not None:
+            extra = self.fanart_images(title.kind, title.tmdb_id).images
+            picked = self.picker.background(f"{base}:fanart", extra, title.all_titles)
+        return picked
+
+    def no_art(self, name: str) -> NotFoundError:
+        sources = "TMDB and fanart.tv have" if self.fanart is not None else "TMDB has"
+        return NotFoundError(f"{sources} no textless art for {name}")
 
     def season_images(self, tid: int, season: int) -> Images:
         key = ("season", str(tid), str(season))
@@ -196,7 +251,9 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
     used = [ctx.image_hash(show_art)]
     assignment: dict[int, tuple[str, str]] = {}
     for number in numbers:
-        refs = ctx.season_images(title.tmdb_id, number).textless_posters()
+        refs = ctx.season_images(title.tmdb_id, number).textless_posters() or [
+            r for r in ctx.fanart_images(title.kind, title.tmdb_id).seasons.get(number, []) if r.language is None
+        ]
         picked = ctx.picker.textless(f"{base}:s{number}", refs, title.all_titles)
         if picked and not _seen(ctx.image_hash(picked.path), used):
             used.append(ctx.image_hash(picked.path))
@@ -242,12 +299,10 @@ def _poster(
     label: lines.Label | None,
     access: list[quality.Badge] | None = None,
 ) -> Plan:
-    images = ctx.images(title.kind, title.tmdb_id)
-    base = f"{title.kind}:{title.tmdb_id}"
-    show_art = ctx.picker.textless_art(base, images, title.all_titles)
-    logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+    show_art = ctx.art(title)
+    logo = ctx.logo(title)
     if show_art is None:
-        raise NotFoundError(f"TMDB has no textless art for {name}")
+        raise ctx.no_art(name)
     if season is None:
         art_path, note = show_art.path, f"art {show_art.path}"
     else:
@@ -292,8 +347,7 @@ def _poster(
 
 
 def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
-    images = ctx.images(title.kind, title.tmdb_id)
-    picked = ctx.picker.background(f"{title.kind}:{title.tmdb_id}", images, title.all_titles)
+    picked = ctx.backdrop(title)
     if picked is None:
         return []
     path = picked.path
@@ -400,15 +454,13 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
     featured = max(members, key=lambda m: int(m.get("addedAt") or 0))
     kind: Kind = "movie" if featured["type"] == "movie" else "tv"
     title = ctx.title(kind, tmdb_id(featured) or 0, str(featured.get("title", "")))
-    images = ctx.images(kind, title.tmdb_id)
-    base = f"{kind}:{title.tmdb_id}"
-    art = ctx.picker.textless_art(base, images, title.all_titles)
+    art = ctx.art(title)
     if art is None:
-        raise NotFoundError(f"TMDB has no textless art for {title.name}, the newest title in {name}")
+        raise ctx.no_art(f"{title.name}, the newest title in {name}")
     art_path = art.path
     service = services.service_for(name)
     if service:
-        logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
+        logo = ctx.logo(title)
 
         def channel() -> Image.Image:
             featured_logo = trim(ctx.fetch(logo)) if logo else designs.text_logo(title.name)
