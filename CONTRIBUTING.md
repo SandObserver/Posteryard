@@ -66,7 +66,7 @@ A new setting also goes into the Unraid template, `templates/posteryard.xml`, wi
 
 ## Website
 
-`site/` builds the landing page at https://posteryard.sandobserver.com. Its Getting started and Settings sections and the version come from `README.md` and `CHANGELOG.md` at build time, so edit those files, not the page. Cloudflare Pages rebuilds the site on every push to `main`.
+`site/` builds the landing page at https://posteryard.sandobserver.com. Its Getting started and Settings sections and the version come from `README.md` and `CHANGELOG.md` at build time, so edit those files, not the page. Each setting's description starts with a bold one-line summary; the build fails without one. The settings recipes above the list are page copy in `site/template.html`. Cloudflare Pages rebuilds the site on every push to `main`.
 
 ```sh
 cd site && npm ci && npm run build

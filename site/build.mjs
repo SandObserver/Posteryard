@@ -93,10 +93,31 @@ function steps(markdown) {
 const tagline = readme.match(/<b>(.+?)<\/b>/)?.[1] ?? fail('README.md has no bold tagline');
 const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGELOG.md has no released version');
 
+function settingsList(markdown) {
+  let count = 0;
+  const parts = [];
+  for (const token of marked.lexer(markdown)) {
+    if (token.type === 'heading' && token.depth === 3) parts.push(`<h3 class="set-group">${marked.parseInline(token.text)}</h3>`);
+    if (token.type !== 'table') continue;
+    const rows = token.rows.map(([name, text, fallback]) => {
+      const [first] = text.tokens;
+      if (first?.type !== 'strong') fail(`README.md setting ${name.text} has no bold summary`);
+      count += 1;
+      const value = fallback.text ? `<span class="set-default">${marked.parseInline(fallback.text)}</span>` : '';
+      return (
+        `<details class="set"><summary><span class="set-name">${marked.parseInline(name.text)}</span>` +
+        `<span class="set-sum">${marked.parseInline(first.text)}</span>${value}</summary>` +
+        `<p>${marked.parseInline(text.text.slice(first.raw.length).trim())}</p></details>`
+      );
+    });
+    parts.push(rows.join(''));
+  }
+  if (!count) fail('README.md Settings section has no settings table');
+  return { html: parts.join(''), count };
+}
+
 const setup = steps(section('Getting started'));
-const settings = section('Settings');
-const settingsCount = settings.split('\n').filter((line) => line.startsWith('| `')).length;
-if (!settingsCount) fail('README.md Settings section has no settings table');
+const settings = settingsList(section('Settings'));
 
 const description =
   'Automatic textless posters for Plex and Jellyfin: the title in one spot, quality badges and streaming marks. ' +
@@ -159,8 +180,8 @@ const values = {
   schema: JSON.stringify(schema).replaceAll('<', '\\u003c'),
   getting_started_lead: setup.lead,
   getting_started: setup.steps,
-  settings_count: String(settingsCount),
-  settings: marked.parse(settings),
+  settings_count: String(settings.count),
+  settings: settings.html,
   tv_grid: preview.grid,
   poster_pool: JSON.stringify(posters).replaceAll('<', '\\u003c'),
 };

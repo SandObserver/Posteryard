@@ -76,36 +76,66 @@ After that:
 
 Add any of these under `environment:`.
 
+### Start
+
 | Setting | What it does | Default |
 | --- | --- | --- |
-| `DRY_RUN` | `true` saves previews only. `false` uploads to Plex. | `true` |
-| `LIBRARIES` | The libraries to manage, by their exact names in the sidebar, separated by commas. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
-| `ONLY_RATING_KEYS` | Only handle these titles, for a first test: [rating keys](#rating-keys) separated by commas. `find` shows them. A show includes its seasons and episodes. Empty means everything. | |
-| `JELLYFIN_URL`, `JELLYFIN_API_KEY` | Use Jellyfin instead of Plex. See [Jellyfin](#jellyfin). | |
-| `FANART_API_KEY` | A personal API key from [fanart.tv](https://fanart.tv), from your account profile. When TMDB has no clean art, title logo or backdrop for a title, fanart.tv's are tried, with the same check for printed text. | |
-| `APPLE_ART` | Use Apple TV's own key art as the poster art when a title has it, found through its Apple TV id on Wikidata, in the store of the first `STREAMING_REGIONS` country. Other titles keep TMDB's art. `art next`, `art set` and the labels still override it. It reads Apple's web pages, which can change without notice. | `false` |
-| `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
-| `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
-| `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080`, `2160`. | `2160` |
-| `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus`, `dolbyvision`. | `hdr10` |
-| `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1`, `atmos`. DTS:X counts as `atmos`. | `atmos` |
-| `STATUS_LABELS` | Show a coloured label above the logo for news: `JUST ADDED` (green, 14 days), `NEW EPISODE` or `NEW SEASON` (blue, 7 days), `NEW SEASON OCT 21` (yellow, up to 30 days ahead). The Maintainerr label (red) stays on with `false`. | `true` |
-| `QUALITY_ACCESSIBILITY` | Accessibility badges on movie posters, on their own line: any of `sdh`, `cc`, `ad`, separated by commas. Read from Plex's track flags, or from track titles such as "English (SDH)". | |
-| `EPISODE_THUMBNAILS` | `plain`: the episode still with a light bottom shade. `titled`: the still with `EPISODE N` and the title. `off`: leave episodes alone and give back Plex's own thumbnails. | `plain` |
-| `LOGO_LANGUAGES` | Title logo languages to try in order, as two-letter codes, such as `fr,en`. | `en` |
-| `PREFER_WORDMARK` | Prefer a wide title logo (the name) over a square emblem when TMDB has both. | `true` |
-| `COLLECTION_POSTERS` | Posters for Plex collections too. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get the regular tile with their name set in white. | `false` |
-| `SERVICE_COLLECTIONS` | Keep one collection per streaming service in each TV library, with every show whose mark is that service, once a service has 3 shows. Posteryard only changes collections it made; they carry the `posteryard-collection` label. Nothing changes while `DRY_RUN` is on. If a show's service cannot be looked up, that pass only adds. If another tool already keeps service collections, leave this off and use `COLLECTION_POSTERS`. | `false` |
-| `STREAMING_REGIONS` | Two-letter country codes to look up a show's streaming service in, in order. The first country with a known service wins, such as `CA,US` for Canada with a US fallback. | `US` |
-| `SWEEP_MINUTES` | How often to check Plex for new and changed titles. | `15` |
-| `DAILY_AT` | Time of the daily full pass over the whole library, as `HH:MM` in `TZ`. | `04:15` |
-| `HEARTBEAT_URL` | An address to call every minute while Posteryard is healthy, such as an Uptime Kuma push URL. See [Monitoring](#monitoring). | |
-| `LOG_LEVEL` | How much the log shows: `debug`, `info`, `warning` or `error`. | `info` |
-| `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
-| `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
-| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
+| `DRY_RUN` | **Preview only, or upload.** `true` renders every image into `/data/previews` and changes nothing on your server. `false` uploads the images and locks them, so a metadata refresh keeps them. | `true` |
+| `LIBRARIES` | **The libraries to manage.** Names exactly as your server shows them, separated by commas. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
+| `ONLY_RATING_KEYS` | **Limit Posteryard to a few titles.** [Rating keys](#rating-keys) separated by commas; `posteryard find NAME` lists them. A show includes its seasons and episodes. Empty means every title. | |
+| `JELLYFIN_URL`, `JELLYFIN_API_KEY` | **Use Jellyfin instead of Plex.** Set both and leave out `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin](#jellyfin). | |
 
-Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
+### Art
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `APPLE_ART` | **Use Apple TV's key art when it exists.** `true` uses the art from a title's Apple TV page as poster art, found through its Apple TV id on Wikidata, in the store of your first `STREAMING_REGIONS` country. Titles Apple TV does not have keep TMDB art. `art next`, `art set` and the labels still override it. Apple can change its pages without notice. | `false` |
+| `FANART_API_KEY` | **A second source when TMDB has no clean art.** Your personal API key from your [fanart.tv](https://fanart.tv) profile. When TMDB has no usable art, title logo or backdrop for a title, Posteryard tries fanart.tv's, with the same check for printed text. | |
+| `LOGO_LANGUAGES` | **Title logo languages, in order.** Two-letter codes separated by commas, such as `fr,en`. Posteryard uses the first language TMDB has a logo in. | `en` |
+| `PREFER_WORDMARK` | **Prefer the title written out over an emblem.** When TMDB has both a wide logo with the name and a square emblem, `true` picks the wide one. | `true` |
+
+### Badges
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `QUALITY_MIN_VIDEO` | **Lowest resolution that gets a badge.** `off`, `720`, `1080` or `2160`. With `2160`, only 4K files get a resolution badge. | `2160` |
+| `QUALITY_MIN_HDR` | **Lowest HDR format that gets a badge.** `off`, `hdr10`, `hdr10plus` or `dolbyvision`. With `dolbyvision`, only Dolby Vision files get an HDR badge. | `hdr10` |
+| `QUALITY_MIN_AUDIO` | **Lowest audio that gets a badge.** `off`, `5.1`, `7.1` or `atmos`. DTS:X counts as `atmos`. | `atmos` |
+| `QUALITY_ACCESSIBILITY` | **Subtitle and audio description badges on movies.** Any of `sdh`, `cc` and `ad`, separated by commas, on their own line. Read from the track flags, or from track names such as "English (SDH)". Empty means none. | |
+
+### Labels and marks
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `STATUS_LABELS` | **Labels for new titles, episodes and seasons.** A coloured label above the title: `JUST ADDED` for 14 days after a title arrives, `NEW EPISODE` or `NEW SEASON` for 7 days after one arrives, and `NEW SEASON OCT 21` from 30 days before a premiere. `false` turns these off; the Maintainerr label stays. | `true` |
+| `MAINTAINERR_URL` | **Count down to Maintainerr deletions.** Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. A title in a Maintainerr collection that deletes after a number of days gets a red label counting down to that day: `LEAVING IN 5 DAYS`, then `LEAVING TOMORROW`, then `LEAVING TODAY`. | |
+| `STREAMING_REGIONS` | **Countries to find a show's streaming service in.** Two-letter country codes, in order. Posteryard uses the first country where TMDB lists a streaming service for the show. Outside the US, put your country first and keep `US` as a fallback, such as `GB,US`. | `US` |
+
+### Seasons and collections
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `EPISODE_THUMBNAILS` | **How episode thumbnails look.** `plain` keeps the still with a light shade at the bottom. `titled` adds `EPISODE N` and the episode title. `off` leaves episodes alone and restores your server's own thumbnails. | `plain` |
+| `COLLECTION_POSTERS` | **Posters for collections too.** `true` gives every collection a poster. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get the regular tile with their name set in white. | `false` |
+| `SERVICE_COLLECTIONS` | **One collection per streaming service.** `true` keeps a collection for each service with at least 3 shows in each TV library. Posteryard only changes collections it made; they carry the `posteryard-collection` label. Nothing changes while `DRY_RUN` is on. Leave it off if another tool already makes these, and use `COLLECTION_POSTERS`. | `false` |
+
+### Alerts and schedule
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `NOTIFY_URLS` | **Where alerts go.** [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas: Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
+| `HEARTBEAT_URL` | **An address to call while healthy.** Posteryard calls it every minute while it works, such as an Uptime Kuma push URL. When the calls stop, your monitor alerts you. See [Monitoring](#monitoring). | |
+| `SWEEP_MINUTES` | **Minutes between checks for new titles.** Each check handles titles added or changed since the last one, titles Maintainerr lists, and failed titles due for a retry. | `15` |
+| `DAILY_AT` | **Time of the daily full pass.** A pass over every title, as `HH:MM` in your `TZ`. | `04:15` |
+
+### Advanced
+
+| Setting | What it does | Default |
+| --- | --- | --- |
+| `LOG_LEVEL` | **How much the log shows.** `debug`, `info`, `warning` or `error`. | `info` |
+| `LISTEN_PORT` | **Port inside the container.** If you change it, change the right side of `ports:` to match. | `8000` |
+| `DATA_DIR` | **Folder for the database, previews and custom art.** Inside the container. Keep the default and mount a volume there. | `/data` |
+| `..._FILE` | **Read a secret from a file.** Add `_FILE` to a secret's name and give a path, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
 
 ## Commands
 
