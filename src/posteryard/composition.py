@@ -21,6 +21,9 @@ FACE_WEIGHT = 2.0
 CONTRAST_TARGET = 3.0
 CONTRAST_WEIGHT = 2.0
 FACE_CONFIDENCE = 0.8
+# CIE76 colour difference below which a logo blends into the art even when brightness differs.
+HUE_TARGET = 30.0
+HUE_WEIGHT = 1.0
 
 
 @cache
@@ -65,6 +68,20 @@ def _contrast(a: float, b: float) -> float:
     return (max(a, b) + 0.05) / (min(a, b) + 0.05)
 
 
+def _lab(rgb: np.ndarray) -> np.ndarray:
+    pixels = np.clip(rgb, 0, 255).astype(np.uint8).reshape(-1, 1, 3)
+    lab: np.ndarray = cv2.cvtColor(pixels, cv2.COLOR_RGB2LAB).reshape(-1, 3).astype(np.float32)
+    scaled: np.ndarray = lab * np.array([100 / 255, 1, 1], dtype=np.float32) - np.array([0, 128, 128], dtype=np.float32)
+    return scaled
+
+
+def logo_colour(logo: Image.Image) -> np.ndarray:
+    """The logo's average colour in Lab, over its visible pixels."""
+    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32).reshape(-1, 4)
+    shown = rgba[rgba[:, 3] > 127][:, :3]
+    return _lab(shown).mean(axis=0) if len(shown) else np.zeros(3, dtype=np.float32)
+
+
 def logo_luminance(logo: Image.Image) -> float:
     rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32)
     alpha = rgba[..., 3] / 255
@@ -89,4 +106,8 @@ def score(art: Image.Image, logo: Image.Image) -> float:
     contrast = _contrast(logo_luminance(logo), float(np.percentile(behind, 75)))
     shortfall = max(0.0, CONTRAST_TARGET - contrast) / CONTRAST_TARGET
 
-    return DETAIL_WEIGHT * detail + FACE_WEIGHT * face + CONTRAST_WEIGHT * shortfall
+    region = np.asarray(shaded.convert("RGB"), dtype=np.float32)[area[1] : area[3], area[0] : area[2]]
+    hue = float(np.linalg.norm(logo_colour(logo) - np.median(_lab(region.reshape(-1, 3)), axis=0)))
+    blend = max(0.0, HUE_TARGET - hue) / HUE_TARGET
+
+    return DETAIL_WEIGHT * detail + FACE_WEIGHT * face + CONTRAST_WEIGHT * shortfall + HUE_WEIGHT * blend

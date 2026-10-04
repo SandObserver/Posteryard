@@ -55,3 +55,10 @@ def test_logo_luminance_ignores_transparent_pixels() -> None:
     image = Image.new("RGBA", (10, 10), (0, 0, 0, 0))
     ImageDraw.Draw(image).rectangle((0, 0, 4, 9), fill=(255, 255, 255, 255))
     assert composition.logo_luminance(image) > 0.99
+
+
+def test_a_logo_in_the_same_colour_as_the_art_scores_worse() -> None:
+    red_art = Image.new("RGB", (1000, 1500), (200, 30, 30))
+    blue_art = Image.new("RGB", (1000, 1500), (40, 60, 200))
+    red_logo = logo((200, 30, 30))
+    assert composition.score(red_art, red_logo) > composition.score(blue_art, red_logo)
