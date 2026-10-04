@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<Profile>
+  <Profile>Posteryard renders clean, consistent posters, backgrounds and episode stills for Plex and Jellyfin and keeps them current. This repository holds the source, the image build and the Community Applications template.</Profile>
+  <Icon>https://raw.githubusercontent.com/SandObserver/Posteryard/main/docs/logo.svg</Icon>
+  <WebPage>https://github.com/SandObserver/Posteryard</WebPage>
+  <DonateText>If Posteryard is useful to you, you can buy me a coffee.</DonateText>
+  <DonateLink>https://buymeacoffee.com/sandobserver</DonateLink>
+</Profile>

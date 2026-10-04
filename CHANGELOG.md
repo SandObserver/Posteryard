@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Add an Unraid Community Applications template that runs Posteryard as Unraid's `nobody` user.
+- Stop at startup with the folder and user named when the data folder is not writable.
+
 ### Removed
 
 - Remove `NTFY_URL`, `NTFY_TOPIC` and `NTFY_TOKEN`. Send ntfy alerts through `NOTIFY_URLS`, such as `ntfys://tk_ACCESS_TOKEN@your-server/topic`. Posteryard refuses to start while the old settings are set.

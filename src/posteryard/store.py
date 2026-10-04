@@ -1,4 +1,6 @@
+import contextlib
 import json
+import os
 import sqlite3
 import threading
 import time
@@ -64,7 +66,13 @@ class Record:
 
 class Store:
     def __init__(self, path: Path) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
+        with contextlib.suppress(OSError):
+            path.parent.mkdir(parents=True, exist_ok=True)
+        if not os.access(path.parent, os.W_OK | os.X_OK):
+            raise StoreError(
+                f"{path.parent} is not writable by user {os.getuid()}:{os.getgid()}. "
+                "Give this user ownership of the folder mounted there."
+            )
         self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._migrate()
