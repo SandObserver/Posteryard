@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from PIL import Image
 
-from posteryard import config, service_collections, statuspage
+from posteryard import config, service_collections
 from posteryard import http as posteryard_http
 from posteryard.service import Service, parse_webhook, related_keys
 from posteryard.store import Store
@@ -294,44 +293,6 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
     thread.join(timeout=5)
     assert done == ["1", "2"]
     assert not thread.is_alive()
-
-
-def test_the_status_page_and_its_thumbnails(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
-    service.store.uploaded("7", "poster", "Example <Movie>", "abc", "upload-1")
-    service.store.failed("8", "item", "Broken Show", "TMDB has no textless art")
-    statuspage.save_thumb(service.cfg.thumbs_dir, "7", "poster", Image.new("RGB", (1000, 1500)))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), service.handler())
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-
-    def get(path: str) -> tuple[int, str, bytes]:
-        connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
-        connection.request("GET", path)
-        response = connection.getresponse()
-        result = response.status, response.getheader("Content-Type") or "", response.read()
-        connection.close()
-        return result
-
-    try:
-        status, kind, body = get("/")
-        page = body.decode()
-        assert status == 200 and kind.startswith("text/html")
-        assert "Example &lt;Movie&gt;" in page
-        assert "Broken Show" in page and "TMDB has no textless art" in page
-        assert 'src="recent/7-poster.jpg"' in page
-        status, kind, body = get("/recent/7-poster.jpg")
-        assert (status, kind, body[:2]) == (200, "image/jpeg", b"\xff\xd8")
-        assert get("/recent/..%2Fstate.db")[0] == 404
-        assert get("/recent/9-poster.jpg")[0] == 404
-    finally:
-        server.shutdown()
-        server.server_close()
-
-
-def test_only_the_newest_thumbnails_are_kept(tmp_path: Path) -> None:
-    for n in range(statuspage.KEEP + 5):
-        statuspage.save_thumb(tmp_path, str(n), "poster", Image.new("RGB", (10, 15)))
-    assert len(list(tmp_path.glob("*.jpg"))) == statuspage.KEEP
 
 
 def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> None:

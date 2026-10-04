@@ -12,7 +12,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, memory, overrides, service_collections, statuspage
+from posteryard import __version__, http, memory, overrides, service_collections
 from posteryard.config import Config
 from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.store import Store
@@ -334,28 +334,11 @@ class Service:
                 self.end_headers()
                 self.wfile.write(data)
 
-            def _send(self, code: int, content_type: str, data: bytes) -> None:
-                self.send_response(code)
-                self.send_header("Content-Type", content_type)
-                self.send_header("Content-Length", str(len(data)))
-                self.send_header("Cache-Control", "no-store")
-                self.end_headers()
-                self.wfile.write(data)
-
             def do_GET(self) -> None:
                 path = self.path.split("?")[0]
                 if path == "/healthz":
                     status = service.status()
                     self._reply(200 if status["ok"] else 503, status)
-                elif path == "/":
-                    page = statuspage.render(
-                        service.status(), service.store.recent(50), service.store.failures(), service.cfg.thumbs_dir
-                    )
-                    self._send(200, "text/html; charset=utf-8", page.encode())
-                elif path.startswith("/recent/") and (
-                    found := statuspage.thumb_path(service.cfg.thumbs_dir, path.removeprefix("/recent/"))
-                ):
-                    self._send(200, "image/jpeg", found.read_bytes())
                 else:
                     self._reply(404, {"error": "not found"})
 
