@@ -5,8 +5,9 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import config, http
+from posteryard import config, http, pipeline
 from posteryard.notify import Notifier
+from posteryard.server import Item
 from posteryard.store import Status, Store
 from posteryard.worker import Outcome, Worker
 from tests.test_pipeline import FakeTmdb, fetch, read, ref
@@ -233,3 +234,21 @@ def test_restore_all_covers_uploads_rewritten_by_a_dry_run_and_half_finished_res
     counts = worker.restore_all()
     assert (counts.restored, counts.kept) == (2, 0)
     assert sorted(plex.restored) == [("1", "art"), ("1", "poster")]
+
+
+def test_an_item_is_planned_again_without_apple_art_that_failed_to_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, _, _, _ = make(tmp_path)
+    calls: list[int] = []
+
+    def plan_item(ctx: pipeline.Context, item: Item) -> list[pipeline.Plan]:
+        calls.append(1)
+        if len(calls) == 1:
+            ctx.apple_dropped = True
+            raise http.HttpError(503, "https://is1-ssl.mzstatic.com/image/thumb/art.jpg")
+        return []
+
+    monkeypatch.setattr(pipeline, "plan_item", plan_item)
+    assert worker.process("1") is not Outcome.FAILED
+    assert len(calls) == 2

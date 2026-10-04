@@ -29,6 +29,7 @@ from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
 APPLE_ART_DAYS = 30
+APPLE_RETRY_SECONDS = 3600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
 DESIGN_VERSION = "0.3.0"
@@ -94,6 +95,8 @@ class Context:
     marks: AutoMarks | None = None
     apple_region: str | None = None
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
+    apple_down_until: float = 0.0
+    apple_dropped: bool = False
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -123,7 +126,19 @@ class Context:
         return value
 
     def load(self, path: str) -> Image.Image:
-        return overrides.load(path) if path.startswith(overrides.FILE_PREFIX) else self.fetch(path)
+        if path.startswith(overrides.FILE_PREFIX):
+            return overrides.load(path)
+        try:
+            return self.fetch(path)
+        except http.RequestError:
+            if apple.is_apple(path):
+                self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
+                self.apple_dropped = True
+            raise
+
+    def retry_without_apple(self) -> bool:
+        dropped, self.apple_dropped = self.apple_dropped, False
+        return dropped
 
     def image_hash(self, path: str) -> int:
         hit = self.choices.get_choice(f"poster-hash:{path}")
@@ -175,13 +190,14 @@ class Context:
 
     def art(self, title: "Title") -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"
-        url = self.apple_art(title)
+        url = self.apple_art(title) if time.monotonic() >= self.apple_down_until else None
         if url is not None:
             ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
             try:
                 picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
             except http.RequestError as exc:
                 log.warning("Apple TV art for %s could not be loaded, using other art: %s", title.name, exc)
+                self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
                 picked = None
             if picked is not None:
                 return picked
@@ -365,9 +381,9 @@ def _poster(
     label: lines.Label | None,
     access: list[quality.Badge] | None = None,
 ) -> Plan:
-    show_art = ctx.art(title)
-    logo = ctx.logo(title)
     override = ctx.overrides(key)
+    show_art = None if override and override.custom else ctx.art(title)
+    logo = ctx.logo(title)
     extra: dict[str, Any] = {}
     if override and override.custom:
         art_path, note = overrides.FILE_PREFIX + override.custom, "custom art"
@@ -428,7 +444,11 @@ def _poster(
 
 
 def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
-    picked = ctx.backdrop(title)
+    try:
+        picked = ctx.backdrop(title)
+    except http.RequestError as exc:
+        log.warning("Background for %s skipped until the next pass: %s", title.name, exc)
+        return []
     if picked is None:
         return []
     path = picked.path

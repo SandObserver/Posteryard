@@ -68,13 +68,19 @@ class Store:
     def __init__(self, path: Path) -> None:
         with contextlib.suppress(OSError):
             path.parent.mkdir(parents=True, exist_ok=True)
-        if not os.access(path.parent, os.W_OK | os.X_OK):
+        files = (path, path.with_name(f"{path.name}-wal"), path.with_name(f"{path.name}-shm"))
+        blocked = [path.parent] if not os.access(path.parent, os.W_OK | os.X_OK) else []
+        blocked += [f for f in files if f.exists() and not os.access(f, os.W_OK)]
+        if blocked:
             raise StoreError(
-                f"{path.parent} is not writable by user {os.getuid()}:{os.getgid()}. "
-                "Give this user ownership of the folder mounted there."
+                f"{blocked[0]} is not writable by user {os.getuid()}:{os.getgid()}. "
+                "Give this user ownership of the folder mounted there and everything in it."
             )
-        self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
-        self._db.execute("PRAGMA journal_mode=WAL")
+        try:
+            self._db = sqlite3.connect(path, check_same_thread=False, isolation_level=None)
+            self._db.execute("PRAGMA journal_mode=WAL")
+        except sqlite3.Error as exc:
+            raise StoreError(f"{path} could not be opened: {exc}") from None
         self._migrate()
         self._lock = threading.Lock()
 

@@ -53,7 +53,7 @@ def test_send_reports_a_failed_service() -> None:
 
 
 def test_removed_ntfy_settings_are_refused() -> None:
-    with pytest.raises(config.ConfigError, match="NTFY_URL, NTFY_TOPIC no longer exist"):
+    with pytest.raises(config.ConfigError, match=r"NTFY_URL, NTFY_TOPIC no longer exist\. Set NOTIFY_URLS=ntfys://"):
         config.load({"TMDB_API_KEY": "example", "NTFY_URL": "http://ntfy", "NTFY_TOPIC": "alerts"})
 
 
