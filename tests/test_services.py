@@ -53,3 +53,29 @@ def test_offers_skip_add_on_channels_and_keep_order() -> None:
     }
     assert [o.name for o in offers(providers, ["CA"])] == ["Hayu", "Netflix"]
     assert pick(providers, ["CA"]) == "netflix"
+
+
+def test_offers_skip_cable_and_live_tv_services() -> None:
+    providers = {
+        "US": {
+            "flatrate": [
+                {"provider_name": "HBO Max Amazon Channel", "provider_id": 1825, "display_priority": 11},
+                {
+                    "provider_name": "Spectrum On Demand",
+                    "provider_id": 486,
+                    "logo_path": "/s.jpg",
+                    "display_priority": 119,
+                },
+                {
+                    "provider_name": "Sling TV Orange",
+                    "provider_id": 299,
+                    "logo_path": "/o.jpg",
+                    "display_priority": 120,
+                },
+                {"provider_name": "Philo", "provider_id": 2383, "logo_path": "/p.jpg", "display_priority": 121},
+                {"provider_name": "HBO Max", "provider_id": 1899, "logo_path": "/h.jpg", "display_priority": 151},
+            ]
+        }
+    }
+    assert [o.name for o in offers(providers, ["US"])] == ["HBO Max"]
+    assert pick(providers, ["US"]) == "hbomax"

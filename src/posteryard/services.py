@@ -59,7 +59,7 @@ NAMES = {
 }
 EXCLUDED_WORDS = (
     "amazon channel", "apple tv channel", "roku premium channel", "plex channel", "store", "youtube tv", "fubo",
-    "stacktv", "live tv", "justwatch",
+    "stacktv", "live tv", "justwatch", "spectrum on demand", "philo", "sling tv",
 )  # fmt: skip
 OFFER_TYPES = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")
