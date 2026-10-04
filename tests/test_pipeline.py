@@ -183,6 +183,17 @@ def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
     assert plan.draw().size == (1000, 1500)
 
 
+def test_custom_art_works_when_no_source_has_clean_art(tmp_path: Path) -> None:
+    custom = tmp_path / "1-abc.jpg"
+    Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
+    ctx = context([])
+    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign,assignment]
+    with pytest.raises(pipeline.NotFoundError):
+        pipeline.movie(ctx, ITEM)
+    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == f"file:{custom}"
+
+
 def test_next_art_skips_the_current_picture() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
