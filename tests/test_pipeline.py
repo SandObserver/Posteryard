@@ -187,7 +187,7 @@ def test_custom_art_works_when_no_source_has_clean_art(tmp_path: Path) -> None:
     custom = tmp_path / "1-abc.jpg"
     Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
     ctx = context([])
-    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign]
+    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign,assignment]
     with pytest.raises(pipeline.NotFoundError):
         pipeline.movie(ctx, ITEM)
     ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
