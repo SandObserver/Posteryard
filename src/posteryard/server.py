@@ -12,6 +12,9 @@ Item = Mapping[str, Any]
 Target = Literal["poster", "art", "thumb"]
 TARGETS: frozenset[str] = frozenset({"poster", "art", "thumb"})
 ITEM_KEY = re.compile(r"^(\d{1,12}|[0-9a-f]{32})$")
+SOURCES = ("tmdb", "imdb", "tvdb")
+LEGACY_AGENTS = {"themoviedb": "tmdb", "imdb": "imdb", "thetvdb": "tvdb"}
+LEGACY_GUID = re.compile(r"^com\.plexapp\.agents\.(\w+)://([^/?]+)")
 
 
 def is_item_key(text: str) -> bool:
@@ -48,9 +51,19 @@ def labels(item: Item) -> set[str]:
     return {str(label.get("tag", "")).lower() for label in item.get("Label") or []}
 
 
-def tmdb_id(item: Item) -> int | None:
+def external_ids(item: Item) -> dict[str, str]:
+    """The item's tmdb, imdb and tvdb ids, from the `Guid` list or the single `guid` of a legacy Plex agent."""
+    ids: dict[str, str] = {}
     for guid in item.get("Guid") or []:
-        value = str(guid.get("id", ""))
-        if value.startswith("tmdb://"):
-            return int(value.removeprefix("tmdb://"))
-    return None
+        source, _, value = str(guid.get("id", "")).partition("://")
+        if source in SOURCES and value:
+            ids.setdefault(source, value)
+    legacy = LEGACY_GUID.match(str(item.get("guid") or ""))
+    if legacy and legacy.group(1) in LEGACY_AGENTS:
+        ids.setdefault(LEGACY_AGENTS[legacy.group(1)], legacy.group(2))
+    return ids
+
+
+def tmdb_id(item: Item) -> int | None:
+    value = external_ids(item).get("tmdb", "")
+    return int(value) if value.isascii() and value.isdigit() else None

@@ -114,6 +114,16 @@ class Tmdb:
         titles += [str(alt.get("title", "")) for alt in raw.get("titles") or raw.get("results") or []]
         return [t for t in dict.fromkeys(titles) if t]
 
+    def find(self, source: str, external_id: str) -> dict[str, int]:
+        """TMDB ids by kind for an IMDb or TVDB id. Empty when TMDB does not know it."""
+        raw = self._get(f"/find/{urllib.parse.quote(external_id, safe='')}", external_source=f"{source}_id")
+        found: dict[str, int] = {}
+        for kind, field in (("movie", "movie_results"), ("tv", "tv_results")):
+            results = raw.get(field) or []
+            if results and results[0].get("id"):
+                found[kind] = int(results[0]["id"])
+        return found
+
     def watch_providers(self, kind: Kind, tmdb_id: int) -> Mapping[str, Any]:
         results: Mapping[str, Any] = self._get(f"/{kind}/{tmdb_id}/watch/providers").get("results", {})
         return results

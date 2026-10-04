@@ -50,6 +50,10 @@ class FakeTmdb:
     def episode(self, tid: int, season: int, episode: int) -> dict[str, Any]:
         return {"still_path": f"/still-{season}-{episode}.jpg"}
 
+    def find(self, source: str, external_id: str) -> dict[str, int]:
+        self.finds = [*getattr(self, "finds", []), external_id]
+        return {"movie": 77} if external_id == "tt0000077" else {}
+
 
 TEXT = {"/foreign.jpg": "PELICULA DE EJEMPLO", "/english.jpg": "EXAMPLE MOVIE"}
 
@@ -280,6 +284,18 @@ def test_tmdb_preview_without_plex() -> None:
 def test_a_title_without_a_tmdb_id_is_not_found() -> None:
     with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
         pipeline.movie(context([ref("/textless.jpg", None)]), {**ITEM, "Guid": []})
+
+
+def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    item = {**ITEM, "Guid": [{"id": "imdb://tt0000077"}]}
+    assert pipeline.movie(ctx, item)[0].inputs["art"] == "/textless.jpg"
+    assert ctx.titles[("movie", 77)]
+    ctx.lookups.clear()
+    pipeline.movie(ctx, item)
+    assert ctx.tmdb.finds == ["tt0000077"]  # type: ignore[attr-defined]
+    with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
+        pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "imdb://tt0000078"}]})
 
 
 class CollectionPlex:

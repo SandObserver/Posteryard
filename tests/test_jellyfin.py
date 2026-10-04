@@ -25,7 +25,7 @@ FORD = {
     "Path": "/media/movies/Ford v Ferrari (2019)/Ford v Ferrari (2019).mkv",
     "DateCreated": "2026-10-03T22:05:11.4294499Z",
     "Tags": ["racing", "Posteryard-Ignore"],
-    "ProviderIds": {"Tmdb": "359724"},
+    "ProviderIds": {"Tmdb": "359724", "Imdb": "tt7286456"},
     "ImageTags": {"Primary": "p1"},
     "BackdropImageTags": ["b1", "b2"],
     "MediaStreams": [
@@ -87,7 +87,7 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
     movie = jellyfin.item(MOVIE)
     assert movie is not None
     assert (movie["ratingKey"], movie["type"], movie["title"]) == (MOVIE, "movie", "Ford v Ferrari")
-    assert movie["Guid"] == [{"id": "tmdb://359724"}]
+    assert movie["Guid"] == [{"id": "tmdb://359724"}, {"id": "imdb://tt7286456"}]
     assert movie["librarySectionTitle"] == "Movies"
     assert movie["addedAt"] == 1791065111
     assert {label["tag"] for label in movie["Label"]} == {"racing", "Posteryard-Ignore"}

@@ -7,7 +7,7 @@ import pytest
 
 from posteryard import http
 from posteryard.plex import Plex
-from posteryard.server import labels, tmdb_id
+from posteryard.server import external_ids, labels, tmdb_id
 
 BASE = "http://plex.example:32400"
 
@@ -118,6 +118,11 @@ def test_selected_poster_bytes_label_and_lock(serve: Any) -> None:
 def test_guids_and_labels() -> None:
     assert tmdb_id({"Guid": [{"id": "imdb://tt1"}, {"id": "tmdb://42"}]}) == 42
     assert tmdb_id({}) is None
+    assert tmdb_id({"guid": "com.plexapp.agents.themoviedb://603?lang=en"}) == 603
+    assert tmdb_id({"Guid": [{"id": "tmdb://"}]}) is None
+    assert external_ids({"guid": "com.plexapp.agents.thetvdb://121361/1/2?lang=en"}) == {"tvdb": "121361"}
+    assert external_ids({"guid": "com.plexapp.agents.hama://anidb-1?lang=en"}) == {}
+    assert external_ids({"Guid": [{"id": "imdb://tt1"}, {"id": "tvdb://5"}]}) == {"imdb": "tt1", "tvdb": "5"}
     assert labels({"Label": [{"tag": "Posteryard-Next"}]}) == {"posteryard-next"}
 
 
