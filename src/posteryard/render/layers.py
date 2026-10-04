@@ -29,9 +29,25 @@ def font(weight: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(Path(str(path))), size)
 
 
+MARK_DIRS: list[Path] = []
+
+
+def add_mark_dir(folder: Path) -> None:
+    """Also look for marks in `folder`, after the built-in ones."""
+    if folder not in MARK_DIRS:
+        MARK_DIRS.append(folder)
+
+
 @cache
 def _mark(name: str) -> Image.Image:
-    return Image.open(str(ASSETS / "marks" / f"{name}.png")).convert("RGBA")
+    built_in = ASSETS / "marks" / f"{name}.png"
+    if built_in.is_file():
+        return Image.open(str(built_in)).convert("RGBA")
+    for folder in MARK_DIRS:
+        path = folder / f"{name}.png"
+        if path.is_file():
+            return Image.open(str(path)).convert("RGBA")
+    raise FileNotFoundError(f"no mark named {name}")
 
 
 def mark(name: str, height: int) -> Image.Image:

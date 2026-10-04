@@ -1,6 +1,6 @@
 # Mark sources
 
-Each SVG comes from Wikimedia Commons, where it is marked public domain. The marks are trademarks of their owners.
+Each SVG comes from Wikimedia Commons, where it is marked public domain, or from [Simple Icons](https://simpleicons.org) 16.34.0, released under CC0 1.0. The marks are trademarks of their owners. Services without a file here get a mark cut at runtime from their TMDB provider icon (`src/posteryard/automarks.py`).
 
 | File | Source | License on Commons |
 | --- | --- | --- |
@@ -14,6 +14,8 @@ Each SVG comes from Wikimedia Commons, where it is marked public domain. The mar
 | `hulu.svg` | [Hulu logo (2018).svg](https://commons.wikimedia.org/wiki/File:Hulu_logo_(2018).svg) | Public domain |
 | `peacock.svg` | [NBCUniversal Peacock Logo (2026).svg](https://commons.wikimedia.org/wiki/File:NBCUniversal_Peacock_Logo_(2026).svg) | Public domain |
 | `youtube.svg` | [YouTube Logo 2017.svg](https://commons.wikimedia.org/wiki/File:YouTube_Logo_2017.svg) | Public domain |
+| `plutotv.svg` | [Pluto TV logo 2020.svg](https://commons.wikimedia.org/wiki/File:Pluto_TV_logo_2020.svg) | Public domain |
+| `crunchyroll.svg`, `tubi.svg`, `starz.svg`, `mubi.svg`, `viaplay.svg`, `sky.svg`, `now.svg`, `rtl.svg`, `movistar.svg`, `channel4.svg` | [Simple Icons](https://github.com/simple-icons/simple-icons) 16.34.0, same slugs | CC0 1.0 |
 | `dolbyvision.svg` | [Dolby Vision (logo).svg](https://commons.wikimedia.org/wiki/File:Dolby_Vision_(logo).svg) | Public domain |
 | `dolbyatmos.svg` | [Dolby Atmos (logo).svg](https://commons.wikimedia.org/wiki/File:Dolby_Atmos_(logo).svg) | Public domain |
 

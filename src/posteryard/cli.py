@@ -6,6 +6,8 @@ from datetime import date
 from pathlib import Path
 
 from posteryard import __version__, config, http, lookup, memory, overrides, pipeline
+from posteryard.artwork import MemoryChoices
+from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart
 from posteryard.jellyfin import Jellyfin
 from posteryard.maintainerr import Maintainerr
@@ -168,6 +170,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
         logo_languages=cfg.logo_languages,
         prefer_wordmark=cfg.prefer_wordmark,
         fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
+        marks=AutoMarks(cfg.data_dir / "marks", MemoryChoices()),
     )
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)

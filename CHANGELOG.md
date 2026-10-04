@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add service marks for Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4.
+- Give other streaming services a mark cut from their TMDB icon when the icon is clean, such as BBC iPlayer, Stan, Canal+ and CBC Gem.
 - Try fanart.tv art, title logos and backdrops when TMDB has none usable, with `FANART_API_KEY`.
 - Find a title's TMDB id from its IMDb or TVDB id, including titles matched by Plex's legacy agents.
 - Refuse to start with a `state.db` from a newer release, so a downgrade cannot damage it.
@@ -19,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Count The Roku Channel, Criterion Channel and Channel 4 as streaming services; only add-on channels sold through Amazon, Apple TV or Roku are skipped.
 - Make fewer TMDB requests: one per title and one per season, instead of up to five per title and one per episode.
 - Keep connections to Plex, Jellyfin and TMDB open between requests, and wait as long as a server asks with `Retry-After`.
 

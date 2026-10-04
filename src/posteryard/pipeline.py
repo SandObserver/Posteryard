@@ -18,6 +18,7 @@ from PIL import Image
 
 from posteryard import maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
+from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
@@ -92,6 +93,7 @@ class Context:
     overrides: Callable[[str], Override | None] = field(default=lambda _key: None)
     fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(fetch_art))
     fanart: Fanart | None = None
+    marks: AutoMarks | None = None
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -209,12 +211,21 @@ class Context:
         value = hit.get(kind)
         return int(value) if value else None
 
+    def service(self, providers: Mapping[str, Any]) -> str | None:
+        """The first offer with a built-in mark, or with a clean automatic one."""
+        for offer in services.offers(providers, self.regions):
+            if key := services.service_for(offer.name):
+                return key
+            if self.marks is not None and (key := self.marks.get(offer)):
+                return key
+        return None
+
     def title(self, kind: Kind, tid: int, name: str) -> Title:
         hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             return hit[1]
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
-        service = services.pick(self.tmdb.watch_providers(kind, tid), self.regions) if kind == "tv" else None
+        service = self.service(self.tmdb.watch_providers(kind, tid)) if kind == "tv" else None
         title = Title(kind, tid, name, every, service)
         self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
