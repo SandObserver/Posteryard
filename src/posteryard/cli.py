@@ -6,9 +6,11 @@ from datetime import date
 from pathlib import Path
 
 from posteryard import __version__, config, http, lookup, memory, overrides, pipeline
+from posteryard.jellyfin import Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
+from posteryard.server import MediaServer
 from posteryard.service import Service
 from posteryard.store import Store
 from posteryard.tmdb import Kind, Tmdb
@@ -97,7 +99,7 @@ def _command(args: argparse.Namespace) -> str:
     return f"art {args.art_command}" if args.command == "art" else str(args.command)
 
 
-def _resolve(plex: Plex, cfg: config.Config, args: argparse.Namespace) -> lookup.Match:
+def _resolve(plex: MediaServer, cfg: config.Config, args: argparse.Namespace) -> lookup.Match:
     match = lookup.resolve(plex, cfg.libraries, " ".join(args.title))
     return lookup.season(plex, match, args.season) if args.season is not None else match
 
@@ -113,11 +115,14 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
             print(f"--tmdb takes movie:ID or tv:ID, not {ref}")
             return 2
         refs.append(("movie" if match.group(1) == "movie" else "tv", int(match.group(2))))
-    if args.title and not (cfg.plex_url and cfg.plex_token):
-        print("PLEX_URL and PLEX_TOKEN are required to render Plex items.")
-        return 2
+    if args.title:
+        try:
+            config.require_server(cfg)
+        except config.ConfigError as exc:
+            print(exc)
+            return 2
 
-    plex = Plex(cfg.plex_url, cfg.plex_token) if args.title else None
+    plex = _server(cfg) if args.title else None
     keys: list[str] = []
     if plex is not None:
         try:
@@ -172,7 +177,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
 
 
 def _find(args: argparse.Namespace, cfg: config.Config) -> int:
-    plex = Plex(cfg.plex_url, cfg.plex_token)
+    plex = _server(cfg)
     query = " ".join(args.words)
     matches = lookup.search(lookup.library_titles(plex, cfg.libraries), query)
     if not matches:
@@ -182,6 +187,12 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
     for m in matches:
         print(f"  {m.rating_key.rjust(width)}  {m.label}")
     return 0
+
+
+def _server(cfg: config.Config) -> MediaServer:
+    if cfg.jellyfin_url:
+        return Jellyfin(cfg.jellyfin_url, cfg.jellyfin_api_key)
+    return Plex(cfg.plex_url, cfg.plex_token)
 
 
 def _notifier(cfg: config.Config) -> Notifier:
@@ -208,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "serve":
             config.require_service(cfg)
         elif args.command in ("art", "forget", "find"):
-            config.require_plex(cfg)
+            config.require_server(cfg)
     except config.ConfigError as exc:
         print(exc)
         return 2
@@ -219,7 +230,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "find":
             return _find(args, cfg)
-        plex = Plex(cfg.plex_url, cfg.plex_token)
+        plex = _server(cfg)
         store = Store(cfg.state_path)
     except http.RequestError as exc:
         print(exc)
@@ -236,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
         store.close()
 
 
-def _change(args: argparse.Namespace, cfg: config.Config, plex: Plex, store: Store, worker: Worker) -> int:
+def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store: Store, worker: Worker) -> int:
     try:
         match = _resolve(plex, cfg, args)
     except lookup.TitleError as exc:

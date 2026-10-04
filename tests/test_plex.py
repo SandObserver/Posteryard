@@ -6,7 +6,8 @@ from typing import Any
 import pytest
 
 from posteryard import http
-from posteryard.plex import Plex, labels, tmdb_id
+from posteryard.plex import Plex
+from posteryard.server import labels, tmdb_id
 
 BASE = "http://plex.example:32400"
 

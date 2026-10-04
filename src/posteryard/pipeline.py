@@ -1,4 +1,4 @@
-"""Plan the images for one Plex item. A plan knows what decides the image before anything is drawn."""
+"""Plan the images for one media server item. A plan knows what decides the image before anything is drawn."""
 
 import hashlib
 import json
@@ -17,10 +17,10 @@ from posteryard import maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picker
 from posteryard.config import EpisodeMode
 from posteryard.overrides import Override
-from posteryard.plex import Item, Plex, Target, tmdb_id
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
 from posteryard.render.layers import cover, trim
+from posteryard.server import Item, MediaServer, Target, tmdb_id
 from posteryard.tmdb import Images, Kind, Tmdb
 
 TITLE_CACHE_SECONDS = 600
@@ -68,7 +68,7 @@ class Context:
     regions: tuple[str, ...]
     action_days: Mapping[str, date]
     today: date
-    plex: Plex | None = None
+    server: MediaServer | None = None
     labels: bool = True
     accessibility: frozenset[Badge] = frozenset()
     episodes: EpisodeMode = EpisodeMode.PLAIN
@@ -143,7 +143,7 @@ class Context:
 def _require_tmdb(item: Item) -> int:
     tid = tmdb_id(item)
     if tid is None:
-        raise NotFoundError(f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id in Plex")
+        raise NotFoundError(f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id")
     return tid
 
 
@@ -329,18 +329,18 @@ def _label(ctx: Context, dates: status.Dates, leaving: str | None) -> lines.Labe
 
 def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date | None:
     section = str(item.get("librarySectionID", ""))
-    if not ctx.labels or ctx.plex is None or not section.isdigit():
+    if not ctx.labels or ctx.server is None or not section.isdigit():
         return None
-    plex = ctx.plex
-    found = ctx.remember(("newest", kind, field, key), lambda: plex.newest_added(section, kind, **{field: key}))
+    server = ctx.server
+    found = ctx.remember(("newest", kind, field, key), lambda: server.newest_added(section, kind, **{field: key}))
     return status.from_timestamp(found)
 
 
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
-    """The seasons that share the show's images: the ones in Plex, or TMDB's list without Plex."""
+    """The seasons that share the show's images: the ones on the server, or TMDB's list without one."""
     parent = str(item.get("parentRatingKey", ""))
-    if ctx.plex is not None and parent.isdigit():
-        children = ctx.remember(("children", parent), lambda: ctx.plex.children(parent) if ctx.plex else [])
+    if ctx.server is not None and parent.isdigit():
+        children = ctx.remember(("children", parent), lambda: ctx.server.children(parent) if ctx.server else [])
         return sorted(int(child.get("index", 0)) for child in children)
     return sorted(int(s["season_number"]) for s in ctx.details("tv", title.tmdb_id).get("seasons") or [])
 
@@ -373,10 +373,10 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
 
     The art comes from the member added last, so the poster follows the collection as it grows.
     """
-    if ctx.plex is None:
-        raise NotFoundError("Plex is not configured")
+    if ctx.server is None:
+        raise NotFoundError("No media server is configured")
     key, name = str(item["ratingKey"]), str(item.get("title", ""))
-    members = [m for m in ctx.plex.collection_children(key) if m.get("type") in ("movie", "show") and tmdb_id(m)]
+    members = [m for m in ctx.server.collection_children(key) if m.get("type") in ("movie", "show") and tmdb_id(m)]
     if not members:
         return []
     featured = max(members, key=lambda m: int(m.get("addedAt") or 0))
@@ -407,12 +407,12 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
 
 
 def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
-    if ctx.plex is None:
-        raise NotFoundError("Plex is not configured")
+    if ctx.server is None:
+        raise NotFoundError("No media server is configured")
     show_key = str(item["parentRatingKey"] if item.get("type") == "season" else item["grandparentRatingKey"])
-    show_item = ctx.plex.item(show_key)
+    show_item = ctx.server.item(show_key)
     if show_item is None:
-        raise NotFoundError(f"Plex has no show {show_key}")
+        raise NotFoundError(f"{ctx.server.name} has no show {show_key}")
     return ctx.title("tv", _require_tmdb(show_item), str(show_item.get("title", ""))), show_item
 
 
@@ -435,19 +435,19 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
 
 def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> list[Plan]:
     """The item, and for a show or season its seasons and first `episodes` episodes. None means all episodes."""
-    if ctx.plex is None:
-        raise NotFoundError("Plex is not configured")
-    item = ctx.plex.item(rating_key)
+    if ctx.server is None:
+        raise NotFoundError("No media server is configured")
+    item = ctx.server.item(rating_key)
     if item is None:
-        raise NotFoundError(f"Plex has no item {rating_key}")
+        raise NotFoundError(f"{ctx.server.name} has no item {rating_key}")
     plans = plan_item(ctx, item)
     kind = item.get("type")
-    seasons = ctx.plex.children(rating_key) if kind == "show" else [item] if kind == "season" else []
+    seasons = ctx.server.children(rating_key) if kind == "show" else [item] if kind == "season" else []
     for season_item in seasons:
         if season_item is not item:
             plans += plan_item(ctx, season_item)
         if episodes != 0:
-            for episode_item in ctx.plex.children(str(season_item["ratingKey"]))[:episodes]:
+            for episode_item in ctx.server.children(str(season_item["ratingKey"]))[:episodes]:
                 plans += plan_item(ctx, episode_item)
     return plans
 

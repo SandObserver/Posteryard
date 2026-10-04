@@ -29,6 +29,8 @@ class Config:
     tmdb_api_key: str
     plex_url: str
     plex_token: str
+    jellyfin_url: str
+    jellyfin_api_key: str
     maintainerr_url: str
     regions: tuple[str, ...]
     quality: QualityMinimums
@@ -130,13 +132,16 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     heartbeat_url = env.get("HEARTBEAT_URL", "").strip()
     if heartbeat_url and not heartbeat_url.startswith(("http://", "https://")):
         raise ConfigError("HEARTBEAT_URL must start with http:// or https://")
-    libraries = _list(env, "PLEX_LIBRARIES", "Movies,TV Shows")
+    library_setting = "LIBRARIES" if env.get("LIBRARIES", "").strip() else "PLEX_LIBRARIES"
+    libraries = _list(env, library_setting, "Movies,TV Shows")
     if not libraries:
-        raise ConfigError("PLEX_LIBRARIES needs at least one library name")
+        raise ConfigError(f"{library_setting} needs at least one library name")
     return Config(
         tmdb_api_key=tmdb_api_key,
         plex_url=env.get("PLEX_URL", "").strip().rstrip("/"),
         plex_token=env.get("PLEX_TOKEN", "").strip(),
+        jellyfin_url=env.get("JELLYFIN_URL", "").strip().rstrip("/"),
+        jellyfin_api_key=env.get("JELLYFIN_API_KEY", "").strip(),
         maintainerr_url=env.get("MAINTAINERR_URL", "").strip().rstrip("/"),
         regions=tuple(r.upper() for r in _list(env, "STREAMING_REGIONS", "US")),
         quality=QualityMinimums(
@@ -167,13 +172,17 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     )
 
 
-def require_plex(cfg: Config) -> None:
-    if not (cfg.plex_url and cfg.plex_token):
-        raise ConfigError("PLEX_URL and PLEX_TOKEN are required")
+def require_server(cfg: Config) -> None:
+    plex, jellyfin = bool(cfg.plex_url or cfg.plex_token), bool(cfg.jellyfin_url or cfg.jellyfin_api_key)
+    if plex and jellyfin:
+        raise ConfigError("Set PLEX_URL and PLEX_TOKEN, or JELLYFIN_URL and JELLYFIN_API_KEY, not both")
+    if jellyfin and not (cfg.jellyfin_url and cfg.jellyfin_api_key):
+        raise ConfigError("JELLYFIN_URL and JELLYFIN_API_KEY are both required")
+    if not jellyfin and not (cfg.plex_url and cfg.plex_token):
+        raise ConfigError("PLEX_URL and PLEX_TOKEN are required, or JELLYFIN_URL and JELLYFIN_API_KEY for Jellyfin")
 
 
 def require_service(cfg: Config) -> None:
-    missing = [name for name, value in (("PLEX_URL", cfg.plex_url), ("PLEX_TOKEN", cfg.plex_token),
-                                        ("WEBHOOK_SECRET", cfg.webhook_secret)) if not value]  # fmt: skip
-    if missing:
-        raise ConfigError(f"{', '.join(missing)} required to run the service")
+    require_server(cfg)
+    if not cfg.webhook_secret:
+        raise ConfigError("WEBHOOK_SECRET is required to run the service")

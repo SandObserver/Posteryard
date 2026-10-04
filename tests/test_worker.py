@@ -18,6 +18,9 @@ MOVIE = {
 
 
 class FakePlex:
+    name = "Plex"
+    url = "http://plex.example:32400"
+
     def __init__(self) -> None:
         self.items: dict[str, dict[str, Any]] = {"1": dict(MOVIE)}
         self.selected_keys: dict[tuple[str, str], str] = {}

@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Support Jellyfin with `JELLYFIN_URL` and `JELLYFIN_API_KEY`, including its Webhook plugin, tags as labels and collections.
+- Accept `LIBRARIES` as the library list for either server; `PLEX_LIBRARIES` still works.
 - Add collection posters with `COLLECTION_POSTERS`, with Apple TV's channel tile for streaming service collections.
 - Keep one collection per streaming service in TV libraries with `SERVICE_COLLECTIONS`.
 - Show coloured labels above the logo for just added titles, new episodes and seasons, and a season's start date; turn them off with `STATUS_LABELS=false`.

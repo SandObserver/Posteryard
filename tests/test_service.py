@@ -45,6 +45,9 @@ def test_an_episode_brings_its_season_and_show() -> None:
 
 
 class FakePlex:
+    name = "Plex"
+    url = "http://plex.example:32400"
+
     def __init__(self) -> None:
         self.ignored: list[dict[str, str]] = []
 
@@ -327,3 +330,20 @@ def test_only_the_newest_thumbnails_are_kept(tmp_path: Path) -> None:
     for n in range(statuspage.KEEP + 5):
         statuspage.save_thumb(tmp_path, str(n), "poster", Image.new("RGB", (10, 15)))
     assert len(list(tmp_path.glob("*.jpg"))) == statuspage.KEEP
+
+
+def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    episode = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
+    service.server.item = lambda key: episode if key == "d" * 32 else None  # type: ignore[method-assign, assignment]
+    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "dddddddd-dddd-dddd-dddd-dddddddddddd"})
+    assert [key for key, _ in service.queue.queue] == ["d" * 32, "c" * 32, "b" * 32]
+    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "../etc"})
+    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "a" * 32})
+    assert [key for key, _ in service.queue.queue][-1] == "a" * 32
+
+
+def test_jellyfin_posts_json_as_text() -> None:
+    body = b'{"NotificationType": "ItemAdded", "ItemId": "e58e4e34025383f58942a3e8447eb6ce", "ItemType": "Episode"}'
+    payload = parse_webhook("text/plain; charset=utf-8", body)
+    assert payload is not None and payload["ItemId"] == "e58e4e34025383f58942a3e8447eb6ce"

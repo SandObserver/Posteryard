@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from posteryard import http
-from posteryard.plex import is_rating_key
+from posteryard.server import is_item_key
 from posteryard.tmdb import open_image
 
 CUSTOM_LABEL = "posteryard-custom"
@@ -63,7 +63,7 @@ def from_file(path: Path) -> Image.Image:
 
 def save(image: Image.Image, data_dir: Path, rating_key: str) -> Path:
     """Store the art under a name that changes with its content, so the fingerprint changes with it."""
-    if not is_rating_key(rating_key):
+    if not is_item_key(rating_key):
         raise ArtError(f"not a Plex rating key: {rating_key!r}")
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, "JPEG", quality=92)
