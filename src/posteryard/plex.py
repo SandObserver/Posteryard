@@ -18,6 +18,7 @@ PAGE = 200
 
 class Plex:
     name = "Plex"
+    collections_per_library = True
 
     def __init__(self, url: str, token: str) -> None:
         self.url = url

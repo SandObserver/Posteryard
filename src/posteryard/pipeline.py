@@ -329,7 +329,7 @@ def _label(ctx: Context, dates: status.Dates, leaving: str | None) -> lines.Labe
 
 def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date | None:
     section = str(item.get("librarySectionID", ""))
-    if not ctx.labels or ctx.server is None or not section.isdigit():
+    if not ctx.labels or ctx.server is None or not section:
         return None
     server = ctx.server
     found = ctx.remember(("newest", kind, field, key), lambda: server.newest_added(section, kind, **{field: key}))
@@ -339,7 +339,7 @@ def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date |
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
     """The seasons that share the show's images: the ones on the server, or TMDB's list without one."""
     parent = str(item.get("parentRatingKey", ""))
-    if ctx.server is not None and parent.isdigit():
+    if ctx.server is not None and parent:
         children = ctx.remember(("children", parent), lambda: ctx.server.children(parent) if ctx.server else [])
         return sorted(int(child.get("index", 0)) for child in children)
     return sorted(int(s["season_number"]) for s in ctx.details("tv", title.tmdb_id).get("seasons") or [])

@@ -9,7 +9,8 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import config, statuspage
+from posteryard import config, service_collections, statuspage
+from posteryard import http as posteryard_http
 from posteryard.service import Service, parse_webhook, related_keys
 from posteryard.store import Store
 
@@ -47,6 +48,7 @@ def test_an_episode_brings_its_season_and_show() -> None:
 class FakePlex:
     name = "Plex"
     url = "http://plex.example:32400"
+    collections_per_library = True
 
     def __init__(self) -> None:
         self.ignored: list[dict[str, str]] = []
@@ -347,3 +349,66 @@ def test_jellyfin_posts_json_as_text() -> None:
     body = b'{"NotificationType": "ItemAdded", "ItemId": "e58e4e34025383f58942a3e8447eb6ce", "ItemType": "Episode"}'
     payload = parse_webhook("text/plain; charset=utf-8", body)
     assert payload is not None and payload["ItemId"] == "e58e4e34025383f58942a3e8447eb6ce"
+
+
+class FakeNotifier:
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+
+    def alert(self, subject: str, message: str) -> None:
+        self.sent.append(subject)
+
+
+class TwoShowLibraries(FakePlex):
+    def sections(self) -> list[dict[str, str]]:
+        return [{"key": "4", "title": "TV Shows", "type": "show"}, {"key": "5", "title": "Anime", "type": "show"}]
+
+
+def collections_service(tmp_path: Path, plex: FakePlex, **env: str) -> tuple[Service, list[str], FakeNotifier]:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "SERVICE_COLLECTIONS": "true",
+                       "LIBRARIES": "TV Shows,Anime", **env})  # fmt: skip
+    notifier = FakeNotifier()
+    worker = type("W", (), {"ctx": None, "notifier": notifier})()
+    return Service(cfg, plex, Store(cfg.state_path), worker), [], notifier  # type: ignore[arg-type]
+
+
+def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    synced: list[str] = []
+
+    def record(server: object, ctx: object, key: str) -> list[str]:
+        synced.append(key)
+        return []
+
+    monkeypatch.setattr(service_collections, "sync", record)
+    service, _, _ = collections_service(tmp_path, TwoShowLibraries())
+    service._sync_collections()
+    assert synced == []
+    service, _, _ = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
+    service._sync_collections()
+    assert synced == ["4", "5"]
+
+
+def test_jellyfin_collections_use_one_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    synced: list[str] = []
+
+    def record(server: object, ctx: object, key: str) -> list[str]:
+        synced.append(key)
+        return []
+
+    monkeypatch.setattr(service_collections, "sync", record)
+    plex = TwoShowLibraries()
+    plex.collections_per_library = False
+    service, _, _ = collections_service(tmp_path, plex, DRY_RUN="false")
+    service._sync_collections()
+    assert synced == ["4"]
+
+
+def test_a_failed_collection_sync_does_not_stop_the_full_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(server: object, ctx: object, key: str) -> list[str]:
+        raise posteryard_http.RequestError("HTTP 404", "https://api.themoviedb.org/3/tv/1")
+
+    monkeypatch.setattr(service_collections, "sync", fail)
+    service, _, notifier = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
+    service.full()
+    assert notifier.sent == ["collections", "collections"]
+    assert service.store.meta("last_full")

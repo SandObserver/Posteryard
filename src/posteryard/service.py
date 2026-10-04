@@ -182,13 +182,28 @@ class Service:
             log.info("resuming an unfinished full pass")
             self.full()
 
+    def _sync_collections(self) -> None:
+        """Service collections never stop the full pass. A failure is logged and alerted; the pass goes on."""
+        shows = [s for s in self._sections() if s.get("type") == "show"]
+        if self.cfg.dry_run:
+            log.info("DRY_RUN is on: service collections are not changed")
+            return
+        if not self.server.collections_per_library and len(shows) > 1:
+            log.warning("%s collections belong to no library: service collections use %s only",
+                        self.server.name, shows[0].get("title"))  # fmt: skip
+            shows = shows[:1]
+        for section in shows:
+            try:
+                service_collections.sync(self.server, self.worker.ctx, str(section["key"]))
+            except (http.RequestError, ValueError) as exc:
+                log.warning("service collections for %s failed: %s", section.get("title"), exc)
+                self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")
+
     def full(self) -> None:
         """Every item, and every known item that was not listed. The worker forgets those the server no longer has."""
         seen: set[str] = set()
         if self.cfg.service_collections:
-            for section in self._sections():
-                if section.get("type") == "show":
-                    seen.update(service_collections.sync(self.server, self.worker.ctx, str(section["key"])))
+            self._sync_collections()
         for section in self._sections():
             for kind in self._kinds(section):
                 seen.update(str(i["ratingKey"]) for i in self.server.section_items(str(section["key"]), kind))

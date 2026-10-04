@@ -21,6 +21,7 @@ def is_item_key(text: str) -> bool:
 class MediaServer(Protocol):
     url: str
     name: str
+    collections_per_library: bool
 
     def sections(self) -> list[Item]: ...
     def item(self, rating_key: str) -> Item | None: ...
