@@ -13,9 +13,10 @@ TRUE = frozenset({"1", "true", "yes", "on"})
 FALSE = frozenset({"0", "false", "no", "off"})
 CLOCK = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 SECRETS = (
-    "TMDB_API_KEY", "FANART_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NTFY_TOKEN",
-    "NOTIFY_URLS", "HEARTBEAT_URL",
+    "TMDB_API_KEY", "FANART_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NOTIFY_URLS",
+    "HEARTBEAT_URL",
 )  # fmt: skip
+REMOVED_NTFY = ("NTFY_URL", "NTFY_TOPIC", "NTFY_TOKEN", "NTFY_TOKEN_FILE")
 
 
 class ConfigError(Exception):
@@ -59,9 +60,6 @@ class Config:
     webhook_secret: str
     sweep_minutes: int
     daily_at: time
-    ntfy_url: str
-    ntfy_topic: str
-    ntfy_token: str
     notify_urls: tuple[str, ...]
     listen_port: int
     heartbeat_url: str
@@ -151,6 +149,8 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     tmdb_api_key = env.get("TMDB_API_KEY", "").strip()
     if not tmdb_api_key:
         raise ConfigError("TMDB_API_KEY is required")
+    if removed := [name for name in REMOVED_NTFY if env.get(name, "").strip()]:
+        raise ConfigError(f"{', '.join(removed)} no longer exist. Set NOTIFY_URLS=ntfy://TOKEN@HOST/TOPIC instead")
     notify_urls = tuple(notify.split_urls(env.get("NOTIFY_URLS", "")))
     bad = notify.invalid_urls(notify_urls)
     if bad:
@@ -189,9 +189,6 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         webhook_secret=env.get("WEBHOOK_SECRET", "").strip(),
         sweep_minutes=_int(env, "SWEEP_MINUTES", 15, 1, 1440),
         daily_at=_clock(env, "DAILY_AT", "04:15"),
-        ntfy_url=env.get("NTFY_URL", "").strip().rstrip("/"),
-        ntfy_topic=env.get("NTFY_TOPIC", "").strip(),
-        ntfy_token=env.get("NTFY_TOKEN", "").strip(),
         notify_urls=notify_urls,
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
         heartbeat_url=heartbeat_url,

@@ -216,13 +216,13 @@ def _server(cfg: config.Config) -> MediaServer:
 
 
 def _notifier(cfg: config.Config) -> Notifier:
-    return Notifier(cfg.ntfy_url, cfg.ntfy_topic, cfg.ntfy_token, cfg.notify_urls)
+    return Notifier(cfg.notify_urls)
 
 
 def _test_alert(cfg: config.Config) -> int:
     notifier = _notifier(cfg)
     if not notifier.configured:
-        print("No notification service is set up. Set NOTIFY_URLS, or NTFY_URL and NTFY_TOPIC.")
+        print("No notification service is set up. Set NOTIFY_URLS.")
         return 1
     if notifier.send("test", "Alerts from Posteryard reach you."):
         print("Test alert sent.")

@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Removed
+
+- Remove `NTFY_URL`, `NTFY_TOPIC` and `NTFY_TOKEN`. Send ntfy alerts through `NOTIFY_URLS`, such as `ntfys://tk_ACCESS_TOKEN@your-server/topic`. Posteryard refuses to start while the old settings are set.
+
 ### Fixed
 
 - Use custom art from `art set` or `posteryard-custom` for titles that have no clean art on TMDB, Apple TV or fanart.tv.
