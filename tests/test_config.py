@@ -31,6 +31,13 @@ def test_secrets_can_come_from_files(tmp_path: Path) -> None:
         load({"TMDB_API_KEY": "a", "PLEX_TOKEN_FILE": str(tmp_path / "missing")})
 
 
+def test_log_level() -> None:
+    assert load({"TMDB_API_KEY": "a"}).log_level == "info"
+    assert load({"TMDB_API_KEY": "a", "LOG_LEVEL": "DEBUG"}).log_level == "debug"
+    with pytest.raises(ConfigError, match="LOG_LEVEL must be one of"):
+        load({"TMDB_API_KEY": "a", "LOG_LEVEL": "loud"})
+
+
 def test_tmdb_key_is_required() -> None:
     with pytest.raises(ConfigError):
         load({})

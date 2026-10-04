@@ -17,10 +17,18 @@ from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger("posteryard")
+# These libraries log full URLs, with tokens, at debug level.
+QUIET_LOGGERS = ("urllib3", "apprise", "requests")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a Plex rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
 DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, Plex was not changed)"
+
+
+def _set_log_level(level: config.LogLevel) -> None:
+    logging.getLogger().setLevel(level.upper())
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
 
 def _slug(text: str) -> str:
@@ -223,6 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         cfg = config.load()
+        _set_log_level(cfg.log_level)
         if args.command == "serve":
             config.require_service(cfg)
         elif args.command in ("art", "forget", "find", "restore"):
