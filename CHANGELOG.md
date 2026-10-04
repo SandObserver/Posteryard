@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Delete custom art files once they are replaced or reset, so `./data/custom` no longer grows.
 - Handle titles from the webhook and labels before the rest of a running full pass, instead of after it.
 
 ## [0.5.1] - 2026-10-03
