@@ -118,3 +118,19 @@ def test_retry_after_is_read_as_seconds_or_a_date() -> None:
     assert http.retry_after("3600") == http.RETRY_AFTER_MAX
     assert http.retry_after("Wed, 21 Oct 2015 07:28:00 GMT") == 0
     assert http.retry_after("soon") == 0
+
+
+def test_a_bad_header_value_never_reaches_the_error(server: Server) -> None:
+    with pytest.raises(http.RequestError) as caught:
+        http.request("GET", f"{server.url}/a", headers={"api-key": f"{SECRET}\nrest"})
+    assert SECRET not in str(caught.value)
+
+
+def test_redirects_can_be_refused(server: Server) -> None:
+    server.answers = [(302, {"Location": "http://elsewhere.example/b"}, b"")]
+    with pytest.raises(http.RequestError, match="refused a redirect"):
+        http.request("GET", f"{server.url}/a", redirects=False)
+
+
+def test_cross_host_redirects_drop_the_api_key_header() -> None:
+    assert "api-key" in {h.lower() for h in http.POOL.connection_pool_kw["retries"].remove_headers_on_redirect}

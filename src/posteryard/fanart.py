@@ -64,7 +64,7 @@ class Fanart:
             return FanartImages()
         path = f"/movies/{tmdb_id}" if kind == "movie" else f"/tv/{tvdb_id}"
         try:
-            raw = http.get_json(f"{API}{path}", {"api-key": self.api_key})
+            raw = http.get_json(f"{API}{path}", {"api-key": self.api_key}, redirects=False)
         except http.HttpError as exc:
             if exc.status == 404:
                 return FanartImages()
@@ -86,4 +86,4 @@ class Fanart:
     def image(url: str) -> Image.Image:
         if not url.startswith(ASSETS[0]):
             raise ValueError(f"not a fanart.tv image: {url}")
-        return open_image(http.request("GET", url, timeout=60))
+        return open_image(http.request("GET", url, timeout=60, redirects=False))

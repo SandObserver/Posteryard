@@ -7,6 +7,7 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
+from posteryard import http as posteryard_http
 from posteryard import overrides, pipeline
 from posteryard.config import EpisodeMode
 from posteryard.fanart import FanartImages
@@ -352,3 +353,50 @@ def test_fanart_is_used_only_when_tmdb_has_nothing_usable() -> None:
     with_tmdb_art.fanart = fanart  # type: ignore[assignment]
     assert pipeline.movie(with_tmdb_art, ITEM)[0].inputs["art"] == "/textless.jpg"
     assert fanart.calls == 0
+
+
+class BrokenFanart:
+    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+        raise posteryard_http.RequestError("ConnectionError", "https://webservice.fanart.tv/v3/movies/42")
+
+
+def test_a_fanart_outage_fails_the_item_instead_of_changing_its_poster() -> None:
+    ctx = context([ref("/english.jpg", "en")])
+    ctx.tmdb.images = lambda kind, tid: Images([ref("/english.jpg", "en")], [], [])  # type: ignore[method-assign, assignment]
+    ctx.fanart = BrokenFanart()  # type: ignore[assignment]
+    with pytest.raises(posteryard_http.RequestError):
+        pipeline.movie(ctx, ITEM)
+    assert not any(key[0] == "fanart" for key in ctx.lookups)
+
+
+def test_lookups_are_bounded_and_details_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(pipeline, "LOOKUP_SIZE", 3)
+    ctx = context([ref("/textless.jpg", None)])
+    for n in "01234":
+        ctx.remember(("n", n), str)
+    assert [key[1] for key in ctx.lookups] == ["2", "3", "4"]
+    ctx.tmdb.details = lambda kind, tid: {"name": "A", "images": {"posters": []}}  # type: ignore[method-assign, assignment]
+    assert ctx.details("tv", 7) == {"name": "A"}
+
+
+def test_collections_use_imdb_ids_too() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.server = type(
+        "P",
+        (),
+        {
+            "collection_children": staticmethod(
+                lambda key: [
+                    {
+                        "ratingKey": "1",
+                        "type": "movie",
+                        "title": "Old",
+                        "addedAt": 1,
+                        "Guid": [{"id": "imdb://tt0000077"}],
+                    },
+                ]
+            )
+        },
+    )()
+    plans = pipeline.collection(ctx, {"ratingKey": "9", "type": "collection", "title": "Favourites"})
+    assert plans[0].inputs["art"] == "/textless.jpg"

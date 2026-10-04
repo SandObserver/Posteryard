@@ -159,15 +159,17 @@ class Worker:
         """Give every uploaded image back to the server's own, also while DRY_RUN is on.
 
         Images changed by hand are left as they are. A failed item keeps its record, so a second run retries it.
+        An item without a selected image is restored again: a run that stopped halfway leaves it so.
         """
         counts = Restored()
-        for record in self.store.with_status(Status.UPLOADED):
+        for record in self.store.with_upload():
             if record.target not in TARGETS:
                 continue
             target = cast(Target, record.target)
             try:
                 item = self.server.item(record.rating_key)
-                if item is not None and self.server.selected(record.rating_key, target) == record.image_key:
+                selected = self.server.selected(record.rating_key, target) if item is not None else None
+                if item is not None and selected in (record.image_key, None):
                     self.server.restore(item, target)
                     counts.restored += 1
                 elif item is not None:

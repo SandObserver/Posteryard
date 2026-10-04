@@ -39,7 +39,7 @@ SHOW = {
 
 
 def answer(routes: dict[str, Any], seen: list[tuple[str, dict[str, str]]]) -> Any:
-    def get_json(url: str, headers: dict[str, str] | None = None) -> Any:
+    def get_json(url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> Any:
         seen.append((url, headers or {}))
         path = url.removeprefix("https://webservice.fanart.tv/v3")
         if path not in routes:

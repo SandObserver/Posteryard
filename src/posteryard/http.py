@@ -18,7 +18,16 @@ RETRY_AFTER_MAX = 60.0
 POOL = urllib3.PoolManager(
     num_pools=16,
     maxsize=4,
-    retries=urllib3.Retry(total=None, connect=0, read=0, status=0, other=0, redirect=5, raise_on_status=False),
+    retries=urllib3.Retry(
+        total=None,
+        connect=0,
+        read=0,
+        status=0,
+        other=0,
+        redirect=5,
+        raise_on_status=False,
+        remove_headers_on_redirect=urllib3.Retry.DEFAULT_REMOVE_HEADERS_ON_REDIRECT | {"api-key"},
+    ),
 )
 
 
@@ -54,6 +63,7 @@ def request(
     data: bytes | None = None,
     timeout: float = 30,
     retries: int = 3,
+    redirects: bool = True,
 ) -> bytes:
     delay = 2.0
     for attempt in range(1, retries + 1):
@@ -66,6 +76,7 @@ def request(
                 headers={"User-Agent": USER_AGENT, **(headers or {})},
                 timeout=urllib3.Timeout(connect=timeout, read=timeout),
                 preload_content=False,
+                redirect=redirects,
             )
             try:
                 body: bytes = response.read(MAX_RESPONSE + 1)
@@ -73,6 +84,8 @@ def request(
                 response.release_conn()
             if len(body) > MAX_RESPONSE:
                 raise RequestError("response larger than 64 MB", url)
+            if not redirects and 300 <= response.status < 400:
+                raise RequestError(f"refused a redirect (HTTP {response.status})", url)
             if response.status < 400:
                 return body
             if response.status not in RETRY_STATUSES or attempt == retries:
@@ -86,6 +99,8 @@ def request(
             if attempt == retries:
                 raise RequestError(reason, url) from None
             log.warning("retrying %s %s after %s", method, redact(url), reason)
+        except ValueError as exc:
+            raise RequestError(type(exc).__name__, url) from None
         time.sleep(wait)
         delay *= 2
     raise AssertionError("unreachable")
@@ -105,5 +120,7 @@ def retry_after(value: str | None) -> float:
     return min(max(seconds, 0.0), RETRY_AFTER_MAX)
 
 
-def get_json(url: str, headers: dict[str, str] | None = None) -> Any:
-    return json.loads(request("GET", url, headers={"Accept": "application/json", **(headers or {})}))
+def get_json(url: str, headers: dict[str, str] | None = None, *, redirects: bool = True) -> Any:
+    return json.loads(
+        request("GET", url, headers={"Accept": "application/json", **(headers or {})}, redirects=redirects)
+    )

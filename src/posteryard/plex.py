@@ -171,8 +171,6 @@ class Plex:
             ),
             None,
         )
-        if original:
-            http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=original))
         http.request(
             "PUT",
             self._url(
@@ -182,6 +180,8 @@ class Plex:
                 **{f"{field}.locked": 0},
             ),
         )
+        if original:
+            http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=original))
 
     def poster_bytes(self, item: Item) -> bytes:
         thumb = str(item.get("thumb") or "")

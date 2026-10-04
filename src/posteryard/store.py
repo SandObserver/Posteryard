@@ -136,6 +136,14 @@ class Store:
             ).fetchall()
         return [Record(*row) for row in rows]
 
+    def with_upload(self) -> list[Record]:
+        """Records of images uploaded at some point, whatever their status now."""
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT {COLUMNS} FROM images WHERE image_key != '' ORDER BY rating_key, target"
+            ).fetchall()
+        return [Record(*row) for row in rows]
+
     def keys(self) -> set[str]:
         with self._lock:
             return {row[0] for row in self._db.execute("SELECT DISTINCT rating_key FROM images")}
