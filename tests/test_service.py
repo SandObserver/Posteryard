@@ -10,6 +10,7 @@ import pytest
 
 from posteryard import config, service_collections
 from posteryard import http as posteryard_http
+from posteryard.server import Item
 from posteryard.service import Service, parse_webhook, related_keys
 from posteryard.store import Store
 
@@ -295,7 +296,7 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
 
 def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    episode = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
+    episode: Item = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
     service.server.item = lambda key: episode if key == "d" * 32 else None  # type: ignore[method-assign, assignment]
     service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "dddddddd-dddd-dddd-dddd-dddddddddddd"})
     assert service.queued() == ["d" * 32, "c" * 32, "b" * 32]

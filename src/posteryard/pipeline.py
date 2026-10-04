@@ -474,7 +474,7 @@ def plan_tmdb(ctx: Context, kind: Kind, tid: int, seasons: Sequence[int] = ()) -
     """Plans from TMDB alone, without Plex: no badges, labels or episodes."""
     details = ctx.tmdb.details(kind, tid)
     name = str(details.get("title") or details.get("name") or tid)
-    item: dict[str, Any] = {"ratingKey": f"tmdb-{kind}-{tid}", "title": name, "Guid": [{"id": f"tmdb://{tid}"}]}
+    item: Item = {"ratingKey": f"tmdb-{kind}-{tid}", "title": name, "Guid": [{"id": f"tmdb://{tid}"}]}
     if kind == "movie":
         return movie(ctx, item)
     plans = show(ctx, item)

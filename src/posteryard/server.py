@@ -5,10 +5,33 @@
 """
 
 import re
-from collections.abc import Iterable, Mapping
-from typing import Any, Literal, Protocol
+from collections.abc import Iterable
+from typing import Any, Literal, Protocol, TypedDict
 
-Item = Mapping[str, Any]
+
+class Item(TypedDict, total=False):
+    ratingKey: str
+    type: str
+    title: str
+    index: int
+    parentIndex: int
+    parentRatingKey: str
+    grandparentRatingKey: str
+    Guid: list[dict[str, str]]
+    guid: str
+    addedAt: int | None
+    updatedAt: int
+    Label: list[dict[str, str]]
+    librarySectionID: int | str
+    librarySectionTitle: str
+    librarySectionKey: str
+    Media: list[dict[str, Any]]
+    thumb: str
+    key: str
+    year: int
+    paths: list[str]
+
+
 Target = Literal["poster", "art", "thumb"]
 TARGETS: frozenset[str] = frozenset({"poster", "art", "thumb"})
 ITEM_KEY = re.compile(r"^(\d{1,12}|[0-9a-f]{32})$")

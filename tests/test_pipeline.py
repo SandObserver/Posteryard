@@ -13,6 +13,7 @@ from posteryard.ocr import TextLine
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
 from posteryard.render.lines import Badges, Caption, Label
+from posteryard.server import Item
 from posteryard.tmdb import ImageRef, Images
 
 
@@ -93,7 +94,7 @@ class DatedPlex:
         return int(datetime(2025, 1, 1).timestamp())
 
 
-ITEM = {"ratingKey": "1", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}], "Media": []}
+ITEM: Item = {"ratingKey": "1", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}], "Media": []}
 
 
 def test_movie_uses_textless_art_that_shows_no_title() -> None:
@@ -237,7 +238,7 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
 def test_episode_modes() -> None:
     ctx = context([ref("/textless.jpg", None)])
     title = ctx.title("tv", 42, "Example Show")
-    item = {"ratingKey": "111", "index": 1, "parentIndex": 1, "title": "Pilot"}
+    item: Item = {"ratingKey": "111", "index": 1, "parentIndex": 1, "title": "Pilot"}
     ctx.episodes = EpisodeMode.TITLED
     titled = pipeline.episode(ctx, title, item)[0]
     assert titled.inputs["title"] == "Pilot"
@@ -288,7 +289,7 @@ def test_a_title_without_a_tmdb_id_is_not_found() -> None:
 
 def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    item = {**ITEM, "Guid": [{"id": "imdb://tt0000077"}]}
+    item: Item = {**ITEM, "Guid": [{"id": "imdb://tt0000077"}]}
     assert pipeline.movie(ctx, item)[0].inputs["art"] == "/textless.jpg"
     assert ctx.titles[("movie", 77)]
     ctx.lookups.clear()
