@@ -12,7 +12,7 @@ from posteryard.notify import Notifier
 from posteryard.plex import Plex
 from posteryard.server import MediaServer
 from posteryard.service import Service
-from posteryard.store import Store
+from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
 
@@ -235,6 +235,9 @@ def main(argv: list[str] | None = None) -> int:
     except http.RequestError as exc:
         print(exc)
         return 1
+    except StoreError as exc:
+        print(exc)
+        return 2
     try:
         worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
