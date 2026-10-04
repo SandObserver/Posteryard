@@ -50,9 +50,9 @@ def _mark(name: str) -> Image.Image:
     raise FileNotFoundError(f"no mark named {name}")
 
 
-def mark(name: str, height: int) -> Image.Image:
+def mark(name: str, height: int, ink: RGB = WHITE) -> Image.Image:
     src = _mark(name)
-    out = Image.new("RGBA", src.size, (*WHITE, 255))
+    out = Image.new("RGBA", src.size, (*ink, 255))
     out.putalpha(src.getchannel("A"))
     return out.resize((max(1, round(src.width * height / src.height)), height), Image.Resampling.LANCZOS)
 

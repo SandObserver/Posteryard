@@ -252,6 +252,8 @@ Use either monitor, or both:
 
 The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4. Any other service gets a mark cut from its TMDB icon when the icon is a clean logo on a flat background, such as BBC iPlayer, Stan, Canal+, Hayu or CBC Gem; otherwise it gets none.
 
+On light art, like Apple TV's New Releases row, the logo, badges, season number and service mark are dark and the fade is left off, when TMDB has a dark logo and dark ink stays readable. Everywhere else the logo is white over the fade, deepened where needed so it always reads.
+
 Art that prints the title or other large text is rejected, even when TMDB marks it as textless. Status labels such as `JUST ADDED` sit above the logo, so they never move it.
 
 ## How it works

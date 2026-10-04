@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- On light art, draw a dark title logo, captions, badges, season number and service mark without the black fade, when the art leaves near-black at 4.5:1 contrast and TMDB has a dark logo.
+- Deepen the fade under a white logo until it reaches 4.5:1 contrast.
 - Count The Roku Channel, Criterion Channel and Channel 4 as streaming services; only add-on channels sold through Amazon, Apple TV or Roku are skipped.
 - Make fewer TMDB requests: one per title and one per season, instead of up to five per title and one per episode.
 - Keep connections to Plex, Jellyfin and TMDB open between requests, and wait as long as a server asks with `Retry-After`.
