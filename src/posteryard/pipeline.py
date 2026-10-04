@@ -226,8 +226,8 @@ def _poster(
 ) -> Plan:
     images = ctx.images(title.kind, title.tmdb_id)
     base = f"{title.kind}:{title.tmdb_id}"
+    show_art = ctx.picker.textless_art(base, images, title.all_titles)
     logo = ctx.picker.logo(base, images, ctx.logo_languages, ctx.prefer_wordmark)
-    show_art = ctx.picker.textless_art(base, images, title.all_titles, logo)
     if show_art is None:
         raise NotFoundError(f"TMDB has no textless art for {name}")
     if season is None:

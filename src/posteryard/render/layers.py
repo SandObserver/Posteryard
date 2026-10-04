@@ -114,8 +114,8 @@ def luminance(rgb: np.ndarray) -> np.ndarray:
     return result
 
 
-def is_light(image: Image.Image) -> bool:
+def mean_luminance(image: Image.Image) -> float:
+    """Relative luminance averaged over the visible pixels."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32)
     alpha = rgba[..., 3] / 255
-    lum = luminance(rgba[..., :3])
-    return float((lum * alpha).sum() / max(alpha.sum(), 1.0)) > 0.4
+    return float((luminance(rgba[..., :3]) * alpha).sum() / max(alpha.sum(), 1.0))
