@@ -46,6 +46,7 @@
       body { margin: 0; background: var(--bg); color: var(--label); font-family: var(--font); -webkit-font-smoothing: antialiased; }
       a { color: var(--accent); text-decoration: none; }
       a:hover { color: var(--accent-strong); }
+      .hero p a, .ftext p a, .lede a, .doc a, .credit a { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
       a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
       .skip { position: absolute; left: -9999px; top: 0; z-index: 50; padding: 10px 16px; border-radius: 0 0 10px 0; background: var(--accent); color: var(--on-accent); font-weight: 600; }
       .skip:focus { left: 0; }
@@ -238,7 +239,7 @@
       <div class="wrap">
         <header class="hero">
           <h1>Clean, consistent posters for your whole media library.</h1>
-          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for clean art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in <b class="srv plex">Plex</b> or <b class="srv jellyfin">Jellyfin</b> as your library grows.</p>
+          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for textless art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in <b class="srv plex">Plex</b> or <b class="srv jellyfin">Jellyfin</b> as your library grows.</p>
           <div class="cta-row">
             <a class="btn btn-accent" href="#getting-started">Install with Docker</a>
             <a class="btn btn-quiet" href="#features">See the difference</a>
@@ -261,12 +262,12 @@
           <div class="feature">
             <div class="ftext">
               <h2>Every title in the same place</h2>
-              <p>Official posters mix fonts, taglines and clutter, and the title is often hard to read. Posteryard picks clean art from TMDB, Apple TV or fanart.tv and puts the title logo in one spot, at one size, over a soft fade. A shelf of posters finally looks like one library.</p>
+              <p>Official posters mix fonts, taglines and clutter, and the title is often hard to read. Posteryard picks textless art from TMDB, Apple TV or fanart.tv and puts the title logo in one spot, at one size, over a soft fade. A shelf of posters finally looks like one library.</p>
               <div class="chips"><code>TMDB_API_KEY</code><code>APPLE_ART=true</code><code>FANART_API_KEY</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" srcset="/img/compare/deadpool-wolverine-before-336.webp 336w, /img/compare/deadpool-wolverine-before.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" srcset="/img/compare/deadpool-wolverine-clean-336.webp 336w, /img/compare/deadpool-wolverine-clean.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
@@ -276,19 +277,19 @@
               <div class="chips"><code>STREAMING_REGIONS</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" srcset="/img/compare/wednesday-before-336.webp 336w, /img/compare/wednesday-before.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" srcset="/img/compare/wednesday-after-336.webp 336w, /img/compare/wednesday-after.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
             <div class="ftext">
               <h2>Quality at a glance</h2>
-              <p>Resolution, HDR and audio badges, such as 4K, Dolby Vision and Dolby Atmos, come from your server's analysis of each file. You set the lowest level that earns a badge for each one, such as 1080p or 5.1, or turn it off.</p>
+              <p>Resolution, HDR and audio badge overlays, such as 4K, Dolby Vision and Dolby Atmos, come from your server's analysis of each file. You set the lowest level that earns a badge for each one, such as 1080p or 5.1, or turn it off.</p>
               <div class="chips"><code>QUALITY_MIN_VIDEO=2160</code><code>QUALITY_MIN_HDR=hdr10</code><code>QUALITY_MIN_AUDIO=atmos</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/thunderbolts-before.webp" srcset="/img/compare/thunderbolts-before-336.webp 336w, /img/compare/thunderbolts-before.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Thunderbolts*, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/thunderbolts-after.webp" srcset="/img/compare/thunderbolts-after-336.webp 336w, /img/compare/thunderbolts-after.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Thunderbolts*, rendered by Posteryard with 4K, Dolby Vision and Dolby Atmos badges" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
@@ -298,8 +299,8 @@
               <div class="chips"><code>MAINTAINERR_URL</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
-              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" alt="Lilo &amp; Stitch, rendered by Posteryard with a Leaving in 3 days label" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" srcset="/img/compare/lilo-stitch-before-336.webp 336w, /img/compare/lilo-stitch-before.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" srcset="/img/compare/lilo-stitch-after-336.webp 336w, /img/compare/lilo-stitch-after.webp 432w" sizes="(max-width: 900px) 45vw, 164px" alt="Lilo &amp; Stitch, rendered by Posteryard with a Leaving in 3 days label" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
         </div>
@@ -338,7 +339,7 @@
           </div>
           <p class="credit">Artwork and metadata come from TMDB. Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Plex is a trademark of Plex, Inc. Posteryard is not affiliated with Plex or Apple.</p>
         </div>
-        <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Version {{version}}"><span>release</span><b>v{{version}}</b></a>
+        <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}"><span>release</span> <b>v{{version}}</b></a>
       </div>
     </footer>
     <script>
@@ -364,6 +365,8 @@
           const img = new Image(400, 600);
           img.alt = "";
           img.decoding = "async";
+          img.srcset = `/img/posters/${p.id}-240.webp 240w, /img/posters/${p.id}.webp 400w`;
+          img.sizes = "(max-width: 600px) 30vw, 145px";
           img.src = `/img/posters/${p.id}.webp`;
           art.append(img);
           const roll = Math.random();
