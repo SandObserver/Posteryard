@@ -6,9 +6,9 @@ another tool is left alone.
 
 import logging
 
-from posteryard import http, services
+from posteryard import http, pipeline, services
 from posteryard.pipeline import Context
-from posteryard.server import MediaServer, tmdb_id
+from posteryard.server import MediaServer
 
 log = logging.getLogger(__name__)
 MANAGED_LABEL = "posteryard-collection"
@@ -23,10 +23,10 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
     groups: dict[str, list[str]] = {}
     unknown: set[str] = set()
     for show in server.section_items(section_key, "show"):
-        tid = tmdb_id(show)
-        if tid is None:
-            continue
         try:
+            tid = pipeline.resolve_tmdb(ctx, show, "tv")
+            if tid is None:
+                continue
             service = ctx.title("tv", tid, str(show.get("title", ""))).service
         except (http.RequestError, ValueError) as exc:
             log.warning("no streaming service for %s, keeping its collections as they are: %s", show.get("title"), exc)

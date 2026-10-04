@@ -222,3 +222,14 @@ def test_restore_all_keeps_records_it_could_not_restore(tmp_path: Path) -> None:
     plex.fail = True
     assert worker.restore_all().failed == 1
     assert store.get("1", "poster") is not None
+
+
+def test_restore_all_covers_uploads_rewritten_by_a_dry_run_and_half_finished_restores(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path)
+    store.uploaded("1", "poster", "One", "fp", "upload-1")
+    store.previewed("1", "poster", "One", "fp2")
+    store.uploaded("1", "art", "One", "fp", "upload-2")
+    plex.selected_keys = {("1", "poster"): "upload-1"}
+    counts = worker.restore_all()
+    assert (counts.restored, counts.kept) == (2, 0)
+    assert sorted(plex.restored) == [("1", "art"), ("1", "poster")]

@@ -136,8 +136,9 @@ def test_restore_selects_the_agents_image_and_unlocks(serve: Any) -> None:
         }
     )
     plex.restore({"ratingKey": "7", "type": "episode", "librarySectionID": 4}, "thumb")
-    assert ("PUT", "/library/metadata/7/poster", {"url": "metadata://posters/agent"}) in server.calls
-    assert server.calls[-1][2]["thumb.locked"] == "0"
+    puts = [call for call in server.calls if call[0] == "PUT"]
+    assert puts[0][2]["thumb.locked"] == "0"
+    assert puts[1] == ("PUT", "/library/metadata/7/poster", {"url": "metadata://posters/agent"})
 
 
 def test_newest_added(serve: Any) -> None:

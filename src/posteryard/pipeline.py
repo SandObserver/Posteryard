@@ -3,7 +3,9 @@
 import hashlib
 import json
 import logging
+import threading
 import time
+from collections import OrderedDict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
@@ -14,7 +16,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from posteryard import http, maintainerr, ocr, overrides, quality, services, status
+from posteryard import maintainerr, ocr, overrides, quality, services, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages, is_fanart
@@ -32,6 +34,10 @@ TITLE_CACHE_SECONDS = 600
 DESIGN_VERSION = "0.3.0"
 # Perceptual hashes this close are the same picture at another size or crop.
 SAME_PICTURE_BITS = 10
+# Lookups held in memory, oldest dropped first. Each is a few kilobytes at most.
+LOOKUP_SIZE = 4096
+# The TMDB details fields planning reads. The full response holds images and providers for every country.
+DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
 
@@ -87,7 +93,8 @@ class Context:
     fetch: Callable[[str], Image.Image] = field(default_factory=lambda: lru_cache(maxsize=FETCH_CACHE)(fetch_art))
     fanart: Fanart | None = None
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
-    lookups: dict[tuple[str, ...], tuple[float, Any]] = field(default_factory=dict)
+    lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
     def picker(self) -> Picker:
@@ -101,11 +108,17 @@ class Context:
         return None
 
     def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
-        hit = self.lookups.get(key)
-        if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
-            return hit[1]
+        with self._lock:
+            hit = self.lookups.get(key)
+            if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
+                self.lookups.move_to_end(key)
+                return hit[1]
         value = load()
-        self.lookups[key] = (time.monotonic(), value)
+        with self._lock:
+            self.lookups[key] = (time.monotonic(), value)
+            self.lookups.move_to_end(key)
+            while len(self.lookups) > LOOKUP_SIZE:
+                self.lookups.popitem(last=False)
         return value
 
     def load(self, path: str) -> Image.Image:
@@ -129,17 +142,13 @@ class Context:
         return images
 
     def fanart_images(self, kind: Kind, tid: int) -> FanartImages:
-        """fanart.tv's images, or none while it is off or unreachable."""
+        """fanart.tv's images, or none while it is off. An outage raises, so the item fails and retries later."""
         fanart = self.fanart
         if fanart is None:
             return FanartImages()
 
         def load() -> FanartImages:
-            try:
-                return fanart.images(kind, tid, self.tmdb.tvdb_id(kind, tid) if kind == "tv" else None)
-            except (http.RequestError, ValueError) as exc:
-                log.warning("fanart.tv unavailable for %s:%s: %s", kind, tid, exc)
-                return FanartImages()
+            return fanart.images(kind, tid, self.tmdb.tvdb_id(kind, tid) if kind == "tv" else None)
 
         images: FanartImages = self.remember(("fanart", kind, str(tid)), load)
         return images
@@ -181,7 +190,11 @@ class Context:
         return images
 
     def details(self, kind: Kind, tid: int) -> Mapping[str, Any]:
-        details: Mapping[str, Any] = self.remember(("details", kind, str(tid)), lambda: self.tmdb.details(kind, tid))
+        def load() -> Mapping[str, Any]:
+            full = self.tmdb.details(kind, tid)
+            return {name: full[name] for name in DETAIL_FIELDS if name in full}
+
+        details: Mapping[str, Any] = self.remember(("details", kind, str(tid)), load)
         return details
 
     def find(self, kind: Kind, source: str, external_id: str) -> int | None:
@@ -207,7 +220,8 @@ class Context:
         return title
 
 
-def _require_tmdb(ctx: Context, item: Item, kind: Kind) -> int:
+def resolve_tmdb(ctx: Context, item: Item, kind: Kind) -> int | None:
+    """The item's TMDB id, else the one TMDB gives for its IMDb or TVDB id."""
     tid = tmdb_id(item)
     if tid is not None:
         return tid
@@ -215,6 +229,13 @@ def _require_tmdb(ctx: Context, item: Item, kind: Kind) -> int:
     for source in ("imdb", "tvdb"):
         if source in ids and (found := ctx.find(kind, source, ids[source])) is not None:
             return found
+    return None
+
+
+def _require_tmdb(ctx: Context, item: Item, kind: Kind) -> int:
+    tid = resolve_tmdb(ctx, item, kind)
+    if tid is not None:
+        return tid
     raise NotFoundError(
         f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id, and TMDB knows no IMDb or TVDB id of it"
     )
@@ -448,12 +469,17 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
     if ctx.server is None:
         raise NotFoundError("No media server is configured")
     key, name = str(item["ratingKey"]), str(item.get("title", ""))
-    members = [m for m in ctx.server.collection_children(key) if m.get("type") in ("movie", "show") and tmdb_id(m)]
+    members = [
+        (m, tid)
+        for m in ctx.server.collection_children(key)
+        if m.get("type") in ("movie", "show")
+        and (tid := resolve_tmdb(ctx, m, "movie" if m.get("type") == "movie" else "tv")) is not None
+    ]
     if not members:
         return []
-    featured = max(members, key=lambda m: int(m.get("addedAt") or 0))
-    kind: Kind = "movie" if featured["type"] == "movie" else "tv"
-    title = ctx.title(kind, tmdb_id(featured) or 0, str(featured.get("title", "")))
+    featured, featured_id = max(members, key=lambda pair: int(pair[0].get("addedAt") or 0))
+    kind: Kind = "movie" if featured.get("type") == "movie" else "tv"
+    title = ctx.title(kind, featured_id, str(featured.get("title", "")))
     art = ctx.art(title)
     if art is None:
         raise ctx.no_art(f"{title.name}, the newest title in {name}")
