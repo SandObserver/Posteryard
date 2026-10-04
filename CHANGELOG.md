@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- License Posteryard under the Apache License 2.0.
 - Add an Unraid Community Applications template that runs Posteryard as Unraid's `nobody` user.
 - Stop at startup with the folder and user named when the data folder is not writable.
 

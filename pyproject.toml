@@ -1,8 +1,10 @@
 [project]
 name = "posteryard"
 version = "0.6.0"
-description = "Clean, consistent posters, backgrounds and episode stills for Plex"
+description = "Clean, consistent posters, backgrounds and episode stills for Plex and Jellyfin"
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.13,<3.14"
 dependencies = [
     "apprise>=2.0,<3",
