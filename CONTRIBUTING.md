@@ -8,6 +8,40 @@ uv sync
 
 Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs, and none at all after 1.23, so Intel Macs stay on `onnxruntime` 1.23 while Linux and the image get the latest.
 
+## Run it locally
+
+Put your settings in `.env` (ignored by git), then:
+
+```sh
+set -a && . ./.env && set +a
+DATA_DIR=./data uv run posteryard preview "The Office"
+DATA_DIR=./data uv run posteryard serve
+```
+
+`preview` never writes to the server. Keep `DRY_RUN=true` for `serve` unless you test uploads on a server you own.
+
+To run the checks before each commit and the tests before each push:
+
+```sh
+uvx pre-commit install --hook-type pre-commit --hook-type pre-push
+```
+
+## How it fits together
+
+A title goes through these modules in order:
+
+| Module | Job |
+| --- | --- |
+| `service.py` | Webhook server, sweep, daily full pass and the work queue. |
+| `worker.py` | Handles one item: labels, overrides, plans, upload or preview, failures and alerts. |
+| `pipeline.py` | Plans the images for one item and fingerprints each plan before anything is drawn. |
+| `artwork.py`, `ocr.py` | Choose TMDB art and logos; reject art with printed text. |
+| `render/` | Draw the designs: `designs.py` composes, `lines.py` places the lines under the logo, `badges.py` and `layers.py` draw parts. |
+| `store.py` | SQLite state: what was uploaded, overrides, cached art choices. |
+| `plex.py`, `jellyfin.py` | The media servers, behind the `MediaServer` protocol in `server.py`. Jellyfin answers with Plex-shaped items. |
+| `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
+| `cli.py`, `config.py` | Commands and settings. |
+
 ## Before opening a PR
 
 CI runs the same checks:
