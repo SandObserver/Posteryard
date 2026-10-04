@@ -6,6 +6,7 @@ from datetime import date
 from pathlib import Path
 
 from posteryard import __version__, config, http, lookup, memory, overrides, pipeline
+from posteryard.fanart import Fanart
 from posteryard.jellyfin import Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
@@ -166,6 +167,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
         episodes=cfg.episodes,
         logo_languages=cfg.logo_languages,
         prefer_wordmark=cfg.prefer_wordmark,
+        fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
     )
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)

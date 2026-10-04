@@ -23,7 +23,7 @@ FALLBACK_SIZE = "w1280"
 # One request returns a title's details, images, alternative titles and providers. Kept for a while, bounded.
 CACHE_SECONDS = 600
 CACHE_SIZE = 64
-TITLE_PARTS = "images,alternative_titles,watch/providers"
+TITLE_PARTS = "images,alternative_titles,watch/providers,external_ids"
 
 
 @dataclass(frozen=True)
@@ -122,6 +122,10 @@ class Tmdb:
             ),
         )
         return details
+
+    def tvdb_id(self, kind: Kind, tmdb_id: int) -> int | None:
+        value = (self.details(kind, tmdb_id).get("external_ids") or {}).get("tvdb_id")
+        return int(value) if value else None
 
     def images(self, kind: Kind, tmdb_id: int) -> Images:
         raw = self.details(kind, tmdb_id).get("images") or {}

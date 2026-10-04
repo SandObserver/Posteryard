@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Try fanart.tv art, title logos and backdrops when TMDB has none usable, with `FANART_API_KEY`.
 - Find a title's TMDB id from its IMDb or TVDB id, including titles matched by Plex's legacy agents.
 - Refuse to start with a `state.db` from a newer release, so a downgrade cannot damage it.
 - Add `restore --all` to give every uploaded image back to the server's own before removing Posteryard.

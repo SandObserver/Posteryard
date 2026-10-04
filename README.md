@@ -87,6 +87,7 @@ Add any of these under `environment:`.
 | `LIBRARIES` | The libraries to manage, by their exact names in the sidebar, separated by commas. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
 | `ONLY_RATING_KEYS` | Only handle these titles, for a first test: [rating keys](#rating-keys) separated by commas. `find` shows them. A show includes its seasons and episodes. Empty means everything. | |
 | `JELLYFIN_URL`, `JELLYFIN_API_KEY` | Use Jellyfin instead of Plex. See [Jellyfin](#jellyfin). | |
+| `FANART_API_KEY` | A personal API key from [fanart.tv](https://fanart.tv), from your account profile. When TMDB has no clean art, title logo or backdrop for a title, fanart.tv's are tried, with the same check for printed text. | |
 | `MAINTAINERR_URL` | Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. Shows "Leaving in 3 days" on titles about to be removed. | |
 | `NOTIFY_URLS` | Where to send alerts, as [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas. Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
 | `NTFY_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` | A direct [ntfy](https://ntfy.sh) server, topic and access token. An alternative to an `ntfy://` address in `NOTIFY_URLS`. | |
@@ -107,7 +108,7 @@ Add any of these under `environment:`.
 | `LOG_LEVEL` | How much the log shows: `debug`, `info`, `warning` or `error`. | `info` |
 | `LISTEN_PORT` | Port inside the container. If you change it, change the right side of `ports:` to match. | `8000` |
 | `DATA_DIR` | Folder inside the container for the database, previews and custom art. Keep the default and mount a volume there. | `/data` |
-| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NTFY_TOKEN`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
+| `..._FILE` | Read a secret from a file instead, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NTFY_TOKEN`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
 
 Each badge row shows at most one video, one HDR and one audio badge: the best the file has, if it reaches the minimum.
 
@@ -268,7 +269,7 @@ Read the log first: `docker logs --tail 100 posteryard`.
 | --- | --- |
 | `Plex has no movie or TV library named ...` | Set `LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
 | `... has no TMDB id, and TMDB knows no IMDb or TVDB id of it` | The title is unmatched, or matched by an agent without TMDB, IMDb or TVDB ids, such as HAMA. In Plex, choose **Fix Match** or **Refresh Metadata**. |
-| `TMDB has no textless art or title logo for ...` | TMDB has no usable art yet. Use `art set` with your own image, or add the `posteryard-ignore` label. |
+| `TMDB has no textless art for ...` | TMDB has no usable art yet. Set `FANART_API_KEY` to try fanart.tv too, use `art set` with your own image, or add the `posteryard-ignore` label. |
 | `URLError for http://.../library/sections` | Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
 | A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |
@@ -298,4 +299,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and releases. Changes a
 
 ## Credits
 
-Artwork and metadata come from [TMDB](https://www.themoviedb.org). Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
+Artwork and metadata come from [TMDB](https://www.themoviedb.org), and with `FANART_API_KEY` also from [fanart.tv](https://fanart.tv). Posteryard uses the TMDB API but is not endorsed or certified by TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.

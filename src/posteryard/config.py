@@ -13,7 +13,8 @@ TRUE = frozenset({"1", "true", "yes", "on"})
 FALSE = frozenset({"0", "false", "no", "off"})
 CLOCK = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 SECRETS = (
-    "TMDB_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NTFY_TOKEN", "NOTIFY_URLS", "HEARTBEAT_URL",
+    "TMDB_API_KEY", "FANART_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NTFY_TOKEN",
+    "NOTIFY_URLS", "HEARTBEAT_URL",
 )  # fmt: skip
 
 
@@ -65,6 +66,7 @@ class Config:
     listen_port: int
     heartbeat_url: str
     log_level: LogLevel = LogLevel.INFO
+    fanart_api_key: str = ""
 
     @property
     def preview_dir(self) -> Path:
@@ -194,6 +196,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
         heartbeat_url=heartbeat_url,
         log_level=_choice(env, "LOG_LEVEL", "info", LogLevel),
+        fanart_api_key=env.get("FANART_API_KEY", "").strip(),
     )
 
 

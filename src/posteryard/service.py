@@ -250,6 +250,7 @@ class Service:
                 "prefer_wordmark": cfg.prefer_wordmark,
                 "collection_posters": cfg.collection_posters,
                 "service_collections": cfg.service_collections,
+                "fanart": bool(cfg.fanart_api_key),
             },
             sort_keys=True,
         )
