@@ -2,7 +2,7 @@
 
 <h1 align="center">Posteryard</h1>
 
-<p align="center"><b>Clean, consistent posters for Plex, picked, rendered and kept current automatically.</b></p>
+<p align="center"><b>Clean, consistent posters for Plex and Jellyfin, picked, rendered and kept current automatically.</b></p>
 
 <p align="center">
   <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
@@ -15,7 +15,7 @@ Posteryard runs next to Plex, or [Jellyfin](#jellyfin), and gives every movie, s
 
 ## Getting started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/).
+You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or 64-bit ARM host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). Using Jellyfin instead? Follow the same steps with the changes under [Jellyfin](#jellyfin).
 
 ### Create the compose file
 

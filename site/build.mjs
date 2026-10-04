@@ -99,7 +99,7 @@ const settingsCount = settings.split('\n').filter((line) => line.startsWith('| `
 if (!settingsCount) fail('README.md Settings section has no settings table');
 
 const description =
-  'Clean, consistent Plex posters: textless art, the title in one spot, quality badges and streaming service marks. ' +
+  'Automatic textless posters for Plex and Jellyfin: the title in one spot, quality badges and streaming marks. ' +
   'Free and self-hosted in Docker.';
 
 const schema = {
@@ -120,11 +120,12 @@ const schema = {
 const LIBRARY = 12;
 const posters = JSON.parse(readFileSync(join(here, 'posters.json'), 'utf8'));
 for (const poster of posters) {
-  if (!existsSync(join(here, 'public', 'img', 'posters', `${poster.id}.webp`))) fail(`posters.json lists ${poster.id}, which has no image`);
+  for (const size of ['', '-240']) {
+    if (!existsSync(join(here, 'public', 'img', 'posters', `${poster.id}${size}.webp`))) fail(`posters.json lists ${poster.id}, which has no ${poster.id}${size}.webp`);
+  }
 }
 
 const sortKey = (title) => title.toLowerCase().replace(/^the /, '');
-const letter = (title) => (/^[0-9]/.test(sortKey(title)) ? '#' : sortKey(title)[0].toUpperCase());
 
 function library() {
   const day = Number(new Date().toISOString().slice(0, 10).replaceAll('-', ''));
@@ -140,15 +141,11 @@ function library() {
     const sub = kind === 'movie' ? String(poster.year) : `${poster.seasons} ${poster.seasons === 1 ? 'Season' : 'Seasons'}`;
     return (
       `<figure class="show${i === 0 ? ' focus' : ''}"><div class="art"><noscript>` +
-      `<img src="/img/posters/${poster.id}.webp" alt="" width="400" height="600" /></noscript></div>` +
+      `<img src="/img/posters/${poster.id}.webp" srcset="/img/posters/${poster.id}-240.webp 240w, /img/posters/${poster.id}.webp 400w" sizes="(max-width: 600px) 30vw, 145px" alt="" width="400" height="600" /></noscript></div>` +
       `<figcaption>${escape(poster.title)}<span>${sub}</span></figcaption></figure>`
     );
   });
-  const letters = [...new Set(picks.map((poster) => letter(poster.title)))];
-  return {
-    grid: tiles.join(''),
-    index: letters.map((l, i) => (i === 0 ? `<b>${l}</b>` : `<span>${l}</span>`)).join(''),
-  };
+  return { grid: tiles.join('') };
 }
 
 const preview = library();
@@ -165,7 +162,6 @@ const values = {
   settings_count: String(settingsCount),
   settings: marked.parse(settings),
   tv_grid: preview.grid,
-  tv_index: preview.index,
   poster_pool: JSON.stringify(posters).replaceAll('<', '\\u003c'),
 };
 
@@ -175,8 +171,6 @@ function fill(file) {
     return values[key];
   });
 }
-
-const today = new Date().toISOString().slice(0, 10);
 
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(dist, { recursive: true });
@@ -189,6 +183,6 @@ writeFileSync(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${s
 writeFileSync(
   join(dist, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    `  <url><loc>${site}/</loc><lastmod>${today}</lastmod></url>\n</urlset>\n`,
+    `  <url><loc>${site}/</loc></url>\n</urlset>\n`,
 );
 console.log(`site: built Posteryard ${version} into dist/`);
