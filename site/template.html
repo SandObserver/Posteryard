@@ -66,6 +66,9 @@
       .hero { padding: 44px 0 44px; }
       .hero h1 { margin: 0; font-size: 64px; line-height: 1.05; letter-spacing: -0.025em; font-weight: 700; max-width: 17ch; text-wrap: balance; }
       .hero p { margin: 26px 0 0; font-size: 19px; line-height: 1.5; color: var(--dim); max-width: 56ch; text-wrap: pretty; }
+      .srv { font-weight: 700; }
+      .plex { color: #e5a00d; }
+      .jellyfin { background: linear-gradient(90deg, #aa5cc3, #00a4dc); -webkit-background-clip: text; background-clip: text; color: transparent; }
       .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
       .btn { height: 50px; padding: 0 26px; border-radius: 25px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 600; }
       .btn-accent { background: var(--accent); color: var(--on-accent); }
@@ -79,14 +82,7 @@
       .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 0; border-radius: 26px 26px 0 0; padding: 12px 12px 0; box-shadow: 0 -2px 60px rgba(0, 0, 0, 0.5); }
       .screen { container-type: inline-size; position: relative; aspect-ratio: 5 / 2; overflow: hidden; border-radius: 14px 14px 0 0;
         background: radial-gradient(90% 70% at 70% 0%, #26282a 0%, #141414 55%, #0b0b0b 100%); }
-      .rail { position: absolute; left: 1.5cqw; top: 40%; width: 3.75cqw; padding: 0.8cqw 0; border-radius: 2cqw; background: rgba(40, 40, 40, 0.85);
-        display: flex; flex-direction: column; align-items: center; gap: 1.3cqw; }
-      .avatar { width: 2.1cqw; height: 2.1cqw; border-radius: 50%; background: linear-gradient(135deg, #d9a066, #7a4a2a); }
-      .rail svg { width: 1.2cqw; height: 1.2cqw; color: #e5e5ea; }
-      .clock { position: absolute; right: 5.1cqw; top: 2.1cqw; padding: 0.55cqw 1.1cqw; border-radius: 2cqw; background: rgba(60, 60, 60, 0.7); font-size: 1.15cqw; color: #e5e5ea; }
-      .index { position: absolute; right: 2.3cqw; top: 9cqw; display: flex; flex-direction: column; align-items: center; gap: 0.25cqw; font-size: 1.05cqw; font-weight: 500; color: rgba(235, 235, 245, 0.6); }
-      .index b { display: grid; place-items: center; width: 1.75cqw; height: 1.75cqw; border-radius: 50%; border: 0.12cqw solid #fff; color: #fff; }
-      .grid { position: absolute; left: 6.65cqw; top: 7cqw; display: grid; grid-template-columns: repeat(6, 12.5cqw); column-gap: 2.2cqw; row-gap: 2.6cqw; }
+      .grid { position: absolute; left: 7cqw; top: 5cqw; display: grid; grid-template-columns: repeat(6, 12.5cqw); column-gap: 2.2cqw; row-gap: 2.6cqw; }
       .show { margin: 0; min-width: 0; text-align: center; }
       .show figcaption { margin-top: 1.4cqw; font-size: 1.3cqw; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .show figcaption span { display: block; margin-top: 0.2cqw; font-size: 1cqw; color: rgba(235, 235, 245, 0.6); }
@@ -99,15 +95,13 @@
       .focus .art { transform: scale(1.04); }
 
       @container (max-width: 640px) {
-        .rail, .index { display: none; }
-        .grid { position: static; padding: 14cqw 4cqw 6cqw; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 4cqw; row-gap: 5cqw; }
+        .grid { position: static; padding: 6cqw 4cqw 6cqw; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 4cqw; row-gap: 5cqw; }
         .art { border-radius: 2cqw; }
         .count { min-width: 7cqw; height: 6.5cqw; padding: 0 1.6cqw; border-radius: 0 2cqw 0 2cqw; font-size: 3.4cqw; }
         .count svg { width: 3cqw; height: 3cqw; }
         .focus .art::after { inset: -1.6cqw; border-width: 0.7cqw; border-radius: 3.2cqw; }
         .show figcaption { margin-top: 3.4cqw; font-size: 3.6cqw; }
         .show figcaption span { font-size: 3cqw; }
-        .clock { top: 4cqw; right: 4cqw; padding: 1.4cqw 3cqw; border-radius: 5cqw; font-size: 3.4cqw; }
       }
 
       .features { background: var(--bg-2); }
@@ -244,7 +238,7 @@
       <div class="wrap">
         <header class="hero">
           <h1>Clean, consistent posters for your whole media library.</h1>
-          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for clean art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in Plex or Jellyfin as your library grows.</p>
+          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for clean art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in <b class="srv plex">Plex</b> or <b class="srv jellyfin">Jellyfin</b> as your library grows.</p>
           <div class="cta-row">
             <a class="btn btn-accent" href="#getting-started">Install with Docker</a>
             <a class="btn btn-quiet" href="#features">See the difference</a>
@@ -256,14 +250,6 @@
         <div class="tv">
           <div class="bezel">
             <div class="screen" role="img" aria-label="A Plex library on Apple TV with Posteryard posters">
-              <div class="rail" aria-hidden="true">
-                <span class="avatar"></span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z" /></svg>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
-              </div>
-              <div class="clock" aria-hidden="true">8:30 PM</div>
-              <div class="index" aria-hidden="true">{{tv_index}}</div>
               <div class="grid" aria-hidden="true">{{tv_grid}}</div>
             </div>
           </div>
@@ -285,18 +271,18 @@
           <div class="feature">
             <div class="ftext">
               <h2>See where a show streams</h2>
-              <p>Show posters carry the streaming service mark, looked up on TMDB for your country, the US unless you set another. It sits top left, clear of the unwatched count Plex draws top right.</p>
-              <div class="chips"><code>STREAMING_REGIONS=US</code></div>
+              <p>Show posters carry the mark of the service a show streams on, looked up on TMDB for the countries you list.</p>
+              <div class="chips"><code>STREAMING_REGIONS</code></div>
             </div>
             <figure class="pair fvis">
-              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" alt="Wednesday, official poster" width="432" height="648" loading="lazy" /></div>
+              <div><span class="tag">Before</span><img src="/img/compare/wednesday-before.webp" alt="Wednesday, official Season 2 poster" width="432" height="648" loading="lazy" /></div>
               <div><span class="tag tag-py">Posteryard</span><img src="/img/compare/wednesday-after.webp" alt="Wednesday, rendered by Posteryard with the Netflix mark top left" width="432" height="648" loading="lazy" /></div>
             </figure>
           </div>
           <div class="feature">
             <div class="ftext">
               <h2>Quality at a glance</h2>
-              <p>4K, HDR, Dolby Vision and Dolby Atmos marks come from Plex's own analysis of the file. Choose the lowest level that earns a badge, or turn each one off.</p>
+              <p>Resolution, HDR and audio badges, such as 4K, Dolby Vision and Dolby Atmos, come from your server's analysis of each file. You set the lowest level that earns a badge for each one, such as 1080p or 5.1, or turn it off.</p>
               <div class="chips"><code>QUALITY_MIN_VIDEO=2160</code><code>QUALITY_MIN_HDR=hdr10</code><code>QUALITY_MIN_AUDIO=atmos</code></div>
             </div>
             <figure class="pair fvis">
@@ -359,7 +345,6 @@
         const pool = {{poster_pool}};
         const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
         const sortKey = (title) => title.toLowerCase().replace(/^the /, "");
-        const letter = (title) => (/^[0-9]/.test(sortKey(title)) ? "#" : sortKey(title)[0].toUpperCase());
         const kind = Math.random() < 0.5 ? "movie" : "tv";
         const picks = pool
           .filter((p) => p.kind === kind)
@@ -395,13 +380,6 @@
           caption.append(sub);
           figure.append(art, caption);
           grid.append(figure);
-        });
-        const index = document.querySelector(".screen .index");
-        index.textContent = "";
-        [...new Set(picks.map((p) => letter(p.title)))].forEach((l, i) => {
-          const el = document.createElement(i === 0 ? "b" : "span");
-          el.textContent = l;
-          index.append(el);
         });
       }
       function openFromHash() {

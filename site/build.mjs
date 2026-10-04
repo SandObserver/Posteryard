@@ -124,7 +124,6 @@ for (const poster of posters) {
 }
 
 const sortKey = (title) => title.toLowerCase().replace(/^the /, '');
-const letter = (title) => (/^[0-9]/.test(sortKey(title)) ? '#' : sortKey(title)[0].toUpperCase());
 
 function library() {
   const day = Number(new Date().toISOString().slice(0, 10).replaceAll('-', ''));
@@ -144,11 +143,7 @@ function library() {
       `<figcaption>${escape(poster.title)}<span>${sub}</span></figcaption></figure>`
     );
   });
-  const letters = [...new Set(picks.map((poster) => letter(poster.title)))];
-  return {
-    grid: tiles.join(''),
-    index: letters.map((l, i) => (i === 0 ? `<b>${l}</b>` : `<span>${l}</span>`)).join(''),
-  };
+  return { grid: tiles.join('') };
 }
 
 const preview = library();
@@ -165,7 +160,6 @@ const values = {
   settings_count: String(settingsCount),
   settings: marked.parse(settings),
   tv_grid: preview.grid,
-  tv_index: preview.index,
   poster_pool: JSON.stringify(posters).replaceAll('<', '\\u003c'),
 };
 
