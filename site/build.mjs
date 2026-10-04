@@ -99,7 +99,7 @@ const settingsCount = settings.split('\n').filter((line) => line.startsWith('| `
 if (!settingsCount) fail('README.md Settings section has no settings table');
 
 const description =
-  'Clean, consistent Plex posters: textless art, the title in one spot, quality badges and streaming service marks. ' +
+  'Clean, consistent posters for Plex and Jellyfin: textless art, the title in one spot, quality badges and streaming service marks. ' +
   'Free and self-hosted in Docker.';
 
 const schema = {
