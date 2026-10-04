@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - License Posteryard under the Apache License 2.0.
 - Add an Unraid Community Applications template that runs Posteryard as Unraid's `nobody` user.
-- Stop at startup with the folder and user named when the data folder is not writable.
+- Stop at startup with the path and user named when the data folder or its database is not writable.
 
 ### Removed
 
@@ -18,8 +18,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Use custom art from `art set` or `posteryard-custom` for titles that have no clean art on TMDB, Apple TV or fanart.tv.
-- Keep the last Apple TV art found, or use other art, when Apple TV or Wikidata cannot be reached, instead of failing the title.
+- Use custom art from `art set` or `posteryard-custom` for titles that have no clean art on TMDB, Apple TV or fanart.tv, also while fanart.tv is down.
+- Keep the last Apple TV art found, or use other art, when Apple TV or Wikidata cannot be reached or an Apple TV image cannot be loaded, instead of failing the title.
+- Skip only a title's background when its backdrop cannot be looked up, instead of failing the whole title.
 - Skip cable and live TV services such as Spectrum On Demand, Philo and Sling TV when choosing a show's streaming mark.
 
 ## [0.6.0] - 2026-10-04

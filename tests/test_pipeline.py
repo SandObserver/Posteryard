@@ -490,3 +490,42 @@ def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPa
     assert poster.inputs["logo"] == "/dark.png"
     assert poster.inputs["ink"] == "dark"
     assert "fade" not in poster.inputs
+
+
+class DownFanart:
+    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+        raise posteryard_http.HttpError(503, "https://webservice.fanart.tv/v3/movies/42")
+
+
+def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
+    custom = tmp_path / "1-abc.jpg"
+    Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
+    ctx = context([])
+    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign,assignment]
+    ctx.fanart = DownFanart()  # type: ignore[assignment]
+    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
+    plans = pipeline.movie(ctx, ITEM)
+    assert [plan.target for plan in plans] == ["poster"]
+    assert plans[0].inputs["art"] == f"file:{custom}"
+
+
+def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.apple_region = "CA"
+    plan = pipeline.movie(ctx, ITEM)[0]
+    assert plan.inputs["art"] == APPLE_URL
+
+    def fetch_or_fail(path: str) -> Image.Image:
+        if path == APPLE_URL:
+            raise posteryard_http.HttpError(503, path)
+        return fetch(path)
+
+    ctx.fetch = fetch_or_fail
+    with pytest.raises(posteryard_http.HttpError):
+        plan.draw()
+    assert ctx.retry_without_apple()
+    assert not ctx.retry_without_apple()
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    ctx.apple_down_until = 0.0
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL

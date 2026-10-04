@@ -109,7 +109,7 @@ Add any of these under `environment:`.
 | --- | --- | --- |
 | `STATUS_LABELS` | **Labels for new titles, episodes and seasons.** A coloured label above the title: `JUST ADDED` for 14 days after a title arrives, `NEW EPISODE` or `NEW SEASON` for 7 days after one arrives, and `NEW SEASON OCT 21` from 30 days before a premiere. `false` turns these off; the Maintainerr label stays. | `true` |
 | `MAINTAINERR_URL` | **Count down to Maintainerr deletions.** Your [Maintainerr](https://github.com/Maintainerr/Maintainerr) address. A title in a Maintainerr collection that deletes after a number of days gets a red label counting down to that day: `LEAVING IN 5 DAYS`, then `LEAVING TOMORROW`, then `LEAVING TODAY`. | |
-| `STREAMING_REGIONS` | **Countries to find a show's streaming service in.** Two-letter country codes, in order. Posteryard uses the first country where TMDB lists a streaming service for the show. Outside the US, put your country first and keep `US` as a fallback, such as `GB,US`. | `US` |
+| `STREAMING_REGIONS` | **Countries to find a show's streaming service in.** Two-letter country codes, in order. Posteryard goes through the countries in this order and uses the first streaming service it has a mark for. Outside the US, put your country first and keep `US` as a fallback, such as `GB,US`. | `US` |
 
 ### Seasons and collections
 

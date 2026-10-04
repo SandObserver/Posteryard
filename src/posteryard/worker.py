@@ -128,10 +128,12 @@ class Worker:
             redo_poster = self._follow_labels(item)
             if item.get("type") == "episode" and self.cfg.episodes == EpisodeMode.OFF:
                 self._restore(item, "thumb")
-            outcomes = [
-                self._apply(plan, item, force or (redo_poster and plan.target == "poster"))
-                for plan in pipeline.plan_item(self.ctx, item)
-            ]
+            try:
+                outcomes = self._apply_all(item, force, redo_poster)
+            except http.RequestError:
+                if not self.ctx.retry_without_apple():
+                    raise
+                outcomes = self._apply_all(item, force, redo_poster)
         except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED
@@ -140,6 +142,12 @@ class Worker:
             if outcome in outcomes:
                 return outcome
         return Outcome.SKIPPED
+
+    def _apply_all(self, item: Item, force: bool, redo_poster: bool) -> list[Outcome]:
+        return [
+            self._apply(plan, item, force or (redo_poster and plan.target == "poster"))
+            for plan in pipeline.plan_item(self.ctx, item)
+        ]
 
     def set_custom(self, rating_key: str, image: Image.Image) -> Outcome:
         path = overrides.save(image, self.cfg.data_dir, rating_key)

@@ -150,7 +150,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
     if not tmdb_api_key:
         raise ConfigError("TMDB_API_KEY is required")
     if removed := [name for name in REMOVED_NTFY if env.get(name, "").strip()]:
-        raise ConfigError(f"{', '.join(removed)} no longer exist. Set NOTIFY_URLS=ntfy://TOKEN@HOST/TOPIC instead")
+        raise ConfigError(f"{', '.join(removed)} no longer exist. Set NOTIFY_URLS=ntfys://TOKEN@HOST/TOPIC instead")
     notify_urls = tuple(notify.split_urls(env.get("NOTIFY_URLS", "")))
     bad = notify.invalid_urls(notify_urls)
     if bad:

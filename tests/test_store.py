@@ -91,3 +91,16 @@ def test_a_folder_it_cannot_write_is_refused(tmp_path: Path) -> None:
             Store(tmp_path / "state.db")
     finally:
         tmp_path.chmod(0o700)
+
+
+def test_a_database_file_it_cannot_write_is_refused(tmp_path: Path) -> None:
+    Store(tmp_path / "state.db").close()
+    (tmp_path / "state.db").chmod(0o444)
+    with pytest.raises(StoreError, match=r"state\.db is not writable by user"):
+        Store(tmp_path / "state.db")
+
+
+def test_a_database_that_cannot_be_opened_is_refused(tmp_path: Path) -> None:
+    (tmp_path / "state.db").mkdir()
+    with pytest.raises(StoreError, match=r"state\.db could not be opened"):
+        Store(tmp_path / "state.db")
