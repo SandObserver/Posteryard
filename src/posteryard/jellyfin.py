@@ -136,7 +136,11 @@ class Jellyfin:
             "title": str(raw.get("Name", "")),
             "addedAt": _timestamp(raw.get("DateCreated")),
             "Label": [{"tag": tag} for tag in raw.get("Tags") or []],
-            "Guid": [{"id": f"tmdb://{tmdb}"}] if (tmdb := (raw.get("ProviderIds") or {}).get("Tmdb")) else [],
+            "Guid": [
+                {"id": f"{source}://{value}"}
+                for source, name in (("tmdb", "Tmdb"), ("imdb", "Imdb"), ("tvdb", "Tvdb"))
+                if (value := (raw.get("ProviderIds") or {}).get(name))
+            ],
         }
         for field, source in (("index", "IndexNumber"), ("parentIndex", "ParentIndexNumber")):
             if raw.get(source) is not None:

@@ -20,7 +20,7 @@ from posteryard.overrides import Override
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import designs, lines
 from posteryard.render.layers import cover, trim
-from posteryard.server import Item, MediaServer, Target, tmdb_id
+from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.tmdb import Images, Kind, Tmdb
 
 TITLE_CACHE_SECONDS = 600
@@ -129,6 +129,18 @@ class Context:
         details: Mapping[str, Any] = self.remember(("details", kind, str(tid)), lambda: self.tmdb.details(kind, tid))
         return details
 
+    def find(self, kind: Kind, source: str, external_id: str) -> int | None:
+        """The TMDB id for an IMDb or TVDB id. Found ids are kept with the art choices; misses for a while only."""
+        key = f"find:{source}:{external_id}"
+        hit = self.choices.get_choice(key)
+        if hit is None:
+            found = self.remember(("find", source, external_id), lambda: self.tmdb.find(source, external_id))
+            if found:
+                self.choices.put_choice(key, found)
+            hit = found
+        value = hit.get(kind)
+        return int(value) if value else None
+
     def title(self, kind: Kind, tid: int, name: str) -> Title:
         hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
@@ -140,11 +152,17 @@ class Context:
         return title
 
 
-def _require_tmdb(item: Item) -> int:
+def _require_tmdb(ctx: Context, item: Item, kind: Kind) -> int:
     tid = tmdb_id(item)
-    if tid is None:
-        raise NotFoundError(f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id")
-    return tid
+    if tid is not None:
+        return tid
+    ids = external_ids(item)
+    for source in ("imdb", "tvdb"):
+        if source in ids and (found := ctx.find(kind, source, ids[source])) is not None:
+            return found
+    raise NotFoundError(
+        f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id, and TMDB knows no IMDb or TVDB id of it"
+    )
 
 
 def _season_label(number: int) -> str:
@@ -288,7 +306,7 @@ def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
 
 def movie(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
-    title = ctx.title("movie", _require_tmdb(item), str(item.get("title", "")))
+    title = ctx.title("movie", _require_tmdb(ctx, item, "movie"), str(item.get("title", "")))
     badges = quality.badges(quality.best(item.get("Media") or []), ctx.minimums)
     access = quality.accessibility(item.get("Media") or [], ctx.accessibility)
     label = _label(ctx, status.Dates(added=status.from_timestamp(item.get("addedAt"))), ctx.leaving(key))
@@ -298,7 +316,7 @@ def movie(ctx: Context, item: Item) -> list[Plan]:
 
 def show(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
-    title = ctx.title("tv", _require_tmdb(item), str(item.get("title", "")))
+    title = ctx.title("tv", _require_tmdb(ctx, item, "tv"), str(item.get("title", "")))
     dates = status.Dates(
         added=status.from_timestamp(item.get("addedAt")),
         newest_season=_newest(ctx, item, "season", "show.id", key),
@@ -413,7 +431,7 @@ def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
     show_item = ctx.server.item(show_key)
     if show_item is None:
         raise NotFoundError(f"{ctx.server.name} has no show {show_key}")
-    return ctx.title("tv", _require_tmdb(show_item), str(show_item.get("title", ""))), show_item
+    return ctx.title("tv", _require_tmdb(ctx, show_item, "tv"), str(show_item.get("title", ""))), show_item
 
 
 def plan_item(ctx: Context, item: Item) -> list[Plan]:

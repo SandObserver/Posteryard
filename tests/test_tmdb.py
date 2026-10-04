@@ -85,3 +85,11 @@ def test_an_oversized_fallback_is_still_refused(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setattr(http, "request", answer(routes))
     with pytest.raises(ValueError, match="too large"):
         Tmdb.image("/logo.png")
+
+
+def test_find_maps_an_imdb_id_to_tmdb_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    routes = {"/find/tt0133093": {"movie_results": [{"id": 603}], "tv_results": []}}
+    monkeypatch.setattr(http, "request", answer(routes))
+    assert Tmdb("example-key").find("imdb", "tt0133093") == {"movie": 603}
+    monkeypatch.setattr(http, "request", answer({"/find/0": {}}))
+    assert Tmdb("example-key").find("tvdb", "0") == {}
