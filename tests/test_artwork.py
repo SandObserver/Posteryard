@@ -76,3 +76,11 @@ def test_a_colourful_wordmark_beats_a_white_emblem_and_dark_logos_are_skipped() 
     red = ImageRef("/red-wide.png", "en", 1000, 300, 1, 1)
     assert picker.logo("movie:1", Images([], [], [black, emblem, red])) == "/red-wide.png"
     assert picker.logo("movie:2", Images([], [], [black, emblem])) == "/white-emblem.png"
+
+
+def test_a_white_wordmark_beats_a_coloured_one() -> None:
+    colours = {"/red-wide.png": (220, 40, 30, 255), "/white-wide.png": (250, 250, 250, 255)}
+    picker = Picker(MemoryChoices(), lambda path: Image.new("RGBA", (10, 10), colours[path]), lambda image: [])
+    red = ImageRef("/red-wide.png", "en", 1000, 300, 9, 9)
+    white = ImageRef("/white-wide.png", "en", 1000, 300, 1, 1)
+    assert picker.logo("movie:1", Images([], [], [red, white])) == "/white-wide.png"

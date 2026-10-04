@@ -13,7 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add SDH, CC and AD badges on their own line with `QUALITY_ACCESSIBILITY`.
 - Choose episode thumbnails with `EPISODE_THUMBNAILS`: `plain`, `titled` or `off`.
 - Choose title logo languages with `LOGO_LANGUAGES`.
-- Prefer wide title logos over emblems, including colourful ones such as red or yellow; turn it off with `PREFER_WORDMARK=false`.
+- Prefer wide title logos over emblems, white ones first, then coloured ones such as red or yellow; turn it off with `PREFER_WORDMARK=false`.
 - Set the title in white when TMDB has no title logo, instead of skipping the poster.
 - Add a status page at `/` with health, schedule, failures and the latest images.
 - Publish the image for 64-bit ARM hosts, such as a Raspberry Pi 4 or 5, as well as x86.

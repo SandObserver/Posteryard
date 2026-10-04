@@ -20,6 +20,8 @@ MIN_BACKDROP_WIDTH = 1920
 WORDMARK_ASPECT = 1.8
 # Logos darker than this vanish on the black fade under them. Saturated reds and yellows stay above it.
 VISIBLE_LUMINANCE = 0.12
+# White and pale logos, preferred over coloured ones of the same shape.
+LIGHT_LUMINANCE = 0.4
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -107,13 +109,16 @@ class Picker:
     ) -> str | None:
         refs = images.logos_in(languages)[:MAX_CANDIDATES]
         candidates = [r.path for r in refs]
-        cache_key = f"logo2:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        cache_key = f"logo3:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
         hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
-        visible = [r for r in refs if mean_luminance(trim(self.fetch(r.path))) >= VISIBLE_LUMINANCE]
+        brightness = {r.path: mean_luminance(trim(self.fetch(r.path))) for r in refs}
+        visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
+        light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
         wide = [r for r in visible if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
-        pool = wide or visible or refs
+        wide_light = [r for r in wide if r in light]
+        pool = wide_light or wide or light or visible or refs
         path = pool[0].path if pool else None
         self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
         return path
