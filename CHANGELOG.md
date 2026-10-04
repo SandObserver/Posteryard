@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Read secrets from files with `TMDB_API_KEY_FILE`, `PLEX_TOKEN_FILE` and the other `_FILE` settings.
 - Accept TMDB's API Read Access Token as `TMDB_API_KEY`.
 - Set the log detail with `LOG_LEVEL`.
+- Attach an SBOM and build provenance to the published image.
 
 ### Changed
 
