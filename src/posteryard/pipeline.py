@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from posteryard import apple, http, maintainerr, ocr, overrides, quality, services, status
+from posteryard import apple, http, maintainerr, ocr, overrides, quality, services, similar, status
 from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
@@ -32,12 +32,14 @@ APPLE_ART_DAYS = 30
 APPLE_RETRY_SECONDS = 3600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.3.0"
+DESIGN_VERSION = "0.4.0"
 SAME_PICTURE_BITS = 10
 LOOKUP_SIZE = 4096
 DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
+# Thumbnails held in memory to compare pictures. They are not stored, to keep the database small.
+THUMB_CACHE = 2000
 
 
 class NotFoundError(Exception):
@@ -98,6 +100,7 @@ class Context:
     apple_down_until: float = 0.0
     apple_dropped: bool = False
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
+    thumbs: OrderedDict[str, similar.Thumb] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
@@ -140,16 +143,40 @@ class Context:
         dropped, self.apple_dropped = self.apple_dropped, False
         return dropped
 
-    def image_hash(self, path: str) -> int:
+    def _picture(self, path: str) -> Mapping[str, Any]:
         hit = self.choices.get_choice(f"poster-hash:{path}")
-        if hit is not None:
-            return int(hit["hash"])
-        shown = cover(self.fetch(path), 90, 135)
+        if hit is not None and "histogram" in hit:
+            return hit
+        image = self.fetch(path)
+        shown = cover(image, 90, 135)
         grey = np.asarray(shown.convert("L").resize((9, 8), Image.Resampling.LANCZOS), dtype=np.int16)
         bits = (grey[:, 1:] > grey[:, :-1]).flatten()
         value = int("".join("1" if b else "0" for b in bits), 2)
-        self.choices.put_choice(f"poster-hash:{path}", {"hash": value})
+        hit = {"hash": value, "histogram": similar.histogram(image)}
+        self.choices.put_choice(f"poster-hash:{path}", hit)
+        return hit
+
+    def thumb(self, path: str) -> similar.Thumb:
+        with self._lock:
+            hit = self.thumbs.get(path)
+            if hit is not None:
+                self.thumbs.move_to_end(path)
+                return hit
+        value = similar.thumb(self.fetch(path))
+        with self._lock:
+            self.thumbs[path] = value
+            while len(self.thumbs) > THUMB_CACHE:
+                self.thumbs.popitem(last=False)
         return value
+
+    def same_picture(self, a: str, b: str, *, redrawn: bool = True) -> bool:
+        first, second = self._picture(a), self._picture(b)
+        if bin(int(first["hash"]) ^ int(second["hash"])).count("1") <= SAME_PICTURE_BITS:
+            return True
+        shared = similar.overlap(first["histogram"], second["histogram"])
+        if shared < similar.HISTOGRAM_SAME:
+            return False
+        return similar.same_picture(self.thumb(a), self.thumb(b), shared, redrawn=redrawn)
 
     def images(self, kind: Kind, tid: int) -> Images:
         images: Images = self.remember(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))
@@ -225,13 +252,29 @@ class Context:
             self.choices.put_choice(key, hit)
         return float(hit["strength"])
 
-    def tone(self, path: str) -> designs.Tone:
-        hit = self.choices.get_choice(f"poster-tone:{path}")
+    def corner_dark(self, path: str, area: str) -> bool:
+        key = f"poster-corner:{path}:{area}"
+        hit = self.choices.get_choice(key)
         if hit is None:
-            found = designs.tone(self.load(path))
-            hit = {"bottom": found.dark_bottom, "corner": found.dark_corner}
-            self.choices.put_choice(f"poster-tone:{path}", hit)
-        return designs.Tone(bool(hit["bottom"]), bool(hit["corner"]))
+            hit = {"dark": designs.corner_dark(self.load(path), area)}
+            self.choices.put_choice(key, hit)
+        return bool(hit["dark"])
+
+    def dark_reads(self, art: str, logo: str | None, name: str, below: list[lines.Line]) -> bool:
+        key = f"poster-dark:{art}:{logo or name}:{','.join(type(line).__name__ for line in below)}"
+        hit = self.choices.get_choice(key)
+        if hit is None:
+            image = trim(self.fetch(logo)) if logo else designs.text_logo(name)
+            hit = {"reads": designs.dark_logo_reads(self.load(art), image, below)}
+            self.choices.put_choice(key, hit)
+        return bool(hit["reads"])
+
+    def one_colour(self, logo: str) -> bool:
+        hit = self.choices.get_choice(f"logo-colour:{logo}")
+        if hit is None:
+            hit = {"one": designs.one_colour(trim(self.fetch(logo)))}
+            self.choices.put_choice(f"logo-colour:{logo}", hit)
+        return bool(hit["one"])
 
     def backdrop(self, title: "Title") -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"
@@ -329,30 +372,41 @@ def _season_assignment_paths(
 
 
 def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
-    """TMDB stores one picture under several file names, so "used" compares pictures, not names."""
+    """TMDB stores one picture under several file names and crops, so "used" compares pictures, not names."""
     base = f"{title.kind}:{title.tmdb_id}"
-    used = [ctx.image_hash(show_art)]
+    used = [show_art]
     assignment: dict[int, tuple[str, str]] = {}
+    own: dict[int, str] = {}
     for number in numbers:
         refs = ctx.season_images(title.tmdb_id, number).textless_posters() or [
             r for r in ctx.fanart_images(title.kind, title.tmdb_id).seasons.get(number, []) if r.language is None
         ]
         picked = ctx.picker.textless(f"{base}:s{number}", refs, title.all_titles)
-        if picked and not _seen(ctx.image_hash(picked.path), used):
-            used.append(ctx.image_hash(picked.path))
+        if picked is None:
+            continue
+        own[number] = picked.path
+        if not _seen(ctx, picked.path, used):
+            used.append(picked.path)
             assignment[number] = (picked.path, f"season art {picked.path}")
     pool = ctx.picker.textless_all(
         f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
+    reserved = [path for number, path in own.items() if number not in assignment]
     for number in numbers:
         if number in assignment:
             continue
-        for path in pool:
-            fingerprint = ctx.image_hash(path)
-            if not _seen(fingerprint, used):
-                used.append(fingerprint)
-                assignment[number] = (path, f"series art {path}")
-                break
+        others = [path for other, path in own.items() if other != number and path not in used]
+        choice = next((p for p in pool if not _seen(ctx, p, [*used, *others])), None)
+        if choice is None and number in own and not _seen(ctx, own[number], used, redrawn=False):
+            choice = own[number]
+        if choice is None:
+            choice = next((p for p in pool if not _seen(ctx, p, [*used, *reserved], redrawn=False)), None)
+        if choice is not None:
+            used.append(choice)
+            assignment[number] = (
+                choice,
+                f"season art {choice}" if choice == own.get(number) else f"series art {choice}",
+            )
     return assignment
 
 
@@ -361,12 +415,30 @@ def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozens
     pool = ctx.picker.textless_all(
         f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
-    used = [ctx.image_hash(path) for path in (*avoid, *skip)]
-    return next((path for path in pool if not _seen(ctx.image_hash(path), used)), None)
+    used = [*avoid, *skip]
+    return next((path for path in pool if not _seen(ctx, path, used)), None)
 
 
-def _seen(fingerprint: int, used: list[int]) -> bool:
-    return any(bin(fingerprint ^ other).count("1") <= SAME_PICTURE_BITS for other in used)
+def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True) -> bool:
+    return any(path == other or ctx.same_picture(path, other, redrawn=redrawn) for other in used)
+
+
+def _bottom_ink(
+    ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line]
+) -> tuple[str | None, bool, bool]:
+    """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn dark.
+
+    A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design.
+    """
+    if logo is None:
+        return None, ctx.dark_reads(art, None, title.name, below), False
+    if ctx.one_colour(logo):
+        dark = ctx.dark_reads(art, logo, title.name, below)
+        return logo, dark, dark
+    dark_logo = ctx.logo(title, dark=True)
+    if dark_logo is not None and ctx.dark_reads(art, dark_logo, title.name, below):
+        return dark_logo, True, False
+    return logo, False, False
 
 
 def _drawn_with(text_logo: str | None, dark_bottom: bool, dark_corner: bool, fade: float) -> dict[str, Any]:
@@ -428,22 +500,28 @@ def _poster(
         below.append(lines.Badges(tuple(access)))
     number = season or None
     service = title.service if season is None else None
-    tone = ctx.tone(art_path)
-    dark_logo = ctx.logo(title, dark=True) if tone.dark_bottom and logo is not None else None
-    dark_bottom = tone.dark_bottom and (logo is None or dark_logo is not None)
-    dark_corner = tone.dark_corner and (number is not None or bool(service))
-    logo_path = dark_logo or logo
+    logo_path, dark_bottom, recoloured = _bottom_ink(ctx, title, art_path, logo, below)
+    corner = "mark" if service else "number" if number is not None else None
+    dark_corner = corner is not None and ctx.corner_dark(art_path, corner)
     ink = NEAR_BLACK if dark_bottom else WHITE
     corner_ink = NEAR_BLACK if dark_corner else WHITE
     fade = 1.0 if dark_bottom else ctx.fade(art_path, logo_path, title.name, below)
 
     def draw() -> Image.Image:
-        mark = trim(ctx.fetch(logo_path)) if logo_path else designs.text_logo(title.name, ink)
+        if logo_path is None:
+            mark = designs.text_logo(title.name, ink)
+        else:
+            mark = trim(ctx.fetch(logo_path))
+            mark = designs.recolour(mark, ink) if recoloured else mark
         return designs.tile_poster(
             ctx.load(art_path), mark, lines_below=below, label=label, number=number, service=service,
             ink=ink, corner_ink=corner_ink, fade=fade,
         )  # fmt: skip
 
+    if recoloured:
+        extra["logo_ink"] = "dark"
+    if service and not dark_corner:
+        extra["corner"] = "light"
     extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade))
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,

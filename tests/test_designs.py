@@ -116,19 +116,14 @@ def test_stacked_marks_are_taller_than_wide_ones() -> None:
     assert abs(hbo_w * hbo_h - netflix_w * netflix_h) / (netflix_w * netflix_h) < 0.05
 
 
-def test_service_mark_reaches_contrast_on_light_art() -> None:
-    canvas = Image.new("RGBA", designs.POSTER, (245, 245, 245, 255))
-    logo = designs._service_logo("hbomax", designs.POSTER[0])
-    at = (44, 44)
-    assert designs._contrast_behind(canvas, logo, at) < 1.1
-    assert designs._contrast_behind(designs._shade_for(canvas, logo, at), logo, at) >= designs.SERVICE_CONTRAST
-
-
-def test_service_shade_stays_light_on_dark_art() -> None:
-    canvas = Image.new("RGBA", designs.POSTER, (20, 20, 20, 255))
-    logo = designs._service_logo("netflix", designs.POSTER[0])
-    shaded = designs._shade_for(canvas, logo, (44, 44))
-    assert designs._contrast_behind(shaded, logo, (44, 44)) >= designs.SERVICE_CONTRAST
+def test_service_mark_has_no_shade_and_takes_the_ink_that_reads() -> None:
+    light = Image.new("RGBA", designs.POSTER, (245, 245, 245, 255))
+    out = np.asarray(designs.tile_poster(light, logo(), lines_below=[], service="netflix", corner_ink=NEAR_BLACK))
+    corner = out[: round(0.2 * designs.POSTER[1]), : round(0.4 * designs.POSTER[0])]
+    assert (corner.min(axis=2) < 60).any()
+    assert np.median(corner) > 200
+    assert designs.corner_dark(light, "mark")
+    assert not designs.corner_dark(Image.new("RGB", designs.POSTER, (20, 20, 20)), "mark")
 
 
 def test_text_logo_breaks_long_titles_into_two_lines() -> None:
@@ -164,12 +159,24 @@ def test_compact_marks_stop_at_the_height_cap() -> None:
     assert rows.max() - rows.min() <= designs.CHANNEL_MARK_MAX_HEIGHT * designs.POSTER[1] + 2
 
 
-def test_tone_takes_dark_ink_only_on_mostly_light_areas() -> None:
-    assert designs.tone(art(colour=(250, 250, 250))) == designs.Tone(dark_bottom=True, dark_corner=True)
-    assert designs.tone(art(colour=(20, 20, 20))) == designs.Tone(dark_bottom=False, dark_corner=False)
-    half = art(colour=(250, 250, 250))
-    half.paste((0, 0, 0), (0, 2000, 2000, 3000))
-    assert designs.tone(half) == designs.Tone(dark_bottom=False, dark_corner=True)
+def test_dark_logo_reads_only_where_the_logo_sits_on_light_art() -> None:
+    light = art(colour=(250, 250, 250))
+    assert designs.dark_logo_reads(light, logo(), [])
+    assert not designs.dark_logo_reads(art(colour=(20, 20, 20)), logo(), [])
+    people = art(colour=(250, 250, 250))
+    people.paste((10, 10, 10), (0, 0, 2000, 1500))
+    assert designs.dark_logo_reads(people, logo(), [])
+
+
+def test_one_colour_logos_can_be_recoloured() -> None:
+    white = logo()
+    two = logo()
+    two.paste((255, 40, 40, 255), (0, 0, two.width // 2, two.height))
+    assert designs.one_colour(white)
+    assert not designs.one_colour(two)
+    dark = designs.recolour(white, NEAR_BLACK)
+    assert dark.getchannel("A").tobytes() == white.convert("RGBA").getchannel("A").tobytes()
+    assert dark.convert("RGB").getpixel((dark.width // 2, dark.height // 2)) == NEAR_BLACK
 
 
 def test_dark_ink_drops_the_fade_and_draws_dark() -> None:

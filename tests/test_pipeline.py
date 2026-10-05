@@ -66,7 +66,7 @@ def fetch(path: str) -> Image.Image:
         logo = Image.new("RGBA", (600, 120), (0, 0, 0, 0))
         ImageDraw.Draw(logo).rectangle((0, 0, 599, 119), fill=(255, 255, 255, 255))
         return logo
-    noise = np.random.default_rng(int(hashlib.sha256(path.encode()).hexdigest()[:8], 16)).integers(0, 256, (8, 9))
+    noise = np.random.default_rng(int(hashlib.sha256(path.encode()).hexdigest()[:8], 16)).integers(0, 160, (8, 9))
     image = Image.fromarray(noise.astype(np.uint8)).convert("RGB").resize((200, 300), Image.Resampling.NEAREST)
     image.info["path"] = path
     return image
@@ -169,7 +169,7 @@ def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> 
     plan = pipeline.Plan(
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
-    assert plan.fingerprint == "88b5b08c3e5d3dcb12fb17c06a9f7857"
+    assert plan.fingerprint == "7c4ab6a238386cf3ba84f81e6d778b03"
 
 
 def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
@@ -487,9 +487,29 @@ def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPa
         else Image.new("RGB", (200, 300), "white")
     )
     poster = pipeline.movie(ctx, ITEM)[0]
-    assert poster.inputs["logo"] == "/dark.png"
+    assert poster.inputs["logo"] == "/logo.png"
+    assert poster.inputs["logo_ink"] == "dark"
     assert poster.inputs["ink"] == "dark"
     assert "fade" not in poster.inputs
+
+
+def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.tmdb.logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]  # type: ignore[attr-defined]
+
+    def fetch(path: str) -> Image.Image:
+        if path == "/dark.png":
+            return Image.new("RGBA", (600, 120), (20, 20, 20, 255))
+        if path.endswith(".png"):
+            coloured = Image.new("RGBA", (600, 120), (255, 255, 255, 255))
+            coloured.paste((240, 40, 40, 255), (0, 0, 300, 120))
+            return coloured
+        return Image.new("RGB", (200, 300), "white")
+
+    ctx.fetch = fetch
+    poster = pipeline.movie(ctx, ITEM)[0]
+    assert poster.inputs["logo"] == "/dark.png"
+    assert "logo_ink" not in poster.inputs
 
 
 class DownFanart:
