@@ -1,3 +1,4 @@
+import re
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -28,6 +29,7 @@ SERVICE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("mubi", "mubi"),
     ("viaplay", "viaplay"),
     ("sky go", "sky"),
+    ("sky x", "sky"),
     ("now tv", "now"),
     ("now", "now"),
     ("rtl+", "rtl"),
@@ -63,6 +65,7 @@ EXCLUDED_WORDS = (
 )  # fmt: skip
 OFFER_TYPES = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")
+NOT_KEY = re.compile(r"[^a-z0-9+]")
 
 
 def service_for(provider_name: str) -> str | None:
@@ -77,11 +80,19 @@ def service_for(provider_name: str) -> str | None:
     return None
 
 
+def network_key(name: str) -> str:
+    name = name.strip().lower()
+    for suffix in AD_SUFFIXES:
+        name = name.removesuffix(suffix)
+    return NOT_KEY.sub("", name.replace("plus", "+"))
+
+
 @dataclass(frozen=True)
 class Offer:
     provider_id: int
     name: str
     logo_path: str
+    region: str = ""
 
 
 def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> Iterator[Offer]:
@@ -92,4 +103,4 @@ def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> It
                 name = str(provider.get("provider_name", ""))
                 if any(word in name.lower() for word in EXCLUDED_WORDS):
                     continue
-                yield Offer(int(provider.get("provider_id") or 0), name, str(provider.get("logo_path") or ""))
+                yield Offer(int(provider.get("provider_id") or 0), name, str(provider.get("logo_path") or ""), region)

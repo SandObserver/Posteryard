@@ -5,8 +5,8 @@ import pytest
 from PIL import Image, ImageChops
 
 from posteryard.quality import Badge
-from posteryard.render import designs, lines
-from posteryard.render.layers import NEAR_BLACK, cover
+from posteryard.render import category, designs, lines
+from posteryard.render.layers import NEAR_BLACK, cover, family_for, luminance
 
 
 def art(size: tuple[int, int] = (2000, 3000), colour: tuple[int, int, int] = (0, 0, 0)) -> Image.Image:
@@ -184,3 +184,43 @@ def test_the_fade_deepens_until_a_white_logo_reads() -> None:
     assert designs.fade_strength(art(colour=(255, 255, 255)), logo(), []) >= 1.0
     strong, weak = tile(colour=(255, 255, 255), fade=1.8), tile(colour=(255, 255, 255))
     assert np.asarray(strong.convert("L"))[-200].mean() < np.asarray(weak.convert("L"))[-200].mean()
+
+
+def test_category_palettes_follow_apple_genres_and_names() -> None:
+    assert category.palette_for(" Sci-Fi ") == "sci-fi"
+    assert category.palette_for("Drama") == "drama"
+    assert category.palette_for("Oscar Winners") == category.palette_for("oscar winners")
+    names = [f"Collection {n}" for n in range(60)]
+    assert {category.palette_for(n) for n in names} == set(category.SHARED)
+
+
+def test_category_name_stays_readable_on_white_art() -> None:
+    tile = category.category_tile(Image.new("RGB", (600, 900), (255, 255, 255)), "Toy Story Collection")
+    assert tile.size == category.POSTER
+    behind = np.asarray(tile.crop((60, 1250, 900, 1420)), dtype=np.float32)
+    background = behind[behind.min(axis=2) < 235]
+    assert float(np.percentile(luminance(background), 90)) <= 1.05 / category.CONTRAST - 0.05
+
+
+@pytest.mark.parametrize(
+    ("text", "family"),
+    [
+        ("Netflix", "Inter"), ("Türk Dizileri", "Inter"), ("Русское кино", "Inter"), ("한국 영화", "Pretendard"),
+        ("日本アニメ", "PretendardJP"), ("中国电影", "NotoSansSC"), ("سینمای ایران", "Vazirmatn"),
+        ("סרטים ישראליים", "NotoSansHebrew"), ("ภาพยนตร์ไทย", "NotoSansThai"), ("हिंदी फ़िल्में", "NotoSansDevanagari"),
+    ],
+)  # fmt: skip
+def test_text_gets_a_font_that_has_its_letters(text: str, family: str) -> None:
+    assert family_for(text) == family
+
+
+def test_right_to_left_names_sit_bottom_right() -> None:
+    dark = Image.new("RGB", (600, 900), (20, 20, 20))
+    ink = [
+        np.asarray(category.category_tile(dark, name), dtype=np.float32)[1300:1420].min(axis=2)
+        for name in ("Films", "فیلم")
+    ]
+    left = [float(column[:, :300].max()) for column in ink]
+    right = [float(column[:, 700:].max()) for column in ink]
+    assert left[0] > 200 and right[0] < 200
+    assert right[1] > 200 and left[1] < 200

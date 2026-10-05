@@ -8,6 +8,6 @@ Apache License does not grant permission to use them (see Section 6). Forks and
 derivative works are welcome, but must use a different name and must not present
 themselves as the original project.
 
-The Inter font is licensed under the SIL Open Font License 1.1; see
-src/posteryard/assets/fonts/OFL.txt. Service and Dolby marks are listed with
+The Inter, Vazirmatn, Pretendard and Noto Sans fonts are licensed under the SIL
+Open Font License 1.1; see the OFL files in src/posteryard/assets/fonts. Service and Dolby marks are listed with
 their sources in assets/marks-src/SOURCES.md and belong to their owners.

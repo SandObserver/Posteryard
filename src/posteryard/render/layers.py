@@ -1,4 +1,5 @@
 import math
+import unicodedata
 from collections.abc import Sequence
 from functools import cache
 from importlib import resources
@@ -23,10 +24,60 @@ CORNER: Stops = ((0.0, 0.72), (0.2, 0.5), (0.4, 0.32), (0.6, 0.14), (0.8, 0.03),
 ASSETS = resources.files("posteryard") / "assets"
 
 
+# Fonts for scripts Inter lacks, in the order tried. The first one that has every character is used.
+FALLBACKS = (
+    "Vazirmatn", "NotoSansHebrew", "NotoSansThai", "NotoSansDevanagari", "Pretendard", "PretendardJP", "NotoSansSC",
+    "NotoSansTC",
+)  # fmt: skip
+HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xAC00, 0xD7AF))
+KANA = ((0x3040, 0x30FF), (0x31F0, 0x31FF), (0xFF66, 0xFF9F))
+CHECK_SIZE = 40
+
+
 @cache
-def font(weight: str, size: int) -> ImageFont.FreeTypeFont:
-    path = ASSETS / "fonts" / f"Inter-{weight}.ttf"
-    return ImageFont.truetype(str(Path(str(path))), size)
+def font(weight: str, size: int, family: str = "Inter") -> ImageFont.FreeTypeFont:
+    folder = Path(str(ASSETS / "fonts"))
+    for name in (weight, "SemiBold", "Bold"):
+        for suffix in (".ttf", ".otf"):
+            path = folder / f"{family}-{name}{suffix}"
+            if path.is_file():
+                return ImageFont.truetype(str(path), size)
+    raise FileNotFoundError(f"no {family} font")
+
+
+@cache
+def _glyph(family: str, char: str) -> bytes:
+    face = font("Bold", CHECK_SIZE, family)
+    canvas = Image.new("L", (CHECK_SIZE * 3, CHECK_SIZE * 2))
+    ImageDraw.Draw(canvas).text((CHECK_SIZE, 0), char, font=face, fill=255)
+    return canvas.tobytes()
+
+
+def _has(family: str, char: str) -> bool:
+    if char.isspace() or unicodedata.category(char) in ("Cf", "Mn", "Me"):
+        return True
+    return _glyph(family, char) != _glyph(family, chr(0x10FFFD))
+
+
+def _within(char: str, ranges: tuple[tuple[int, int], ...]) -> bool:
+    return any(low <= ord(char) <= high for low, high in ranges)
+
+
+def family_for(text: str) -> str:
+    """Inter when it has every character, else the fallback that has the most, preferring the text's own script."""
+    if all(_has("Inter", c) for c in text):
+        return "Inter"
+    order = list(FALLBACKS)
+    if any(_within(c, KANA) for c in text):
+        order.insert(0, "PretendardJP")
+    elif any(_within(c, HANGUL) for c in text):
+        order.insert(0, "Pretendard")
+    return max(order, key=lambda family: (sum(_has(family, c) for c in text), -order.index(family)))
+
+
+def font_for(text: str, weight: str, size: int) -> ImageFont.FreeTypeFont:
+    """A font that can draw text. Fallback fonts have no Regular weight and use SemiBold."""
+    return font(weight, size, family_for(text))
 
 
 MARK_DIRS: list[Path] = []

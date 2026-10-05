@@ -116,7 +116,7 @@ Add any of these under `environment:`.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `EPISODE_THUMBNAILS` | **How episode thumbnails look.** `plain` keeps the still with a light shade at the bottom. `titled` adds `EPISODE N` and the episode title. `off` leaves episodes alone and restores your server's own thumbnails. | `plain` |
-| `COLLECTION_POSTERS` | **Posters for collections too.** `true` gives every collection a poster. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get the regular tile with their name set in white. | `false` |
+| `COLLECTION_POSTERS` | **Posters for collections too.** `true` gives every collection a poster. A collection named after a streaming service, such as `Netflix`, gets Apple TV's channel tile: its newest show's art over a band with the service mark. Other collections get Apple TV's category tile: the newest title's art in one colour palette, with the collection's name. Collections named like an Apple TV genre, such as `Comedy` or `Sci-Fi`, use that genre's colours. | `false` |
 | `SERVICE_COLLECTIONS` | **One collection per streaming service.** `true` keeps a collection for each service with at least 3 shows in each TV library. Posteryard only changes collections it made; they carry the `posteryard-collection` label. Nothing changes while `DRY_RUN` is on. Leave it off if another tool already makes these, and use `COLLECTION_POSTERS`. | `false` |
 
 ### Alerts and schedule
@@ -285,9 +285,9 @@ Use either monitor, or both:
 | Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |
-| Collection poster | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. Service collections: the newest show's art and logo over a band in the service's colour with its mark. Other collections: the tile design with the collection's name. |
+| Collection poster | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. Service collections: the newest show's art and logo over a band in the service's colour with its mark. Other collections: the newest title's art recoloured in a palette from Apple TV's genre tiles, two colours across the poster, with the collection's name bottom left (bottom right for right-to-left scripts). The name is always kept at 4.5:1 contrast. |
 
-The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Stores, live TV, cable on-demand services such as Spectrum On Demand, and add-on channels sold through Amazon, Apple TV or Roku are skipped. Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4. Any other service gets a mark cut from its TMDB icon when the icon is a clean logo on a flat background, such as BBC iPlayer, Stan, Canal+, Hayu or CBC Gem; otherwise it gets none.
+The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Stores, live TV, cable on-demand services such as Spectrum On Demand, and add-on channels sold through Amazon, Apple TV or Roku are skipped. Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4. Any other service gets its TMDB network logo in one colour, such as Exxen, SkyShowtime, U-NEXT, JioHotstar or BINGE. When TMDB has no such logo, the mark is cut from the service's TMDB icon. Logos that would turn into a block or loose specks in one colour are left out, so the poster has no mark.
 
 On light art, like Apple TV's New Releases row, the logo, badges, season number and service mark are dark and the fade is left off, when TMDB has a dark logo and dark ink stays readable. Everywhere else the logo is white over the fade, deepened where needed so it always reads.
 
@@ -343,7 +343,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and releases. Changes a
 
 <a href="https://www.themoviedb.org"><img src="docs/tmdb.svg" alt="TMDB" height="12"></a>
 
-Artwork and metadata come from [TMDB](https://www.themoviedb.org), and with `FANART_API_KEY` also from [fanart.tv](https://fanart.tv). Posteryard uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Streaming availability comes from [JustWatch](https://www.justwatch.com) through TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Font: Inter, SIL Open Font License, in `src/posteryard/assets/fonts/OFL.txt`.
+Artwork and metadata come from [TMDB](https://www.themoviedb.org), and with `FANART_API_KEY` also from [fanart.tv](https://fanart.tv). Posteryard uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Streaming availability comes from [JustWatch](https://www.justwatch.com) through TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Fonts, all under the SIL Open Font License: Inter, and for other scripts Vazirmatn (Persian, Arabic), Pretendard (Korean, Japanese) and Noto Sans (Chinese, Hebrew, Thai, Devanagari); licences in `src/posteryard/assets/fonts/`.
 
 ## License
 

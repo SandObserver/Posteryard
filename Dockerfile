@@ -11,8 +11,10 @@ RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.13-slim-trixie@sha256:7c61056e61ac89e852de05f3dc6fa51a6dd2181797bceed46aa725dd7cb2cd3b
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 DATA_DIR=/data MALLOC_ARENA_MAX=2
+RUN apt-get update && apt-get install -y --no-install-recommends libfribidi0 && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/.venv /app/.venv
-RUN mkdir /data && chown 1000:1000 /data
+RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow cannot shape text without libfribidi'" \
+  && mkdir /data && chown 1000:1000 /data
 USER 1000:1000
 VOLUME /data
 EXPOSE 8000
