@@ -282,14 +282,14 @@ Use either monitor, or both:
 | Plex image | Design |
 | --- | --- |
 | Movie and show poster | Textless TMDB art, the title logo and a soft black fade, laid out like an Apple TV tile. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
-| Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. |
+| Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. Crops and other versions of a picture count as the same picture. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless TMDB art, no title. |
 | Collection poster | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. Service collections: the newest show's art and logo over a band in the service's colour with its mark. Other collections: the newest title's art recoloured in a palette from Apple TV's genre tiles, two colours across the poster, with the collection's name bottom left (bottom right for right-to-left scripts). The name is always kept at 4.5:1 contrast. |
 
 The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Stores, live TV, cable on-demand services such as Spectrum On Demand, and add-on channels sold through Amazon, Apple TV or Roku are skipped. Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+ and Channel 4. Any other service gets its TMDB network logo in one colour, such as Exxen, SkyShowtime, U-NEXT, JioHotstar or BINGE. When TMDB has no such logo, the mark is cut from the service's TMDB icon. Logos that would turn into a block or loose specks in one colour are left out, so the poster has no mark.
 
-On light art, like Apple TV's New Releases row, the logo, badges, season number and service mark are dark and the fade is left off, when TMDB has a dark logo and dark ink stays readable. Everywhere else the logo is white over the fade, deepened where needed so it always reads.
+The service mark and season number are black or white, whichever reads better where they sit, with no shadow behind the mark. When a dark logo reads on the art, like Apple TV's New Releases row, the logo and badges are dark and the fade is left off. A one-colour logo is drawn dark itself, so every poster of a show keeps one logo design. Everywhere else the logo is white over the fade, deepened where needed so it always reads.
 
 Art that prints the title or other large text is rejected, even when TMDB marks it as textless. Status labels such as `JUST ADDED` sit above the logo, so they never move it.
 

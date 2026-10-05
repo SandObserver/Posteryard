@@ -1,5 +1,4 @@
 import math
-from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -7,7 +6,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from posteryard.render import lines
 from posteryard.render.layers import (
     APPLE_BOTTOM,
-    CORNER,
     NEAR_BLACK,
     RGB,
     WHITE,
@@ -23,10 +21,11 @@ from posteryard.render.layers import (
 )
 
 POSTER = (1000, 1500)
-BOTTOM_AREA = (0.15, 0.66, 0.85, 0.95)
-CORNER_AREA = (0.0, 0.0, 0.35, 0.2)
-LIGHT_MEDIAN = 0.5
-DARK_INK_CONTRAST = 4.5
+DARK_INK = float(luminance(np.array(NEAR_BLACK, dtype=np.float32)))
+MARK_AREA = (0.04, 0.025, 0.25, 0.095)
+NUMBER_AREA = (0.06, 0.045, 0.24, 0.18)
+ONE_COLOUR_SPREAD = 0.08
+ONE_COLOUR_CHROMA = 40.0
 LOGO_CONTRAST = 4.5
 FADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
 FADE_MAX = 0.92
@@ -63,9 +62,6 @@ SERVICE_MAX_HEIGHT = 0.085
 SERVICE_MAX_WIDTH = 0.2
 SERVICE_MARGIN = 0.044
 SERVICE_AREA = SERVICE_HEIGHT**2 * 3.7
-SERVICE_CONTRAST = 4.5
-SERVICE_SHADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
-SERVICE_SHADE_MAX = 0.9
 
 
 def _service_size(service: str, width: int) -> tuple[int, int]:
@@ -89,47 +85,56 @@ def _service_logo(service: str, width: int) -> Image.Image:
     return mark(service, logo_h).resize((logo_w, logo_h), Image.Resampling.LANCZOS)
 
 
-def _shade_for(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> Image.Image:
-    w, h = canvas.size
-    centre = (at[0] + logo.width / 2, at[1] + logo.height / 2)
-    radii = (max(logo.width * 1.8, w * 0.4), max(logo.height * 4, h * 0.14))
-    shaded = canvas
-    for strength in SERVICE_SHADE_STEPS:
-        stops = [(x, min(a * strength, SERVICE_SHADE_MAX)) for x, a in CORNER]
-        shaded = canvas.copy()
-        shaded.alpha_composite(radial_shade(canvas.size, centre, radii, stops))
-        if _contrast_behind(shaded, logo, at) >= SERVICE_CONTRAST:
-            break
-    return shaded
-
-
-@dataclass(frozen=True)
-class Tone:
-    dark_bottom: bool
-    dark_corner: bool
-
-
-def tone(art: Image.Image) -> Tone:
-    lum = luminance(np.asarray(cover(art, 200, 300), dtype=np.float32))
-    return Tone(_takes_dark_ink(lum, BOTTOM_AREA), _takes_dark_ink(lum, CORNER_AREA))
-
-
-def _takes_dark_ink(lum: np.ndarray, area: tuple[float, float, float, float]) -> bool:
+def _region(art: Image.Image, area: tuple[float, float, float, float]) -> np.ndarray:
+    lum = luminance(np.asarray(cover(art, 200, 300).convert("RGB"), dtype=np.float32))
     h, w = lum.shape
     x0, y0, x1, y1 = area
-    region = lum[round(y0 * h) : round(y1 * h), round(x0 * w) : round(x1 * w)]
-    darkest = float(np.percentile(region, 10))
-    ink = float(luminance(np.array(NEAR_BLACK, dtype=np.float32)))
-    return float(np.median(region)) >= LIGHT_MEDIAN and (darkest + 0.05) / (ink + 0.05) >= DARK_INK_CONTRAST
+    region: np.ndarray = lum[round(y0 * h) : round(y1 * h), round(x0 * w) : round(x1 * w)]
+    return region
+
+
+def _dark_wins(behind: np.ndarray) -> bool:
+    """Apple shades nothing behind a mark: it uses black or white ink, whichever reads better."""
+    white = 1.05 / (float(np.percentile(behind, 90)) + 0.05)
+    dark = (float(np.percentile(behind, 10)) + 0.05) / (DARK_INK + 0.05)
+    return dark > white
+
+
+def corner_dark(art: Image.Image, area: str) -> bool:
+    return _dark_wins(_region(art, MARK_AREA if area == "mark" else NUMBER_AREA))
+
+
+def dark_logo_reads(art: Image.Image, logo: Image.Image, lines_below: list[lines.Line]) -> bool:
+    canvas = cover(art, *POSTER).convert("RGB")
+    logo, at, _ = _place_logo(canvas.size, logo, lines_below)
+    behind = np.asarray(canvas.crop((*at, at[0] + logo.width, at[1] + logo.height)), dtype=np.float32)
+    covered = np.asarray(logo.getchannel("A")) > 127
+    if not covered.any():
+        return False
+    darkest = float(np.percentile(luminance(behind[covered]), 10))
+    return (darkest + 0.05) / (DARK_INK + 0.05) >= LOGO_CONTRAST
+
+
+def one_colour(logo: Image.Image) -> bool:
+    """A logo drawn in one colour can be drawn in another without changing its design."""
+    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32)
+    ink = rgba[rgba[..., 3] > 200][:, :3]
+    if len(ink) < 50:
+        return False
+    spread = float((ink.max(axis=1) - ink.min(axis=1)).mean())
+    return float(luminance(ink).std()) <= ONE_COLOUR_SPREAD and spread <= ONE_COLOUR_CHROMA
+
+
+def recolour(logo: Image.Image, ink: RGB) -> Image.Image:
+    out = Image.new("RGBA", logo.size, (*ink, 255))
+    out.putalpha(logo.convert("RGBA").getchannel("A"))
+    return out
 
 
 def _service(canvas: Image.Image, service: str, ink: RGB = WHITE) -> None:
     margin = round(SERVICE_MARGIN * canvas.width)
-    logo = _service_logo(service, canvas.width)
-    if ink == WHITE:
-        canvas.paste(_shade_for(canvas, logo, (margin, margin)))
-    else:
-        logo = mark(service, logo.height, ink).resize(logo.size, Image.Resampling.LANCZOS)
+    size = _service_logo(service, canvas.width).size
+    logo = mark(service, size[1], ink).resize(size, Image.Resampling.LANCZOS)
     canvas.alpha_composite(logo, (margin, margin))
 
 

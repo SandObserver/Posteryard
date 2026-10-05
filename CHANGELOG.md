@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Leave out automatic streaming marks that turn into a solid shape or specks in one colour, such as discovery+ on Blue Planet II.
 - Keep white letters of a coloured logo, such as the "HI" of HIDIVE, in its one-colour mark.
 - Use the Sky mark for Sky X.
+- Draw the streaming mark black or white without a shadow, by contrast where the mark sits.
+- Keep one logo design per show: draw a one-colour logo dark on light art instead of switching to another logo.
+- Choose a dark logo only when it reads where the logo sits, not across the whole bottom of the art.
+- Treat crops and redrawn versions of a picture as the same picture when giving seasons their art.
 
 ## [0.7.0] - 2026-10-04
 
