@@ -22,6 +22,7 @@ posteryard = "posteryard.cli:main"
 
 [dependency-groups]
 dev = [
+    "fonttools>=4.60",
     "mypy>=1.18",
     "pytest>=8.4",
     "pytest-cov>=7",
@@ -57,7 +58,7 @@ strict = true
 files = ["src", "tests", "tools"]
 
 [[tool.mypy.overrides]]
-module = ["cv2", "rapidocr", "resvg_py"]
+module = ["cv2", "fontTools.*", "rapidocr", "resvg_py"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -171,6 +171,16 @@ class Tmdb:
         results: Mapping[str, Any] = (self.details(kind, tmdb_id).get("watch/providers") or {}).get("results", {})
         return results
 
+    def network_logo(self, network_id: int) -> str | None:
+        """The network's main logo path. None when TMDB has no such network or no logo for it."""
+        try:
+            raw = self._cached(f"network/{network_id}", lambda: self._get(f"/network/{network_id}"))
+        except http.HttpError as exc:
+            if exc.status == 404:
+                return None
+            raise
+        return str(raw.get("logo_path") or "") or None
+
     @staticmethod
     def image(path: str, size: str = "original") -> Image.Image:
         try:

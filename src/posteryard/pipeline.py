@@ -21,8 +21,8 @@ from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.quality import Badge, QualityMinimums
-from posteryard.render import designs, lines
-from posteryard.render.layers import NEAR_BLACK, WHITE, cover, trim
+from posteryard.render import category, designs, lines
+from posteryard.render.layers import NEAR_BLACK, WHITE, cover, family_for, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
 
@@ -273,7 +273,7 @@ class Context:
         for offer in services.offers(providers, self.regions):
             if key := services.service_for(offer.name):
                 return key
-            if self.marks is not None and (key := self.marks.get(offer)):
+            if self.marks is not None and (key := self.marks.get(offer, self.tmdb)):
                 return key
         return None
 
@@ -369,6 +369,22 @@ def _seen(fingerprint: int, used: list[int]) -> bool:
     return any(bin(fingerprint ^ other).count("1") <= SAME_PICTURE_BITS for other in used)
 
 
+def _drawn_with(text_logo: str | None, dark_bottom: bool, dark_corner: bool, fade: float) -> dict[str, Any]:
+    """Plan inputs that differ from the default look, so unchanged posters keep their fingerprints."""
+    drawn: dict[str, Any] = {}
+    if text_logo is not None:
+        drawn["text_logo"] = text_logo
+        if (family := family_for(text_logo)) != "Inter":
+            drawn["font"] = family
+    if dark_bottom:
+        drawn["ink"] = "dark"
+    if dark_corner:
+        drawn["corner"] = "dark"
+    if fade != 1.0:
+        drawn["fade"] = fade
+    return drawn
+
+
 def _poster(
     ctx: Context,
     title: Title,
@@ -428,14 +444,7 @@ def _poster(
             ink=ink, corner_ink=corner_ink, fade=fade,
         )  # fmt: skip
 
-    if logo_path is None:
-        extra["text_logo"] = title.name
-    if dark_bottom:
-        extra["ink"] = "dark"
-    if dark_corner:
-        extra["corner"] = "dark"
-    if fade != 1.0:
-        extra["fade"] = fade
+    extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade))
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
         "number": number, "service": service, **extra,
@@ -536,6 +545,7 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
         "design": "episode",
         "still": path,
         **({"number": number, "title": name} if titled else {"mode": "plain"}),
+        **({"font": family} if titled and (family := family_for(name)) != "Inter" else {}),
     }
     return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
 
@@ -571,9 +581,9 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
         return [Plan(key, "poster", name, inputs, channel, [f"art {art_path} from {title.name}"])]
 
     def tile() -> Image.Image:
-        return designs.tile_poster(ctx.fetch(art_path), designs.text_logo(name), lines_below=[])
+        return category.category_tile(ctx.fetch(art_path), name)
 
-    inputs = {"design": "collection", "art": art_path, "title": name}
+    inputs = {"design": "category", "art": art_path, "title": name, "palette": category.palette_for(name)}
     return [Plan(key, "poster", name, inputs, tile, [f"art {art_path} from {title.name}"])]
 
 

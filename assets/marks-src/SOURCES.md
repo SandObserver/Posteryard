@@ -1,6 +1,6 @@
 # Mark sources
 
-Each SVG comes from Wikimedia Commons, where it is marked public domain, or from [Simple Icons](https://simpleicons.org) 16.34.0, released under CC0 1.0. The marks are trademarks of their owners. Services without a file here get a mark cut at runtime from their TMDB provider icon (`src/posteryard/automarks.py`).
+Each SVG comes from Wikimedia Commons, where it is marked public domain, or from [Simple Icons](https://simpleicons.org) 16.34.0, released under CC0 1.0. The marks are trademarks of their owners. Services without a file here get their TMDB network logo, or a cut of their TMDB provider icon, at runtime (`src/posteryard/automarks.py`). No other logo files are stored in the repository.
 
 | File | Source | License on Commons |
 | --- | --- | --- |

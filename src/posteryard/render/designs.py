@@ -13,6 +13,7 @@ from posteryard.render.layers import (
     WHITE,
     cover,
     font,
+    font_for,
     luminance,
     mark,
     radial_shade,
@@ -226,7 +227,7 @@ def episode_still(still: Image.Image, number: int, title: str | None) -> Image.I
     pen.text(
         (x, h - round(0.128 * h)), f"EPISODE {number}", font=font("SemiBold", round(0.0172 * w)), fill=ink, anchor="lm"
     )
-    face = font("SemiBold", round(0.0297 * w))
+    face = font_for(title, "SemiBold", round(0.0297 * w))
     pen.text((x, h - round(0.072 * h)), _fit(title, face, w - 2 * x), font=face, fill=ink, anchor="lm")
     return image
 
@@ -270,7 +271,7 @@ def text_logo(title: str, ink: RGB = WHITE) -> Image.Image:
     options = [[" ".join(words)]]
     for cut in range(1, len(words)):
         options.append([" ".join(words[:cut]), " ".join(words[cut:])])
-    face = font("Bold", 200)
+    face = font_for(title, "Bold", 200)
     box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
 
     def scale(rows: list[str]) -> float:

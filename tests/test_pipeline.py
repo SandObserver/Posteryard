@@ -334,7 +334,7 @@ def test_collections_take_art_from_their_newest_member() -> None:
     assert channel.inputs["featured"] == "New Show"
     assert channel.draw().size == (1000, 1500)
     plain = pipeline.plan_item(ctx, {"ratingKey": "8", "type": "collection", "title": "Star Wars"})[0]
-    assert plain.inputs == {"design": "collection", "art": "/textless.jpg", "title": "Star Wars"}
+    assert plain.inputs == {"design": "category", "art": "/textless.jpg", "title": "Star Wars", "palette": "sports"}
     assert plain.draw().size == (1000, 1500)
     assert pipeline.plan_item(ctx, {"ratingKey": "9", "type": "collection", "title": "Empty"}) == []
 
@@ -529,3 +529,12 @@ def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
     ctx.apple_down_until = 0.0
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+
+
+def test_titles_drawn_in_a_fallback_font_name_it() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.logo = lambda title, dark=False: None  # type: ignore[method-assign,misc]
+    latin = pipeline.movie(ctx, ITEM)[0].inputs
+    korean = pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "tmdb://43"}], "title": "기생충"})[0].inputs
+    assert "font" not in latin
+    assert korean["font"] == "Pretendard"
