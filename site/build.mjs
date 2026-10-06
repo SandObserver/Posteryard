@@ -120,7 +120,7 @@ const setup = steps(section('Getting started'));
 const settings = settingsList(section('Settings'));
 
 const description =
-  'Automatic textless posters for Plex and Jellyfin: the title in one spot, quality badges and streaming marks. ' +
+  'Automatic textless posters for Plex, Jellyfin and Emby: the title in one spot, quality badges and streaming marks. ' +
   'Free and self-hosted in Docker.';
 
 const schema = {

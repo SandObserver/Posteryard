@@ -119,3 +119,16 @@ def test_debug_logging_keeps_url_logging_libraries_quiet(run: Any, monkeypatch: 
     assert logging.getLogger().level == logging.DEBUG
     assert logging.getLogger("urllib3").level == logging.WARNING
     logging.getLogger().setLevel(logging.WARNING)
+
+
+def test_a_data_folder_from_another_server_stops_the_command(
+    run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert run(["forget", "5646"]) == 0
+    other = FakePlex()
+    other.identity = "emby:other"
+    monkeypatch.setattr(cli, "Plex", lambda url, token: other)
+    FakeWorker.calls = []
+    assert run(["forget", "5646"]) == 2
+    assert "belongs to another media server (plex:example)" in capsys.readouterr().out
+    assert FakeWorker.calls == []

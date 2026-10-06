@@ -8,12 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Support Emby 4.10 as the media server, with `EMBY_URL` and `EMBY_API_KEY` and its built-in webhooks.
+- Refuse to start with a data folder that belongs to another media server.
 - Give collections that are not a streaming service Apple TV's category tile: the art in a genre palette with the name.
 - Draw Persian, Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean names with matching fonts and shaping.
 - Use TMDB network logos as streaming marks for services without a built-in mark, such as Exxen, SkyShowtime, U-NEXT, JioHotstar and BINGE.
 
 ### Fixed
 
+- Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
 - Leave out automatic streaming marks that turn into a solid shape or specks in one colour, such as discovery+ on Blue Planet II.
 - Keep white letters of a coloured logo, such as the "HI" of HIDIVE, in its one-colour mark.
 - Use the Sky mark for Sky X.

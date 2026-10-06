@@ -34,8 +34,8 @@ BACKGROUND = frozenset({"daily", "unlisted"})
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
-    """Plex posts multipart/form-data with the event JSON in the `payload` field. Jellyfin's Webhook plugin posts the
-    JSON itself, labelled text/plain. Raises ValueError on bad JSON."""
+    """Plex posts multipart/form-data with the event JSON in the `payload` field, Emby in the `data` field. Jellyfin's
+    Webhook plugin posts the JSON itself, labelled text/plain. Raises ValueError on bad JSON."""
     raw: bytes | None = None
     if not content_type.startswith("multipart/"):
         raw = body
@@ -45,7 +45,7 @@ def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
         )
         if message.is_multipart():
             for part in message.iter_parts():
-                if part.get_param("name", header="content-disposition") == "payload":
+                if part.get_param("name", header="content-disposition") in ("payload", "data"):
                     payload = part.get_payload(decode=True)
                     raw = payload if isinstance(payload, bytes) else None
                     break
@@ -100,8 +100,8 @@ class Service:
                     del self._queued[key]
                     return key, reason
 
-    def jellyfin_event(self, payload: dict[str, Any]) -> None:
-        key = str(payload.get("ItemId") or "").replace("-", "").lower()
+    def item_added(self, item_id: object) -> None:
+        key = str(item_id or "").replace("-", "").lower()
         if not is_item_key(key):
             return
         try:
@@ -371,7 +371,9 @@ class Service:
                 if payload and payload.get("event") in NEW_EVENTS and payload.get("Metadata"):
                     service.enqueue(related_keys(payload["Metadata"]), "webhook")
                 elif payload and payload.get("NotificationType") in JELLYFIN_EVENTS:
-                    service.jellyfin_event(payload)
+                    service.item_added(payload.get("ItemId"))
+                elif payload and payload.get("Event") in NEW_EVENTS and isinstance(payload.get("Item"), dict):
+                    service.item_added(payload["Item"].get("Id"))
                 self._reply(200, {"ok": True})
 
         return Handler

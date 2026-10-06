@@ -25,6 +25,16 @@ def test_multipart_webhook_payload() -> None:
     assert parse_webhook(f"multipart/form-data; boundary={boundary}", body) == payload
 
 
+def test_emby_multipart_webhook_payload() -> None:
+    payload = {"Event": "library.new", "Item": {"Id": "245", "Type": "Episode", "SeriesId": "13", "SeasonId": "14"}}
+    boundary = "4ce19780-c225-48f2-aa29-129d10f8fa16"
+    body = (
+        f"--{boundary}\r\nContent-Type: application/json; charset=utf-8\r\n"
+        f"Content-Disposition: form-data; name=data\r\n\r\n{json.dumps(payload)}\r\n--{boundary}--\r\n"
+    ).encode()
+    assert parse_webhook(f'multipart/form-data; boundary="{boundary}"', body) == payload
+
+
 def test_json_webhook_and_garbage() -> None:
     assert parse_webhook("application/json", b'{"event": "media.play"}') == {"event": "media.play"}
     assert parse_webhook("text/plain", b"hello") is None
@@ -67,6 +77,9 @@ class FakePlex:
 
     def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
         return []
+
+    def item(self, rating_key: str) -> None:
+        return None
 
 
 def queued(service: Service) -> list[str]:
@@ -205,6 +218,10 @@ def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
         assert post("/webhook/example-secret", good, {**json_type, "Content-Length": "abc"}) == 413
         assert post("/webhook/example-secret", good, json_type) == 200
         assert queued(service) == ["7"]
+        emby = b'{"Event": "library.new", "Item": {"Id": "245", "Type": "Episode"}}'
+        assert post("/webhook/example-secret", emby, {"Content-Type": "application/json; charset=utf-8"}) == 200
+        assert post("/webhook/example-secret", b'{"Event": "library.new", "Item": "x"}', json_type) == 200
+        assert queued(service) == ["7", "245"]
         connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
         connection.request("HEAD", "/healthz")
         assert connection.getresponse().status == 200
@@ -300,15 +317,17 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
     assert not thread.is_alive()
 
 
-def test_a_jellyfin_webhook_queues_the_item_and_its_parents(tmp_path: Path) -> None:
+def test_a_webhook_item_queues_the_item_and_its_parents(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     episode: Item = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
     service.server.item = lambda key: episode if key == "d" * 32 else None  # type: ignore[method-assign, assignment]
-    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "dddddddd-dddd-dddd-dddd-dddddddddddd"})
+    service.item_added("dddddddd-dddd-dddd-dddd-dddddddddddd")
     assert queued(service) == ["d" * 32, "c" * 32, "b" * 32]
-    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "../etc"})
-    service.jellyfin_event({"NotificationType": "ItemAdded", "ItemId": "a" * 32})
-    assert queued(service)[-1] == "a" * 32
+    service.item_added("../etc")
+    service.item_added(None)
+    service.item_added("a" * 32)
+    service.item_added(245)
+    assert queued(service)[-2:] == ["a" * 32, "245"]
 
 
 def test_webhook_items_go_before_the_full_pass(tmp_path: Path) -> None:

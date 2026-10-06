@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Posteryard: clean, consistent posters for Plex and Jellyfin</title>
+    <title>Posteryard: clean, consistent posters for Plex, Jellyfin and Emby</title>
     <meta name="description" content="{{description}}" />
     <link rel="canonical" href="{{site}}/" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
@@ -13,14 +13,14 @@
     <meta property="og:site_name" content="Posteryard" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:url" content="{{site}}/" />
-    <meta property="og:title" content="Posteryard: clean, consistent posters for Plex and Jellyfin" />
+    <meta property="og:title" content="Posteryard: clean, consistent posters for Plex, Jellyfin and Emby" />
     <meta property="og:description" content="{{description}}" />
     <meta property="og:image" content="{{site}}/img/social-card.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
     <meta property="og:image:alt" content="Official movie posters next to the clean Posteryard versions" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Posteryard: clean, consistent posters for Plex and Jellyfin" />
+    <meta name="twitter:title" content="Posteryard: clean, consistent posters for Plex, Jellyfin and Emby" />
     <meta name="twitter:description" content="{{description}}" />
     <meta name="twitter:image" content="{{site}}/img/social-card.png" />
     <meta name="twitter:image:alt" content="Official movie posters next to the clean Posteryard versions" />
@@ -71,6 +71,7 @@
       .srv { font-weight: 700; }
       .plex { color: #e5a00d; }
       .jellyfin { background: linear-gradient(90deg, #aa5cc3, #00a4dc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .emby { color: #52b54b; }
       .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
       .btn { height: 50px; padding: 0 26px; border-radius: 25px; display: inline-flex; align-items: center; font-size: 16px; font-weight: 600; }
       .btn-accent { background: var(--accent); color: var(--on-accent); }
@@ -279,7 +280,7 @@
       <div class="wrap">
         <header class="hero">
           <h1>Clean, consistent posters for your whole media library.</h1>
-          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for textless art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in <b class="srv plex">Plex</b> or <b class="srv jellyfin">Jellyfin</b> as your library grows.</p>
+          <p>Studio posters come in every font, tagline and layout. Posteryard swaps them for textless art with the title in the same spot on every poster, then renders, uploads and refreshes them on its own in <b class="srv plex">Plex</b>, <b class="srv jellyfin">Jellyfin</b> or <b class="srv emby">Emby</b> as your library grows.</p>
           <div class="cta-row">
             <a class="btn btn-accent" href="#getting-started">Install with Docker</a>
             <a class="btn btn-quiet" href="#features">See the difference</a>
@@ -347,12 +348,14 @@
         <div class="wrap setup-grid" id="settings">
           <div class="setup-side">
             <h2>Settings</h2>
-            <p class="lede">{{settings_count}} optional settings for badges, status labels, collections, Jellyfin, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
+            <p class="lede">{{settings_count}} optional settings for badges, status labels, collections, Jellyfin, Emby, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
           </div>
           <div class="doc">
             <div class="recipes">
               <div class="recipe"><h3>Use Jellyfin instead of Plex</h3><p>Replace <code>PLEX_URL</code> and <code>PLEX_TOKEN</code> with these two lines.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use jellyfin instead of plex">Copy</button></div><pre><code>- JELLYFIN_URL=http://192.168.1.10:8096
 - JELLYFIN_API_KEY=your-jellyfin-api-key</code></pre></div></div>
+              <div class="recipe"><h3>Use Emby instead of Plex</h3><p>Replace <code>PLEX_URL</code> and <code>PLEX_TOKEN</code> with these two lines.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use emby instead of plex">Copy</button></div><pre><code>- EMBY_URL=http://192.168.1.10:8096
+- EMBY_API_KEY=your-emby-api-key</code></pre></div></div>
               <div class="recipe"><h3>Get alerts in Discord</h3><p>Use the two parts of your Discord webhook URL. Any Apprise address works, such as <code>ntfys://</code> or <code>mailtos://</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy get alerts in discord">Copy</button></div><pre><code>- NOTIFY_URLS=discord://WEBHOOK_ID/WEBHOOK_TOKEN</code></pre></div></div>
               <div class="recipe"><h3>Count down to Maintainerr deletions</h3><p>Titles Maintainerr will delete get <code>LEAVING IN 5 DAYS</code>, then <code>TOMORROW</code>, then <code>TODAY</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy count down to maintainerr deletions">Copy</button></div><pre><code>- MAINTAINERR_URL=http://192.168.1.10:6246</code></pre></div></div>
               <div class="recipe"><h3>Streaming services outside the US</h3><p>The default is <code>US</code>. Put your country first and keep <code>US</code> as a fallback. This example is the UK.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy streaming services outside the us">Copy</button></div><pre><code>- STREAMING_REGIONS=GB,US</code></pre></div></div>
@@ -383,7 +386,7 @@
             <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
           </div>
           <div class="sources"><span>Data from</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a><a href="https://www.justwatch.com" target="_blank" rel="noopener noreferrer"><img src="/justwatch.svg" alt="JustWatch" width="74" height="11" /></a></div>
-          <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB. Not affiliated with Plex, Jellyfin or Apple.</p>
+          <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB. Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
         </div>
         <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}"><span>release</span> <b>v{{version}}</b></a>
       </div>

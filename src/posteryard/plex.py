@@ -76,6 +76,9 @@ class Plex:
         items = page.get("Metadata") or []
         return int(items[0]["addedAt"]) if items and items[0].get("addedAt") else None
 
+    def server_id(self) -> str:
+        return f"plex:{self.machine_id()}"
+
     def machine_id(self) -> str:
         if self._machine_id is None:
             self._machine_id = str(http.get_json(self._url("/identity"))["MediaContainer"]["machineIdentifier"])

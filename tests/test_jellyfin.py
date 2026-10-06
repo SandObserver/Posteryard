@@ -106,7 +106,7 @@ def test_a_missing_item_is_none_and_bad_ids_are_refused(serve: Any) -> None:
     assert jellyfin.item("9" * 32) is None
     assert jellyfin.item("../Users") is None
     assert jellyfin.item("1917") is None
-    with pytest.raises(ValueError, match="not a Jellyfin item id"):
+    with pytest.raises(ValueError, match="not a valid Jellyfin item id"):
         jellyfin.children("../Users")
 
 

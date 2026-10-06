@@ -13,8 +13,8 @@ TRUE = frozenset({"1", "true", "yes", "on"})
 FALSE = frozenset({"0", "false", "no", "off"})
 CLOCK = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 SECRETS = (
-    "TMDB_API_KEY", "FANART_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "WEBHOOK_SECRET", "NOTIFY_URLS",
-    "HEARTBEAT_URL",
+    "TMDB_API_KEY", "FANART_API_KEY", "PLEX_TOKEN", "JELLYFIN_API_KEY", "EMBY_API_KEY", "WEBHOOK_SECRET",
+    "NOTIFY_URLS", "HEARTBEAT_URL",
 )  # fmt: skip
 REMOVED_NTFY = ("NTFY_URL", "NTFY_TOPIC", "NTFY_TOKEN", "NTFY_TOKEN_FILE")
 
@@ -43,6 +43,8 @@ class Config:
     plex_token: str
     jellyfin_url: str
     jellyfin_api_key: str
+    emby_url: str
+    emby_api_key: str
     maintainerr_url: str
     regions: tuple[str, ...]
     quality: QualityMinimums
@@ -168,6 +170,8 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         plex_token=env.get("PLEX_TOKEN", "").strip(),
         jellyfin_url=env.get("JELLYFIN_URL", "").strip().rstrip("/"),
         jellyfin_api_key=env.get("JELLYFIN_API_KEY", "").strip(),
+        emby_url=env.get("EMBY_URL", "").strip().rstrip("/"),
+        emby_api_key=env.get("EMBY_API_KEY", "").strip(),
         maintainerr_url=env.get("MAINTAINERR_URL", "").strip().rstrip("/"),
         regions=tuple(r.upper() for r in _list(env, "STREAMING_REGIONS", "US")),
         quality=QualityMinimums(
@@ -199,13 +203,20 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
 
 
 def require_server(cfg: Config) -> None:
-    plex, jellyfin = bool(cfg.plex_url or cfg.plex_token), bool(cfg.jellyfin_url or cfg.jellyfin_api_key)
-    if plex and jellyfin:
-        raise ConfigError("Set PLEX_URL and PLEX_TOKEN, or JELLYFIN_URL and JELLYFIN_API_KEY, not both")
-    if jellyfin and not (cfg.jellyfin_url and cfg.jellyfin_api_key):
-        raise ConfigError("JELLYFIN_URL and JELLYFIN_API_KEY are both required")
-    if not jellyfin and not (cfg.plex_url and cfg.plex_token):
-        raise ConfigError("PLEX_URL and PLEX_TOKEN are required, or JELLYFIN_URL and JELLYFIN_API_KEY for Jellyfin")
+    servers = {
+        ("PLEX_URL", "PLEX_TOKEN"): (cfg.plex_url, cfg.plex_token),
+        ("JELLYFIN_URL", "JELLYFIN_API_KEY"): (cfg.jellyfin_url, cfg.jellyfin_api_key),
+        ("EMBY_URL", "EMBY_API_KEY"): (cfg.emby_url, cfg.emby_api_key),
+    }
+    chosen = [names for names, values in servers.items() if any(values)]
+    if len(chosen) > 1:
+        raise ConfigError(f"Set one media server only, not {' and '.join(names[0] for names in chosen)}")
+    if not chosen:
+        raise ConfigError(
+            "Set PLEX_URL and PLEX_TOKEN, or JELLYFIN_URL and JELLYFIN_API_KEY, or EMBY_URL and EMBY_API_KEY"
+        )
+    if not all(servers[chosen[0]]):
+        raise ConfigError(f"{chosen[0][0]} and {chosen[0][1]} are both required")
 
 
 def require_service(cfg: Config) -> None:
