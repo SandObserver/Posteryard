@@ -94,7 +94,6 @@ def family_for(text: str, prefer: str = "") -> str:
 
 
 def font_for(text: str, weight: str, size: int, prefer: str = "") -> ImageFont.FreeTypeFont:
-    """A font that can draw text. Fallback fonts have no Regular weight and use SemiBold."""
     return font(weight, size, family_for(text, prefer))
 
 

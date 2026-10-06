@@ -1,5 +1,6 @@
 import atexit
 import multiprocessing
+import time
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -17,6 +18,7 @@ READ_WIDTH = 480
 OCR_THREADS = 2
 READS_PER_PROCESS = 100
 READ_TIMEOUT = 120
+IDLE_SECONDS = 600
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
@@ -44,31 +46,47 @@ def _engine() -> Any:
     )
 
 
-@cache
-def _pool() -> ProcessPoolExecutor:
+class _Process:
     """One OCR process, so the onnxruntime engine never lives in the service process."""
-    pool = ProcessPoolExecutor(
-        max_workers=1,
-        max_tasks_per_child=READS_PER_PROCESS,
-        mp_context=multiprocessing.get_context("spawn"),
-    )
-    atexit.register(pool.shutdown, cancel_futures=True)
-    return pool
+
+    def __init__(self) -> None:
+        self.pool: ProcessPoolExecutor | None = None
+        self.last_read = float("-inf")
+
+    def read(self, pixels: np.ndarray) -> list[TextLine]:
+        self.last_read = time.monotonic()
+        if self.pool is None:
+            self.pool = ProcessPoolExecutor(
+                max_workers=1,
+                max_tasks_per_child=READS_PER_PROCESS,
+                mp_context=multiprocessing.get_context("spawn"),
+            )
+        return self.pool.submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
+
+    def close(self, idle: float = 0) -> None:
+        if self.pool is not None and time.monotonic() - self.last_read >= idle:
+            self.pool.shutdown(cancel_futures=True)
+            self.pool = None
+
+
+_process = _Process()
+atexit.register(_process.close)
+
+
+def close_idle() -> None:
+    _process.close(IDLE_SECONDS)
 
 
 def read(image: Image.Image) -> list[TextLine]:
     rgb = image.convert("RGB")
     rgb = rgb.resize((READ_WIDTH, max(1, round(rgb.height * READ_WIDTH / rgb.width))))
     pixels = np.asarray(rgb)
-    try:
-        return _pool().submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
-    except BrokenProcessPool:
-        _pool.cache_clear()
-    try:
-        return _pool().submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
-    except BrokenProcessPool:
-        _pool.cache_clear()
-        raise OSError("the OCR process stopped twice in a row") from None
+    for _ in range(2):
+        try:
+            return _process.read(pixels)
+        except BrokenProcessPool:
+            _process.close()
+    raise OSError("the OCR process stopped twice in a row")
 
 
 def _read_pixels(pixels: np.ndarray) -> list[TextLine]:

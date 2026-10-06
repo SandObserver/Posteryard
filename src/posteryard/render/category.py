@@ -10,8 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 from posteryard.render.layers import cover, font_for, luminance
 
 POSTER = (1000, 1500)
-# Measured on the Apple TV app's Browse by Genre tiles: (angle, start tones, end tones).
-# Tones are shadow, low, mid and highlight. The start tones turn into the end tones along the angle.
+# (angle, start tones, end tones). Tones are shadow, low, mid and highlight.
+# The start tones turn into the end tones along the angle.
 PALETTES: dict[str, tuple[int, tuple[str, ...], tuple[str, ...]]] = {
     "kids & family": (45, ("#1c0a0b", "#63382c", "#ad7355", "#eac698"), ("#1c0a0b", "#8d3142", "#d05e73", "#f7b0b9")),
     "action": (30, ("#160d06", "#54472e", "#82714b", "#e9ce8a"), ("#2b1308", "#4f240f", "#d85e25", "#f0b070")),

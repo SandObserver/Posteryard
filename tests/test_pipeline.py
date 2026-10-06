@@ -1,5 +1,7 @@
 import hashlib
+import time
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -310,6 +312,19 @@ def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
     assert ctx.tmdb.finds == ["tt0000077"]  # type: ignore[attr-defined]
     with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
         pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "imdb://tt0000078"}]})
+
+
+def test_forget_drops_downloaded_images_and_expired_lookups() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.fetch = lru_cache(maxsize=pipeline.FETCH_CACHE)(fetch)
+    pipeline.movie(ctx, ITEM)
+    old = time.monotonic() - pipeline.TITLE_CACHE_SECONDS
+    ctx.lookups[("old",)] = (old, None)
+    fresh = set(ctx.lookups) - {("old",)}
+    ctx.forget()
+    assert ctx.fetch.cache_info().currsize == 0
+    assert set(ctx.lookups) == fresh
+    assert ("movie", 42) in ctx.titles
 
 
 class CollectionPlex:
