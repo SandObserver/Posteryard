@@ -6,7 +6,7 @@ from PIL import Image, ImageChops
 
 from posteryard.quality import Badge
 from posteryard.render import category, designs, lines
-from posteryard.render.layers import NEAR_BLACK, cover, family_for, luminance
+from posteryard.render.layers import APPLE_GREEN, NEAR_BLACK, cover, family_for, luminance, preferred_family
 
 
 def art(size: tuple[int, int] = (2000, 3000), colour: tuple[int, int, int] = (0, 0, 0)) -> Image.Image:
@@ -166,6 +166,22 @@ def test_dark_logo_reads_only_where_the_logo_sits_on_light_art() -> None:
     people = art(colour=(250, 250, 250))
     people.paste((10, 10, 10), (0, 0, 2000, 1500))
     assert designs.dark_logo_reads(people, logo(), [])
+    floor = art(colour=(250, 250, 250))
+    floor.paste((10, 10, 10), (0, 2730, 2000, 3000))
+    assert designs.dark_logo_reads(floor, logo(), [])
+
+
+def test_dark_ink_needs_the_badges_and_label_to_read_too() -> None:
+    floor = art(colour=(250, 250, 250))
+    floor.paste((10, 10, 10), (0, 2600, 2000, 3000))
+    badges: list[lines.Line] = [lines.Badges((Badge.UHD,))]
+    assert not designs.dark_logo_reads(floor, logo(), badges)
+    assert designs.dark_logo_reads(art(colour=(250, 250, 250)), logo(), badges)
+    sky = art(colour=(250, 250, 250))
+    sky.paste((10, 10, 10), (0, 0, 2000, 2270))
+    label = lines.Label("JUST ADDED", APPLE_GREEN)
+    assert designs.dark_logo_reads(sky, logo(), badges)
+    assert not designs.dark_logo_reads(sky, logo(), badges, label)
 
 
 def test_one_colour_logos_can_be_recoloured() -> None:
@@ -219,6 +235,39 @@ def test_category_name_stays_readable_on_white_art() -> None:
 )  # fmt: skip
 def test_text_gets_a_font_that_has_its_letters(text: str, family: str) -> None:
     assert family_for(text) == family
+
+
+@pytest.mark.parametrize(
+    ("text", "language", "countries", "family"),
+    [
+        ("流浪地球", "zh", ["CN"], "NotoSansSC"), ("臥虎藏龍", "zh", ["HK", "TW"], "NotoSansTC"),
+        ("花樣年華", "cn", ["HK"], "NotoSansTC"), ("羅生門", "ja", ["JP"], "PretendardJP"),
+        ("千と千尋の神隠し", "zh", ["CN"], "PretendardJP"), ("Parasite", "ko", ["KR"], "Inter"),
+    ],
+)  # fmt: skip
+def test_the_original_language_chooses_between_chinese_and_japanese(
+    text: str, language: str, countries: list[str], family: str
+) -> None:
+    assert family_for(text, preferred_family(language, countries)) == family
+
+
+@pytest.mark.parametrize(
+    ("name", "cut"),
+    [
+        ("スタジオジブリ長編アニメーション映画作品コレクション", False),
+        ("The Lord of the Rings and The Hobbit Extended Middle-earth Saga Collection Box", True),
+        ("KEEP_FOREVER", False),
+        ("Supercalifragilisticexpialidociousandmoreandmorewords", False),
+    ],
+)
+def test_long_category_names_stay_inside_the_tile(name: str, cut: bool) -> None:
+    face, rows = category._layout(name, *category.POSTER)
+    assert len(rows) <= category.MAX_ROWS
+    assert all(face.getlength(row) <= category.LABEL_WIDTH * category.POSTER[0] for row in rows)
+    assert "".join(rows).replace(" ", "").rstrip("…") in name.replace(" ", "")
+    assert rows[-1].endswith("…") == cut
+    if name == "KEEP_FOREVER":
+        assert rows == ["KEEP_FOREVER"]
 
 
 def test_right_to_left_names_sit_bottom_right() -> None:

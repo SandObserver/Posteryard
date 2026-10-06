@@ -1,7 +1,7 @@
 import math
 import unicodedata
-from collections.abc import Sequence
-from functools import cache
+from collections.abc import Iterable, Sequence
+from functools import cache, lru_cache
 from importlib import resources
 from pathlib import Path
 
@@ -31,7 +31,10 @@ FALLBACKS = (
 )  # fmt: skip
 HANGUL = ((0x1100, 0x11FF), (0x3130, 0x318F), (0xAC00, 0xD7AF))
 KANA = ((0x3040, 0x30FF), (0x31F0, 0x31FF), (0xFF66, 0xFF9F))
+LANGUAGE_FAMILIES = {"ja": "PretendardJP", "ko": "Pretendard", "zh": "NotoSansSC", "cn": "NotoSansTC"}
+TRADITIONAL_CHINESE = frozenset({"TW", "HK", "MO"})
 CHECK_SIZE = 40
+GLYPH_CACHE = 50_000
 
 
 @cache
@@ -45,7 +48,6 @@ def font(weight: str, size: int, family: str = "Inter") -> ImageFont.FreeTypeFon
     raise FileNotFoundError(f"no {family} font")
 
 
-@cache
 def _glyph(family: str, char: str) -> bytes:
     face = font("Bold", CHECK_SIZE, family)
     canvas = Image.new("L", (CHECK_SIZE * 3, CHECK_SIZE * 2))
@@ -53,21 +55,37 @@ def _glyph(family: str, char: str) -> bytes:
     return canvas.tobytes()
 
 
+@cache
+def _missing(family: str) -> bytes:
+    return _glyph(family, chr(0x10FFFD))
+
+
+@lru_cache(maxsize=GLYPH_CACHE)
 def _has(family: str, char: str) -> bool:
     if char.isspace() or unicodedata.category(char) in ("Cf", "Mn", "Me"):
         return True
-    return _glyph(family, char) != _glyph(family, chr(0x10FFFD))
+    return _glyph(family, char) != _missing(family)
 
 
 def _within(char: str, ranges: tuple[tuple[int, int], ...]) -> bool:
     return any(low <= ord(char) <= high for low, high in ranges)
 
 
-def family_for(text: str) -> str:
+def preferred_family(language: str, countries: Iterable[str]) -> str:
+    """The fallback font for a title's original language. Chinese and Japanese share characters, so the text alone
+    cannot choose between them."""
+    if language == "zh" and TRADITIONAL_CHINESE.intersection(countries):
+        return "NotoSansTC"
+    return LANGUAGE_FAMILIES.get(language, "")
+
+
+def family_for(text: str, prefer: str = "") -> str:
     """Inter when it has every character, else the fallback that has the most, preferring the text's own script."""
     if all(_has("Inter", c) for c in text):
         return "Inter"
     order = list(FALLBACKS)
+    if prefer in order:
+        order.insert(0, prefer)
     if any(_within(c, KANA) for c in text):
         order.insert(0, "PretendardJP")
     elif any(_within(c, HANGUL) for c in text):
@@ -75,9 +93,9 @@ def family_for(text: str) -> str:
     return max(order, key=lambda family: (sum(_has(family, c) for c in text), -order.index(family)))
 
 
-def font_for(text: str, weight: str, size: int) -> ImageFont.FreeTypeFont:
+def font_for(text: str, weight: str, size: int, prefer: str = "") -> ImageFont.FreeTypeFont:
     """A font that can draw text. Fallback fonts have no Regular weight and use SemiBold."""
-    return font(weight, size, family_for(text))
+    return font(weight, size, family_for(text, prefer))
 
 
 MARK_DIRS: list[Path] = []

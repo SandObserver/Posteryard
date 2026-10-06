@@ -103,15 +103,19 @@ def test_network_follows_the_offer_region() -> None:
 
 
 class FakeTmdb:
-    def __init__(self) -> None:
+    def __init__(self, logo: str = "/exxen.svg") -> None:
         self.asked: list[int] = []
+        self.logo = logo
 
     def network_logo(self, network_id: int) -> str | None:
         self.asked.append(network_id)
-        return "/exxen.svg" if network_id == 4405 else None
+        return self.logo if network_id == 4405 else None
 
 
-def test_a_network_logo_is_preferred_over_the_provider_icon(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("logo", ["/exxen.svg", "/exxen.png"])
+def test_a_network_logo_is_preferred_over_the_provider_icon(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, logo: str
+) -> None:
     fetched: list[tuple[str, str]] = []
 
     def image(path: str, size: str = "original") -> Image.Image:
@@ -119,7 +123,7 @@ def test_a_network_logo_is_preferred_over_the_provider_icon(tmp_path: Path, monk
         return two_colour_logo() if path == "/exxen.png" else flat_icon()
 
     monkeypatch.setattr(Tmdb, "image", staticmethod(image))
-    tmdb = FakeTmdb()
+    tmdb = FakeTmdb(logo)
     marks = AutoMarks(tmp_path / "marks", MemoryChoices())
     offer = Offer(5, "Exxen", "/icon.jpg", "TR")
     assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"  # type: ignore[arg-type]

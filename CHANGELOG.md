@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
+- Draw in dark ink only when the logo, the badges and the label each read where they sit.
+- Fit long collection names on the category tile: Chinese and Japanese names break between characters, and a cut name ends with "…".
+- Choose the Chinese or Japanese font from the title's original language.
+- Keep the font check from holding memory for every character it tests.
+- Request TMDB network logos by their real file name.
 - Leave out automatic streaming marks that turn into a solid shape or specks in one colour, such as discovery+ on Blue Planet II.
 - Keep white letters of a coloured logo, such as the "HI" of HIDIVE, in its one-colour mark.
 - Use the Sky mark for Sky X.

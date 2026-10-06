@@ -22,7 +22,7 @@ from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import category, designs, lines
-from posteryard.render.layers import NEAR_BLACK, WHITE, cover, family_for, trim
+from posteryard.render.layers import NEAR_BLACK, WHITE, cover, family_for, preferred_family, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
 
@@ -74,6 +74,7 @@ class Title:
     name: str
     all_titles: list[str]
     service: str | None
+    font: str = ""
 
 
 @dataclass
@@ -243,11 +244,12 @@ class Context:
             path = self.picker.logo(f"{base}:fanart", extra, self.logo_languages, self.prefer_wordmark, dark=dark)
         return path
 
-    def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line]) -> float:
-        key = f"poster-fade:{art}:{logo or name}:{','.join(type(line).__name__ for line in below)}"
+    def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line], prefer: str = "") -> float:
+        text = name + (f"@{prefer}" if prefer else "")
+        key = f"poster-fade:{art}:{logo or text}:{','.join(type(line).__name__ for line in below)}"
         hit = self.choices.get_choice(key)
         if hit is None:
-            image = trim(self.fetch(logo)) if logo else designs.text_logo(name)
+            image = trim(self.fetch(logo)) if logo else designs.text_logo(name, prefer=prefer)
             hit = {"strength": designs.fade_strength(self.load(art), image, below)}
             self.choices.put_choice(key, hit)
         return float(hit["strength"])
@@ -260,12 +262,21 @@ class Context:
             self.choices.put_choice(key, hit)
         return bool(hit["dark"])
 
-    def dark_reads(self, art: str, logo: str | None, name: str, below: list[lines.Line]) -> bool:
-        key = f"poster-dark:{art}:{logo or name}:{','.join(type(line).__name__ for line in below)}"
+    def dark_reads(
+        self,
+        art: str,
+        logo: str | None,
+        name: str,
+        below: list[lines.Line],
+        *,
+        label: lines.Label | None,
+        prefer: str = "",
+    ) -> bool:
+        key = f"poster-dark-ink:{art}:{logo or name}:{prefer}:{below!r}:{label.text if label else ''}"
         hit = self.choices.get_choice(key)
         if hit is None:
-            image = trim(self.fetch(logo)) if logo else designs.text_logo(name)
-            hit = {"reads": designs.dark_logo_reads(self.load(art), image, below)}
+            image = trim(self.fetch(logo)) if logo else designs.text_logo(name, prefer=prefer)
+            hit = {"reads": designs.dark_logo_reads(self.load(art), image, below, label)}
             self.choices.put_choice(key, hit)
         return bool(hit["reads"])
 
@@ -326,7 +337,9 @@ class Context:
             return hit[1]
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
         service = self.service(self.tmdb.watch_providers(kind, tid)) if kind == "tv" else None
-        title = Title(kind, tid, name, every, service)
+        details = self.tmdb.details(kind, tid)
+        font = preferred_family(str(details.get("original_language") or ""), details.get("origin_country") or [])
+        title = Title(kind, tid, name, every, service, font)
         self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
 
@@ -424,29 +437,31 @@ def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True)
 
 
 def _bottom_ink(
-    ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line]
+    ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line], *, label: lines.Label | None
 ) -> tuple[str | None, bool, bool]:
     """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn dark.
 
     A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design.
     """
     if logo is None:
-        return None, ctx.dark_reads(art, None, title.name, below), False
+        return None, ctx.dark_reads(art, None, title.name, below, label=label, prefer=title.font), False
     if ctx.one_colour(logo):
-        dark = ctx.dark_reads(art, logo, title.name, below)
+        dark = ctx.dark_reads(art, logo, title.name, below, label=label)
         return logo, dark, dark
     dark_logo = ctx.logo(title, dark=True)
-    if dark_logo is not None and ctx.dark_reads(art, dark_logo, title.name, below):
+    if dark_logo is not None and ctx.dark_reads(art, dark_logo, title.name, below, label=label):
         return dark_logo, True, False
     return logo, False, False
 
 
-def _drawn_with(text_logo: str | None, dark_bottom: bool, dark_corner: bool, fade: float) -> dict[str, Any]:
+def _drawn_with(
+    text_logo: str | None, dark_bottom: bool, dark_corner: bool, fade: float, prefer: str = ""
+) -> dict[str, Any]:
     """Plan inputs that differ from the default look, so unchanged posters keep their fingerprints."""
     drawn: dict[str, Any] = {}
     if text_logo is not None:
         drawn["text_logo"] = text_logo
-        if (family := family_for(text_logo)) != "Inter":
+        if (family := family_for(text_logo, prefer)) != "Inter":
             drawn["font"] = family
     if dark_bottom:
         drawn["ink"] = "dark"
@@ -500,16 +515,16 @@ def _poster(
         below.append(lines.Badges(tuple(access)))
     number = season or None
     service = title.service if season is None else None
-    logo_path, dark_bottom, recoloured = _bottom_ink(ctx, title, art_path, logo, below)
+    logo_path, dark_bottom, recoloured = _bottom_ink(ctx, title, art_path, logo, below, label=label)
     corner = "mark" if service else "number" if number is not None else None
     dark_corner = corner is not None and ctx.corner_dark(art_path, corner)
     ink = NEAR_BLACK if dark_bottom else WHITE
     corner_ink = NEAR_BLACK if dark_corner else WHITE
-    fade = 1.0 if dark_bottom else ctx.fade(art_path, logo_path, title.name, below)
+    fade = 1.0 if dark_bottom else ctx.fade(art_path, logo_path, title.name, below, title.font)
 
     def draw() -> Image.Image:
         if logo_path is None:
-            mark = designs.text_logo(title.name, ink)
+            mark = designs.text_logo(title.name, ink, title.font)
         else:
             mark = trim(ctx.fetch(logo_path))
             mark = designs.recolour(mark, ink) if recoloured else mark
@@ -522,7 +537,7 @@ def _poster(
         extra["logo_ink"] = "dark"
     if service and not dark_corner:
         extra["corner"] = "light"
-    extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade))
+    extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade, title.font))
     inputs = {
         "design": "tile", "art": art_path, "logo": logo_path, "label": label, "lines": below,
         "number": number, "service": service, **extra,
@@ -617,13 +632,13 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
     titled = ctx.episodes == EpisodeMode.TITLED
 
     def draw() -> Image.Image:
-        return designs.episode_still(ctx.fetch(path), number, name if titled else None)
+        return designs.episode_still(ctx.fetch(path), number, name if titled else None, title.font)
 
     inputs = {
         "design": "episode",
         "still": path,
         **({"number": number, "title": name} if titled else {"mode": "plain"}),
-        **({"font": family} if titled and (family := family_for(name)) != "Inter" else {}),
+        **({"font": family} if titled and (family := family_for(name, title.font)) != "Inter" else {}),
     }
     return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
 
@@ -652,10 +667,12 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
         logo = ctx.logo(title)
 
         def channel() -> Image.Image:
-            featured_logo = trim(ctx.fetch(logo)) if logo else designs.text_logo(title.name)
+            featured_logo = trim(ctx.fetch(logo)) if logo else designs.text_logo(title.name, prefer=title.font)
             return designs.channel_tile(ctx.fetch(art_path), featured_logo, service)
 
         inputs = {"design": "channel", "art": art_path, "logo": logo, "featured": title.name, "service": service}
+        if not logo and (family := family_for(title.name, title.font)) != "Inter":
+            inputs["font"] = family
         return [Plan(key, "poster", name, inputs, channel, [f"art {art_path} from {title.name}"])]
 
     def tile() -> Image.Image:

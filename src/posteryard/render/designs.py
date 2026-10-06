@@ -104,15 +104,27 @@ def corner_dark(art: Image.Image, area: str) -> bool:
     return _dark_wins(_region(art, MARK_AREA if area == "mark" else NUMBER_AREA))
 
 
-def dark_logo_reads(art: Image.Image, logo: Image.Image, lines_below: list[lines.Line]) -> bool:
+def dark_logo_reads(
+    art: Image.Image, logo: Image.Image, lines_below: list[lines.Line], label: lines.Label | None = None
+) -> bool:
+    """Dark ink is used for the logo, the lines below it and the label, so each one must read where it sits."""
     canvas = cover(art, *POSTER).convert("RGB")
-    logo, at, _ = _place_logo(canvas.size, logo, lines_below)
-    behind = np.asarray(canvas.crop((*at, at[0] + logo.width, at[1] + logo.height)), dtype=np.float32)
-    covered = np.asarray(logo.getchannel("A")) > 127
-    if not covered.any():
+    pixels = luminance(np.asarray(canvas, dtype=np.float32))
+    logo, at, centres = _place_logo(canvas.size, logo, lines_below)
+    parts = [Image.new("RGBA", canvas.size) for _ in range(len(lines_below) + 2)]
+    parts[0].alpha_composite(logo, at)
+    for part, line, centre in zip(parts[1:], lines_below, centres, strict=False):
+        lines.draw(part, [line], [centre])
+    if label is not None:
+        lines.draw_label_above(parts[-1], label, at[1])
+    masks = [np.asarray(part.getchannel("A")) > 127 for part in parts]
+    if not masks[0].any():
         return False
-    darkest = float(np.percentile(luminance(behind[covered]), 10))
-    return (darkest + 0.05) / (DARK_INK + 0.05) >= LOGO_CONTRAST
+    return all(
+        (float(np.percentile(pixels[mask], 10)) + 0.05) / (DARK_INK + 0.05) >= LOGO_CONTRAST
+        for mask in masks
+        if mask.any()
+    )
 
 
 def one_colour(logo: Image.Image) -> bool:
@@ -213,7 +225,7 @@ def tile_poster(
     return canvas.convert("RGB")
 
 
-def episode_still(still: Image.Image, number: int, title: str | None) -> Image.Image:
+def episode_still(still: Image.Image, number: int, title: str | None, prefer: str = "") -> Image.Image:
     image = cover(still, *WIDE, (0.5, 0.5))
     if title is None:
         shaded = image.convert("RGBA")
@@ -232,7 +244,7 @@ def episode_still(still: Image.Image, number: int, title: str | None) -> Image.I
     pen.text(
         (x, h - round(0.128 * h)), f"EPISODE {number}", font=font("SemiBold", round(0.0172 * w)), fill=ink, anchor="lm"
     )
-    face = font_for(title, "SemiBold", round(0.0297 * w))
+    face = font_for(title, "SemiBold", round(0.0297 * w), prefer)
     pen.text((x, h - round(0.072 * h)), _fit(title, face, w - 2 * x), font=face, fill=ink, anchor="lm")
     return image
 
@@ -271,12 +283,12 @@ def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Im
     return canvas.convert("RGB")
 
 
-def text_logo(title: str, ink: RGB = WHITE) -> Image.Image:
+def text_logo(title: str, ink: RGB = WHITE, prefer: str = "") -> Image.Image:
     words = title.split() or [title]
     options = [[" ".join(words)]]
     for cut in range(1, len(words)):
         options.append([" ".join(words[:cut]), " ".join(words[cut:])])
-    face = font_for(title, "Bold", 200)
+    face = font_for(title, "Bold", 200, prefer)
     box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
 
     def scale(rows: list[str]) -> float:

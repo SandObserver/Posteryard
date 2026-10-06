@@ -34,6 +34,7 @@ LEVELS = (0.02, 0.92)
 TARGET_MEDIAN = (0.28, 0.5)
 LABEL_X, LABEL_BASE, LABEL_SIZE, LABEL_LINE, LABEL_WIDTH = 0.075, 0.925, 0.075, 0.085, 0.85
 MIN_LABEL_SIZE = 0.045
+MAX_ROWS = 3
 CONTRAST = 4.5
 SHADE_STEPS = (0.0, 0.2, 0.35, 0.5, 0.65, 0.8, 0.9)
 SHADE_RISE = 0.16
@@ -77,20 +78,49 @@ def _blend(w: int, h: int, angle: int) -> np.ndarray:
     return weight
 
 
+def _wide(word: str) -> bool:
+    return any(unicodedata.east_asian_width(c) in ("W", "F") for c in word)
+
+
+def _wrap(name: str, face: ImageFont.FreeTypeFont, width: float, *, split: bool) -> list[str]:
+    """Chinese and Japanese words break between characters. Other words break only with split."""
+    rows = [""]
+    for word in name.split():
+        trial = f"{rows[-1]} {word}".strip()
+        if face.getlength(trial) <= width:
+            rows[-1] = trial
+        elif face.getlength(word) <= width or not (split or _wide(word)):
+            if rows[-1]:
+                rows.append(word)
+            else:
+                rows[-1] = word
+        else:
+            if rows[-1]:
+                rows.append("")
+            for char in word:
+                if rows[-1] and face.getlength(rows[-1] + char) > width:
+                    rows.append(char)
+                else:
+                    rows[-1] += char
+    return rows
+
+
 def _layout(name: str, w: int, h: int) -> tuple[ImageFont.FreeTypeFont, list[str]]:
+    width = LABEL_WIDTH * w
     size = LABEL_SIZE
     while True:
         face = font_for(name, "Bold", round(size * h))
-        rows = [""]
-        for word in name.split():
-            trial = (rows[-1] + " " + word).strip()
-            if face.getlength(trial) > LABEL_WIDTH * w and rows[-1]:
-                rows.append(word)
-            else:
-                rows[-1] = trial
-        fits = len(rows) <= 2 and all(face.getlength(row) <= LABEL_WIDTH * w for row in rows)
-        if fits or size <= MIN_LABEL_SIZE:
-            return face, rows[:3]
+        rows = _wrap(name, face, width, split=False)
+        if len(rows) <= 2 and all(face.getlength(row) <= width for row in rows):
+            return face, rows
+        if size <= MIN_LABEL_SIZE:
+            rows = _wrap(name, face, width, split=True)
+            if len(rows) > MAX_ROWS:
+                last = rows[MAX_ROWS - 1]
+                while last and face.getlength(last.rstrip() + "…") > width:
+                    last = last[:-1]
+                rows = [*rows[: MAX_ROWS - 1], last.rstrip() + "…"]
+            return face, rows
         size -= 0.005
 
 
