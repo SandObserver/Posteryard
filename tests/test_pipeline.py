@@ -1,4 +1,5 @@
 import hashlib
+import threading
 import time
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -203,6 +204,17 @@ def test_next_art_skips_the_current_picture() -> None:
     assert plan.inputs["art"] == "/backdrop.jpg"
     ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/backdrop.jpg"}))
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop2.jpg"
+
+
+def test_the_title_cache_is_written_under_the_lock() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    with ctx._lock:
+        writer = threading.Thread(target=ctx.title, args=("tv", 42, "Example Show"))
+        writer.start()
+        writer.join(0.5)
+        assert writer.is_alive()
+    writer.join(5)
+    assert ("tv", 42) in ctx.titles
 
 
 def test_without_overrides_fingerprints_stay_the_same() -> None:
