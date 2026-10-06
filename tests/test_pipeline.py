@@ -1,4 +1,5 @@
 import hashlib
+import threading
 import time
 from datetime import date, datetime, timedelta
 from functools import lru_cache
@@ -605,3 +606,14 @@ def test_titles_drawn_in_a_fallback_font_name_it() -> None:
     korean = pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "tmdb://43"}], "title": "기생충"})[0].inputs
     assert "font" not in latin
     assert korean["font"] == "Pretendard"
+
+
+def test_the_title_cache_is_written_under_the_lock() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    with ctx._lock:
+        writer = threading.Thread(target=ctx.title, args=("tv", 42, "Example Show"))
+        writer.start()
+        writer.join(0.5)
+        assert writer.is_alive()
+    writer.join(5)
+    assert ("tv", 42) in ctx.titles

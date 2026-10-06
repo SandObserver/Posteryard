@@ -362,7 +362,8 @@ class Context:
         return None
 
     def title(self, kind: Kind, tid: int, name: str) -> Title:
-        hit = self.titles.get((kind, tid))
+        with self._lock:
+            hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             return hit[1]
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
@@ -370,7 +371,8 @@ class Context:
         details = self.tmdb.details(kind, tid)
         font = preferred_family(str(details.get("original_language") or ""), details.get("origin_country") or [])
         title = Title(kind, tid, name, every, service, font)
-        self.titles[(kind, tid)] = (time.monotonic(), title)
+        with self._lock:
+            self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
 
 
