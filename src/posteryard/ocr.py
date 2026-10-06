@@ -19,6 +19,7 @@ OCR_THREADS = 2
 READS_PER_PROCESS = 100
 READ_TIMEOUT = 120
 IDLE_SECONDS = 600
+STOP_SECONDS = 5
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
@@ -65,12 +66,25 @@ class _Process:
                 max_tasks_per_child=READS_PER_PROCESS,
                 mp_context=multiprocessing.get_context("spawn"),
             )
-        return self.pool.submit(_read_pixels, pixels).result(timeout=READ_TIMEOUT)
+        future = self.pool.submit(_read_pixels, pixels)
+        try:
+            return future.result(timeout=READ_TIMEOUT)
+        except TimeoutError:
+            self.close()
+            raise
 
     def close(self, idle: float = 0) -> None:
-        if self.pool is not None and time.monotonic() - self.last_read >= idle:
-            self.pool.shutdown(cancel_futures=True)
-            self.pool = None
+        """Do not wait for a running read. A stuck read would block the worker thread for good."""
+        if self.pool is None or time.monotonic() - self.last_read < idle:
+            return
+        pool, self.pool = self.pool, None
+        processes = list((pool._processes or {}).values())
+        pool.shutdown(wait=False, cancel_futures=True)
+        for process in processes:
+            process.join(STOP_SECONDS)
+            if process.is_alive():
+                process.kill()
+                process.join()
 
 
 _process = _Process()
