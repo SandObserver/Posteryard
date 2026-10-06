@@ -464,6 +464,21 @@ def test_a_textless_tmdb_poster_comes_before_apple_art(monkeypatch: pytest.Monke
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
 
 
+class RejectingMarks:
+    def get(self, offer: Any, tmdb: Any = None) -> str | None:
+        return None
+
+
+def test_a_left_out_mark_is_not_replaced_by_the_next_service() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.marks = RejectingMarks()  # type: ignore[assignment]
+    providers = {"CA": {"flatrate": [
+        {"provider_id": 510, "provider_name": "Discovery+", "logo_path": "/d.jpg", "display_priority": 1},
+        {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.jpg", "display_priority": 2},
+    ]}}  # fmt: skip
+    assert ctx.service(providers) is None
+
+
 def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
