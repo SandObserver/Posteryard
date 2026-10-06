@@ -90,14 +90,16 @@ def request(
             if response.status not in RETRY_STATUSES or attempt == retries:
                 raise HttpError(response.status, url, body.decode("utf-8", "replace"))
             wait = max(delay, retry_after(response.headers.get("Retry-After")))
-            log.warning("retrying %s %s after HTTP %s", method, redact(url), response.status)
+            log.warning(
+                "retrying request", extra={"method": method, "url": redact(url), "reason": f"HTTP {response.status}"}
+            )
         except urllib3.exceptions.LocationValueError as exc:
             raise RequestError(type(exc).__name__, url) from None
         except urllib3.exceptions.HTTPError as exc:
             reason = type(getattr(exc, "reason", None) or exc).__name__
             if attempt == retries:
                 raise RequestError(reason, url) from None
-            log.warning("retrying %s %s after %s", method, redact(url), reason)
+            log.warning("retrying request", extra={"method": method, "url": redact(url), "reason": reason})
         except ValueError as exc:
             raise RequestError(type(exc).__name__, url) from None
         time.sleep(wait)

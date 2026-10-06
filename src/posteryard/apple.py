@@ -79,5 +79,5 @@ def find(kind: Kind, details: Mapping[str, Any], region: str) -> str | None:
             return None
         raise
     except (ValueError, KeyError) as exc:
-        log.warning("Apple TV page for %s could not be read: %s", umc, type(exc).__name__)
+        log.warning("Apple TV page not readable", extra={"umc": umc, "reason": type(exc).__name__})
         return None

@@ -2,12 +2,14 @@ import json
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 import pytest
 
 from posteryard import config
-from posteryard.notify import Notifier, split_urls
+from posteryard.notify import Event, Notifier, split_urls
+from posteryard.store import Store
 
 
 class Receiver(BaseHTTPRequestHandler):
@@ -47,6 +49,57 @@ def test_alerts_reach_every_service_once_per_quiet_period(receiver: Any) -> None
     assert hook["message"] == "Plex is down"
 
 
+def messages(received: list[tuple[str, dict[str, str], bytes]]) -> list[dict[str, Any]]:
+    return [json.loads(body) for _, _, body in received]
+
+
+def test_a_resolved_problem_says_so_once(receiver: Any) -> None:
+    address, received = receiver
+    notifier = Notifier([f"json://{address}/hook"])
+    notifier.resolve("TMDB", "TMDB works again.")
+    notifier.alert("TMDB", "TMDB is down")
+    notifier.resolve("TMDB", "TMDB works again.")
+    notifier.resolve("TMDB", "TMDB works again.")
+    assert [(m["message"], m["type"]) for m in messages(received)] == [
+        ("TMDB is down", "warning"),
+        ("TMDB works again.", "success"),
+    ]
+
+
+def test_open_problems_survive_a_restart(tmp_path: Path, receiver: Any) -> None:
+    address, received = receiver
+    store = Store(tmp_path / "state.db")
+    Notifier([f"json://{address}/hook"], state=store).alert("restart", "Posteryard restarts")
+    restarted = Notifier([f"json://{address}/hook"], state=store)
+    restarted.alert("restart", "Posteryard restarts")
+    restarted.resolve("restart", "Posteryard is running again.")
+    assert [m["message"] for m in messages(received)] == ["Posteryard restarts", "Posteryard is running again."]
+
+
+def test_only_chosen_events_are_sent(receiver: Any) -> None:
+    address, received = receiver
+    quiet = Notifier([f"json://{address}/hook"], events=frozenset({Event.NEW}))
+    quiet.alert("TMDB", "TMDB is down")
+    quiet.summary("Checked 5 items: 1 updated.", failed=False)
+    assert received == []
+    Notifier([f"json://{address}/hook"]).new_posters(["Dune"])
+    assert received == []
+
+
+def test_new_posters_come_as_one_short_message(receiver: Any) -> None:
+    address, received = receiver
+    notifier = Notifier([f"json://{address}/hook"], events=frozenset({Event.NEW, Event.SUMMARY}))
+    notifier.new_posters([f"Title {n}" for n in range(12)])
+    notifier.new_posters(["Dune"], b"\xff\xd8poster")
+    notifier.summary("Checked 5 items: 1 updated, 1 failed.", failed=True)
+    many, one, summary = messages(received)
+    assert many["title"] == "Posteryard: 12 new posters"
+    assert many["message"].splitlines()[-2:] == ["Title 9", "and 2 more"]
+    assert one["title"] == "Posteryard: new poster"
+    assert one["attachments"][0]["mimetype"] == "image/jpeg"
+    assert (summary["title"], summary["type"]) == ("Posteryard: daily check", "warning")
+
+
 def test_send_reports_a_failed_service() -> None:
     assert not Notifier(["json://127.0.0.1:9/hook"]).send("test", "hello")
     assert not Notifier().configured
@@ -65,6 +118,15 @@ def test_notify_urls_are_split_and_checked() -> None:
     ]
     cfg = config.load({"TMDB_API_KEY": "example", "NOTIFY_URLS": "ntfy://example.org/a"})
     assert cfg.notify_urls == ("ntfy://example.org/a",)
+    assert cfg.notify_events == {Event.PROBLEMS}
     with pytest.raises(config.ConfigError, match="address 2 ") as caught:
         config.load({"TMDB_API_KEY": "example", "NOTIFY_URLS": "ntfy://example.org/a nonsense-secret"})
     assert "nonsense-secret" not in str(caught.value)
+
+
+def test_notify_events_are_checked() -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "NOTIFY_EVENTS": "Problems, new,summary"})
+    assert cfg.notify_events == {Event.PROBLEMS, Event.NEW, Event.SUMMARY}
+    assert config.load({"TMDB_API_KEY": "example", "NOTIFY_EVENTS": " "}).notify_events == {Event.PROBLEMS}
+    with pytest.raises(config.ConfigError, match="not everything"):
+        config.load({"TMDB_API_KEY": "example", "NOTIFY_EVENTS": "problems,everything"})

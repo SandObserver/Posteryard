@@ -13,13 +13,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Give collections that are not a streaming service Apple TV's category tile: the art in a genre palette with the name.
 - Draw Persian, Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean names with matching fonts and shaping.
 - Use TMDB network logos as streaming marks for services without a built-in mark, such as Exxen, SkyShowtime, U-NEXT, JioHotstar and BINGE.
+- Add `NOTIFY_EVENTS` to also send alerts for new posters, with the image, and a daily summary.
+- Send an alert when TMDB, the media server, Maintainerr, scheduled runs or service collections work again.
+- Print the settings in use at start, and log each name in `LIBRARIES` the server does not have.
 
 ### Changed
 
 - Stop the text reader after 10 idle minutes and drop downloaded images while idle, to use less memory.
+- Write the log as logfmt lines with the title and the art source, one line per image, and end each full pass with a summary.
+- Keep the 6-hour alert limit across restarts.
 
 ### Fixed
 
+- Hide the onnxruntime telemetry warning from the log.
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
 - Draw in dark ink only when the logo, the badges and the label each read where they sit.
 - Fit long collection names on the category tile: Chinese and Japanese names break between characters, and a cut name ends with "…".

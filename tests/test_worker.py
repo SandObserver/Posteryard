@@ -117,6 +117,16 @@ def test_a_changed_input_renders_again(tmp_path: Path) -> None:
     assert plex.uploads.count(("1", "poster")) == 2
 
 
+def test_only_a_first_upload_counts_as_a_new_poster(tmp_path: Path) -> None:
+    worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    assert [name for name, _ in worker.fresh] == [plex.items["1"]["title"]]
+    assert worker.fresh[0][1].startswith(b"\xff\xd8")
+    plex.items["1"]["Media"] = [{"videoResolution": "4k", "Part": []}]
+    assert worker.process("1") == Outcome.UPLOADED
+    assert worker.fresh == []
+
+
 def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     worker, plex, store, alerts = make(tmp_path)
     plex.fail = True

@@ -25,7 +25,10 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
                 continue
             service = ctx.title("tv", tid, str(show.get("title", ""))).service
         except (http.RequestError, ValueError) as exc:
-            log.warning("no streaming service for %s, keeping its collections as they are: %s", show.get("title"), exc)
+            log.warning(
+                "streaming service unknown, collections kept as they are",
+                extra={"title": show.get("title"), "reason": str(exc)},
+            )
             unknown.add(str(show["ratingKey"]))
             continue
         if service in services.NAMES:
@@ -40,7 +43,7 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
                 kept.append(str(existing["ratingKey"]))
             elif existing is not None:
                 server.delete_collection(str(existing["ratingKey"]))
-                log.info("removed the %s collection: fewer than %d shows", name, MIN_SHOWS)
+                log.info("collection removed", extra={"collection": name, "reason": f"fewer than {MIN_SHOWS} shows"})
             continue
         if existing is None:
             key = server.create_collection(section_key, "show", name, members)
@@ -49,7 +52,7 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
             except http.RequestError:
                 server.delete_collection(key)
                 raise
-            log.info("created the %s collection with %d shows", name, len(members))
+            log.info("collection created", extra={"collection": name, "shows": len(members)})
         else:
             key = str(existing["ratingKey"])
             current = {str(m["ratingKey"]) for m in server.collection_children(key)}
@@ -63,5 +66,7 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
         return kept + [str(c["ratingKey"]) for c in ours.values()]
     for leftover in ours.values():
         server.delete_collection(str(leftover["ratingKey"]))
-        log.info("removed the %s collection: no show uses the service any more", leftover.get("title"))
+        log.info(
+            "collection removed", extra={"collection": leftover.get("title"), "reason": "no show uses the service"}
+        )
     return kept

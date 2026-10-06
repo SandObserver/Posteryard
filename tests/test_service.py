@@ -1,7 +1,9 @@
 import http.client
 import json
+import logging
 import threading
 import time
+from collections.abc import Sequence
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -10,9 +12,11 @@ import pytest
 
 from posteryard import config, service_collections
 from posteryard import http as posteryard_http
+from posteryard.notify import Notifier
 from posteryard.server import Item
 from posteryard.service import Service, other_server, parse_webhook, related_keys
 from posteryard.store import Store
+from posteryard.worker import Outcome
 
 
 def test_multipart_webhook_payload() -> None:
@@ -98,7 +102,7 @@ def make_service(tmp_path: Path, plex: FakePlex | None = None) -> Service:
 
 def test_a_full_pass_stays_pending_until_the_queue_drains(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.full()
+    service.full("daily")
     assert service.store.meta("full_pending") == "1"
     service.idle()
     assert service.store.meta("full_pending") == "1"
@@ -109,7 +113,7 @@ def test_a_full_pass_stays_pending_until_the_queue_drains(tmp_path: Path) -> Non
 
 
 def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
-    make_service(tmp_path).full()
+    make_service(tmp_path).full("daily")
     restarted = make_service(tmp_path)
     restarted.resume()
     assert len(queued(restarted)) == 2
@@ -140,8 +144,9 @@ def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
     assert service.store.get("5", "poster") is None
 
 
-class Alerts:
+class Alerts(Notifier):
     def __init__(self) -> None:
+        super().__init__()
         self.sent: list[str] = []
 
     def alert(self, subject: str, message: str) -> None:
@@ -184,7 +189,7 @@ def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) ->
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_LIBRARIES": "Movie"})
     service = Service(cfg, FakePlex(), store, worker=None)  # type: ignore[arg-type]
     with pytest.raises(LookupError, match="Movie"):
-        service.full()
+        service.full("daily")
     assert store.get("1", "poster") is not None
     assert queued(service) == []
 
@@ -192,7 +197,7 @@ def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) ->
 def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.store.manual("5", "poster", "Example")
-    service.full()
+    service.full("daily")
     assert sorted(queued(service)) == ["1", "2", "5"]
     assert service.store.get("5", "poster") is not None
 
@@ -353,8 +358,9 @@ def test_jellyfin_posts_json_as_text() -> None:
     assert payload is not None and payload["ItemId"] == "e58e4e34025383f58942a3e8447eb6ce"
 
 
-class FakeNotifier:
+class FakeNotifier(Notifier):
     def __init__(self) -> None:
+        super().__init__()
         self.sent: list[str] = []
 
     def alert(self, subject: str, message: str) -> None:
@@ -411,7 +417,7 @@ def test_a_failed_collection_sync_does_not_stop_the_full_pass(tmp_path: Path, mo
 
     monkeypatch.setattr(service_collections, "sync", fail)
     service, _, notifier = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
-    service.full()
+    service.full("daily")
     assert notifier.sent == ["collections", "collections"]
     assert service.store.meta("last_full")
 
@@ -446,3 +452,82 @@ def test_the_worker_waits_for_the_server_check(tmp_path: Path, monkeypatch: pyte
     thread.join(timeout=5)
     assert queued(service) == ["1"]
     assert service.worker_beat > 0
+
+
+class Messages(Notifier):
+    def __init__(self) -> None:
+        super().__init__()
+        self.summaries: list[str] = []
+        self.new: list[tuple[list[str], bytes | None]] = []
+
+    def summary(self, message: str, *, failed: bool) -> None:
+        self.summaries.append(message)
+
+    def new_posters(self, names: Sequence[str], poster: bytes | None = None) -> None:
+        self.new.append((list(names), poster))
+
+
+def messages_service(tmp_path: Path) -> tuple[Service, Messages]:
+    notifier = Messages()
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "DRY_RUN": "false"})
+    worker = type("W", (), {"notifier": notifier, "fresh": []})()
+    return Service(cfg, FakePlex(), Store(cfg.state_path), worker), notifier  # type: ignore[arg-type]
+
+
+def test_a_full_check_ends_with_a_summary(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    service, notifier = messages_service(tmp_path)
+    service.full("daily")
+    service._tally.update({Outcome.UPLOADED: 2, Outcome.UNCHANGED: 5, Outcome.FAILED: 1})
+    while queued(service):
+        service.take(0)
+    with caplog.at_level(logging.INFO):
+        service.idle()
+    done = next(r for r in caplog.records if r.getMessage() == "full check done")
+    assert (done.uploaded, done.unchanged, done.failed) == (2, 5, 1)  # type: ignore[attr-defined]
+    assert notifier.summaries[0].startswith("Checked 8 items in ")
+    assert notifier.summaries[0].endswith(": 2 updated, 1 failed.")
+
+
+def test_a_quiet_full_check_sends_no_summary(tmp_path: Path) -> None:
+    service, notifier = messages_service(tmp_path)
+    service.full("daily")
+    service._tally.update({Outcome.UNCHANGED: 7})
+    while queued(service):
+        service.take(0)
+    service.idle()
+    assert notifier.summaries == []
+
+
+def test_new_posters_are_grouped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, notifier = messages_service(tmp_path)
+    service.collect_new([("Dune", b"dune")])
+    service.announce_new(idle=False)
+    assert notifier.new == []
+    service.announce_new(idle=True)
+    assert notifier.new == [(["Dune"], b"dune")]
+    service.collect_new([("Severance · Season 2", b"s2")])
+    service.collect_new([("The Batman", b"batman")])
+    service.announce_new(idle=True)
+    assert len(notifier.new) == 1
+    monkeypatch.setattr(service, "_last_new", float("-inf"))
+    service.announce_new(idle=True)
+    assert notifier.new[1] == (["Severance · Season 2", "The Batman"], None)
+
+
+def test_a_missing_library_is_named(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    service = make_service(tmp_path)
+    with caplog.at_level(logging.INFO):
+        service.connect()
+    connected, missing = caplog.records
+    assert connected.libraries == "Movies"  # type: ignore[attr-defined]
+    assert (missing.getMessage(), missing.library) == ("library not found", "TV Shows")  # type: ignore[attr-defined]
+
+
+def test_the_startup_block_lists_the_settings(tmp_path: Path) -> None:
+    service, _ = messages_service(tmp_path)
+    lines = service.banner().splitlines()
+    assert lines[1].startswith("  Posteryard ")
+    assert "  Server     Plex, libraries Movies, TV Shows" in lines
+    assert "  Alerts     off, NOTIFY_URLS is empty" in lines
+    assert not any(line.startswith("  Mode") for line in lines)
+    assert any(line.startswith("  Mode") for line in make_service(tmp_path).banner().splitlines())

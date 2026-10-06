@@ -125,6 +125,7 @@ Add any of these under `environment:`.
 | Setting | What it does | Default |
 | --- | --- | --- |
 | `NOTIFY_URLS` | **Where alerts go.** [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas: Discord, Telegram, Gotify, Pushover, Slack, email, ntfy and about 100 more. See [Alerts](#alerts). | |
+| `NOTIFY_EVENTS` | **Which alerts are sent.** `problems`, `new` and `summary`, separated by commas. See [Alerts](#alerts). | `problems` |
 | `HEARTBEAT_URL` | **An address to call while healthy.** Posteryard calls it every minute while it works, such as an Uptime Kuma push URL. When the calls stop, your monitor alerts you. See [Monitoring](#monitoring). | |
 | `SWEEP_MINUTES` | **Minutes between checks for new titles.** Each check handles titles added or changed since the last one, titles Maintainerr lists, and failed titles due for a retry. | `15` |
 | `DAILY_AT` | **Time of the daily full pass.** A pass over every title, as `HH:MM` in your `TZ`. | `04:15` |
@@ -250,7 +251,15 @@ On collections, only `posteryard-ignore` applies.
 
 ## Alerts
 
-Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours.
+Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours, also across restarts. When TMDB, the media server, Maintainerr, scheduled runs or service collections work again, a second alert says so.
+
+`NOTIFY_EVENTS` sets which alerts are sent, such as `NOTIFY_EVENTS=problems,new`:
+
+| Event | What is sent |
+| --- | --- |
+| `problems` | The problem alerts above. On by default. |
+| `new` | New posters: one alert with up to 10 titles, at most every 15 minutes. A single new poster comes with the image if the service shows images. A new poster is the first one Posteryard uploads for a title the webhook or a sweep found. The full pass sends none. |
+| `summary` | One alert after the daily full pass, only when something was updated or failed. |
 
 Set `NOTIFY_URLS` to one or more Apprise addresses:
 
@@ -324,10 +333,17 @@ Images that would come out the same are not rendered or uploaded again. If you c
 
 ## Troubleshooting
 
-Read the log first: `docker logs --tail 100 posteryard`.
+Read the log first: `docker logs --tail 100 posteryard`. After a start, Posteryard prints the settings it runs with. After that, each line has the time in UTC, a level (`INF`, `WRN` or `ERR`), the message, and details such as the title and the reason:
 
-| Message | What to do |
+```text
+2026-10-04T19:50:02.001Z WRN msg="item failed" title="The Invite" key=20106 attempt=1 reason="TMDB has no textless art for The Invite"
+```
+
+Set `LOG_LEVEL=debug` to see every item Posteryard checks.
+
+| Message or reason | What to do |
 | --- | --- |
+| `library not found` | One name in `LIBRARIES` is not on the server. Use the names exactly as the sidebar shows them. |
 | `Plex has no movie or TV library named ...` | Set `LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
 | `... has no TMDB id, and TMDB knows no IMDb or TVDB id of it` | The title is unmatched, or matched by an agent without TMDB, IMDb or TVDB ids, such as HAMA. In Plex, choose **Fix Match** or **Refresh Metadata**. |
 | `TMDB has no textless art for ...` | TMDB has no usable art yet. Set `FANART_API_KEY` to try fanart.tv too, use `art set` with your own image, or add the `posteryard-ignore` label. |

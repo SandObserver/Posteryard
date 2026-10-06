@@ -63,6 +63,7 @@ class Config:
     sweep_minutes: int
     daily_at: time
     notify_urls: tuple[str, ...]
+    notify_events: frozenset[notify.Event]
     listen_port: int
     heartbeat_url: str
     log_level: LogLevel = LogLevel.INFO
@@ -113,6 +114,15 @@ def _accessibility(env: Mapping[str, str]) -> frozenset[Badge]:
     unknown = [name for name in names if name not in allowed]
     if unknown:
         raise ConfigError(f"QUALITY_ACCESSIBILITY takes sdh, cc and ad, not {', '.join(unknown)}")
+    return frozenset(allowed[name] for name in names)
+
+
+def _notify_events(env: Mapping[str, str]) -> frozenset[notify.Event]:
+    allowed = {event.value: event for event in notify.Event}
+    names = [name.lower() for name in _list(env, "NOTIFY_EVENTS")] or [notify.Event.PROBLEMS.value]
+    unknown = [name for name in names if name not in allowed]
+    if unknown:
+        raise ConfigError(f"NOTIFY_EVENTS takes problems, new and summary, not {', '.join(unknown)}")
     return frozenset(allowed[name] for name in names)
 
 
@@ -194,6 +204,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         sweep_minutes=_int(env, "SWEEP_MINUTES", 15, 1, 1440),
         daily_at=_clock(env, "DAILY_AT", "04:15"),
         notify_urls=notify_urls,
+        notify_events=_notify_events(env),
         listen_port=_int(env, "LISTEN_PORT", 8000, 1, 65535),
         heartbeat_url=heartbeat_url,
         log_level=_choice(env, "LOG_LEVEL", "info", LogLevel),
