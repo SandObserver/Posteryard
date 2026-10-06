@@ -1,3 +1,7 @@
+import multiprocessing
+import time
+
+import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
@@ -40,3 +44,20 @@ def test_the_ocr_process_stops_when_idle_and_starts_again(monkeypatch: pytest.Mo
     ocr.close_idle()
     assert ocr._process.pool is None
     assert ocr.shows_title(ocr.read(image), ["The Office"])
+
+
+def stuck(pixels: np.ndarray) -> list[TextLine]:
+    time.sleep(30)
+    return []
+
+
+def test_a_stuck_read_stops_the_ocr_process(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(ocr, "_read_pixels", stuck)
+    monkeypatch.setattr(ocr, "READ_TIMEOUT", 1)
+    ocr._process.close()
+    started = time.monotonic()
+    with pytest.raises(TimeoutError):
+        ocr.read(Image.new("RGB", (480, 720)))
+    assert ocr._process.pool is None
+    assert time.monotonic() - started < 15
+    assert not multiprocessing.active_children()
