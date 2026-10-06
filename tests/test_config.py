@@ -72,7 +72,7 @@ def test_an_empty_library_list_is_rejected() -> None:
 
 
 def test_serve_needs_one_server_and_a_webhook_secret() -> None:
-    with pytest.raises(ConfigError, match="PLEX_URL and PLEX_TOKEN are required"):
+    with pytest.raises(ConfigError, match="Set PLEX_URL and PLEX_TOKEN, or"):
         require_service(load({"TMDB_API_KEY": "example"}))
     plex = {"TMDB_API_KEY": "example", "PLEX_URL": "http://plex.example:32400", "PLEX_TOKEN": "example"}
     with pytest.raises(ConfigError, match="WEBHOOK_SECRET"):
@@ -81,8 +81,14 @@ def test_serve_needs_one_server_and_a_webhook_secret() -> None:
     with pytest.raises(ConfigError, match="both required"):
         require_service(load(jellyfin))
     require_service(load({**jellyfin, "JELLYFIN_API_KEY": "example"}))
-    with pytest.raises(ConfigError, match="not both"):
+    with pytest.raises(ConfigError, match="not PLEX_URL and JELLYFIN_URL"):
         require_service(load({**plex, **jellyfin, "JELLYFIN_API_KEY": "example"}))
+    emby = {"TMDB_API_KEY": "example", "EMBY_API_KEY": "example", "WEBHOOK_SECRET": "x"}
+    with pytest.raises(ConfigError, match="EMBY_URL and EMBY_API_KEY are both required"):
+        require_service(load(emby))
+    require_service(load({**emby, "EMBY_URL": "http://emby.example:8096"}))
+    with pytest.raises(ConfigError, match="not JELLYFIN_URL and EMBY_URL"):
+        require_service(load({**jellyfin, **emby, "EMBY_URL": "http://emby.example:8096"}))
 
 
 def test_libraries_setting_wins_over_the_plex_name() -> None:

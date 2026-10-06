@@ -1,4 +1,4 @@
-"""Plex and Jellyfin both answer with the Plex-shaped `Item`."""
+"""Plex, Jellyfin and Emby all answer with the Plex-shaped `Item`."""
 
 import re
 from collections.abc import Iterable
@@ -44,6 +44,7 @@ class MediaServer(Protocol):
     name: str
     collections_per_library: bool
 
+    def server_id(self) -> str: ...
     def sections(self) -> list[Item]: ...
     def item(self, rating_key: str) -> Item | None: ...
     def children(self, rating_key: str) -> list[Item]: ...

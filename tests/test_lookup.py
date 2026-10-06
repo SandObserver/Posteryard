@@ -10,6 +10,10 @@ LIBRARIES = ("Movies", "TV Shows")
 class FakePlex:
     name = "Plex"
     url = "http://plex.example:32400"
+    identity = "plex:example"
+
+    def server_id(self) -> str:
+        return self.identity
 
     def __init__(self) -> None:
         self.titles = {

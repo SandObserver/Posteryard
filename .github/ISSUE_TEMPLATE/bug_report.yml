@@ -23,6 +23,7 @@ body:
       options:
         - Plex
         - Jellyfin
+        - Emby
     validations:
       required: true
   - type: textarea

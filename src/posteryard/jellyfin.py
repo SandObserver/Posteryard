@@ -1,4 +1,4 @@
-"""Jellyfin, answering with the Plex-shaped items the rest of Posteryard reads. See `server.py`."""
+"""Jellyfin and Emby, answering with the Plex-shaped items the rest of Posteryard reads. See `server.py`."""
 
 import base64
 import json
@@ -17,13 +17,7 @@ LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
 FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height"
 PAGE = 200
-ID = re.compile(r"^[0-9a-f]{32}$")
-
-
-def _id(item_id: str) -> str:
-    if not ID.match(item_id):
-        raise ValueError(f"not a Jellyfin item id: {item_id!r}")
-    return item_id
+PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 
 
 def _timestamp(value: Any) -> int | None:
@@ -35,6 +29,11 @@ def _timestamp(value: Any) -> int | None:
 
 def _iso(timestamp: int) -> str:
     return datetime.fromtimestamp(max(timestamp, 0), UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _folder(path: str) -> str:
+    """Windows servers report paths with backslashes."""
+    return path.replace("\\", "/").rstrip("/") + "/"
 
 
 def _resolution(width: int, height: int) -> str:
@@ -52,14 +51,15 @@ def _streams(raw: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     for s in raw:
         titles = {"title": s.get("Title"), "displayTitle": s.get("DisplayTitle")}
         if s.get("Type") == "Video":
-            kind = str(s.get("VideoRangeType") or "")
+            kind = str(s.get("VideoRangeType") or s.get("ExtendedVideoType") or "").lower()
+            pq = "hdr10" in kind or str(s.get("ColorTransfer") or "").lower() == "smpte2084"
             out.append(
                 {
                     "streamType": 1,
                     **titles,
-                    "DOVIPresent": kind.startswith("DOVI"),
-                    "extendedDisplayTitle": "HDR10+" if "HDR10Plus" in kind else "",
-                    "colorTrc": "smpte2084" if "HDR10" in kind else "",
+                    "DOVIPresent": kind.startswith(("dovi", "dolbyvision")),
+                    "extendedDisplayTitle": "HDR10+" if "hdr10plus" in kind else "",
+                    "colorTrc": "smpte2084" if pq else "",
                 }
             )
         elif s.get("Type") == "Audio":
@@ -79,12 +79,18 @@ def _streams(raw: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
 class Jellyfin:
     name = "Jellyfin"
     collections_per_library = False
+    item_id = re.compile(r"^[0-9a-f]{32}$")
 
     def __init__(self, url: str, api_key: str) -> None:
         self.url = url
         self.api_key = api_key
         self._user: str | None = None
         self._libraries: list[Item] | None = None
+
+    def _id(self, item_id: str) -> str:
+        if not self.item_id.match(item_id):
+            raise ValueError(f"not a valid {self.name} item id: {item_id!r}")
+        return item_id
 
     def _url(self, path: str, **params: Any) -> str:
         query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
@@ -108,9 +114,15 @@ class Jellyfin:
                 (u for u in users if (u.get("Policy") or {}).get("IsAdministrator")), users[0] if users else None
             )
             if admin is None:
-                raise http.RequestError("Jellyfin has no user", self.url)
+                raise http.RequestError(f"{self.name} has no user", self.url)
             self._user = str(admin["Id"])
         return self._user
+
+    def server_id(self) -> str:
+        server = str((self._get("/System/Info/Public") or {}).get("Id") or "")
+        if not server:
+            raise http.RequestError(f"{self.name} did not report its server ID", self.url)
+        return f"{self.name.lower()}:{server}"
 
     def sections(self) -> list[Item]:
         if self._libraries is None:
@@ -119,26 +131,26 @@ class Jellyfin:
                     "key": str(folder["ItemId"]),
                     "title": str(folder["Name"]),
                     "type": LIBRARY_TYPES[str(folder.get("CollectionType"))],
-                    "paths": [str(p).rstrip("/") + "/" for p in folder.get("Locations") or []],
+                    "paths": [_folder(str(p)) for p in folder.get("Locations") or []],
                 }
                 for folder in self._get("/Library/VirtualFolders")
                 if folder.get("CollectionType") in LIBRARY_TYPES
             ]
         return self._libraries
 
+    def _tags(self, raw: Mapping[str, Any]) -> list[str]:
+        return [str(tag) for tag in raw.get("Tags") or []]
+
     def _shape(self, raw: Mapping[str, Any]) -> Item:
         kind = TYPES.get(str(raw.get("Type")), str(raw.get("Type", "")).lower())
+        providers = {str(name).lower(): value for name, value in (raw.get("ProviderIds") or {}).items()}
         item: Item = {
             "ratingKey": str(raw["Id"]),
             "type": kind,
             "title": str(raw.get("Name", "")),
             "addedAt": _timestamp(raw.get("DateCreated")),
-            "Label": [{"tag": tag} for tag in raw.get("Tags") or []],
-            "Guid": [
-                {"id": f"{source}://{value}"}
-                for source, name in (("tmdb", "Tmdb"), ("imdb", "Imdb"), ("tvdb", "Tvdb"))
-                if (value := (raw.get("ProviderIds") or {}).get(name))
-            ],
+            "Label": [{"tag": tag} for tag in self._tags(raw)],
+            "Guid": [{"id": f"{source}://{value}"} for source, name in PROVIDERS if (value := providers.get(name))],
         }
         if raw.get("IndexNumber") is not None:
             item["index"] = int(raw["IndexNumber"])
@@ -149,7 +161,7 @@ class Jellyfin:
         elif kind == "episode":
             item["parentRatingKey"] = str(raw.get("SeasonId") or "")
             item["grandparentRatingKey"] = str(raw.get("SeriesId") or "")
-        path = str(raw.get("Path") or "")
+        path = _folder(str(raw.get("Path") or "")).rstrip("/")
         library = next((s for s in self.sections() if any(path.startswith(p) for p in s["paths"])), None)
         if library is not None:
             item["librarySectionID"] = library["key"]
@@ -162,10 +174,10 @@ class Jellyfin:
         return item
 
     def item(self, rating_key: str) -> Item | None:
-        if not ID.match(rating_key):
+        if not self.item_id.match(rating_key):
             return None
         try:
-            raw = self._get(f"/Items/{_id(rating_key)}", userId=self.user())
+            raw = self._raw(rating_key)
         except http.HttpError as exc:
             if exc.status in (400, 404):
                 return None
@@ -183,16 +195,16 @@ class Jellyfin:
                 return
 
     def children(self, rating_key: str) -> list[Item]:
-        return list(self._items(ParentId=_id(rating_key), SortBy="IndexNumber"))
+        return list(self._items(ParentId=self._id(rating_key), SortBy="IndexNumber"))
 
     def collection_children(self, rating_key: str) -> list[Item]:
-        return list(self._items(ParentId=_id(rating_key)))
+        return list(self._items(ParentId=self._id(rating_key)))
 
     def section_items(self, section_key: str, kind: str, **filters: Any) -> Iterator[Item]:
-        """Collections are not inside a library in Jellyfin; every library lists all of them."""
+        """Without collections_per_library, collections are not inside a library; every library lists all of them."""
         params: dict[str, Any] = {"IncludeItemTypes": INCLUDE[kind], "Recursive": "true"}
-        if kind != "collection":
-            params["ParentId"] = _id(section_key)
+        if kind != "collection" or self.collections_per_library:
+            params["ParentId"] = self._id(section_key)
         if "label" in filters:
             params["Tags"] = filters["label"]
         # Jellyfin has no created-date filter and ignores MinDateCreated. A new item's save date is its added date.
@@ -209,7 +221,7 @@ class Jellyfin:
         page = self._get(
             "/Items",
             userId=self.user(),
-            ParentId=_id(str(parent)),
+            ParentId=self._id(str(parent)),
             IncludeItemTypes=INCLUDE[kind],
             Recursive="true",
             SortBy="DateCreated",
@@ -221,7 +233,7 @@ class Jellyfin:
         return _timestamp(items[0].get("DateCreated")) if items else None
 
     def _raw(self, rating_key: str) -> dict[str, Any]:
-        raw: dict[str, Any] = self._get(f"/Items/{_id(rating_key)}", userId=self.user())
+        raw: dict[str, Any] = self._get(f"/Items/{self._id(rating_key)}", userId=self.user())
         return raw
 
     def selected(self, rating_key: str, target: Target) -> str | None:
@@ -237,9 +249,12 @@ class Jellyfin:
         image_type = IMAGE_TYPES[target]
         if target == "art":
             for _ in self._raw(rating_key).get("BackdropImageTags") or []:
-                self._send("DELETE", f"/Items/{_id(rating_key)}/Images/Backdrop", imageIndex=0)
+                self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", imageIndex=0)
         self._send(
-            "POST", f"/Items/{_id(rating_key)}/Images/{image_type}", body=base64.b64encode(jpeg), content="image/jpeg"
+            "POST",
+            f"/Items/{self._id(rating_key)}/Images/{image_type}",
+            body=base64.b64encode(jpeg),
+            content="image/jpeg",
         )
         tag = self.selected(rating_key, target)
         if not tag:
@@ -248,13 +263,19 @@ class Jellyfin:
 
     def poster_bytes(self, item: Item) -> bytes:
         return http.request(
-            "GET", self._url(f"/Items/{_id(str(item['ratingKey']))}/Images/Primary"), headers=self._auth, timeout=60
+            "GET",
+            self._url(f"/Items/{self._id(str(item['ratingKey']))}/Images/Primary"),
+            headers=self._auth,
+            timeout=60,
         )
+
+    def _save_tags(self, raw: dict[str, Any], tags: list[str]) -> None:
+        raw["Tags"] = tags
 
     def _update_tags(self, rating_key: str, change: Any) -> None:
         raw = self._raw(rating_key)
-        raw["Tags"] = change(list(raw.get("Tags") or []))
-        self._send("POST", f"/Items/{_id(rating_key)}", body=json.dumps(raw).encode(), content="application/json")
+        self._save_tags(raw, change(self._tags(raw)))
+        self._send("POST", f"/Items/{self._id(rating_key)}", body=json.dumps(raw).encode(), content="application/json")
 
     def remove_label(self, item: Item, label: str) -> None:
         self._update_tags(str(item["ratingKey"]), lambda tags: [t for t in tags if t.lower() != label.lower()])
@@ -266,19 +287,38 @@ class Jellyfin:
         """Nothing to lock: Jellyfin keeps an uploaded image unless a refresh is told to replace images."""
 
     def restore(self, item: Item, target: Target) -> None:
-        key = _id(str(item["ratingKey"]))
+        key = self._id(str(item["ratingKey"]))
         self._send("DELETE", f"/Items/{key}/Images/{IMAGE_TYPES[target]}")
         self._send("POST", f"/Items/{key}/Refresh", imageRefreshMode="FullRefresh", replaceAllImages="false")
 
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
-        answer = self._send("POST", "/Collections", name=title, ids=",".join(_id(k) for k in rating_keys))
+        answer = self._send("POST", "/Collections", name=title, ids=",".join(self._id(k) for k in rating_keys))
         return str(json.loads(answer)["Id"])
 
     def add_to_collection(self, rating_key: str, members: list[str]) -> None:
-        self._send("POST", f"/Collections/{_id(rating_key)}/Items", ids=",".join(_id(k) for k in members))
+        self._send("POST", f"/Collections/{self._id(rating_key)}/Items", ids=",".join(self._id(k) for k in members))
 
     def remove_from_collection(self, rating_key: str, member: str) -> None:
-        self._send("DELETE", f"/Collections/{_id(rating_key)}/Items", ids=_id(member))
+        self._send("DELETE", f"/Collections/{self._id(rating_key)}/Items", ids=self._id(member))
 
     def delete_collection(self, rating_key: str) -> None:
-        self._send("DELETE", f"/Items/{_id(rating_key)}")
+        self._send("DELETE", f"/Items/{self._id(rating_key)}")
+
+
+class Emby(Jellyfin):
+    """Emby answers like Jellyfin except for numeric item ids, the item route, tags and per-library collections."""
+
+    name = "Emby"
+    collections_per_library = True
+    item_id = re.compile(r"^\d{1,12}$")
+
+    def _raw(self, rating_key: str) -> dict[str, Any]:
+        raw: dict[str, Any] = self._get(f"/Users/{self.user()}/Items/{self._id(rating_key)}")
+        return raw
+
+    def _tags(self, raw: Mapping[str, Any]) -> list[str]:
+        return [str(tag.get("Name")) for tag in raw.get("TagItems") or [] if tag.get("Name")]
+
+    def _save_tags(self, raw: dict[str, Any], tags: list[str]) -> None:
+        """Emby ignores `Tags` on save and reads `TagItems` only."""
+        raw["TagItems"] = [{"Name": tag} for tag in tags]

@@ -2,7 +2,7 @@
 
 <h1 align="center">Posteryard</h1>
 
-<p align="center"><b>Clean, consistent posters for Plex and Jellyfin, picked, rendered and kept current automatically.</b></p>
+<p align="center"><b>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.</b></p>
 
 <p align="center">
   <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
@@ -11,11 +11,11 @@
 
 <p align="center"><img src="docs/before-after.jpg" alt="Deadpool & Wolverine, Thunderbolts* and Lilo & Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label"></p>
 
-Posteryard runs next to Plex, or [Jellyfin](#jellyfin), and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
+Posteryard runs next to Plex, [Jellyfin](#jellyfin) or [Emby](#emby), and gives every movie, show, season and episode the same calm look: clean art, the title logo in one fixed spot, and a soft fade. It finds the art, checks it, renders it, uploads it and keeps it up to date. You only step in when you want a different picture.
 
 ## Getting started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or ARM64 host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). For Jellyfin, see [Jellyfin](#jellyfin).
+You need [Docker](https://docs.docker.com/get-started/get-docker/) on an x86-64 or ARM64 host, a free [TMDB API key](https://www.themoviedb.org/settings/api) and your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). For Jellyfin or Emby, see [Jellyfin](#jellyfin) or [Emby](#emby).
 
 ### Create the compose file
 
@@ -84,6 +84,7 @@ Add any of these under `environment:`.
 | `LIBRARIES` | **The libraries to manage.** Names exactly as your server shows them, separated by commas. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
 | `ONLY_RATING_KEYS` | **Limit Posteryard to a few titles.** [Rating keys](#rating-keys) separated by commas; `posteryard find NAME` lists them. A show includes its seasons and episodes. Empty means every title. | |
 | `JELLYFIN_URL`, `JELLYFIN_API_KEY` | **Use Jellyfin instead of Plex.** Set both and leave out `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin](#jellyfin). | |
+| `EMBY_URL`, `EMBY_API_KEY` | **Use Emby instead of Plex.** Set both and leave out `PLEX_URL` and `PLEX_TOKEN`. See [Emby](#emby). | |
 
 ### Art
 
@@ -135,7 +136,7 @@ Add any of these under `environment:`.
 | `LOG_LEVEL` | **How much the log shows.** `debug`, `info`, `warning` or `error`. | `info` |
 | `LISTEN_PORT` | **Port inside the container.** If you change it, change the right side of `ports:` to match. | `8000` |
 | `DATA_DIR` | **Folder for the database, previews and custom art.** Inside the container. Keep the default and mount a volume there. | `/data` |
-| `..._FILE` | **Read a secret from a file.** Add `_FILE` to a secret's name and give a path, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `WEBHOOK_SECRET`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
+| `..._FILE` | **Read a secret from a file.** Add `_FILE` to a secret's name and give a path, such as a [Docker secret](https://docs.docker.com/compose/how-tos/use-secrets/): `PLEX_TOKEN_FILE=/run/secrets/plex_token`. Works for `TMDB_API_KEY`, `FANART_API_KEY`, `PLEX_TOKEN`, `JELLYFIN_API_KEY`, `EMBY_API_KEY`, `WEBHOOK_SECRET`, `NOTIFY_URLS` and `HEARTBEAT_URL`. | |
 
 ## Commands
 
@@ -186,7 +187,7 @@ Add the year, or use the number shown. A misspelled name lists the closest title
 
 ### Rating keys
 
-A rating key is the number Plex uses for a title. Every command accepts one in place of a name. `find` shows them. You only need them for `ONLY_RATING_KEYS`, or for a title whose name is a number, such as `1917`: write `1917 2019` or use its key.
+A rating key is the number Plex uses for a title. In Jellyfin and Emby it is the item ID. Every command accepts one in place of a name. `find` shows them. You only need them for `ONLY_RATING_KEYS`, or for a title whose name is a number, such as `1917`: write `1917 2019` or use its key.
 
 ## Jellyfin
 
@@ -203,6 +204,24 @@ Differences from Plex:
 - The labels below are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
 - Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps them for the first TV library in `LIBRARIES` only.
+
+## Emby
+
+Posteryard works with Emby instead of Plex. It is tested on Emby 4.10.1. Emby Premiere is not needed.
+
+1. In the Emby dashboard, open **API Keys**, add a key named `Posteryard`, and copy it.
+2. In the compose file, replace `PLEX_URL` and `PLEX_TOKEN` with `EMBY_URL=http://192.168.1.10:8096` and `EMBY_API_KEY=your-key`. Set only one server.
+3. Set `LIBRARIES` to your Emby library names, such as `LIBRARIES=Movies,Shows`.
+
+For new titles right away, open **Notifications** in the Emby dashboard and add a **Webhooks** notification. Use the URL `http://SERVER-IP:8000/webhook/YOUR-WEBHOOK-SECRET` and the event **New Media Added**. Both request types work. Without the webhook, new titles get posters at the next sweep.
+
+Differences from Plex:
+
+- The labels below are Emby **tags**. Add them in **Edit metadata > Tags**.
+- Emby keeps an uploaded image unless you refresh with **Replace existing images**. Posteryard does not lock items, because a locked item gets no metadata updates.
+- A refresh with **Replace all metadata** removes tags, including Posteryard's labels.
+
+To move from Plex or Jellyfin to Emby, start with a new data folder. The data folder belongs to one server, and Posteryard refuses to start with a data folder from another server.
 
 ## Unraid
 
@@ -332,7 +351,7 @@ Back up `./data`. `state.db` records the art chosen for each title and what was 
 
 1. Stop the service, so it uploads nothing new: `docker compose stop posteryard`.
 2. Give every uploaded image back to the server's own and unlock it: `docker compose run --rm posteryard posteryard restore --all`. Images you changed by hand stay as they are.
-3. With `SERVICE_COLLECTIONS`, delete the collections that carry the `posteryard-collection` label (a tag in Jellyfin).
+3. With `SERVICE_COLLECTIONS`, delete the collections that carry the `posteryard-collection` label (a tag in Jellyfin and Emby).
 4. Remove the container and its data: `docker compose down`, then delete `./data`.
 
 ## Development

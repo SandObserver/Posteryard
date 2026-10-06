@@ -9,12 +9,12 @@ from posteryard import __version__, config, http, lookup, memory, overrides, pip
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart
-from posteryard.jellyfin import Jellyfin
+from posteryard.jellyfin import Emby, Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
 from posteryard.server import MediaServer
-from posteryard.service import Service
+from posteryard.service import Service, other_server
 from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
@@ -23,9 +23,9 @@ log = logging.getLogger("posteryard")
 # These libraries log full URLs, with tokens, at debug level.
 QUIET_LOGGERS = ("urllib3", "apprise", "requests")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
-TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a Plex rating key'
+TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
-DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, Plex was not changed)"
+DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, the server was not changed)"
 
 
 def _set_log_level(level: config.LogLevel) -> None:
@@ -43,7 +43,9 @@ def _title_arguments(parser: argparse.ArgumentParser, *, required: bool = True) 
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="posteryard", description="Clean, consistent artwork for Plex.")
+    parser = argparse.ArgumentParser(
+        prog="posteryard", description="Clean, consistent artwork for Plex, Jellyfin and Emby."
+    )
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -61,7 +63,7 @@ def _parser() -> argparse.ArgumentParser:
     find = commands.add_parser("find", help="list the movies and shows whose name contains WORDS")
     find.add_argument("words", nargs="+", metavar="WORDS")
 
-    forget = commands.add_parser("forget", help="hand an image you changed in Plex back to Posteryard")
+    forget = commands.add_parser("forget", help="hand an image you changed on the server back to Posteryard")
     _title_arguments(forget)
     forget.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
 
@@ -80,8 +82,8 @@ def _parser() -> argparse.ArgumentParser:
 
     preview = commands.add_parser(
         "preview",
-        help="render artwork into a folder; never writes to Plex",
-        description="Render artwork into a folder. Nothing is written to Plex.",
+        help="render artwork into a folder; never writes to the server",
+        description="Render artwork into a folder. Nothing is written to the server.",
     )
     _title_arguments(preview, required=False)
     preview.add_argument(
@@ -94,7 +96,7 @@ def _parser() -> argparse.ArgumentParser:
     )  # fmt: skip
     preview.add_argument(
         "--episodes", type=int, default=0, metavar="N",
-        help="episodes to render per season of a Plex show or season; -1 for all (default 0)",
+        help="episodes to render per season of a show or season on the server; -1 for all (default 0)",
     )  # fmt: skip
     preview.add_argument("--out", type=Path, help="output folder (default DATA_DIR/previews)")
     return parser
@@ -212,6 +214,8 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
 def _server(cfg: config.Config) -> MediaServer:
     if cfg.jellyfin_url:
         return Jellyfin(cfg.jellyfin_url, cfg.jellyfin_api_key)
+    if cfg.emby_url:
+        return Emby(cfg.emby_url, cfg.emby_api_key)
     return Plex(cfg.plex_url, cfg.plex_token)
 
 
@@ -260,6 +264,9 @@ def main(argv: list[str] | None = None) -> int:
         print(exc)
         return 2
     try:
+        if args.command != "serve" and (problem := other_server(plex, store)):
+            print(problem)
+            return 2
         worker = Worker(cfg, plex, store, _notifier(cfg))
         if args.command == "serve":
             return Service(cfg, plex, store, worker).run()
