@@ -348,11 +348,11 @@ class Context:
         return int(value) if value else None
 
     def service(self, providers: Mapping[str, Any]) -> str | None:
+        """The first offer is the service. When its mark is left out, the poster has no mark."""
         for offer in services.offers(providers, self.regions):
             if key := services.service_for(offer.name):
                 return key
-            if self.marks is not None and (key := self.marks.get(offer, self.tmdb)):
-                return key
+            return self.marks.get(offer, self.tmdb) if self.marks is not None else None
         return None
 
     def title(self, kind: Kind, tid: int, name: str) -> Title:
