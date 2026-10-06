@@ -1,5 +1,7 @@
 import json
+import logging
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -8,7 +10,7 @@ from typing import Any
 import pytest
 
 from posteryard import config
-from posteryard.notify import Event, Notifier, split_urls
+from posteryard.notify import Event, Notifier, invalid_urls, split_urls
 from posteryard.store import Store
 
 
@@ -98,6 +100,47 @@ def test_new_posters_come_as_one_short_message(receiver: Any) -> None:
     assert one["title"] == "Posteryard: new poster"
     assert one["attachments"][0]["mimetype"] == "image/jpeg"
     assert (summary["title"], summary["type"]) == ("Posteryard: daily check", "warning")
+
+
+def test_a_flapping_cause_sends_one_alert_and_one_recovery(receiver: Any) -> None:
+    address, received = receiver
+    notifier = Notifier([f"json://{address}/hook"])
+    for n in range(3):
+        notifier.alert("TMDB", f"Title {n} failed 3 times")
+        notifier.resolve("TMDB", "TMDB works again.")
+    assert [m["message"] for m in messages(received)] == ["Title 0 failed 3 times", "TMDB works again."]
+
+
+def test_an_undelivered_alert_is_tried_again_soon(
+    tmp_path: Path, receiver: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    address, received = receiver
+    store = Store(tmp_path / "state.db")
+    down = Notifier(["json://127.0.0.1:9/hook"], state=store)
+    down.alert("Plex", "Plex is down")
+    down.resolve("Plex", "Plex works again.")
+    up = Notifier([f"json://{address}/hook"], state=store)
+    up.alert("Plex", "Plex is down")
+    assert received == []
+    now = time.time()
+    monkeypatch.setattr(time, "time", lambda: now + 601)
+    up.alert("Plex", "Plex is down")
+    assert [m["message"] for m in messages(received)] == ["Plex is down"]
+
+
+def test_unreadable_alert_state_starts_empty(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    for raw in ("not json", "[]", '{"muted": {"Plex": "soon"}, "open": []}'):
+        store.set_meta("alert_state", raw)
+        Notifier(state=store).alert("Plex", "Plex is down")
+
+
+def test_a_bad_address_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
+    level = logging.getLogger("apprise").level
+    with caplog.at_level(logging.DEBUG):
+        assert invalid_urls(["foo://SECRET@example.org/topic"]) == [1]
+    assert "SECRET" not in caplog.text
+    assert logging.getLogger("apprise").level == level
 
 
 def test_send_reports_a_failed_service() -> None:

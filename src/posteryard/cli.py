@@ -20,8 +20,8 @@ from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger("posteryard")
-# These libraries log full URLs, with tokens, at debug level.
-QUIET_LOGGERS = ("urllib3", "apprise", "requests")
+# These libraries log full URLs, with tokens, or every image chunk at debug level.
+QUIET_LOGGERS = ("urllib3", "apprise", "requests", "PIL")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
@@ -263,7 +263,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command != "serve" and (problem := other_server(plex, store)):
             print(problem)
             return 2
-        worker = Worker(cfg, plex, store, Notifier(cfg.notify_urls, cfg.notify_events, store))
+        # Only the service keeps alert state. A command run beside it would overwrite the service's copy.
+        state = store if args.command == "serve" else None
+        worker = Worker(cfg, plex, store, Notifier(cfg.notify_urls, cfg.notify_events, state))
         if args.command == "serve":
             return Service(cfg, plex, store, worker).run()
         if args.command == "restore":

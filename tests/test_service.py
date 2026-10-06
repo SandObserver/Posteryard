@@ -14,7 +14,7 @@ from posteryard import config, service_collections
 from posteryard import http as posteryard_http
 from posteryard.notify import Notifier
 from posteryard.server import Item
-from posteryard.service import Service, other_server, parse_webhook, related_keys
+from posteryard.service import NEW_REASONS, Service, other_server, parse_webhook, related_keys
 from posteryard.store import Store
 from posteryard.worker import Outcome
 
@@ -366,6 +366,9 @@ class FakeNotifier(Notifier):
     def alert(self, subject: str, message: str) -> None:
         self.sent.append(subject)
 
+    def resolve(self, cause: str, message: str) -> None:
+        self.sent.append(f"resolved {cause}")
+
 
 class TwoShowLibraries(FakePlex):
     def sections(self) -> list[dict[str, str]]:
@@ -531,3 +534,45 @@ def test_the_startup_block_lists_the_settings(tmp_path: Path) -> None:
     assert "  Alerts     off, NOTIFY_URLS is empty" in lines
     assert not any(line.startswith("  Mode") for line in lines)
     assert any(line.startswith("  Mode") for line in make_service(tmp_path).banner().splitlines())
+
+
+def test_one_failed_library_keeps_the_collections_problem_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def second_fails(server: object, ctx: object, key: str) -> list[str]:
+        if key == "4":
+            raise posteryard_http.RequestError("HTTP 500", "http://plex.example:32400/library/collections")
+        return []
+
+    monkeypatch.setattr(service_collections, "sync", second_fails)
+    service, _, notifier = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
+    service._sync_collections()
+    assert notifier.sent == ["collections"]
+    monkeypatch.setattr(service_collections, "sync", lambda server, ctx, key: [])
+    service._sync_collections()
+    assert notifier.sent == ["collections", "resolved collections"]
+
+
+class ChangedSince(FakePlex):
+    def __init__(self) -> None:
+        super().__init__()
+        self.since: list[int] = []
+
+    def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
+        self.since.append(since)
+        return [{"ratingKey": "1"}] if since < 1_000_000_000 else []
+
+
+def test_a_new_data_folder_sweeps_from_now(tmp_path: Path) -> None:
+    plex = ChangedSince()
+    service = make_service(tmp_path, plex)
+    service.worker = type("W", (), {"leaving_days": lambda self: {}})()
+    before = int(time.time())
+    service.sweep(6 * 3600)
+    assert min(plex.since) >= before
+    assert "1" not in queued(service)
+    service.sweep(6 * 3600)
+    assert min(plex.since[1:]) < before
+
+
+def test_a_retried_title_counts_as_new(tmp_path: Path) -> None:
+    assert {"webhook", "changed", "retry"} <= NEW_REASONS
+    assert not {"daily", "unlisted", "unignored", "label"} & NEW_REASONS

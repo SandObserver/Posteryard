@@ -285,7 +285,7 @@ class Worker:
             log.warning(f"{noun} not locked", extra={"title": plan.name, "reason": str(exc)})
         self.store.uploaded(key, target, plan.name, plan.fingerprint, image_key)
         log.info(f"{noun} uploaded", extra={"title": plan.name, "using": "; ".join(plan.notes)})
-        if target == "poster" and (record is None or record.status != Status.UPLOADED):
+        if target == "poster" and record is None:
             self.fresh.append((plan.name, data))
         return Outcome.UPLOADED
 

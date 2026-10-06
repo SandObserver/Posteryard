@@ -34,7 +34,7 @@ TICK = 30
 HEARTBEAT_SECONDS = 60
 URGENT = frozenset({"webhook", "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
-NEW_REASONS = frozenset({"webhook", "changed"})
+NEW_REASONS = frozenset({"webhook", "changed", "retry"})
 NEW_BATCH_SECONDS = 900
 NEW_WAIT_SECONDS = 300
 EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
@@ -203,8 +203,10 @@ class Service:
         return sections
 
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
-        since = int(self.store.meta("sweep_cursor", "0")) - lookback
         started = int(time.time())
+        cursor = self.store.meta("sweep_cursor")
+        # A new data folder starts the cursor now. The full pass covers the library, and new-poster alerts must not.
+        since = int(cursor) - lookback if cursor else started
         for section in self._sections():
             for kind in self._kinds(section):
                 changed = self.server.changed_since(str(section["key"]), kind, since)
@@ -273,14 +275,16 @@ class Service:
                 "reason": f"{self.server.name} collections belong to no library",
             })  # fmt: skip
             shows = shows[:1]
+        failed = False
         for section in shows:
             try:
                 service_collections.sync(self.server, self.worker.ctx, str(section["key"]))
             except (http.RequestError, ValueError) as exc:
+                failed = True
                 log.warning("service collections failed", extra={"library": section.get("title"), "reason": str(exc)})
                 self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")
-            else:
-                self.worker.notifier.resolve("collections", "Service collections update again.")
+        if not failed:
+            self.worker.notifier.resolve("collections", "Service collections update again.")
 
     def full(self, reason: str) -> None:
         seen: set[str] = set()

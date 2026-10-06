@@ -12,9 +12,10 @@ from apprise.attachment.memory import AttachMemory
 
 log = logging.getLogger(__name__)
 QUIET_SECONDS = 6 * 3600
+RETRY_SECONDS = 600
 NEW_LISTED = 10
 SEPARATOR = re.compile(r"[,\s]+")
-OPEN_ALERTS = "open_alerts"
+ALERT_STATE = "alert_state"
 
 
 class Event(StrEnum):
@@ -34,7 +35,23 @@ def split_urls(text: str) -> list[str]:
 
 def invalid_urls(urls: Sequence[str]) -> list[int]:
     """The 1-based positions of the addresses Apprise cannot use. Addresses hold secrets, so they are not echoed."""
-    return [n for n, url in enumerate(urls, 1) if not apprise.Apprise().add(url)]
+    apprise_log = logging.getLogger("apprise")
+    level = apprise_log.level
+    apprise_log.setLevel(logging.CRITICAL + 1)
+    try:
+        return [n for n, url in enumerate(urls, 1) if not apprise.Apprise().add(url)]
+    finally:
+        apprise_log.setLevel(level)
+
+
+def _load(state: State | None) -> tuple[dict[str, float], set[str]]:
+    if state is None:
+        return {}, set()
+    try:
+        saved = json.loads(state.meta(ALERT_STATE, "{}"))
+        return {str(k): float(v) for k, v in saved["muted"].items()}, {str(c) for c in saved["open"]}
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return {}, set()
 
 
 class Notifier:
@@ -50,32 +67,38 @@ class Notifier:
         self.events = events
         self._state = state
         self._lock = threading.Lock()
-        self._open: dict[str, float] = json.loads(state.meta(OPEN_ALERTS, "{}")) if state else {}
+        self._muted, self._open = _load(state)
 
     @property
     def configured(self) -> bool:
         return len(self._apprise) > 0
 
     def alert(self, cause: str, message: str) -> None:
-        """A problem. Each cause is sent at most once per quiet period, also across restarts."""
+        """A problem. A delivered alert mutes its cause for QUIET_SECONDS, a failed one for RETRY_SECONDS.
+        Resolving a cause does not end the mute, so a flapping cause cannot flood."""
+        if Event.PROBLEMS not in self.events or not self.configured:
+            return
         with self._lock:
             now = time.time()
-            if now - self._open.get(cause, float("-inf")) < QUIET_SECONDS:
+            if now < self._muted.get(cause, 0.0):
                 return
-            self._open[cause] = now
+            self._muted[cause] = now + RETRY_SECONDS
+        delivered = self.send(cause, message)
+        with self._lock:
+            if delivered:
+                self._muted[cause] = now + QUIET_SECONDS
+                self._open.add(cause)
             self._save()
-        if Event.PROBLEMS in self.events:
-            self.send(cause, message)
 
     def resolve(self, cause: str, message: str) -> None:
-        """The end of a problem. Sent only when an alert for the cause went out before."""
+        """The end of a problem. Sent only when the alert for the cause was delivered."""
         with self._lock:
-            if self._open.pop(cause, None) is None:
+            if cause not in self._open:
                 return
+            self._open.discard(cause)
             self._save()
         log.info("problem resolved", extra={"cause": cause})
-        if Event.PROBLEMS in self.events:
-            self.send(cause, message, apprise.NotifyType.SUCCESS)
+        self.send(cause, message, apprise.NotifyType.SUCCESS)
 
     def new_posters(self, names: Sequence[str], poster: bytes | None = None) -> None:
         if Event.NEW not in self.events or not names:
@@ -110,4 +133,4 @@ class Notifier:
 
     def _save(self) -> None:
         if self._state is not None:
-            self._state.set_meta(OPEN_ALERTS, json.dumps(self._open, sort_keys=True))
+            self._state.set_meta(ALERT_STATE, json.dumps({"muted": self._muted, "open": sorted(self._open)}))

@@ -127,6 +127,21 @@ def test_only_a_first_upload_counts_as_a_new_poster(tmp_path: Path) -> None:
     assert worker.fresh == []
 
 
+def test_a_title_previewed_before_is_not_new(tmp_path: Path) -> None:
+    worker, _, _, _ = make(tmp_path)
+    worker.process("1")
+    worker.cfg = config.load(
+        {
+            "TMDB_API_KEY": "example",
+            "DATA_DIR": str(tmp_path),
+            "PLEX_URL": "http://plex.example:32400",
+            "DRY_RUN": "false",
+        }
+    )
+    assert worker.process("1") == Outcome.UPLOADED
+    assert worker.fresh == []
+
+
 def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     worker, plex, store, alerts = make(tmp_path)
     plex.fail = True
