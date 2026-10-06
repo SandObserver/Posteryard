@@ -313,7 +313,7 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
             raise RuntimeError("unexpected")
         return "uploaded"
 
-    service.worker = type("W", (), {"process": staticmethod(process)})()
+    service.worker = type("W", (), {"process": staticmethod(process), "rest": lambda self: None})()
     service.enqueue(["1", "2", "1"], "test")
     thread = threading.Thread(target=service._work, daemon=True)
     thread.start()
