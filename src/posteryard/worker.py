@@ -26,6 +26,7 @@ ALERT_AFTER = 3
 LEAVING_CACHE_SECONDS = 600
 ITEM_TARGET = "item"
 JPEG_QUALITY = 90
+NOUNS = {"poster": "poster", "art": "background", "thumb": "thumbnail"}
 
 
 class Outcome(StrEnum):
@@ -83,6 +84,7 @@ class Worker:
         )
         self._leaving: Leaving | None = None
         self._rested = True
+        self.fresh: list[tuple[str, bytes]] = []
 
     def leaving_days(self) -> dict[str, date]:
         if self._leaving and time.monotonic() - self._leaving.fetched < LEAVING_CACHE_SECONDS:
@@ -90,8 +92,9 @@ class Worker:
         try:
             days = self.maintainerr.action_days()
             self.store.set_meta("leaving_days", json.dumps({k: v.isoformat() for k, v in days.items()}))
+            self.notifier.resolve("Maintainerr", "Maintainerr works again.")
         except (http.RequestError, ValueError) as exc:
-            log.warning("Maintainerr unavailable, using its last known schedule: %s", exc)
+            log.warning("Maintainerr unavailable, using its last known schedule", extra={"reason": str(exc)})
             self.notifier.alert("Maintainerr", f"Maintainerr is unavailable: {exc}")
             saved = json.loads(self.store.meta("leaving_days", "{}"))
             days = {k: date.fromisoformat(v) for k, v in saved.items()}
@@ -122,6 +125,7 @@ class Worker:
 
     def process(self, rating_key: str, *, force: bool = False) -> Outcome:
         self._rested = False
+        self.fresh = []
         title = rating_key
         try:
             item = self.server.item(rating_key)
@@ -143,6 +147,8 @@ class Worker:
                 if not self.ctx.retry_without_apple():
                     raise
                 outcomes = self._apply_all(item, force, redo_poster)
+            for cause in (self.server.name, "TMDB"):
+                self.notifier.resolve(cause, f"{cause} works again.")
         except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED
@@ -194,7 +200,7 @@ class Worker:
                 elif item is not None:
                     counts.kept += 1
             except (http.RequestError, ValueError) as exc:
-                log.warning("could not restore the %s of %s: %s", target, record.title, exc)
+                log.warning(f"{NOUNS[target]} not restored", extra={"title": record.title, "reason": str(exc)})
                 counts.failed += 1
                 continue
             self.store.forget_target(record.rating_key, record.target)
@@ -218,10 +224,10 @@ class Worker:
             return
         if record.status == Status.UPLOADED and not self.cfg.dry_run:
             if self.server.selected(key, target) != record.image_key:
-                log.info("%s for %s was changed by hand, leaving it", target, item.get("title"))
+                log.info(f"{NOUNS[target]} changed by hand, left alone", extra={"title": item.get("title")})
             else:
                 self.server.restore(item, target)
-                log.info("gave %s back its own %s", item.get("title"), target)
+                log.info(f"{NOUNS[target]} restored", extra={"title": item.get("title")})
         self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
@@ -232,7 +238,7 @@ class Worker:
         if overrides.NEXT_LABEL in tags:
             self._skip_current(item)
             self.server.remove_label(item, overrides.NEXT_LABEL)
-            log.info("switching %s to its next art", item.get("title"))
+            log.info("switching to the next art", extra={"title": item.get("title")})
             redo = True
         current = self.store.override(key)
         if overrides.CUSTOM_LABEL in tags:
@@ -243,25 +249,23 @@ class Worker:
                 path = str(overrides.save(image, self.cfg.data_dir, key))
                 if current is None or current.custom != path:
                     self.store.set_custom(key, path, "plex")
-                    log.info(
-                        "using the poster uploaded in %s as custom art for %s", self.server.name, item.get("title")
-                    )
+                    log.info("custom art taken from the server", extra={"title": item.get("title")})
                     redo = True
         elif current is not None and current.source == "plex":
             self.store.reset_override(key)
-            log.info("custom art label removed from %s, back to automatic art", item.get("title"))
+            log.info("custom art label removed, back to automatic art", extra={"title": item.get("title")})
             redo = True
         return redo
 
     def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:
-        key, target = plan.rating_key, plan.target
+        key, target, noun = plan.rating_key, plan.target, NOUNS[plan.target]
         record = self.store.get(key, target)
         if not self.cfg.dry_run and record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
             if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
                 self.store.manual(key, target, plan.name)
-                log.info("%s for %s was changed in %s, leaving it alone", target, plan.name, self.server.name)
+                log.info(f"{noun} changed by hand, left alone", extra={"title": plan.name})
                 return Outcome.MANUAL
         wanted = Status.PREVIEW if self.cfg.dry_run else Status.UPLOADED
         if record and record.status == wanted and record.fingerprint == plan.fingerprint and not force:
@@ -271,20 +275,23 @@ class Worker:
             self.cfg.preview_dir.mkdir(parents=True, exist_ok=True)
             image.convert("RGB").save(self.cfg.preview_dir / f"{key}-{target}.jpg", quality=JPEG_QUALITY)
             self.store.previewed(key, target, plan.name, plan.fingerprint)
-            log.info("previewed %s %s (%s)", target, plan.name, "; ".join(plan.notes))
+            log.info(f"{noun} preview saved", extra={"title": plan.name, "using": "; ".join(plan.notes)})
             return Outcome.PREVIEW
-        image_key = self.server.upload(key, target, jpeg(image))
+        data = jpeg(image)
+        image_key = self.server.upload(key, target, data)
         try:
             self.server.lock(item, target)
         except http.RequestError as exc:
-            log.warning("could not lock the %s for %s: %s", target, plan.name, exc)
+            log.warning(f"{noun} not locked", extra={"title": plan.name, "reason": str(exc)})
         self.store.uploaded(key, target, plan.name, plan.fingerprint, image_key)
-        log.info("uploaded %s %s (%s)", target, plan.name, "; ".join(plan.notes))
+        log.info(f"{noun} uploaded", extra={"title": plan.name, "using": "; ".join(plan.notes)})
+        if target == "poster" and record is None:
+            self.fresh.append((plan.name, data))
         return Outcome.UPLOADED
 
     def _failed(self, rating_key: str, title: str, exc: Exception) -> None:
         failures = self.store.failed(rating_key, ITEM_TARGET, title, str(exc))
-        log.warning("%s (%s) failed, attempt %d: %s", title, rating_key, failures, exc)
+        log.warning("item failed", extra={"title": title, "key": rating_key, "attempt": failures, "reason": str(exc)})
         if failures >= ALERT_AFTER:
             self.notifier.alert(_upstream(exc, self.server), f"{title} failed {failures} times: {exc}")
 

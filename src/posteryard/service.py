@@ -2,10 +2,12 @@ import hmac
 import itertools
 import json
 import logging
+import platform
 import queue
 import signal
 import threading
 import time
+from collections import Counter
 from collections.abc import Iterable
 from datetime import datetime
 from email import policy
@@ -13,8 +15,9 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, memory, overrides, service_collections
+from posteryard import __version__, http, logfmt, memory, overrides, service_collections
 from posteryard.config import Config
+from posteryard.notify import Event
 from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.store import Store
 from posteryard.worker import Outcome, Worker
@@ -31,6 +34,10 @@ TICK = 30
 HEARTBEAT_SECONDS = 60
 URGENT = frozenset({"webhook", "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
+NEW_REASONS = frozenset({"webhook", "changed", "retry"})
+NEW_BATCH_SECONDS = 900
+NEW_WAIT_SECONDS = 300
+EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
@@ -98,6 +105,13 @@ class Service:
         self.exit_code = 0
         self.server_checked = threading.Event()
         self._last_heartbeat = float("-inf")
+        self._connected = False
+        self._tally: Counter[Outcome] = Counter()
+        self._full_started: float | None = None
+        self._new: list[str] = []
+        self._new_poster: bytes | None = None
+        self._new_since = 0.0
+        self._last_new = float("-inf")
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
         priority = 0 if reason in URGENT else 2 if reason in BACKGROUND else 1
@@ -123,7 +137,7 @@ class Service:
         try:
             item = self.server.item(key)
         except http.RequestError as exc:
-            log.warning("webhook item %s could not be read: %s", key, exc)
+            log.warning("webhook item not readable", extra={"key": key, "reason": str(exc)})
             item = None
         self.enqueue(related_keys(dict(item)) if item else [key], "webhook")
 
@@ -137,18 +151,42 @@ class Service:
             except queue.Empty:
                 self.worker_beat = time.monotonic()
                 self.idle()
+                self.announce_new(idle=True)
                 self.worker.rest()
                 continue
             started = time.monotonic()
             try:
                 outcome = self.worker.process(key)
             except Exception:
-                log.exception("unexpected error on %s", key)
+                log.exception("unexpected error", extra={"key": key})
                 outcome = Outcome.FAILED
-            if outcome not in (Outcome.UNCHANGED, Outcome.SKIPPED):
-                log.info("%s %s (%s) in %.1fs", outcome, key, reason, time.monotonic() - started)
+            took = logfmt.took(time.monotonic() - started)
+            log.debug("item processed", extra={"key": key, "outcome": outcome, "trigger": reason, "took": took})
+            if self._full_started is not None:
+                self._tally[outcome] += 1
+            if reason in NEW_REASONS:
+                self.collect_new(self.worker.fresh)
+            self.announce_new(idle=False)
             memory.release()
             self.worker_beat = time.monotonic()
+
+    def collect_new(self, fresh: list[tuple[str, bytes]]) -> None:
+        if not fresh:
+            return
+        if not self._new:
+            self._new_since = time.monotonic()
+        self._new.extend(name for name, _ in fresh)
+        self._new_poster = fresh[0][1] if len(self._new) == 1 else None
+
+    def announce_new(self, *, idle: bool) -> None:
+        """One message for a group of new posters, at most once per NEW_BATCH_SECONDS."""
+        now = time.monotonic()
+        if not self._new or now - self._last_new < NEW_BATCH_SECONDS:
+            return
+        if not idle and now - self._new_since < NEW_WAIT_SECONDS:
+            return
+        self.worker.notifier.new_posters(self._new, self._new_poster)
+        self._new, self._new_poster, self._last_new = [], None, now
 
     def _kinds(self, section: Item) -> tuple[str, ...]:
         kinds = KINDS[str(section["type"])]
@@ -165,8 +203,10 @@ class Service:
         return sections
 
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
-        since = int(self.store.meta("sweep_cursor", "0")) - lookback
         started = int(time.time())
+        cursor = self.store.meta("sweep_cursor")
+        # A new data folder starts the cursor now. The full pass covers the library, and new-poster alerts must not.
+        since = int(cursor) - lookback if cursor else started
         for section in self._sections():
             for kind in self._kinds(section):
                 changed = self.server.changed_since(str(section["key"]), kind, since)
@@ -201,30 +241,52 @@ class Service:
             busy = bool(self._queued)
         if not busy and self.store.meta("full_pending") == "1":
             self.store.set_meta("full_pending", "0")
-            log.info("full pass finished")
+            self.report_full()
+
+    def report_full(self) -> None:
+        tally, started = self._tally, self._full_started
+        self._tally, self._full_started = Counter(), None
+        took = logfmt.took(time.monotonic() - started) if started is not None else None
+        changed = tally[Outcome.PREVIEW] if self.cfg.dry_run else tally[Outcome.UPLOADED]
+        log.info("full check done", extra={
+            "took": took, "previews" if self.cfg.dry_run else "uploaded": changed,
+            "unchanged": tally[Outcome.UNCHANGED], "by_hand": tally[Outcome.MANUAL], "skipped": tally[Outcome.SKIPPED],
+            "removed": tally[Outcome.GONE], "failed": tally[Outcome.FAILED],
+        })  # fmt: skip
+        if changed or tally[Outcome.FAILED]:
+            parts = [f"{changed:,} {'previewed' if self.cfg.dry_run else 'updated'}"]
+            if tally[Outcome.FAILED]:
+                parts.append(f"{tally[Outcome.FAILED]:,} failed")
+            checked = f"Checked {sum(tally.values()):,} items" + (f" in {took}" if took else "")
+            self.worker.notifier.summary(f"{checked}: {', '.join(parts)}.", failed=bool(tally[Outcome.FAILED]))
 
     def resume(self) -> None:
         if self.store.meta("full_pending") == "1":
-            log.info("resuming an unfinished full pass")
-            self.full()
+            self.full("resumed after a restart")
 
     def _sync_collections(self) -> None:
         shows = [s for s in self._sections() if s.get("type") == "show"]
         if self.cfg.dry_run:
-            log.info("DRY_RUN is on: service collections are not changed")
+            log.info("service collections not changed while DRY_RUN is on")
             return
         if not self.server.collections_per_library and len(shows) > 1:
-            log.warning("%s collections belong to no library: service collections use %s only",
-                        self.server.name, shows[0].get("title"))  # fmt: skip
+            log.warning("service collections use one library only", extra={
+                "server": self.server.name, "library": shows[0].get("title"),
+                "reason": f"{self.server.name} collections belong to no library",
+            })  # fmt: skip
             shows = shows[:1]
+        failed = False
         for section in shows:
             try:
                 service_collections.sync(self.server, self.worker.ctx, str(section["key"]))
             except (http.RequestError, ValueError) as exc:
-                log.warning("service collections for %s failed: %s", section.get("title"), exc)
+                failed = True
+                log.warning("service collections failed", extra={"library": section.get("title"), "reason": str(exc)})
                 self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")
+        if not failed:
+            self.worker.notifier.resolve("collections", "Service collections update again.")
 
-    def full(self) -> None:
+    def full(self, reason: str) -> None:
         seen: set[str] = set()
         if self.cfg.service_collections:
             self._sync_collections()
@@ -236,7 +298,8 @@ class Service:
         self.enqueue(unlisted, "unlisted")
         self.store.set_meta("full_pending", "1")
         self.store.set_meta("last_full", datetime.now().date().isoformat())
-        log.info("full pass queued %d items and %d unlisted ones", len(seen), len(unlisted))
+        self._tally, self._full_started = Counter(), time.monotonic()
+        log.info("full check started", extra={"reason": reason, "items": len(seen), "missing": len(unlisted)})
 
     def settings_signature(self) -> str:
         cfg = self.cfg
@@ -265,43 +328,53 @@ class Service:
         next_sweep = 0.0
         lookback = RESTART_LOOKBACK
         resumed = False
+        self.worker.notifier.resolve("restart", "Posteryard is running again.")
         while not self._stop.is_set():
             try:
                 if not self.server_checked.is_set():
                     if problem := other_server(self.server, self.store):
-                        log.error(problem)
+                        log.error("data folder belongs to another server", extra={"reason": problem})
                         self.worker.notifier.alert("server", problem)
                         self.exit_code = 2
                         self._stop.set()
                         return
                     self.server_checked.set()
+                if not self._connected:
+                    self.connect()
                 signature = self.settings_signature()
                 if not resumed:
                     if self.store.meta("settings_signature") == signature:
                         self.resume()
                     resumed = True
                 if self.store.meta("settings_signature") != signature:
-                    log.info("version or settings changed, checking every item now")
-                    self.full()
+                    self.full("version or settings changed" if self.store.meta("settings_signature") else "first run")
                     self.store.set_meta("settings_signature", signature)
                 now = datetime.now()
                 last_full = self.store.meta("last_full")
                 if not last_full or (last_full != now.date().isoformat() and now.time() >= self.cfg.daily_at):
-                    self.full()
+                    self.full("daily")
                 if time.monotonic() >= next_sweep:
                     self.sweep(lookback)
                     lookback = SWEEP_LOOKBACK
                     next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
+                self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
-                log.warning("scheduled run failed: %s", exc)
+                log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {exc}")
                 next_sweep = time.monotonic() + 120
             except Exception as exc:  # The schedule thread must survive any error.
-                log.exception("scheduled run failed")
+                log.exception("scheduled run failed, trying again in 2 minutes")
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 next_sweep = time.monotonic() + 120
             self.heartbeat()
             self._stop.wait(TICK)
+
+    def connect(self) -> None:
+        found = [str(s.get("title")) for s in self._sections()]
+        log.info("media server connected", extra={"server": self.server.name, "libraries": ", ".join(found)})
+        for missing in [name for name in self.cfg.libraries if name not in found]:
+            log.warning("library not found", extra={"library": missing, "server": self.server.name})
+        self._connected = True
 
     def heartbeat(self) -> None:
         now = time.monotonic()
@@ -311,9 +384,9 @@ class Service:
         try:
             http.request("GET", self.cfg.heartbeat_url, timeout=10, retries=1)
         except http.HttpError as exc:
-            log.warning("HEARTBEAT_URL answered HTTP %d", exc.status)
+            log.warning("HEARTBEAT_URL refused the call", extra={"reason": f"HTTP {exc.status}"})
         except http.RequestError:
-            log.warning("HEARTBEAT_URL could not be reached")
+            log.warning("HEARTBEAT_URL not reachable")
 
     def status(self) -> dict[str, Any]:
         now = time.monotonic()
@@ -342,7 +415,9 @@ class Service:
         while not self._stop.wait(TICK):
             dead = [thread.name for thread in self.threads if not thread.is_alive()]
             if dead:
-                log.error("service thread %s stopped, exiting so the container restarts", ", ".join(dead))
+                log.error(
+                    "service thread stopped, exiting so the container restarts", extra={"threads": ", ".join(dead)}
+                )
                 self.worker.notifier.alert("restart", f"Posteryard restarts because {', '.join(dead)} stopped.")
                 self.exit_code = 1
                 self._stop.set()
@@ -406,7 +481,49 @@ class Service:
 
         return Handler
 
+    def banner(self) -> str:
+        cfg = self.cfg
+        art = [
+            "TMDB",
+            *(["fanart.tv"] if cfg.fanart_api_key else []),
+            *([f"Apple TV ({cfg.regions[0]})"] if cfg.apple_art and cfg.regions else []),
+        ]
+        extras = [
+            *(["status labels"] if cfg.status_labels else []),
+            *(["leaving labels from Maintainerr"] if cfg.maintainerr_url else []),
+            *(["collection posters"] if cfg.collection_posters else []),
+            *(["service collections"] if cfg.service_collections else []),
+        ]
+        services = len(cfg.notify_urls)
+        alerts = (
+            f"{services} service{'s' if services != 1 else ''}: "
+            + ", ".join(EVENT_NAMES[e] for e in Event if e in cfg.notify_events)
+            if services
+            else "off, NOTIFY_URLS is empty"
+        )
+        rows = [
+            ("Server", f"{self.server.name}, libraries {', '.join(cfg.libraries)}"),
+            ("Art", ", ".join(art)),
+            ("Extras", ", ".join(extras) or "none"),
+            ("Schedule", f"new items every {cfg.sweep_minutes} min, full check daily at {cfg.daily_at:%H:%M}"),
+            ("Alerts", alerts),
+            ("Heartbeat", "on" if cfg.heartbeat_url else "off"),
+            ("Webhook", f":{cfg.listen_port} in the container"),
+            ("Data", str(cfg.data_dir)),
+        ]
+        if cfg.only_rating_keys:
+            rows.append(("Only", f"{len(cfg.only_rating_keys)} items from ONLY_RATING_KEYS"))
+        if cfg.dry_run:
+            rows.append(("Mode", "DRY_RUN, previews only, nothing is uploaded"))
+        return logfmt.banner(f"Posteryard {__version__} · Python {platform.python_version()}", rows)
+
     def run(self) -> int:
+        print(self.banner(), flush=True)
+        log.info(
+            "service ready", extra={"version": __version__, "port": self.cfg.listen_port, "dry_run": self.cfg.dry_run}
+        )
+        if self.cfg.dry_run:
+            log.warning("DRY_RUN is on: posters are saved as previews and not uploaded. Set DRY_RUN=false to upload")
         self.threads = [
             threading.Thread(target=self._work, daemon=True, name="worker"),
             threading.Thread(target=self._schedule, daemon=True, name="schedule"),
@@ -417,16 +534,12 @@ class Service:
         server.daemon_threads = True
 
         def stop(signum: int, _frame: object) -> None:
-            log.info("signal %d, shutting down", signum)
+            log.info("shutting down", extra={"signal": signal.Signals(signum).name})
             self._stop.set()
             threading.Thread(target=server.shutdown, daemon=True).start()
 
         signal.signal(signal.SIGTERM, stop)
         signal.signal(signal.SIGINT, stop)
-        log.info(
-            "Posteryard %s listening on %d, dry_run=%s, only=%s",
-            __version__, self.cfg.listen_port, self.cfg.dry_run, sorted(self.cfg.only_rating_keys) or "all",
-        )  # fmt: skip
         threading.Thread(target=self._watch, args=(server,), daemon=True, name="watch").start()
         server.serve_forever()
         server.server_close()

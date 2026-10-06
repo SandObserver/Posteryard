@@ -30,5 +30,5 @@ body:
     id: logs
     attributes:
       label: Logs
-      description: The lines around the problem. Remove tokens and server addresses first.
+      description: The block Posteryard prints at start and the lines around the problem. Remove tokens and server addresses first.
       render: text

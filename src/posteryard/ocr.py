@@ -35,8 +35,10 @@ class TextLine:
 
 @cache
 def _engine() -> Any:
+    import onnxruntime  # type: ignore[import-untyped]  # noqa: PLC0415
     from rapidocr import RapidOCR  # noqa: PLC0415
 
+    onnxruntime.set_default_logger_severity(3)
     return RapidOCR(
         params={
             "Global.log_level": "error",

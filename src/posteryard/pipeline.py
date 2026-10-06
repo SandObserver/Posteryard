@@ -51,6 +51,16 @@ def fetch_art(path: str) -> Image.Image:
     return Fanart.image(path) if is_fanart(path) else Tmdb.image(path)
 
 
+def art_source(path: str) -> str:
+    if apple.is_apple(path):
+        return "Apple TV"
+    if is_fanart(path):
+        return "fanart.tv"
+    if path.startswith(overrides.FILE_PREFIX):
+        return "custom file"
+    return f"TMDB {path}" if path.startswith("/") else path
+
+
 @dataclass
 class Plan:
     rating_key: str
@@ -215,10 +225,9 @@ class Context:
             url = apple.find(title.kind, details, region)
         except (http.RequestError, ValueError) as exc:
             known = (str(hit["url"]) or None) if hit is not None else None
-            log.warning(
-                "Apple TV art lookup for %s failed, using %s: %s",
-                title.name, "the last Apple TV art found" if known else "other art", exc,
-            )  # fmt: skip
+            log.warning("Apple TV art lookup failed", extra={
+                "title": title.name, "using": "last Apple TV art found" if known else "other art", "reason": str(exc),
+            })  # fmt: skip
             return known
         self.choices.put_choice(key, {"url": url or "", "checked": self.today.isoformat()})
         return url
@@ -231,7 +240,9 @@ class Context:
             try:
                 picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
             except http.RequestError as exc:
-                log.warning("Apple TV art for %s could not be loaded, using other art: %s", title.name, exc)
+                log.warning(
+                    "Apple TV art not loaded", extra={"title": title.name, "using": "other art", "reason": str(exc)}
+                )
                 self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
                 picked = None
             if picked is not None:
@@ -383,7 +394,7 @@ def _season_label(number: int) -> str:
 def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers: Sequence[int]) -> tuple[str, str]:
     key = ("seasons", str(title.tmdb_id), *map(str, numbers))
     assignment: dict[int, tuple[str, str]] = ctx.remember(key, lambda: _assign_seasons(ctx, title, show_art, numbers))
-    return assignment.get(season, (show_art, f"show art {show_art}"))
+    return assignment.get(season, (show_art, f"show art from {art_source(show_art)}"))
 
 
 def _season_assignment_paths(
@@ -412,7 +423,7 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
         own[number] = picked.path
         if not _seen(ctx, picked.path, used):
             used.append(picked.path)
-            assignment[number] = (picked.path, f"season art {picked.path}")
+            assignment[number] = (picked.path, f"season art from {art_source(picked.path)}")
     pool = ctx.picker.textless_all(
         f"{base}:pool", ctx.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
@@ -430,7 +441,7 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
             used.append(choice)
             assignment[number] = (
                 choice,
-                f"season art {choice}" if choice == own.get(number) else f"series art {choice}",
+                f"{'season' if choice == own.get(number) else 'series'} art from {art_source(choice)}",
             )
     return assignment
 
@@ -507,14 +518,14 @@ def _poster(
         raise ctx.no_art(name)
     else:
         if season is None:
-            art_path, note = show_art.path, f"art {show_art.path}"
+            art_path, note = show_art.path, f"art from {art_source(show_art.path)}"
         else:
             art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
         if override and override.skip:
             others = _season_assignment_paths(ctx, title, show_art.path, siblings, season)
             replacement = _next_unused(ctx, title, others, override.skip)
             if replacement is not None:
-                art_path, note = replacement, f"next art {replacement}"
+                art_path, note = replacement, f"next art from {art_source(replacement)}"
             else:
                 note += ", no other art left to switch to"
             extra["override"] = sorted(override.skip)
@@ -561,7 +572,7 @@ def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
     try:
         picked = ctx.backdrop(title)
     except http.RequestError as exc:
-        log.warning("Background for %s skipped until the next pass: %s", title.name, exc)
+        log.warning("background skipped until the next pass", extra={"title": title.name, "reason": str(exc)})
         return []
     if picked is None:
         return []
@@ -570,7 +581,9 @@ def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
     def draw() -> Image.Image:
         return designs.background(ctx.fetch(path))
 
-    return [Plan(key, "art", title.name, {"design": "background", "art": path}, draw, [f"backdrop {path}"])]
+    return [
+        Plan(key, "art", title.name, {"design": "background", "art": path}, draw, [f"backdrop from {art_source(path)}"])
+    ]
 
 
 def movie(ctx: Context, item: Item) -> list[Plan]:
@@ -652,7 +665,16 @@ def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
         **({"number": number, "title": name} if titled else {"mode": "plain"}),
         **({"font": family} if titled and (family := family_for(name, title.font)) != "Inter" else {}),
     }
-    return [Plan(key, "thumb", f"{title.name} · S{season_number} E{number} · {name}", inputs, draw, [f"still {path}"])]
+    return [
+        Plan(
+            key,
+            "thumb",
+            f"{title.name} · S{season_number} E{number} · {name}",
+            inputs,
+            draw,
+            [f"still from {art_source(path)}"],
+        )
+    ]
 
 
 def collection(ctx: Context, item: Item) -> list[Plan]:
@@ -685,13 +707,13 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
         inputs = {"design": "channel", "art": art_path, "logo": logo, "featured": title.name, "service": service}
         if not logo and (family := family_for(title.name, title.font)) != "Inter":
             inputs["font"] = family
-        return [Plan(key, "poster", name, inputs, channel, [f"art {art_path} from {title.name}"])]
+        return [Plan(key, "poster", name, inputs, channel, [f"art of {title.name} from {art_source(art_path)}"])]
 
     def tile() -> Image.Image:
         return category.category_tile(ctx.fetch(art_path), name)
 
     inputs = {"design": "category", "art": art_path, "title": name, "palette": category.palette_for(name)}
-    return [Plan(key, "poster", name, inputs, tile, [f"art {art_path} from {title.name}"])]
+    return [Plan(key, "poster", name, inputs, tile, [f"art of {title.name} from {art_source(art_path)}"])]
 
 
 def _show(ctx: Context, item: Item) -> tuple[Title, Item]:

@@ -5,7 +5,7 @@ import shlex
 from datetime import date
 from pathlib import Path
 
-from posteryard import __version__, config, http, lookup, memory, overrides, pipeline
+from posteryard import __version__, config, http, logfmt, lookup, memory, overrides, pipeline
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart
@@ -20,8 +20,8 @@ from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger("posteryard")
-# These libraries log full URLs, with tokens, at debug level.
-QUIET_LOGGERS = ("urllib3", "apprise", "requests")
+# These libraries log full URLs, with tokens, or every image chunk at debug level.
+QUIET_LOGGERS = ("urllib3", "apprise", "requests", "PIL")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
@@ -156,7 +156,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
     try:
         days = Maintainerr(cfg.maintainerr_url).action_days() if plex is not None else {}
     except (http.RequestError, ValueError) as exc:
-        log.warning("Maintainerr unavailable, rendering without leaving labels: %s", exc)
+        log.warning("Maintainerr unavailable, rendering without leaving labels", extra={"reason": str(exc)})
         days = {}
     ctx = pipeline.Context(
         Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
@@ -219,12 +219,8 @@ def _server(cfg: config.Config) -> MediaServer:
     return Plex(cfg.plex_url, cfg.plex_token)
 
 
-def _notifier(cfg: config.Config) -> Notifier:
-    return Notifier(cfg.notify_urls)
-
-
 def _test_alert(cfg: config.Config) -> int:
-    notifier = _notifier(cfg)
+    notifier = Notifier(cfg.notify_urls)
     if not notifier.configured:
         print("No notification service is set up. Set NOTIFY_URLS.")
         return 1
@@ -236,7 +232,7 @@ def _test_alert(cfg: config.Config) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    logfmt.setup()
     args = _parser().parse_args(argv)
     try:
         cfg = config.load()
@@ -267,7 +263,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command != "serve" and (problem := other_server(plex, store)):
             print(problem)
             return 2
-        worker = Worker(cfg, plex, store, _notifier(cfg))
+        # Only the service keeps alert state. A command run beside it would overwrite the service's copy.
+        state = store if args.command == "serve" else None
+        worker = Worker(cfg, plex, store, Notifier(cfg.notify_urls, cfg.notify_events, state))
         if args.command == "serve":
             return Service(cfg, plex, store, worker).run()
         if args.command == "restore":
