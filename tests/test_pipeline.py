@@ -205,6 +205,31 @@ def test_next_art_skips_the_current_picture() -> None:
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop2.jpg"
 
 
+def test_next_art_steps_past_skipped_art_the_server_deleted() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    real = ctx.fetch
+
+    def gone(path: str) -> Image.Image:
+        if path == "/deleted.jpg":
+            raise posteryard_http.HttpError(404, "https://image.tmdb.org/t/p/original/deleted.jpg")
+        return real(path)
+
+    ctx.fetch = gone
+    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/deleted.jpg"}))
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
+
+
+def test_an_outage_while_comparing_art_still_fails_the_item() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+
+    def down(path: str) -> Image.Image:
+        raise posteryard_http.HttpError(503, "https://image.tmdb.org/t/p/original/x.jpg")
+
+    ctx.fetch = down
+    with pytest.raises(posteryard_http.HttpError):
+        ctx.same_picture("/a.jpg", "/b.jpg")
+
+
 def test_without_overrides_fingerprints_stay_the_same() -> None:
     plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
     assert "override" not in plan.inputs

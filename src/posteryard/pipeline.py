@@ -188,13 +188,19 @@ class Context:
         return value
 
     def same_picture(self, a: str, b: str, *, redrawn: bool = True) -> bool:
-        first, second = self._picture(a), self._picture(b)
-        if bin(int(first["hash"]) ^ int(second["hash"])).count("1") <= SAME_PICTURE_BITS:
-            return True
-        shared = similar.overlap(first["histogram"], second["histogram"])
-        if shared < similar.HISTOGRAM_SAME:
-            return False
-        return similar.same_picture(self.thumb(a), self.thumb(b), shared, redrawn=redrawn)
+        """An image the server no longer has is a different picture. Art skipped long ago can be deleted."""
+        try:
+            first, second = self._picture(a), self._picture(b)
+            if bin(int(first["hash"]) ^ int(second["hash"])).count("1") <= SAME_PICTURE_BITS:
+                return True
+            shared = similar.overlap(first["histogram"], second["histogram"])
+            if shared < similar.HISTOGRAM_SAME:
+                return False
+            return similar.same_picture(self.thumb(a), self.thumb(b), shared, redrawn=redrawn)
+        except http.HttpError as exc:
+            if 400 <= exc.status < 500 and exc.status not in http.RETRY_STATUSES:
+                return False
+            raise
 
     def images(self, kind: Kind, tid: int) -> Images:
         images: Images = self.remember(("images", kind, str(tid)), lambda: self.tmdb.images(kind, tid))

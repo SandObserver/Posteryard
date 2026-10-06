@@ -45,6 +45,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep one logo design per show: draw a one-colour logo dark on light art instead of switching to another logo.
 - Choose a dark logo only when it reads where the logo sits, not across the whole bottom of the art.
 - Treat crops and redrawn versions of a picture as the same picture when giving seasons their art.
+- Keep `art next` working when art it skipped earlier has since been deleted from TMDB or Apple TV.
 
 ## [0.7.0] - 2026-10-04
 
