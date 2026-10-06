@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add `NOTIFY_EVENTS` to also send alerts for new posters, with the image, and a daily summary.
 - Send an alert when TMDB, the media server, Maintainerr, scheduled runs or service collections work again.
 - Print the settings in use at start, and log each name in `LIBRARIES` the server does not have.
+- Document what Posteryard changes on the server and how to undo each change.
 
 ### Changed
 
