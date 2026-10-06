@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Hide the onnxruntime telemetry warning from the log, and image decoder messages from the debug log.
 - Keep a mistyped `NOTIFY_URLS` address, and the secret in it, out of the log.
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
+- Give seasons of a Jellyfin or Emby show without season folders their show's library, so they are no longer skipped.
 - Draw in dark ink only when the logo, the badges and the label each read where they sit.
 - Fit long collection names on the category tile: Chinese and Japanese names break between characters, and a cut name ends with "…".
 - Choose the Chinese or Japanese font from the title's original language.

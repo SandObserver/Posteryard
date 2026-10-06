@@ -161,7 +161,7 @@ class Jellyfin:
         elif kind == "episode":
             item["parentRatingKey"] = str(raw.get("SeasonId") or "")
             item["grandparentRatingKey"] = str(raw.get("SeriesId") or "")
-        path = _folder(str(raw.get("Path") or "")).rstrip("/")
+        path = _folder(self._path(raw)).rstrip("/")
         library = next((s for s in self.sections() if any(path.startswith(p) for p in s["paths"])), None)
         if library is not None:
             item["librarySectionID"] = library["key"]
@@ -172,6 +172,19 @@ class Jellyfin:
             resolution = _resolution(int(video.get("Width") or 0), int(video.get("Height") or 0))
             item["Media"] = [{"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}]
         return item
+
+    def _path(self, raw: Mapping[str, Any]) -> str:
+        """A season of a show without season folders has no path. Its library is the show's."""
+        path = str(raw.get("Path") or "")
+        series = str(raw.get("SeriesId") or "")
+        if path or not series or not self.item_id.match(series):
+            return path
+        try:
+            return str(self._raw(series).get("Path") or "")
+        except http.HttpError as exc:
+            if exc.status in (400, 404):
+                return ""
+            raise
 
     def item(self, rating_key: str) -> Item | None:
         if not self.item_id.match(rating_key):

@@ -40,6 +40,7 @@ def served(monkeypatch: pytest.MonkeyPatch) -> tuple[Emby, Server]:
             ],
             f"GET /Users/{USER}/Items/12": UPGRADE,
             f"GET /Users/{USER}/Items/13": SHOW,
+            f"GET /Users/{USER}/Items/14": {"Id": "14", "Type": "Season", "Name": "Season 1", "SeriesId": "13"},
             "POST /Items/12": b"",
             "/Items": {"Items": [], "TotalRecordCount": 0},
             "/System/Info/Public": {"Id": "36e979452bbf4fe2958b157ff8efccdd", "Version": "4.10.1.0"},
@@ -112,3 +113,10 @@ def test_windows_library_paths_match(served: tuple[Emby, Server]) -> None:
     fake.routes[f"GET /Users/{USER}/Items/12"] = {**windows, "Path": "D:\\Movies 4K\\Upgrade.mkv"}
     movie = emby.item("12")
     assert movie is not None and movie["librarySectionTitle"] == "Films"
+
+
+def test_a_season_without_a_folder_takes_the_library_of_its_show(served: tuple[Emby, Server]) -> None:
+    emby, _ = served
+    season = emby.item("14")
+    assert season is not None
+    assert season["librarySectionTitle"] == "Shows"
