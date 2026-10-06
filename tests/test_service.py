@@ -11,7 +11,7 @@ import pytest
 from posteryard import config, service_collections
 from posteryard import http as posteryard_http
 from posteryard.server import Item
-from posteryard.service import Service, parse_webhook, related_keys
+from posteryard.service import Service, other_server, parse_webhook, related_keys
 from posteryard.store import Store
 
 
@@ -80,6 +80,9 @@ class FakePlex:
 
     def item(self, rating_key: str) -> None:
         return None
+
+    def server_id(self) -> str:
+        return "plex:example"
 
 
 def queued(service: Service) -> list[str]:
@@ -296,6 +299,7 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
 def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)
+    service.server_checked.set()
     done: list[str] = []
 
     def process(key: str) -> str:
@@ -410,3 +414,35 @@ def test_a_failed_collection_sync_does_not_stop_the_full_pass(tmp_path: Path, mo
     service.full()
     assert notifier.sent == ["collections", "collections"]
     assert service.store.meta("last_full")
+
+
+class OtherServer(FakePlex):
+    def server_id(self) -> str:
+        return "emby:other"
+
+
+def test_the_service_stops_on_a_data_folder_from_another_server(tmp_path: Path) -> None:
+    first = make_service(tmp_path)
+    assert other_server(first.server, first.store) is None
+    first.store.close()
+    service = make_service(tmp_path, OtherServer())
+    alerts = Alerts()
+    service.worker = type("W", (), {"notifier": alerts})()
+    service._schedule()
+    assert service.exit_code == 2
+    assert service._stop.is_set() and not service.server_checked.is_set()
+    assert alerts.sent and "plex:example" in alerts.sent[0]
+
+
+def test_the_worker_waits_for_the_server_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    service.enqueue(["1"], "test")
+    service.worker_beat = 0.0
+    thread = threading.Thread(target=service._work, daemon=True)
+    thread.start()
+    time.sleep(0.1)
+    service._stop.set()
+    thread.join(timeout=5)
+    assert queued(service) == ["1"]
+    assert service.worker_beat > 0

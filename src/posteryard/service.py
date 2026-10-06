@@ -62,6 +62,21 @@ def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def other_server(server: MediaServer, store: Store) -> str | None:
+    """The data folder records the server it belongs to. Plex and Emby both number items from 1, so records must not
+    carry over to another server."""
+    current = server.server_id()
+    known = store.meta("server")
+    if known and known != current:
+        return (
+            f"The data folder belongs to another media server ({known}), not this {server.name} ({current}). "
+            "Use a new data folder, or delete state.db in it to start over."
+        )
+    if not known:
+        store.set_meta("server", current)
+    return None
+
+
 def related_keys(item: object) -> list[str]:
     if not isinstance(item, dict):
         return []
@@ -81,6 +96,7 @@ class Service:
         self.last_sweep_ok = time.monotonic()
         self.threads: list[threading.Thread] = []
         self.exit_code = 0
+        self.server_checked = threading.Event()
         self._last_heartbeat = float("-inf")
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
@@ -113,6 +129,9 @@ class Service:
 
     def _work(self) -> None:
         while not self._stop.is_set():
+            if not self.server_checked.wait(TICK):
+                self.worker_beat = time.monotonic()
+                continue
             try:
                 key, reason = self.take(TICK)
             except queue.Empty:
@@ -247,6 +266,14 @@ class Service:
         resumed = False
         while not self._stop.is_set():
             try:
+                if not self.server_checked.is_set():
+                    if problem := other_server(self.server, self.store):
+                        log.error(problem)
+                        self.worker.notifier.alert("server", problem)
+                        self.exit_code = 2
+                        self._stop.set()
+                        return
+                    self.server_checked.set()
                 signature = self.settings_signature()
                 if not resumed:
                     if self.store.meta("settings_signature") == signature:
@@ -318,7 +345,7 @@ class Service:
                 self.worker.notifier.alert("restart", f"Posteryard restarts because {', '.join(dead)} stopped.")
                 self.exit_code = 1
                 self._stop.set()
-                server.shutdown()
+        server.shutdown()
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         service = self

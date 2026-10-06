@@ -2,7 +2,6 @@ import argparse
 import logging
 import re
 import shlex
-import time
 from datetime import date
 from pathlib import Path
 
@@ -15,14 +14,13 @@ from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
 from posteryard.server import MediaServer
-from posteryard.service import Service
+from posteryard.service import Service, other_server
 from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger("posteryard")
 # These libraries log full URLs, with tokens, at debug level.
-SERVER_RETRY = 30
 QUIET_LOGGERS = ("urllib3", "apprise", "requests")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
@@ -213,30 +211,6 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
     return 0
 
 
-def _other_server(server: MediaServer, store: Store, *, wait: bool) -> str | None:
-    """The data folder records the server it belongs to. Plex and Emby both number items from 1, so records must not
-    carry over to another server."""
-    while True:
-        try:
-            current = server.server_id()
-            break
-        except http.RequestError as exc:
-            if not wait:
-                raise
-            logging.getLogger(__name__).warning("%s could not be reached, trying again in %d s: %s", server.name,
-                                                SERVER_RETRY, exc)  # fmt: skip
-            time.sleep(SERVER_RETRY)
-    known = store.meta("server")
-    if known and known != current:
-        return (
-            f"The data folder belongs to another media server ({known}), not this {server.name} ({current}). "
-            "Use a new data folder, or delete state.db in it to start over."
-        )
-    if not known:
-        store.set_meta("server", current)
-    return None
-
-
 def _server(cfg: config.Config) -> MediaServer:
     if cfg.jellyfin_url:
         return Jellyfin(cfg.jellyfin_url, cfg.jellyfin_api_key)
@@ -290,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
         print(exc)
         return 2
     try:
-        if problem := _other_server(plex, store, wait=args.command == "serve"):
+        if args.command != "serve" and (problem := other_server(plex, store)):
             print(problem)
             return 2
         worker = Worker(cfg, plex, store, _notifier(cfg))
