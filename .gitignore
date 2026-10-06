@@ -9,3 +9,4 @@ dist/
 previews/
 data/
 .coverage
+.DS_Store
