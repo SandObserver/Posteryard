@@ -216,3 +216,20 @@ def test_changed_since_uses_the_save_date(serve: Any) -> None:
     jellyfin, server = serve({"/Items": {"Items": [FORD], "TotalRecordCount": 1}})
     assert [i["ratingKey"] for i in jellyfin.changed_since(LIBRARY, "movie", 1791065111)] == [MOVIE]
     assert [c[2].get("MinDateLastSaved") for c in server.calls if c[1] == "/Items"] == ["2026-10-03T22:05:11Z"]
+
+
+def test_a_season_without_a_folder_takes_the_library_of_its_show(serve: Any) -> None:
+    season = {"Id": SEASON, "Type": "Season", "Name": "Season 1", "IndexNumber": 1, "SeriesId": SERIES}
+    show = {"Id": SERIES, "Type": "Series", "Name": "Show", "Path": "/media/tv/Show"}
+    jellyfin, _ = serve({f"/Items/{SEASON}": season, f"/Items/{SERIES}": show})
+    item = jellyfin.item(SEASON)
+    assert item is not None
+    assert item["librarySectionTitle"] == "Shows"
+
+
+def test_a_season_of_a_missing_show_has_no_library(serve: Any) -> None:
+    season = {"Id": SEASON, "Type": "Season", "Name": "Season 1", "SeriesId": SERIES}
+    jellyfin, _ = serve({f"/Items/{SEASON}": season})
+    item = jellyfin.item(SEASON)
+    assert item is not None
+    assert "librarySectionTitle" not in item
