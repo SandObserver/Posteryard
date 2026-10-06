@@ -90,7 +90,7 @@ Add any of these under `environment:`.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| `APPLE_ART` | **Use Apple TV's key art when it exists.** `true` uses the art from a title's Apple TV page as poster art, found through its Apple TV id on Wikidata, in the store of your first `STREAMING_REGIONS` country. Titles Apple TV does not have keep TMDB art. `art next`, `art set` and the labels still override it. Apple can change its pages without notice. | `false` |
+| `APPLE_ART` | **Fill gaps with Apple TV's key art.** `true` uses the art from a title's Apple TV page when TMDB has no textless poster for it, before TMDB backdrops. The art is found through the title's Apple TV id on Wikidata, in the store of your first `STREAMING_REGIONS` country. `art next`, `art set` and the labels still override it. Apple can change its pages without notice. | `false` |
 | `FANART_API_KEY` | **A second source when TMDB has no clean art.** Your personal API key from your [fanart.tv](https://fanart.tv) profile. When TMDB has no usable art, title logo or backdrop for a title, Posteryard tries fanart.tv's, with the same check for printed text. | |
 | `LOGO_LANGUAGES` | **Title logo languages, in order.** Two-letter codes separated by commas, such as `fr,en`. Posteryard uses the first language TMDB has a logo in. | `en` |
 | `PREFER_WORDMARK` | **Prefer the title written out over an emblem.** When TMDB has both a wide logo with the name and a square emblem, `true` picks the wide one. | `true` |

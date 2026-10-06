@@ -431,7 +431,14 @@ def test_collections_use_imdb_ids_too() -> None:
 APPLE_URL = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/1680x3636nr.jpg"
 
 
-def test_apple_art_comes_first_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_textless_tmdb_poster_comes_before_apple_art(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.apple_region = "CA"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+
+
+def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
     def find(kind: str, details: Any, region: str) -> str:
@@ -439,21 +446,21 @@ def test_apple_art_comes_first_and_art_next_steps_past_it(monkeypatch: pytest.Mo
         return APPLE_URL
 
     monkeypatch.setattr(apple, "find", find)
-    ctx = context([ref("/textless.jpg", None), ref("/second.jpg", None)])
+    ctx = context([ref("/english.jpg", "en")])
     ctx.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     pipeline.movie(ctx, ITEM)
     assert calls == ["CA"]
     ctx.overrides = lambda key: overrides.Override(skip=frozenset({APPLE_URL}))
-    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
 def test_apple_art_is_looked_up_again_after_a_month(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
     monkeypatch.setattr(apple, "find", lambda kind, details, region: calls.append(region))
-    ctx = context([ref("/textless.jpg", None)])
+    ctx = context([ref("/english.jpg", "en")])
     ctx.apple_region = "CA"
-    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
     ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
     pipeline.movie(ctx, ITEM)
     assert len(calls) == 2
@@ -468,18 +475,18 @@ def test_an_apple_outage_keeps_the_last_apple_art_or_uses_other_art(monkeypatch:
         return found.pop()
 
     monkeypatch.setattr(apple, "find", find)
-    ctx = context([ref("/textless.jpg", None)])
+    ctx = context([ref("/english.jpg", "en")])
     ctx.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     other: Item = {**ITEM, "Guid": [{"id": "tmdb://43"}]}
-    assert pipeline.movie(ctx, other)[0].inputs["art"] == "/textless.jpg"
+    assert pipeline.movie(ctx, other)[0].inputs["art"] == "/backdrop.jpg"
 
 
 def test_apple_art_that_cannot_be_loaded_falls_back_to_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
-    ctx = context([ref("/textless.jpg", None)])
+    ctx = context([ref("/english.jpg", "en")])
     ctx.apple_region = "CA"
 
     def fetch_or_fail(path: str) -> Image.Image:
@@ -488,7 +495,7 @@ def test_apple_art_that_cannot_be_loaded_falls_back_to_other_art(monkeypatch: py
         return fetch(path)
 
     ctx.fetch = fetch_or_fail
-    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
 def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -546,7 +553,7 @@ def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
 
 def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
-    ctx = context([ref("/textless.jpg", None)])
+    ctx = context([ref("/english.jpg", "en")])
     ctx.apple_region = "CA"
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["art"] == APPLE_URL
@@ -561,7 +568,7 @@ def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest
         plan.draw()
     assert ctx.retry_without_apple()
     assert not ctx.retry_without_apple()
-    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
     ctx.apple_down_until = 0.0
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
 

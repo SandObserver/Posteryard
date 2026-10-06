@@ -232,22 +232,28 @@ class Context:
         self.choices.put_choice(key, {"url": url or "", "checked": self.today.isoformat()})
         return url
 
+    def _apple_picked(self, title: "Title", base: str) -> Picked | None:
+        url = self.apple_art(title) if time.monotonic() >= self.apple_down_until else None
+        if url is None:
+            return None
+        ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
+        try:
+            return self.picker.textless(f"{base}:apple", [ref], title.all_titles)
+        except http.RequestError as exc:
+            log.warning(
+                "Apple TV art not loaded", extra={"title": title.name, "using": "other art", "reason": str(exc)}
+            )
+            self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
+            return None
+
     def art(self, title: "Title") -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"
-        url = self.apple_art(title) if time.monotonic() >= self.apple_down_until else None
-        if url is not None:
-            ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
-            try:
-                picked = self.picker.textless(f"{base}:apple", [ref], title.all_titles)
-            except http.RequestError as exc:
-                log.warning(
-                    "Apple TV art not loaded", extra={"title": title.name, "using": "other art", "reason": str(exc)}
-                )
-                self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
-                picked = None
-            if picked is not None:
-                return picked
-        picked = self.picker.textless_art(base, self.images(title.kind, title.tmdb_id), title.all_titles)
+        images = self.images(title.kind, title.tmdb_id)
+        picked = (
+            self.picker.textless(f"{base}:posters", images.textless_posters(), title.all_titles)
+            or self._apple_picked(title, base)
+            or self.picker.textless(f"{base}:backdrops", images.textless_backdrops(), title.all_titles)
+        )
         if picked is None and self.fanart is not None:
             extra = self.fanart_images(title.kind, title.tmdb_id).images
             picked = self.picker.textless_art(f"{base}:fanart", extra, title.all_titles)
@@ -759,14 +765,11 @@ def art_candidates(ctx: Context, item: Item, *, next_art: bool = False) -> list[
         raise NotFoundError(f"{item.get('title')} is not a movie, show or season")
     tmdb_kind: Kind = "movie" if kind == "movie" else "tv"
     title = ctx.title(tmdb_kind, _require_tmdb(ctx, item, tmdb_kind), str(item.get("title", "")))
-    groups: list[tuple[str, list[ImageRef]]] = []
+    images = ctx.images(tmdb_kind, title.tmdb_id)
+    groups: list[tuple[str, list[ImageRef]]] = [("TMDB posters", images.textless_posters()[:MAX_CANDIDATES])]
     if (url := ctx.apple_art(title)) is not None:
         groups.append(("Apple TV art", [ImageRef(url, None, 1680, 3636, 0.0, 0)]))
-    images = ctx.images(tmdb_kind, title.tmdb_id)
-    groups += [
-        ("TMDB posters", images.textless_posters()[:MAX_CANDIDATES]),
-        ("TMDB backdrops", images.textless_backdrops()[:MAX_CANDIDATES]),
-    ]
+    groups.append(("TMDB backdrops", images.textless_backdrops()[:MAX_CANDIDATES]))
     if ctx.fanart is not None:
         extra = ctx.fanart_images(tmdb_kind, title.tmdb_id).images
         groups += [
