@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Refuse to start with a data folder that belongs to another media server.
 - Give collections that are not a streaming service Apple TV's category tile: the art in a genre palette with the name.
 - Draw Persian, Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean names with matching fonts and shaping.
-- Use TMDB network logos as streaming marks for services without a built-in mark, such as Exxen, SkyShowtime, U-NEXT, JioHotstar and BINGE.
+- Use TMDB network logos as streaming marks for services without a built-in mark, such as Exxen, SkyShowtime, U-NEXT, JioHotstar, BINGE, discovery+ and Shudder.
 - Add `NOTIFY_EVENTS` to also send alerts for new posters, with the image, and a daily summary.
 - Send an alert when TMDB, the media server, Maintainerr, scheduled runs or service collections work again.
 - Print the settings in use at start, and log each name in `LIBRARIES` the server does not have.
