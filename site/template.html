@@ -6,8 +6,10 @@
     <title>Posteryard: clean, consistent posters for Plex, Jellyfin and Emby</title>
     <meta name="description" content="{{description}}" />
     <link rel="canonical" href="{{site}}/" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/logo.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta name="theme-color" content="#000000" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Posteryard" />
@@ -15,14 +17,14 @@
     <meta property="og:url" content="{{site}}/" />
     <meta property="og:title" content="Posteryard: clean, consistent posters for Plex, Jellyfin and Emby" />
     <meta property="og:description" content="{{description}}" />
-    <meta property="og:image" content="{{site}}/img/social-card.png" />
+    <meta property="og:image" content="{{social_card}}" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="640" />
     <meta property="og:image:alt" content="Posteryard posters for Severance season 2, Ted Lasso and The Batman" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Posteryard: clean, consistent posters for Plex, Jellyfin and Emby" />
     <meta name="twitter:description" content="{{description}}" />
-    <meta name="twitter:image" content="{{site}}/img/social-card.png" />
+    <meta name="twitter:image" content="{{social_card}}" />
     <meta name="twitter:image:alt" content="Posteryard posters for Severance season 2, Ted Lasso and The Batman" />
     <script type="application/ld+json">{{schema}}</script>
     <style>
@@ -39,6 +41,7 @@
         --ease: cubic-bezier(0.32, 0.72, 0, 1);
         --accent-strong: #ffe14d;
         --on-accent: #000;
+        --chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
         --font: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
         --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
         color-scheme: dark;
@@ -112,7 +115,7 @@
       .f-ctrl { display: flex; justify-content: flex-end; gap: 12px; margin-top: 28px; }
       .f-arrow { position: relative; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--fill); color: var(--label); display: grid; place-items: center; cursor: pointer; }
       .f-arrow::after { content: ""; position: absolute; inset: -2px; }
-      .f-arrow svg { width: 16px; height: 16px; }
+      .f-arrow svg { width: 20px; height: 20px; }
       .f-arrow:hover:not(:disabled) { background: var(--fill-hover); }
       .f-arrow:disabled { opacity: 0.3; cursor: default; }
       .f-arrow:focus-visible, .f-track:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -175,10 +178,10 @@
       .set-group { margin: 20px 0 2px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
       .set-group:first-child { margin-top: 8px; }
       .set { border-bottom: 1px solid var(--separator); }
-      .set summary { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto 10px; gap: 2px 14px; align-items: baseline; padding: 7px 0; cursor: pointer; list-style: none; }
+      .set summary { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto 16px; gap: 2px 14px; align-items: baseline; padding: 7px 0; cursor: pointer; list-style: none; }
       .set summary::-webkit-details-marker { display: none; }
-      .set summary::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid var(--dim); border-bottom: 1.5px solid var(--dim); transform: translateY(-3px) rotate(45deg); align-self: center; }
-      .set[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+      .set summary::after { content: ""; width: 16px; height: 16px; background: var(--dim); mask: var(--chevron-down) center / contain no-repeat; align-self: center; grid-column: -2; }
+      .set[open] summary::after { transform: rotate(180deg); }
       .set summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       .doc .set-name code { padding: 0; background: none; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
       .set-sum { font-size: 14px; color: #d1d1d6; }
@@ -187,8 +190,8 @@
       .doc .set p { margin: 0 0 10px; padding-left: 214px; font-size: 13.5px; line-height: 1.5; color: var(--dim); }
       .expand > summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
       .expand > summary::-webkit-details-marker { display: none; }
-      .expand > summary::after { content: ""; width: 7px; height: 7px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); }
-      .expand[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+      .expand > summary::after { content: ""; width: 20px; height: 20px; background: currentColor; mask: var(--chevron-down) center / contain no-repeat; }
+      .expand[open] > summary::after { transform: rotate(180deg); }
       .expand > summary:hover { background: var(--fill-hover); }
       .expand > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       .expand .when-open, .expand[open] .when-closed { display: none; }
@@ -197,7 +200,7 @@
       .expand.closing .when-open { display: none; }
       .expand.closing .when-closed { display: inline; }
       .expand > summary::after { transition: transform 0.35s var(--ease); }
-      .expand.closing > summary::after { transform: translateY(-2px) rotate(45deg); }
+      .expand.closing > summary::after { transform: none; }
       .pill, .btn, .copy, .f-arrow, .expand > summary { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
       .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled), .expand > summary:active { transform: scale(0.97); }
       a, .sources img { transition: color 0.2s ease, opacity 0.2s ease; }
@@ -237,7 +240,7 @@
       }
       @media (max-width: 600px) {
         .recipes { grid-template-columns: minmax(0, 1fr); }
-        .set summary { grid-template-columns: minmax(0, 1fr) auto 10px; }
+        .set summary { grid-template-columns: minmax(0, 1fr) auto 16px; }
         .set-sum { grid-column: 1 / 3; grid-row: 2; }
         .doc .set p { padding-left: 0; }
         .f-title { font-size: 26px; margin-bottom: 20px; }
@@ -333,7 +336,7 @@
               <div class="chips"><code>EPISODE_THUMBNAILS</code></div>
             </article>
           </div>
-          <div class="f-ctrl"><button type="button" class="f-arrow" id="f-prev" aria-label="Previous features" disabled><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg></button><button type="button" class="f-arrow" id="f-next" aria-label="Next features"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg></button></div>
+          <div class="f-ctrl"><button type="button" class="f-arrow" id="f-prev" aria-label="Previous features" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg></button><button type="button" class="f-arrow" id="f-next" aria-label="Next features"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg></button></div>
         </div>
       </section>
 

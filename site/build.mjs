@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -119,6 +120,9 @@ function settingsList(markdown) {
 const setup = steps(section('Getting started'));
 const settings = settingsList(section('Settings'));
 
+const card = readFileSync(join(root, 'docs', 'social-card.png'));
+const socialCard = `${site}/img/social-card.png?v=${createHash('sha256').update(card).digest('hex').slice(0, 8)}`;
+
 const description =
   'Automatic textless posters for Plex, Jellyfin and Emby: the title in one spot, quality badges and streaming marks. ' +
   'Free and self-hosted in Docker.';
@@ -129,12 +133,12 @@ const schema = {
   name: 'Posteryard',
   description,
   url: `${site}/`,
-  image: `${site}/img/social-card.png`,
+  image: socialCard,
   applicationCategory: 'MultimediaApplication',
   operatingSystem: 'Docker',
   softwareVersion: version,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-  codeRepository: repo,
+  sameAs: [repo],
   author: { '@type': 'Person', name: 'SandObserver', url: 'https://github.com/SandObserver' },
 };
 
@@ -176,6 +180,7 @@ const values = {
   repo,
   tagline,
   description,
+  social_card: socialCard,
   version,
   schema: JSON.stringify(schema).replaceAll('<', '\\u003c'),
   getting_started_lead: setup.lead,
