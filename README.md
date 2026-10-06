@@ -155,6 +155,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `art set TITLE --url URL` | Use your own image as the art. The title logo and badges are drawn on top. |
 | `art set TITLE --file /data/my-art.jpg` | The same, with an image you put in `./data`. |
 | `art reset TITLE` | Go back to automatic art. |
+| `why TITLE` | Show the art in use, and every candidate checked with the reason it was used or not, such as text found on it. Changes nothing. |
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
 | `test-alert` | Send a test alert to every service in `NOTIFY_URLS`. |
 | `restore --all` | Give every image Posteryard uploaded back to the server's own. See [Uninstalling](#uninstalling). |
@@ -362,6 +363,7 @@ Set `LOG_LEVEL=debug` to see every item Posteryard checks.
 | `TMDB has no textless art for ...` | TMDB has no usable art yet. Set `FANART_API_KEY` to try fanart.tv too, use `art set` with your own image, or add the `posteryard-ignore` label. |
 | `NewConnectionError for http://.../library/sections`, or `ConnectTimeoutError` or `NameResolutionError` |  Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
+| A poster has art you do not expect | Run `why TITLE`. It lists the art checked in order and why each was used or not. `art next` switches to the next one. |
 | A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |
 
 ## Upgrading

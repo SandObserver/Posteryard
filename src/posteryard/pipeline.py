@@ -15,7 +15,7 @@ import numpy as np
 from PIL import Image
 
 from posteryard import apple, http, maintainerr, ocr, overrides, quality, services, similar, status
-from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
+from posteryard.artwork import MAX_CANDIDATES, POOL_SIZE, ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages, is_fanart
@@ -740,6 +740,42 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
     if kind == "collection":
         return collection(ctx, item)
     return []
+
+
+def art_candidates(ctx: Context, item: Item, *, next_art: bool = False) -> list[tuple[str, list[ImageRef]]]:
+    """The poster art a movie, show or season can get, grouped in the order the picker checks it."""
+    kind = item.get("type")
+    if kind == "season":
+        title = _show(ctx, item)[0]
+        number = int(item.get("index", 0))
+        own = ctx.season_images(title.tmdb_id, number).textless_posters()
+        group = f"TMDB {_season_label(number).lower()} posters"
+        if not own:
+            own = [r for r in ctx.fanart_images("tv", title.tmdb_id).seasons.get(number, []) if r.language is None]
+            group = f"fanart.tv {_season_label(number).lower()} posters"
+        pool = ctx.images("tv", title.tmdb_id).textless_art()[:POOL_SIZE]
+        return [(group, own[:MAX_CANDIDATES]), ("TMDB series art", pool)]
+    if kind not in ("movie", "show"):
+        raise NotFoundError(f"{item.get('title')} is not a movie, show or season")
+    tmdb_kind: Kind = "movie" if kind == "movie" else "tv"
+    title = ctx.title(tmdb_kind, _require_tmdb(ctx, item, tmdb_kind), str(item.get("title", "")))
+    groups: list[tuple[str, list[ImageRef]]] = []
+    if (url := ctx.apple_art(title)) is not None:
+        groups.append(("Apple TV art", [ImageRef(url, None, 1680, 3636, 0.0, 0)]))
+    images = ctx.images(tmdb_kind, title.tmdb_id)
+    groups += [
+        ("TMDB posters", images.textless_posters()[:MAX_CANDIDATES]),
+        ("TMDB backdrops", images.textless_backdrops()[:MAX_CANDIDATES]),
+    ]
+    if ctx.fanart is not None:
+        extra = ctx.fanart_images(tmdb_kind, title.tmdb_id).images
+        groups += [
+            ("fanart.tv posters", extra.textless_posters()[:MAX_CANDIDATES]),
+            ("fanart.tv backdrops", extra.textless_backdrops()[:MAX_CANDIDATES]),
+        ]
+    if next_art:
+        groups.append(("TMDB art for art next", images.textless_art()[:POOL_SIZE]))
+    return groups
 
 
 def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> list[Plan]:

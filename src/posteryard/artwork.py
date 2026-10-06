@@ -130,5 +130,18 @@ class Picker:
         return path
 
 
+def rejection(lines: Sequence[ocr.TextLine], titles: Sequence[str]) -> str | None:
+    """Why the art is not textless, or None when it is."""
+    if ocr.shows_title(lines, titles):
+        return f'shows the title: "{_short(ocr.confident_text(lines))}"'
+    if large := [line.text for line in lines if ocr.is_display(line)]:
+        return f'large text: "{_short(" ".join(large))}"'
+    return None
+
+
+def _short(text: str, limit: int = 40) -> str:
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 def _textless(lines: list[ocr.TextLine], titles: Sequence[str]) -> bool:
-    return not ocr.shows_title(lines, titles) and not ocr.has_display_text(lines)
+    return rejection(lines, titles) is None

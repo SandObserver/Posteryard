@@ -42,6 +42,7 @@ A title goes through these modules in order:
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
 | `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json`, then a cut of the provider icon. Rebuild the table with `TMDB_API_KEY=... uv run python tools/build_networks.py`. |
 | `cli.py`, `config.py` | Commands and settings. |
+| `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
 | `logfmt.py` | The log format and the startup block. |
 
 Log a short fixed message and put the values in `extra`: `log.info("poster uploaded", extra={"title": name})`. Keys must not be `LogRecord` attribute names, such as `name`, `module` or `thread`: logging raises `KeyError`.

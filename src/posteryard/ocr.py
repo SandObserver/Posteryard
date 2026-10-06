@@ -126,7 +126,13 @@ def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
     return any(key in joined for key in keys)
 
 
+def is_display(line: TextLine) -> bool:
+    return line.score >= MIN_SCORE and line.height > DISPLAY_HEIGHT and line.width > DISPLAY_WIDTH
+
+
 def has_display_text(lines: Iterable[TextLine]) -> bool:
-    return any(
-        line.score >= MIN_SCORE and line.height > DISPLAY_HEIGHT and line.width > DISPLAY_WIDTH for line in lines
-    )
+    return any(is_display(line) for line in lines)
+
+
+def confident_text(lines: Iterable[TextLine]) -> str:
+    return " ".join(line.text for line in lines if line.score >= MIN_SCORE)

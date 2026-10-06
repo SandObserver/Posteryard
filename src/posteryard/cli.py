@@ -5,7 +5,7 @@ import shlex
 from datetime import date
 from pathlib import Path
 
-from posteryard import __version__, config, http, logfmt, lookup, memory, overrides, pipeline
+from posteryard import __version__, config, http, logfmt, lookup, memory, overrides, pipeline, why
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart
@@ -66,6 +66,14 @@ def _parser() -> argparse.ArgumentParser:
     forget = commands.add_parser("forget", help="hand an image you changed on the server back to Posteryard")
     _title_arguments(forget)
     forget.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
+
+    explain = commands.add_parser(
+        "why",
+        help="show which art a poster uses and why the other candidates were not used",
+        description="List the art candidates of a poster with the reason each was used or not. Nothing is changed.",
+    )
+    _title_arguments(explain)
+    explain.add_argument("--season", type=int, metavar="N", help=SEASON_HELP)
 
     art = commands.add_parser("art", help="choose the poster art for a movie, show or season")
     art_commands = art.add_subparsers(dest="art_command", required=True)
@@ -239,7 +247,7 @@ def main(argv: list[str] | None = None) -> int:
         _set_log_level(cfg.log_level)
         if args.command == "serve":
             config.require_service(cfg)
-        elif args.command in ("art", "forget", "find", "restore"):
+        elif args.command in ("art", "forget", "find", "restore", "why"):
             config.require_server(cfg)
     except config.ConfigError as exc:
         print(exc)
@@ -270,6 +278,8 @@ def main(argv: list[str] | None = None) -> int:
             return Service(cfg, plex, store, worker).run()
         if args.command == "restore":
             return _restore(worker)
+        if args.command == "why":
+            return _why(args, cfg, plex, store, worker)
         return _change(args, cfg, plex, store, worker)
     except http.RequestError as exc:
         print(exc)
@@ -286,6 +296,30 @@ def _restore(worker: Worker) -> int:
     if counts.failed:
         print(f"{counts.failed} images could not be restored. The log above has the details. Run the command again.")
         return 1
+    return 0
+
+
+def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store: Store, worker: Worker) -> int:
+    try:
+        match = _resolve(plex, cfg, args)
+    except lookup.TitleError as exc:
+        print(exc.explain("why", _options(args)))
+        return 1
+    except ValueError as exc:
+        print(exc)
+        return 1
+    item = plex.item(match.rating_key)
+    if item is None:
+        print(f"{plex.name} has no item {match.rating_key}")
+        return 1
+    worker.ctx.choices = why.ReadOnlyChoices(store)
+    worker.ctx.marks = None
+    try:
+        result = why.report(worker.ctx, item, store)
+    except (pipeline.NotFoundError, overrides.ArtError) as exc:
+        print(f"{match.label}: {exc}")
+        return 1
+    print("\n".join(why.lines(match.label, result)))
     return 0
 
 
