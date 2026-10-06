@@ -501,6 +501,28 @@ def test_a_quiet_full_check_sends_no_summary(tmp_path: Path) -> None:
     assert notifier.summaries == []
 
 
+@pytest.mark.parametrize("reason", ["first run", "version or settings changed"])
+def test_only_the_daily_full_check_sends_a_summary(tmp_path: Path, reason: str) -> None:
+    service, notifier = messages_service(tmp_path)
+    service.full(reason)
+    service._tally.update({Outcome.UPLOADED: 3})
+    while queued(service):
+        service.take(0)
+    service.idle()
+    assert notifier.summaries == []
+
+
+def test_a_resumed_daily_check_still_sends_a_summary(tmp_path: Path) -> None:
+    service, notifier = messages_service(tmp_path)
+    service.full("daily")
+    service.resume()
+    service._tally.update({Outcome.UPLOADED: 3})
+    while queued(service):
+        service.take(0)
+    service.idle()
+    assert len(notifier.summaries) == 1
+
+
 def test_new_posters_are_grouped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service, notifier = messages_service(tmp_path)
     service.collect_new([("Dune", b"dune")])
