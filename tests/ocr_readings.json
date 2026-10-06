@@ -1,0 +1,2695 @@
+[
+ {
+  "name": "All Her Fault",
+  "titles": [
+   "All Her Fault",
+   "הכל באשמתה",
+   "У всьому винна вона",
+   "Усе через неї"
+  ],
+  "image": "/nfKvUSRbS1Cm5xibijn9Qn4dSNl.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Attack on Titan",
+  "titles": [
+   "Attack on Titan",
+   "進撃の巨人",
+   "দানবের উপর আক্রমণ",
+   "Атаката на Титаните",
+   "Атака титанов: Финал",
+   "Атака титанов",
+   "Ataque dos Titãs",
+   "自由之翼",
+   "进击的巨人-TV动画",
+   "进击的巨人 最终季",
+   "进击的巨人OAD",
+   "进击的巨人 最终季 完结篇",
+   "Útok Titánů",
+   "Angriff auf Titan",
+   "هجوم العمالقة",
+   "Ataque a los titanes",
+   "מתקפת הטיטאנים",
+   "התקפה על הטיטאן",
+   "מתקפה על הטיטאן",
+   "התקפת הטיטאנים",
+   "אטאק און טיטאן",
+   "אוט",
+   "दानव पर हमला",
+   "अटैक ओन टाईटन",
+   "L'attacco dei giganti",
+   "进撃の巨人",
+   "Shingeki no Kyojin",
+   "SNK",
+   "Shingeki no Kyojin The Final Season",
+   "進撃の巨人 悔いなき選択",
+   "進撃の巨人 LOST GIRLS",
+   "Shingeki no Kyojin Lost Girls",
+   "Shingeki no Kyojin: Kuinaki Sentaku",
+   "진격의 거인 OAD",
+   "진격의 거인 The Final Season",
+   "Атака на титана",
+   "Атакуючий титан",
+   "Attack on Titan: Shingeki no Kyojin",
+   "Attack on Titan: No Regrets",
+   "Attack on Titan: Lost Girls",
+   "Attack on Titan: The Final Season",
+   "Attack on Titan: The Final Season THE FINAL CHAPTERS",
+   "Attack on Titan: The Final Season - The Final Chapters Special Part 1",
+   "Attack on Titan: The Final Season - The Final Chapters Special Part 2",
+   "AOT"
+  ],
+  "image": "/ciNxflunj2ujlVmdJZfpEamERFn.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "m",
+    0.6728,
+    0.0167,
+    0.1417
+   ]
+  ]
+ },
+ {
+  "name": "Black Mirror",
+  "titles": [
+   "Black Mirror",
+   "بلاك ميرور",
+   "Qara güzgü",
+   "Черното огледало",
+   "Чорнае люстэрка",
+   "黑鏡",
+   "Ispilu Beltza",
+   "Espejo negro",
+   "Miroir noir",
+   "შავი სარკე",
+   "מראה שחורה",
+   "ブラック・ミラー",
+   "블랙 미러",
+   "Juodasis veidrodis",
+   "Црно огледало",
+   "Czarne lustro",
+   "Црно Огледало",
+   "Чёрное зеркало",
+   "Neynika Reş",
+   "Kara Ayna",
+   "Чорне дзеркало"
+  ],
+  "image": "/5AhtgC335Lva0KZZkhc77Y93avz.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Black Mirror",
+  "titles": [
+   "Black Mirror",
+   "بلاك ميرور",
+   "Qara güzgü",
+   "Черното огледало",
+   "Чорнае люстэрка",
+   "黑鏡",
+   "Ispilu Beltza",
+   "Espejo negro",
+   "Miroir noir",
+   "შავი სარკე",
+   "מראה שחורה",
+   "ブラック・ミラー",
+   "블랙 미러",
+   "Juodasis veidrodis",
+   "Црно огледало",
+   "Czarne lustro",
+   "Црно Огледало",
+   "Чёрное зеркало",
+   "Neynika Reş",
+   "Kara Ayna",
+   "Чорне дзеркало"
+  ],
+  "image": "/tlHTngbWDvDoKf8xV2dhXy11azu.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    ">8-44年(5)1-4",
+    0.5112,
+    0.1013,
+    0.5729
+   ],
+   [
+    ":x:s:8:5:x17:/",
+    0.5698,
+    0.1477,
+    0.8333
+   ],
+   [
+    "?S?1##%(*##>S?8SSS####81",
+    0.7079,
+    0.1435,
+    0.8646
+   ],
+   [
+    ":(1...*(.#:#11##*#1?)1#(1,..,*(S(>###$>..#0*(S6>1",
+    0.855,
+    0.1617,
+    0.9979
+   ],
+   [
+    ".*(:>S##)6:1#%#:6>#8",
+    0.9165,
+    0.09,
+    0.4021
+   ],
+   [
+    "61.",
+    0.9162,
+    0.045,
+    0.0625
+   ],
+   [
+    ",($#08%###(##))/.",
+    0.8435,
+    0.0802,
+    0.3479
+   ],
+   [
+    "*(#0?##&?*)160%#(?",
+    0.9605,
+    0.0816,
+    0.3708
+   ],
+   [
+    ".1>#)##)#(((?1.",
+    0.9747,
+    0.0731,
+    0.3083
+   ],
+   [
+    ".1(##*#*#10#?##*%)6",
+    0.9162,
+    0.0759,
+    0.3771
+   ],
+   [
+    ",(#0((#06##1.",
+    0.9037,
+    0.0661,
+    0.2625
+   ],
+   [
+    ",(0&#?#6s(#66##*1#",
+    0.6943,
+    0.0731,
+    0.3646
+   ],
+   [
+    "‘)<$#))#t).",
+    0.7082,
+    0.0633,
+    0.2292
+   ],
+   [
+    "./$##01###0#0#C#(#6",
+    0.9055,
+    0.0647,
+    0.3646
+   ],
+   [
+    ",(#60##&(1,",
+    0.8946,
+    0.0591,
+    0.2229
+   ],
+   [
+    ".(*?$0###0##*$>#>",
+    0.9279,
+    0.0647,
+    0.3917
+   ],
+   [
+    ",1$##(*. .*()>0%$##(*. .*((#(1,.",
+    0.9304,
+    0.0703,
+    0.6292
+   ],
+   [
+    "x#?##(###:>#0?##*:(>)6x060:&*##0#0:*#:#60*###16)#$",
+    0.8095,
+    0.0788,
+    0.9979
+   ],
+   [
+    "##>:#0>:#):6##*#:%##*6)?6#x6*>##))##0>0##*)#*(1#1*",
+    0.866,
+    0.0619,
+    0.9979
+   ],
+   [
+    "6#6###(#$&?%:?&:##*#:?#$(%>##1:(1**,.",
+    0.8716,
+    0.052,
+    0.7458
+   ],
+   [
+    ".1?:)x*x?t",
+    0.8037,
+    0.0549,
+    0.1917
+   ],
+   [
+    "****11(((1111**",
+    0.8137,
+    0.0506,
+    0.3583
+   ],
+   [
+    ".10#$>$>(",
+    0.8481,
+    0.0591,
+    0.1875
+   ],
+   [
+    "*(8$##8S)",
+    0.7694,
+    0.0633,
+    0.1896
+   ],
+   [
+    "1918<#:().",
+    0.7819,
+    0.0619,
+    0.2042
+   ],
+   [
+    ".18$#*S:($(",
+    0.7986,
+    0.0717,
+    0.2333
+   ],
+   [
+    "\"()\"845\"1",
+    0.5187,
+    0.0689,
+    0.25
+   ],
+   [
+    "(\"w)m",
+    0.5576,
+    0.0717,
+    0.2687
+   ]
+  ]
+ },
+ {
+  "name": "Black Mirror",
+  "titles": [
+   "Black Mirror",
+   "بلاك ميرور",
+   "Qara güzgü",
+   "Черното огледало",
+   "Чорнае люстэрка",
+   "黑鏡",
+   "Ispilu Beltza",
+   "Espejo negro",
+   "Miroir noir",
+   "შავი სარკე",
+   "מראה שחורה",
+   "ブラック・ミラー",
+   "블랙 미러",
+   "Juodasis veidrodis",
+   "Црно огледало",
+   "Czarne lustro",
+   "Црно Огледало",
+   "Чёрное зеркало",
+   "Neynika Reş",
+   "Kara Ayna",
+   "Чорне дзеркало"
+  ],
+  "image": "/uniOjn467gTnvL5WO2FrUQ7iQfs.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    ")8):#：$xx%%*&&#：&%#",
+    0.7413,
+    0.0764,
+    0.4292
+   ],
+   [
+    "*?>8#$###×##?####$?1###0%",
+    0.8381,
+    0.0986,
+    0.5583
+   ],
+   [
+    ".*(##:#11##*#1?)1#(1,..,*($(>###$>&8",
+    0.9542,
+    0.125,
+    0.7583
+   ],
+   [
+    ".*(:>$##)&:",
+    0.9429,
+    0.0653,
+    0.2458
+   ],
+   [
+    "(S#:#:#0#:(1...*",
+    0.8978,
+    0.0722,
+    0.2833
+   ],
+   [
+    ",($#0&x###(##))/.",
+    0.8331,
+    0.0778,
+    0.3479
+   ],
+   [
+    "*(#0?##&",
+    0.9696,
+    0.0639,
+    0.2104
+   ],
+   [
+    "?)s°##*6/.",
+    0.7021,
+    0.0611,
+    0.2021
+   ],
+   [
+    ".1>#)##)#(((?1.",
+    0.9631,
+    0.0708,
+    0.3104
+   ],
+   [
+    ".1(##*#*#",
+    0.9244,
+    0.0639,
+    0.2062
+   ],
+   [
+    "#*0#10?(*",
+    0.9049,
+    0.0597,
+    0.175
+   ],
+   [
+    "(#0((#0&##1.",
+    0.9114,
+    0.0639,
+    0.2687
+   ],
+   [
+    ",(0&#?#8",
+    0.9307,
+    0.0569,
+    0.1833
+   ],
+   [
+    "86*88?1.",
+    0.5771,
+    0.0514,
+    0.1667
+   ],
+   [
+    "*(1#((#$>(.",
+    0.9325,
+    0.0611,
+    0.2333
+   ],
+   [
+    "./$##01#",
+    0.8951,
+    0.0556,
+    0.175
+   ],
+   [
+    ")#:#$1(.",
+    0.9407,
+    0.0528,
+    0.15
+   ],
+   [
+    ",(#&0##&(1,",
+    0.7787,
+    0.0569,
+    0.2167
+   ],
+   [
+    "..(*?$0##",
+    0.9147,
+    0.0569,
+    0.2104
+   ],
+   [
+    "5)>)0$>1.",
+    0.8482,
+    0.0514,
+    0.1417
+   ],
+   [
+    ")#):0#(*.,1$##(*..*()>0x$##(*. .*((#(1,.",
+    0.9174,
+    0.1014,
+    0.8292
+   ],
+   [
+    "6#>##1###?x#?##(####:>#0?###:(>)&×0&0:&*##0#0:##:#",
+    0.9096,
+    0.0944,
+    0.9979
+   ],
+   [
+    "(06#?##)>1##>:#0>:#):&##*#:x##*&)?&#×&*>###))##0>",
+    0.9162,
+    0.0958,
+    0.9979
+   ],
+   [
+    "..**1((#6#6###(#$6?%:?&:##*#:?#$(%>###1:(1**,",
+    0.8935,
+    0.0806,
+    0.9021
+   ],
+   [
+    "***1111(((11111**,",
+    0.8113,
+    0.0486,
+    0.3563
+   ],
+   [
+    "xx(.",
+    0.7577,
+    0.0375,
+    0.075
+   ],
+   [
+    "(*",
+    0.919,
+    0.0472,
+    0.0729
+   ],
+   [
+    "#1)?(*.",
+    0.9606,
+    0.0389,
+    0.1313
+   ],
+   [
+    "*$###1",
+    0.9803,
+    0.0472,
+    0.1396
+   ],
+   [
+    "1*?>8x(1.",
+    0.8498,
+    0.0417,
+    0.1625
+   ],
+   [
+    ".*(&#:#:#>",
+    0.8175,
+    0.0514,
+    0.2167
+   ],
+   [
+    "*##6))*#?(1*.",
+    0.8753,
+    0.0444,
+    0.2292
+   ],
+   [
+    "6#::#:<##0)1",
+    0.8634,
+    0.0542,
+    0.2833
+   ],
+   [
+    "(1>8?(#*>#*#>111*",
+    0.8541,
+    0.05,
+    0.3083
+   ],
+   [
+    ".1(#######)1)%()9",
+    0.878,
+    0.0611,
+    0.3833
+   ],
+   [
+    "6#*#(:0#$#>?)?(>?#?>##x&x%*#11)#1#1##&10#&$#$*:(#&)",
+    0.9506,
+    0.0847,
+    0.9979
+   ],
+   [
+    "#(009T9*#9$#9#1###%%#:∴#:<:##3#x9:∴#(##1.#x#1#09%",
+    0.8241,
+    0.0917,
+    0.9979
+   ],
+   [
+    "##)¿I9)$#)#,I<<(I0T#¿Sc0$.9##()(x#0cS#S(#%##S#9c",
+    0.768,
+    0.1028,
+    0.9979
+   ],
+   [
+    "(*S#>0#*#1:#0#60(:>##*#$#1>##>>$##×2*21)#Q1",
+    0.9054,
+    0.0792,
+    0.8792
+   ]
+  ]
+ },
+ {
+  "name": "Bleach",
+  "titles": [
+   "Bleach",
+   "BLEACH",
+   "Блийч",
+   "Белина",
+   "Блиич",
+   "死神-BLEACH",
+   "BLEACH 千年血戦編",
+   "死神 千年血战篇",
+   "BLEACH 千年血战篇",
+   "BLEACH 死神 千年血战篇",
+   "死神千年血战诀别谭",
+   "死神 千年血战篇 第二季",
+   "Bleach : Thousand-Year Blood War",
+   "ბლიჩი",
+   "მათეთრებელი",
+   "漂灵",
+   "בליץ’: מלחמת הדם בת אלף השנים",
+   "Bleach Sennen Kessen Hen",
+   "BLEACH 千年血戦篇",
+   "Burīchi: Sennen Kessen-hen",
+   "ブリーチ",
+   "Bleach Sennen Kessen-hen",
+   "Bleach - Sennen Kessen-hen",
+   "Bleach - Sennen Kessen hen",
+   "BLEACH 千年血戦篇ー相剋譚ー",
+   "BLEACH Sennen Kessen-hen: Kakahjuu-tan",
+   "BLEACH 千年血戦篇-禍進譚-",
+   "블리치 천년혈전 편",
+   "블리치 천년혈전 편: 결별담",
+   "블리치 사신대행 편",
+   "블리치 소울 소사이어티 잠입 편",
+   "블리치 소울 소사이어티 구출 편",
+   "블리치 바운트 편",
+   "블리치 바운트 소울 소사이어티 습격 편",
+   "블리치 아란칼 출현 편",
+   "블리치 웨코문도 돌입 편",
+   "블리치 신임 대장 아마가이 슈스케 편",
+   "블리치 아란칼 VS 사신 편",
+   "블리치 과거 편",
+   "블리치 아란칼 카라쿠라 결전 편",
+   "블리치 참백도 이문 편",
+   "블리치 도수(刀獣) 편",
+   "블리치 아란칼 멸망 편",
+   "블리치 호정 13대 침군 편",
+   "블리치 사신대행 소실 편",
+   "블리치 천년혈전 편: 화진담",
+   "Izbeljivač",
+   "المطهر",
+   "บลีช",
+   "เทพมรณะออนไลน์",
+   "BLEACH 死神",
+   "BLEACH 死神 千年血戰篇",
+   "BLEACH 死神 千年血戰篇-訣別譚-",
+   "Bleach: Thousand-Year Blood War",
+   "Bleach: Thousand-Year Blood War - The Separation",
+   "Bleach: Thousand-Year Blood War - The Conflict",
+   "Bleach: TYBW",
+   "Bleach: Thousand-Year Blood War - The Calamity"
+  ],
+  "image": "/ePxSPCgeazc9aVr4Yykbej6XjWN.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "C",
+    0.8359,
+    0.3347,
+    0.4958
+   ]
+  ]
+ },
+ {
+  "name": "Bleach",
+  "titles": [
+   "Bleach",
+   "BLEACH",
+   "Блийч",
+   "Белина",
+   "Блиич",
+   "死神-BLEACH",
+   "BLEACH 千年血戦編",
+   "死神 千年血战篇",
+   "BLEACH 千年血战篇",
+   "BLEACH 死神 千年血战篇",
+   "死神千年血战诀别谭",
+   "死神 千年血战篇 第二季",
+   "Bleach : Thousand-Year Blood War",
+   "ბლიჩი",
+   "მათეთრებელი",
+   "漂灵",
+   "בליץ’: מלחמת הדם בת אלף השנים",
+   "Bleach Sennen Kessen Hen",
+   "BLEACH 千年血戦篇",
+   "Burīchi: Sennen Kessen-hen",
+   "ブリーチ",
+   "Bleach Sennen Kessen-hen",
+   "Bleach - Sennen Kessen-hen",
+   "Bleach - Sennen Kessen hen",
+   "BLEACH 千年血戦篇ー相剋譚ー",
+   "BLEACH Sennen Kessen-hen: Kakahjuu-tan",
+   "BLEACH 千年血戦篇-禍進譚-",
+   "블리치 천년혈전 편",
+   "블리치 천년혈전 편: 결별담",
+   "블리치 사신대행 편",
+   "블리치 소울 소사이어티 잠입 편",
+   "블리치 소울 소사이어티 구출 편",
+   "블리치 바운트 편",
+   "블리치 바운트 소울 소사이어티 습격 편",
+   "블리치 아란칼 출현 편",
+   "블리치 웨코문도 돌입 편",
+   "블리치 신임 대장 아마가이 슈스케 편",
+   "블리치 아란칼 VS 사신 편",
+   "블리치 과거 편",
+   "블리치 아란칼 카라쿠라 결전 편",
+   "블리치 참백도 이문 편",
+   "블리치 도수(刀獣) 편",
+   "블리치 아란칼 멸망 편",
+   "블리치 호정 13대 침군 편",
+   "블리치 사신대행 소실 편",
+   "블리치 천년혈전 편: 화진담",
+   "Izbeljivač",
+   "المطهر",
+   "บลีช",
+   "เทพมรณะออนไลน์",
+   "BLEACH 死神",
+   "BLEACH 死神 千年血戰篇",
+   "BLEACH 死神 千年血戰篇-訣別譚-",
+   "Bleach: Thousand-Year Blood War",
+   "Bleach: Thousand-Year Blood War - The Separation",
+   "Bleach: Thousand-Year Blood War - The Conflict",
+   "Bleach: TYBW",
+   "Bleach: Thousand-Year Blood War - The Calamity"
+  ],
+  "image": "/o8J1HvqO6QF1hMTY0eQq7itnUn4.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Blue Planet II",
+  "titles": [
+   "Blue Planet II",
+   "La planète bleue II",
+   "蓝色星球 第 2 季",
+   "Der blaue Planet",
+   "Unser blauer Planet 2",
+   "Den blå planet 2",
+   "The Blue Planet II",
+   "Blue Planet 2",
+   "Kék Bolygó II.",
+   "Kék Bolygó 2.",
+   "아름다운 바다 2",
+   "Mėlynoji Planeta 2",
+   "ГОЛУБАЯ ПЛАНЕТА 2"
+  ],
+  "image": "/8bwTLF2TV0k56xKRxr7Yhh7jdd6.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "BoJack Horseman",
+  "titles": [
+   "BoJack Horseman",
+   "بوجاك هورسمان",
+   "ცხენი ბოჯეკი",
+   "Μπότζακ Χόρσμαν",
+   "בוג'אק הורסמן",
+   "Конь БоДжек",
+   "Кiнь БоДжек"
+  ],
+  "image": "/522H6sY6PhglcvvBYCrs4WGzzaP.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "HOLLYWOOD",
+    0.9998,
+    0.0389,
+    0.1875
+   ]
+  ]
+ },
+ {
+  "name": "Brooklyn Nine-Nine",
+  "titles": [
+   "Brooklyn Nine-Nine",
+   "Brooklyn 99 - Lei e Desordem",
+   "ბრუკლინი 99",
+   "ברוקלין 99",
+   "بروکلین نه-نه",
+   "荒唐分局",
+   "Brooklyn 99",
+   "B99"
+  ],
+  "image": "/dUN9ftl9VjS9svEn6dPOJxZzinZ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Burning",
+  "titles": [
+   "Burning",
+   "버닝",
+   "Ardiente",
+   "Em Chamas",
+   "燃烧烈爱",
+   "มือเพลิง",
+   "Beoning"
+  ],
+  "image": "/gmL2J5A9v4kziAP8bM2TaVR0BYa.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "C",
+    0.5046,
+    0.2903,
+    0.4354
+   ]
+  ]
+ },
+ {
+  "name": "Coyote vs. Acme",
+  "titles": [
+   "Coyote vs. Acme",
+   "Ptica trkačica: Kojot protiv sustava",
+   "Pera Kojot protiv sistema",
+   "Kojot proti sistemu",
+   "Kojotas prieš Akmę",
+   "Koijots pret Acme",
+   "Coyote vs Acme",
+   "Kojot vrací úder",
+   "Койот против АКМЕ",
+   "Којотот против системот",
+   "Struś Pędziwiatr i zemsta Kojota",
+   "Койот проти Акме",
+   "كايوتي ضد أكمي",
+   "โคโยตี้ ปะทะ แอคมี่"
+  ],
+  "image": "/2XArzKrasO1nPc5R2cMvIWbnGdi.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "C-ANIUA",
+    0.5043,
+    0.0153,
+    0.0875
+   ],
+   [
+    "CARTOON CCID",
+    0.943,
+    0.0277,
+    0.1271
+   ],
+   [
+    "ACME",
+    0.9994,
+    0.0361,
+    0.0938
+   ],
+   [
+    "KEVIN AVERY",
+    0.9927,
+    0.0291,
+    0.1354
+   ],
+   [
+    "AVERY JONES",
+    0.9289,
+    0.0291,
+    0.1125
+   ],
+   [
+    "AVERTISWESMALTESE.COM",
+    0.879,
+    0.0264,
+    0.1542
+   ],
+   [
+    "KNFE",
+    0.7729,
+    0.0277,
+    0.0542
+   ],
+   [
+    "NSE",
+    0.7054,
+    0.0194,
+    0.0437
+   ],
+   [
+    "MATCH",
+    0.9629,
+    0.0125,
+    0.0437
+   ],
+   [
+    "STAKE",
+    0.9936,
+    0.0236,
+    0.0604
+   ],
+   [
+    "LGHT FUSC",
+    0.6571,
+    0.0111,
+    0.0771
+   ],
+   [
+    "THE ROADRLANER IS HNE",
+    0.8641,
+    0.0166,
+    0.175
+   ]
+  ]
+ },
+ {
+  "name": "Coyote vs. Acme",
+  "titles": [
+   "Coyote vs. Acme",
+   "Ptica trkačica: Kojot protiv sustava",
+   "Pera Kojot protiv sistema",
+   "Kojot proti sistemu",
+   "Kojotas prieš Akmę",
+   "Koijots pret Acme",
+   "Coyote vs Acme",
+   "Kojot vrací úder",
+   "Койот против АКМЕ",
+   "Којотот против системот",
+   "Struś Pędziwiatr i zemsta Kojota",
+   "Койот проти Акме",
+   "كايوتي ضد أكمي",
+   "โคโยตี้ ปะทะ แอคมี่"
+  ],
+  "image": "/4uKCk1L5pVWxjwCxMsbfhxWesGd.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Daemons of the Shadow Realm",
+  "titles": [
+   "Daemons of the Shadow Realm",
+   "黄泉のツガイ",
+   "Yomi no Tsugai - Daemons do Reino das Sombras",
+   "Espíritus Del Inframundo",
+   "Yomi no Tsugai",
+   "Song Mệnh Cõi Hoàng Tuyền"
+  ],
+  "image": "/83po91QTmpuQIsMOFvh5uGa8oHY.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Dan Da Dan",
+  "titles": [
+   "Dan Da Dan",
+   "ダンダダン",
+   "丹达丹",
+   "超自然武装当哒当",
+   "膽大黨",
+   "داندادان",
+   "DanDaDan",
+   "Dandadan",
+   "ДанДаДан",
+   "Dan da dan"
+  ],
+  "image": "/4h2m9BO7milJaCsbKBgKvCX0dOZ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Dan Da Dan",
+  "titles": [
+   "Dan Da Dan",
+   "ダンダダン",
+   "丹达丹",
+   "超自然武装当哒当",
+   "膽大黨",
+   "داندادان",
+   "DanDaDan",
+   "Dandadan",
+   "ДанДаДан",
+   "Dan da dan"
+  ],
+  "image": "/rDqU0gLoHTRfklgluJ1Uw1586aq.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "立入禁止",
+    0.9166,
+    0.2417,
+    0.6562
+   ],
+   [
+    "千万币",
+    0.8708,
+    0.1083,
+    0.0625
+   ]
+  ]
+ },
+ {
+  "name": "Daredevil: Born Again",
+  "titles": [
+   "Daredevil: Born Again",
+   "Marvel Television Demolidor: Renascido",
+   "Demolidor: Renascido da Marvel Television",
+   "Daredevil : Renaître de Marvel Television",
+   "夜魔侠：重生",
+   "Marvel's Daredevil Born Again",
+   "Daredevil : Renaissance",
+   "Daredevil : Renouveau",
+   "თავქარიანი: თავიდან დაბადება",
+   "თავზეხელაღებული: თავიდან დაბადება",
+   "Fenegyerek: Újjászületés",
+   "Daredevil - Rinascita",
+   "Шибайголова: Народжений знову",
+   "Шибайголова: Народжений наново",
+   "Marvel Studios' Daredevil: Born Again",
+   "Marvel Television's Daredevil: Born Again"
+  ],
+  "image": "/A46i2ECLE1bVrl9YTWVnfBEWuzh.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Dark Matter",
+  "titles": [
+   "Dark Matter",
+   "Цёмная матэрыя",
+   "人生复本",
+   "暗物质",
+   "Σκοτεινή ύλη",
+   "Tamna tvar",
+   "חומר אפל",
+   "ماده تاریک",
+   "Тамна материја",
+   "Тёмная материя",
+   "المادة المظلمة",
+   "Durango 60623"
+  ],
+  "image": "/sj81WpEIjvUQFCMWKXOcejFlFTQ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+  "titles": [
+   "Demon Slayer: Kimetsu no Yaiba Infinity Castle",
+   "劇場版「鬼滅の刃」無限城編 第一章 猗窩座再来",
+   "Demon Slayer -Kimetsu no Yaiba- the Movie: Infinity Castle",
+   "Gekijōban Kimetsu no Yaiba Mugenjō-hen",
+   "Gekijouban Kimetsu no Yaiba Mugenjou-hen",
+   "Kimetsu no Yaiba: Mugenjou-hen",
+   "Kimetsu no Yaiba Movie: Mugen Jou-hen",
+   "「鬼滅之刃」無限城編",
+   "Kimetsu no Yaiba: Mugenjou-hen Movie 1 - Akaza Sairai",
+   "Demon Slayer: Kimetsu no Yaiba Sonsuzluk Kalesi",
+   "Demon Slayer: Kimetsu no Yaiba - The Movie: Infinity Castle - Part 1: Akaza Returns",
+   "劇場版 鬼滅之刃 無限城篇",
+   "Demon Slayer: Kimetsu no Yaiba - Castillo infinito",
+   "Demon Slayer: Kimetsu no Yaiba Infinity Castle - Teil 1",
+   "Gekijouban Kimetsu no Yaiba: Mugen-jou-hen Movie 1",
+   "Demon Slayer: Kimetsu no Yaiba La Forteresse Infinie Film 1",
+   "Demon Slayer -Kimetsu no Yaiba- The Movie: Infinity Castle",
+   "Demon Slayer -Kimetsu no Yaiba- Il Castello dell'Infinito",
+   "Demon Slayer: Kimetsu no Yaiba Castelo Infinito",
+   "Истребитель демонов: Бесконечная крепость",
+   "Guardianes de la noche: Kimetsu no Yaiba - La fortaleza infinita",
+   "劇場版「鬼滅之刃」無限城篇 第一章 猗窩座再襲",
+   "Вбивця Демонів: Замок Нескінченності",
+   "დემონების მკვეთი ხმალი: უსასრულო ციხესიმაგრე",
+   "극장판 귀멸의 칼날: 무한성편 제1장 아카자 재래",
+   "קוטל השדים: קִימֶטְסוּ נוֹ יָאיבָּה - הסרט: טירת האינסוף",
+   "קוטל השדים: טירת האינסוף",
+   "Demon Slayer Kimetsu no Yaiba - Le film  La Forteresse infinie",
+   "Demon Slayer, Kimetsu no Yaiba - Le film  La Forteresse infinie",
+   "អ្នកប្រហារបិសាច: ប្រាសាទគ្មានទីបញ្ចប់",
+   "鬼滅之刃劇場版：無限城篇 第一章 猗窩座再襲",
+   "Клинок, рассекающий демонов: Бесконечный замок",
+   "Клинок, рассекающий демонов: Бесконечный замок — Возвращение Акадзы",
+   "극장판 귀멸의 칼날: 무한성편 제1장",
+   "Gekijô-ban Kimetsu no Yaiba Mugen Jô-hen",
+   "Gekijo-ban Kimetsu No Yaiba Mugen Jo-hen",
+   "귀멸의 칼날 극장판: 무한성편",
+   "Demon Slayer: Kimetsu no Yaiba, le film : La Forteresse infinie",
+   "Demon Slayer: Kimetsu no Yaiba Infinity Castle I",
+   "[剧场版].鬼灭之刃：无限城篇.第一章.猗窝座再袭",
+   "[剧场版] 鬼灭之刃：无限城篇 第一章 猗窝座再袭"
+  ],
+  "image": "/vJpkOAjW84OZO4CGYKGmHKjVosc.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Downfall",
+  "titles": [
+   "Downfall",
+   "Der Untergang",
+   "A Queda! As Últimas Horas de Hitler",
+   "몰락 - 히틀러와 제3제국의 종말",
+   "Undergången - Hitler och Tredje Rikets fall",
+   "Der Untergang - det tredje rikets siste dager",
+   "Падение"
+  ],
+  "image": "/uA0qr3LoJi9JOMADX57HgqYFpJi.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Emperor of the Sea",
+  "titles": [
+   "Emperor of the Sea",
+   "해신",
+   "امپراتور دریا",
+   "海神",
+   "Haeshin",
+   "Hae Shin",
+   "Hae-sin",
+   "God of the Sea",
+   "Sea God"
+  ],
+  "image": "/qB32bPGVVrg3YQMVr1ZptsgQBe4.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Fallout",
+  "titles": [
+   "Fallout",
+   "辐射"
+  ],
+  "image": "/7TBfMjYvAuSVHw1B7E5GZT3I4GG.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Family Guy",
+  "titles": [
+   "Family Guy",
+   "გრიფინები",
+   "Keluarga Pria",
+   "مرد خانه",
+   "خانواده‌ دوست",
+   "쇼킹 패밀리",
+   "쇼킹패밀리",
+   "परिवारको केटा",
+   "Сім’янин",
+   "Ґріффіни"
+  ],
+  "image": "/woXlNGitaiF5d7jRIwccmdum6fz.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Fly Me to the Moon",
+  "titles": [
+   "Fly Me to the Moon",
+   "Eleven",
+   "Project Artemis",
+   "登月大计划",
+   "Забери мене на місяць",
+   "Dự Án Artemis",
+   "Ayı Mənə Göstər",
+   "To The Moon",
+   "'플라이 미 투 더 문' - Fly Me to the Moon",
+   "Vụ Bê Bối Ánh Trăng - Fly Me to the Moon",
+   "Fly Me to the Moon: Le due facce della Luna",
+   "La otra cara de la luna",
+   "Emmène-moi sur la lune"
+  ],
+  "image": "/43jk4Na0Ax0C8i4llnHvN3R3Egf.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Friends",
+  "titles": [
+   "Friends",
+   "老友记",
+   "Venner",
+   "חברים",
+   "Dost",
+   "فرندز",
+   "Vänner"
+  ],
+  "image": "/h2nvuo60bvjisIDt3FJTdjhL3jb.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "CILCO",
+    0.6868,
+    0.0264,
+    0.0688
+   ],
+   [
+    "baDnine",
+    0.5067,
+    0.0278,
+    0.0708
+   ],
+   [
+    "We Buy",
+    0.9996,
+    0.0236,
+    0.0938
+   ],
+   [
+    "We Sell",
+    0.9976,
+    0.0264,
+    0.1021
+   ],
+   [
+    "We Trade",
+    0.9997,
+    0.025,
+    0.1229
+   ]
+  ]
+ },
+ {
+  "name": "Friends",
+  "titles": [
+   "Friends",
+   "老友记",
+   "Venner",
+   "חברים",
+   "Dost",
+   "فرندز",
+   "Vänner"
+  ],
+  "image": "/p4AJvvjpduxM5NJFweJDvDfpxON.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "7",
+    0.7104,
+    0.3111,
+    0.4125
+   ]
+  ]
+ },
+ {
+  "name": "Gilmore Girls",
+  "titles": [
+   "Gilmore Girls",
+   "Gilmore Girls: Tal Mãe, Tal Filha",
+   "Дамы семьи Гилмор"
+  ],
+  "image": "/gbxKpYxri4PlWMMwHDVrpppjWTQ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "House of the Dragon",
+  "titles": [
+   "House of the Dragon",
+   "Дом дракона",
+   "La Maison du Dragon / House of the Dragon",
+   "龙之家族",
+   "Maison du dragon",
+   "龍之家族",
+   "משחקי הכס: בית הדרקון",
+   "하우스 오브 더 드래곤",
+   "하우스 오브 드래곤",
+   "Айдаһар әулеті",
+   "ⵜⴰⴷⴷⴰⵔⵜ ⵏ ⵉⴷⵖⴰⵖⵏ",
+   "A Guerra dos Tronos: House of the Dragon",
+   "Casa do Dragão",
+   "آل التنين",
+   "هاوس أوف ذا دراغون",
+   "Дім Дракона",
+   "Game of Thrones: House of the Dragon",
+   "HOTD",
+   "The House That Dragons Built"
+  ],
+  "image": "/elwO2VlWzvUWsGGeeypZzpa61Jm.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "How I Met Your Mother",
+  "titles": [
+   "How I Met Your Mother",
+   "Cómo conocí a su madre",
+   "老爸老妈的浪漫史",
+   "寻妈记",
+   "老爸老妈浪漫史",
+   "追爱总动员",
+   "老爸老妈罗曼史",
+   "איך פגשתי את אימא",
+   "آشنایی با مادر",
+   "E alla fine arriva mamma!",
+   "Annenizle Nasıl Tanıştım",
+   "HIMYM",
+   "H.I.M.Y.M.",
+   "Khi Bố Gặp Mẹ"
+  ],
+  "image": "/lIlzwkpSM7Unhp4B1IcmLNplxU3.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "In the Loop",
+  "titles": [
+   "In the Loop",
+   "В петле",
+   "Kabinett ausser Kontrolle"
+  ],
+  "image": "/baRFkHjBNSEF2frf0Gh8dZBFewl.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "In the Loop",
+  "titles": [
+   "In the Loop",
+   "В петле",
+   "Kabinett ausser Kontrolle"
+  ],
+  "image": "/cNxEobUTwceuZsH3MCUkaIAxVL8.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "中",
+    0.8555,
+    0.8889,
+    0.3958
+   ]
+  ]
+ },
+ {
+  "name": "Insidious: Out of the Further",
+  "titles": [
+   "Insidious: Out of the Further",
+   "Insidious 6",
+   "인시디어스 6",
+   "Insidious: The Bleeding World",
+   "Insidieux: hors du plus loin",
+   "Insidious: Jsou mezi námi",
+   "Sobrenatural: Agora Entre Nós",
+   "Insidious - Fuori dall'altrove",
+   "La noche del demonio: Están entre nosotros",
+   "Insidious: Fuera del Más Allá",
+   "Astralna Podmuklost: Izvan Daljine",
+   "Sobrenatural 6",
+   "วิญญาณตามติด หลุดจากนรก",
+   "Naznaczony: Wyjście z mrocznego wymiaru",
+   "Insidious: Έξω από το Απώτερο"
+  ],
+  "image": "/qr5JarRxOtr6lURPjQWApT5HCAZ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "JUJUTSU KAISEN",
+  "titles": [
+   "JUJUTSU KAISEN",
+   "呪術廻戦",
+   "Jujutsu Kaisen",
+   "咒术回战",
+   "咒术回战 第一季",
+   "咒术回战 第二季",
+   "咒术回战 第三季",
+   "咒術迴戰",
+   "Jujutsu Kaisen: Guerra de hechiceros",
+   "अभिशाप नेटवर्क",
+   "呪術廻戦 懐玉・玉折",
+   "呪術廻戦 渋谷事変",
+   "呪術廻戦 死滅回游 前編",
+   "Jujutsu Kaisen: Shimetsu Kaiyuu - Zenpen",
+   "주술회전 2기: 회옥·옥절 / 시부야 사변",
+   "주술회전 3기: 사멸회유 전편",
+   "주술회전 4기: 사멸회유 후편",
+   "Guerra de magia",
+   "Магическая битва",
+   "มหาเวทย์ผนึกมาร",
+   "咒術迴戰 死滅迴游 前篇",
+   "Магічна битва",
+   "Sorcery Fight",
+   "JJK",
+   "JUJUTSU KAISEN Season 3: The Culling Game Part 1",
+   "Chú Thuật Hồi Chiến"
+  ],
+  "image": "/qsFgxc9whGpGfLYzQjgq3xkNEbB.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Leave the World Behind",
+  "titles": [
+   "Leave the World Behind",
+   "Dünyanı Geridə Burax",
+   "دنیا را پشت سر بگذار",
+   "Ілюзія безпеки",
+   "終わらない週末",
+   "Оставь мир позади"
+  ],
+  "image": "/pw8yuaV4HrzeLsaM9a0G39DDncp.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Marvel's The Punisher",
+  "titles": [
+   "Marvel's The Punisher",
+   "Marvel - O Justiceiro",
+   "制裁者",
+   "مجازاتگر",
+   "The Punisher",
+   "Marvel パニッシャー",
+   "퍼니셔",
+   "마블 퍼니셔",
+   "Marvel 퍼니셔",
+   "O Justiceiro",
+   "Marvels the Punisher"
+  ],
+  "image": "/5lUKTBiBq1vXGS5AIcmWsyX8Tqs.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    ",",
+    0.6785,
+    0.0389,
+    0.2521
+   ]
+  ]
+ },
+ {
+  "name": "Marvel's The Punisher",
+  "titles": [
+   "Marvel's The Punisher",
+   "Marvel - O Justiceiro",
+   "制裁者",
+   "مجازاتگر",
+   "The Punisher",
+   "Marvel パニッシャー",
+   "퍼니셔",
+   "마블 퍼니셔",
+   "Marvel 퍼니셔",
+   "O Justiceiro",
+   "Marvels the Punisher"
+  ],
+  "image": "/f1oEtvoLK02pK5rWvsU8Eip2ymT.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    ",",
+    0.7597,
+    0.0389,
+    0.2542
+   ],
+   [
+    "PUNLSHER",
+    0.9192,
+    0.2736,
+    0.8625
+   ]
+  ]
+ },
+ {
+  "name": "Modern Family",
+  "titles": [
+   "Modern Family",
+   "Familja moderne",
+   "Съвременно семейство",
+   "Famille Moderne",
+   "Famille moderne",
+   "Egy rém modern család",
+   "משפחה מודרנית",
+   "Modernā amerikāņu ģimene",
+   "Família Moderna",
+   "Американская семейка",
+   "عائلة عصرية",
+   "Сучасна сім’я",
+   "A Modern Farewell"
+  ],
+  "image": "/1Egk3adTkoMwStyCDFpU5RIxUMX.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "2001",
+    0.6833,
+    0.3375,
+    0.9979
+   ]
+  ],
+  "known_miss": "OCR reads a row of figures as 2001"
+ },
+ {
+  "name": "Modern Family",
+  "titles": [
+   "Modern Family",
+   "Familja moderne",
+   "Съвременно семейство",
+   "Famille Moderne",
+   "Famille moderne",
+   "Egy rém modern család",
+   "משפחה מודרנית",
+   "Modernā amerikāņu ģimene",
+   "Família Moderna",
+   "Американская семейка",
+   "عائلة عصرية",
+   "Сучасна сім’я",
+   "A Modern Farewell"
+  ],
+  "image": "/6zJFK4U1bBF5eLKswZaoVQbNFJn.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "Family",
+    0.8673,
+    0.2857,
+    0.9292
+   ],
+   [
+    "Modern",
+    1.0,
+    0.0707,
+    0.3729
+   ],
+   [
+    "Created by: Christopher Lloyd",
+    0.9969,
+    0.025,
+    0.3
+   ],
+   [
+    "Steven Levitan",
+    0.985,
+    0.0208,
+    0.15
+   ],
+   [
+    "Julie Bowen",
+    0.9989,
+    0.0236,
+    0.1187
+   ],
+   [
+    "Ed O'Neill",
+    0.9976,
+    0.0194,
+    0.1042
+   ],
+   [
+    "Sofia Vergara",
+    0.9926,
+    0.0222,
+    0.1271
+   ],
+   [
+    "Ty Burrell",
+    0.9998,
+    0.018,
+    0.1021
+   ],
+   [
+    "Jesse Tyler Ferguson",
+    0.9743,
+    0.0208,
+    0.1708
+   ],
+   [
+    "Eric Stonestreet",
+    0.9853,
+    0.0208,
+    0.1688
+   ],
+   [
+    "/09",
+    0.9898,
+    0.0458,
+    0.0708
+   ]
+  ]
+ },
+ {
+  "name": "Modern Family",
+  "titles": [
+   "Modern Family",
+   "Familja moderne",
+   "Съвременно семейство",
+   "Famille Moderne",
+   "Famille moderne",
+   "Egy rém modern család",
+   "משפחה מודרנית",
+   "Modernā amerikāņu ģimene",
+   "Família Moderna",
+   "Американская семейка",
+   "عائلة عصرية",
+   "Сучасна сім’я",
+   "A Modern Farewell"
+  ],
+  "image": "/ool4WKZTmOe1aTeK5aAZ8t1Oi8B.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Mutiny",
+  "titles": [
+   "Mutiny",
+   "Código: Venganza",
+   "คนระห่ำห้ามรอด",
+   "El Motin"
+  ],
+  "image": "/6MKDpbJg0fn9T56iITTY9DD6ocy.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "NieR:Automata Ver1.1a",
+  "titles": [
+   "NieR:Automata Ver1.1a",
+   "尼尔：机械纪元 Ver1.1a",
+   "尼尔：自动人形 Ver1.1a",
+   "尼尔：自动人形动画版",
+   "尼尔：机械纪元动画版",
+   "尼尔：机械纪元",
+   "ニーア オートマタ Ver1.1a",
+   "NieRAutomata",
+   "NieR：Automata Ver1.1a",
+   "NieR Automata Ver1.1a",
+   "니어:오토마타 Ver1.1a",
+   "Ниер: Автомата",
+   "Ниер: Автомата - Версия 1.1а",
+   "NieR:Automata Ver 1.1a",
+   "Ver"
+  ],
+  "image": "/cLgbZHeWWtnRNAZbWdH5SFFbqm1.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Normal",
+  "titles": [
+   "Normal"
+  ],
+  "image": "/s4eTcJ3eQfBfoUPjtisH3L9xuhX.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "One Night Only",
+  "titles": [
+   "One Night Only",
+   "Na jednu noc",
+   "Solo por una noche",
+   "Sadece Bir Gece",
+   "คืนเดียวเสียวรัก",
+   "只有一晚",
+   "Yalnız Bir Gecə",
+   "Una noche al año",
+   "فقط یک شب"
+  ],
+  "image": "/6LMtZWu7yNyG7hmGrOUxXotlzrw.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "CHUKEWO",
+    0.7141,
+    0.1222,
+    0.5958
+   ]
+  ]
+ },
+ {
+  "name": "One Night Only",
+  "titles": [
+   "One Night Only",
+   "Na jednu noc",
+   "Solo por una noche",
+   "Sadece Bir Gece",
+   "คืนเดียวเสียวรัก",
+   "只有一晚",
+   "Yalnız Bir Gecə",
+   "Una noche al año",
+   "فقط یک شب"
+  ],
+  "image": "/7yVwX9IN9LI4g9N6aawmv0cdGZT.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "MOM39AID",
+    0.725,
+    0.1167,
+    0.6542
+   ],
+   [
+    "REPEAL",
+    0.9911,
+    0.025,
+    0.1229
+   ]
+  ]
+ },
+ {
+  "name": "One Night Only",
+  "titles": [
+   "One Night Only",
+   "Na jednu noc",
+   "Solo por una noche",
+   "Sadece Bir Gece",
+   "คืนเดียวเสียวรัก",
+   "只有一晚",
+   "Yalnız Bir Gecə",
+   "Una noche al año",
+   "فقط یک شب"
+  ],
+  "image": "/gJS3vC4QqthekZ9WIJZVX0S8uvL.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "CROKEWO",
+    0.7335,
+    0.1264,
+    0.6271
+   ],
+   [
+    "EAL",
+    0.9803,
+    0.0278,
+    0.0708
+   ]
+  ]
+ },
+ {
+  "name": "One Night Only",
+  "titles": [
+   "One Night Only",
+   "Na jednu noc",
+   "Solo por una noche",
+   "Sadece Bir Gece",
+   "คืนเดียวเสียวรัก",
+   "只有一晚",
+   "Yalnız Bir Gecə",
+   "Una noche al año",
+   "فقط یک شب"
+  ],
+  "image": "/ijhuKfuYMmL4QfWvJE7MzO9TgiQ.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "CRHKEWOM",
+    0.7151,
+    0.1139,
+    0.6458
+   ],
+   [
+    "REPEAL",
+    0.999,
+    0.025,
+    0.1313
+   ]
+  ]
+ },
+ {
+  "name": "One Night Only",
+  "titles": [
+   "One Night Only",
+   "Na jednu noc",
+   "Solo por una noche",
+   "Sadece Bir Gece",
+   "คืนเดียวเสียวรัก",
+   "只有一晚",
+   "Yalnız Bir Gecə",
+   "Una noche al año",
+   "فقط یک شب"
+  ],
+  "image": "/ofJtMNweUYX3L4rOO0yQhod7VMP.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "Do not hold do",
+    0.9898,
+    0.0292,
+    0.2146
+   ],
+   [
+    "Do not hold doc",
+    0.9803,
+    0.0292,
+    0.2583
+   ]
+  ]
+ },
+ {
+  "name": "One-Punch Man",
+  "titles": [
+   "One-Punch Man",
+   "ワンパンマン",
+   "ואן-פאנץ' מאן",
+   "וואן פאנץ' מן",
+   "वन पंच मैन",
+   "مرد یک مشتی",
+   "Wanpanman",
+   "One Punch Man",
+   "ONE PUNCH MAN ワンパンマン",
+   "OPM",
+   "Человек одного удара",
+   "ون بنش مان",
+   "Anh Hùng OnePunch",
+   "Nhất Quyền Nhân"
+  ],
+  "image": "/cpVnAqdp9GdeSdupwAcklDxWUaS.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Onslaught",
+  "titles": [
+   "Onslaught",
+   "Contre-attaque",
+   "เหนือมนุษย์หลุดนรก"
+  ],
+  "image": "/ocgaezde7dALuhObRiHpu4FOQ6S.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Parks and Recreation",
+  "titles": [
+   "Parks and Recreation",
+   "Parks and Rec"
+  ],
+  "image": "/4EFtRgxRySjIv7XN2MUCKHZlu7p.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Pinocchio: Unstrung",
+  "titles": [
+   "Pinocchio: Unstrung",
+   "Pinocho: Desatado",
+   "Pinocho: Sin hilos",
+   "Pinocchio Unstrung",
+   "พินอคคิโอ หุ่นไม้สายเชือด",
+   "Pinocho: El Lado Oscuro",
+   "PINOCCHIO : DÉCHAÎNÉ",
+   "Pinocchio - Unstrung"
+  ],
+  "image": "/tpd5xnef4f5x1fbZzmM4YM42bC.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Play Dead",
+  "titles": [
+   "Play Dead",
+   "Play Dead - Schlimmer als der Tod",
+   "Play Dead: Escapar ou Morrer"
+  ],
+  "image": "/phJ3fpepjABqyXEeKALWxDoauc8.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "A",
+    0.5118,
+    0.2792,
+    0.5521
+   ]
+  ]
+ },
+ {
+  "name": "Re:ZERO -Starting Life in Another World-",
+  "titles": [
+   "Re:ZERO -Starting Life in Another World-",
+   "Re:ゼロから始める異世界生活",
+   "Re:ZERO -Começando uma Vida em Outro Mundo",
+   "从零开始的异世界生活",
+   "Each One's Promise",
+   "Re Zero Empezar de cero en un mundo diferente",
+   "RE:ZERO - Re:vivre dans un autre monde à partir de zéro",
+   "ReZERO - Starting Life in Another World",
+   "Re ZERO - Starting Life in Another World",
+   "Re Zero Starting Life in Another World",
+   "विषय: शून्य - एक दूसरी दुनिया में जीवन की शुरुआत",
+   "دوباره: هیچ، شروع زندگی در دنیایی دیگر",
+   "دوباره: صفر، شروع زندگی در دنیایی دیگر",
+   "Re zero Ricominciare in un altro mondo",
+   "Re:Zero kara Hajimeru Isekai Seikatsu",
+   "ReZero kara Hajimeru Isekai Seikatsu",
+   "Re:ゼロから始める異世界生活 2nd season",
+   "Re:ゼロから始める異世界生活 新編集版",
+   "Re:ゼロから始める異世界生活 3rd season 襲撃編",
+   "Re:ゼロから始める異世界生活 3rd season 反撃編",
+   "リゼロ",
+   "Re：ゼロから始める異世界生活 4th season",
+   "리제로",
+   "ReZero",
+   "Re Zero Empezar de cero en un mundo diferente Temporada 2",
+   "Re:Zero",
+   "Re Zero",
+   "Re: Жизнь в другом мире с нуля",
+   "Re: Жизнь в альтернативном мире с нуля",
+   "Re:Zero — жизнь с нуля в другом мире",
+   "Re:Zero. Жизнь с нуля в альтернативном мире",
+   "С нуля: Жизнь с нуля в альтернативном мире",
+   "Жизнь с нуля в альтернативном мире",
+   "Жизнь в альтернативном мире с нуля",
+   "Re:Zero.  Жизнь в aльтepнaтивнoм мире c нyля",
+   "Жизнь в другом мире с нуля",
+   "Ре Зеро Жизнь с нуля в альтернативном мире",
+   "Re：從零開始的異世界生活",
+   "Re:0",
+   "Re: Life in a Different World From Zero",
+   "Re:ZERO -Starting Life in Another World- Director's Cut"
+  ],
+  "image": "/x5UiAc6ry6uDMrT2FTJ75Y68WrV.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Rick and Morty",
+  "titles": [
+   "Rick and Morty",
+   "Rick e Morty",
+   "瑞克和莫蒂",
+   "瑞克与莫蒂",
+   "Rick et Morty",
+   "ריק ומורטי",
+   "ریک و مورتی",
+   "ریک اند مورتی",
+   "リック・アンド・モーティ",
+   "릭 앤 모티",
+   "Рик Морти хоёр",
+   "Рік і Морті",
+   "Vindicators 2",
+   "Vindicators 2: Last Stand Between Earth and Doom"
+  ],
+  "image": "/zuO76UEkGvFMGcWVzejpyuOmKWS.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Sex and the City",
+  "titles": [
+   "Sex and the City",
+   "Sex & the City",
+   "SATC"
+  ],
+  "image": "/fK8WtyOjAhIHR7Sm4PA6JzEmtgL.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Sex and the City",
+  "titles": [
+   "Sex and the City",
+   "Sex & the City",
+   "SATC"
+  ],
+  "image": "/kh8rTXoQ90yCOvlQvdQ5j5fIde7.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "A",
+    0.6088,
+    0.4694,
+    0.5125
+   ]
+  ]
+ },
+ {
+  "name": "Silo",
+  "titles": [
+   "Silo",
+   "羊毛战记",
+   "სილოსი",
+   "סילו",
+   "سیلو",
+   "사일로",
+   "지하창고 사일로의 비밀",
+   "Бункер",
+   "الصومعة",
+   "Wool"
+  ],
+  "image": "/zexU1Ljv4aHen9vNPD1ozritHdk.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Solo Leveling",
+  "titles": [
+   "Solo Leveling",
+   "俺だけレベルアップな件",
+   "Solo Leveling 2ª Temporada -Ergam-se das Sombras-",
+   "我独自升级",
+   "我独自升级 第二季 -起于暗影-",
+   "我獨自升級",
+   "Ore dake Level Up na Ken",
+   "俺だけレベルアップな件 Season 2 -Arise from the Shadow-",
+   "Ore dake Level Up na Ken Season 2 -Arise from the Shadow-",
+   "俺レベ",
+   "Na Honjaman Level Up",
+   "나 혼자만 레벨 업",
+   "나혼자만 레벨업",
+   "Na Honjaman Rebeleop",
+   "나 혼자만 레벨업 Season 2 -Arise from the Shadow-",
+   "나 혼자만 레벨업 -ARISE FROM THE SHADOW-",
+   "Поднятие уровня в одиночку",
+   "سولو ليفلينغ",
+   "โซโลเลเวลลิง",
+   "我獨自升級 第二季 -起於闇影-",
+   "Тільки я візьму новий рівень Сезон 2 -Повстань із тіні-",
+   "Solo Leveling Season 2 -Arise from the Shadow-"
+  ],
+  "image": "/1jw95TiRAvITZk22DJVMbhFeLSG.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "福",
+    0.6951,
+    0.8472,
+    0.9979
+   ]
+  ]
+ },
+ {
+  "name": "Solo Leveling",
+  "titles": [
+   "Solo Leveling",
+   "俺だけレベルアップな件",
+   "Solo Leveling 2ª Temporada -Ergam-se das Sombras-",
+   "我独自升级",
+   "我独自升级 第二季 -起于暗影-",
+   "我獨自升級",
+   "Ore dake Level Up na Ken",
+   "俺だけレベルアップな件 Season 2 -Arise from the Shadow-",
+   "Ore dake Level Up na Ken Season 2 -Arise from the Shadow-",
+   "俺レベ",
+   "Na Honjaman Level Up",
+   "나 혼자만 레벨 업",
+   "나혼자만 레벨업",
+   "Na Honjaman Rebeleop",
+   "나 혼자만 레벨업 Season 2 -Arise from the Shadow-",
+   "나 혼자만 레벨업 -ARISE FROM THE SHADOW-",
+   "Поднятие уровня в одиночку",
+   "سولو ليفلينغ",
+   "โซโลเลเวลลิง",
+   "我獨自升級 第二季 -起於闇影-",
+   "Тільки я візьму новий рівень Сезон 2 -Повстань із тіні-",
+   "Solo Leveling Season 2 -Arise from the Shadow-"
+  ],
+  "image": "/9ehJKIH2nNmyAgz7ZZEq9TayQDD.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Spider-Man: Brand New Day",
+  "titles": [
+   "Spider-Man: Brand New Day",
+   "Spider-Man 4",
+   "스파이더맨 4",
+   "Homem-Aranha 4",
+   "ספיידרמן 4",
+   "Человек-паук 4",
+   "មនុស្សពីងពាង: ថ្ងៃថ្មីសន្លាង",
+   "Marvel Studios' Spider-Man: Brand New Day",
+   "蜘蛛侠4",
+   "ສະໄປເດີ-ແມນ: ແບນ ນິວ ເດ",
+   "Hörümçək Adam: Tamamilə Yeni Gün",
+   "স্পাইডার-ম্যান: ব্র্যান্ড নিউ ডে",
+   "ספיידרמן:יום חדש דנדש",
+   "Человек-паук КВМ 4",
+   "مرد عنکبوتی : روز کاملاً جدید",
+   "اسپایدر من : روز کاملاً جدید",
+   "Spider-Man: un nuevo día",
+   "Spider-Man - Brand New Day"
+  ],
+  "image": "/23ReR54BPzRRhsAi243VaHn6wqk.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "福",
+    0.8114,
+    0.6311,
+    0.8417
+   ]
+  ]
+ },
+ {
+  "name": "Spider-Man: Brand New Day",
+  "titles": [
+   "Spider-Man: Brand New Day",
+   "Spider-Man 4",
+   "스파이더맨 4",
+   "Homem-Aranha 4",
+   "ספיידרמן 4",
+   "Человек-паук 4",
+   "មនុស្សពីងពាង: ថ្ងៃថ្មីសន្លាង",
+   "Marvel Studios' Spider-Man: Brand New Day",
+   "蜘蛛侠4",
+   "ສະໄປເດີ-ແມນ: ແບນ ນິວ ເດ",
+   "Hörümçək Adam: Tamamilə Yeni Gün",
+   "স্পাইডার-ম্যান: ব্র্যান্ড নিউ ডে",
+   "ספיידרמן:יום חדש דנדש",
+   "Человек-паук КВМ 4",
+   "مرد عنکبوتی : روز کاملاً جدید",
+   "اسپایدر من : روز کاملاً جدید",
+   "Spider-Man: un nuevo día",
+   "Spider-Man - Brand New Day"
+  ],
+  "image": "/yxOxOBxspl3NgC676W62G02g1cR.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Death of Robin Hood",
+  "titles": [
+   "The Death of Robin Hood",
+   "The Death of Robinhood",
+   "Robin Hudun Ölümü",
+   "La Muerte De Robin Hood",
+   "On l'appelait Robin des Bois",
+   "Smrt Robina Hooda",
+   "โรบินฮู้ด บันทึกสุดท้ายของจอมโจร"
+  ],
+  "image": "/e9nPKvHaxEJHb5bXfh7cYZWPofQ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Death of Robin Hood",
+  "titles": [
+   "The Death of Robin Hood",
+   "The Death of Robinhood",
+   "Robin Hudun Ölümü",
+   "La Muerte De Robin Hood",
+   "On l'appelait Robin des Bois",
+   "Smrt Robina Hooda",
+   "โรบินฮู้ด บันทึกสุดท้ายของจอมโจร"
+  ],
+  "image": "/mBgEVCUb5F7h11pnKghsWDTZoaX.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "HUGH JACKMAN",
+    0.9989,
+    0.0306,
+    0.35
+   ],
+   [
+    "THE",
+    1.0,
+    0.0236,
+    0.0729
+   ],
+   [
+    "DEATH",
+    1.0,
+    0.0653,
+    0.4521
+   ],
+   [
+    "ROBIN",
+    0.9998,
+    0.0722,
+    0.3667
+   ],
+   [
+    "OF",
+    0.9997,
+    0.0236,
+    0.0583
+   ],
+   [
+    "HOOD",
+    0.9997,
+    0.0667,
+    0.3625
+   ],
+   [
+    "A MICHAEL SARONSKI FILM",
+    0.9703,
+    0.0194,
+    0.2604
+   ],
+   [
+    "IN THEATERS JUNE 19",
+    0.9941,
+    0.0236,
+    0.3292
+   ]
+  ]
+ },
+ {
+  "name": "The Invite",
+  "titles": [
+   "The Invite",
+   "The Invite.",
+   "Запрошення",
+   "Ha'Hazmana",
+   "開放性邀請",
+   "誘人飯聚",
+   "Pozvání."
+  ],
+  "image": "/iOLDlzYzfjCqg4gGMLfjO43qIZ5.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "日",
+    0.6137,
+    0.9194,
+    0.9979
+   ]
+  ]
+ },
+ {
+  "name": "The Invite",
+  "titles": [
+   "The Invite",
+   "The Invite.",
+   "Запрошення",
+   "Ha'Hazmana",
+   "開放性邀請",
+   "誘人飯聚",
+   "Pozvání."
+  ],
+  "image": "/seZyY20Tec4GXKtQHBjvpR69lAr.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Killing of a Sacred Deer",
+  "titles": [
+   "The Killing of a Sacred Deer",
+   "Ο θάνατος του ιερού ελαφιού",
+   "聖鹿之死",
+   "El sacrificio de un ciervo sagrado",
+   "Убийство священного оленя",
+   "Il sacrificio del cervo sacro",
+   "Mise à mort du cerf sacré",
+   "킬링 디어",
+   "مقتل الغزال المقدس",
+   "Püha hirve tapmine"
+  ],
+  "image": "/a1AuBURTwwu8vSJgqsFy8e2wkov.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Killing of a Sacred Deer",
+  "titles": [
+   "The Killing of a Sacred Deer",
+   "Ο θάνατος του ιερού ελαφιού",
+   "聖鹿之死",
+   "El sacrificio de un ciervo sagrado",
+   "Убийство священного оленя",
+   "Il sacrificio del cervo sacro",
+   "Mise à mort du cerf sacré",
+   "킬링 디어",
+   "مقتل الغزال المقدس",
+   "Püha hirve tapmine"
+  ],
+  "image": "/eNEwCY9DMiv49Sd8mzHbwNClTWz.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "8",
+    0.7336,
+    0.8042,
+    0.7479
+   ]
+  ]
+ },
+ {
+  "name": "The Last House",
+  "titles": [
+   "The Last House",
+   "บ้านหลังสุดท้าย"
+  ],
+  "image": "/tuE3eg1eNeoJfrYtTDns4CnEhZQ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Legend of Vox Machina",
+  "titles": [
+   "The Legend of Vox Machina",
+   "A Lenda de Vox Machina",
+   "La Légende de Vox Machina",
+   "द लेजेंड ऑफ़ वॉक्स माकिना",
+   "La leggenda di Vox Machina",
+   "ヴォクス・マキナの伝説",
+   "복스마키나의 전설",
+   "Легенда Вокс Машины",
+   "Вокс Машины",
+   "ตำนานยอดนักรบ",
+   "Vox Machina Efsanesi",
+   "Critical Role: The Legend of Vox Machina",
+   "Critical Role: The Legend of Vox Machina Animated Special"
+  ],
+  "image": "/wOE3J81cOKnlkha2ymWYK0YDbPq.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Magicians",
+  "titles": [
+   "The Magicians",
+   "Les Magiciens",
+   "V zajetí kouzel",
+   "Magie",
+   "Magicy"
+  ],
+  "image": "/fj4kctcyF4Piv80YjeqCk6t8d2T.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Office",
+  "titles": [
+   "The Office",
+   "Zyra",
+   "Punë zyre",
+   "Ofis",
+   "Vida de Escritório",
+   "美版办公室",
+   "我们的办公室",
+   "The Office (US) – Das Büro",
+   "The Office (U.S.)",
+   "辦公室瘋雲",
+   "د آفیس",
+   "The Office US",
+   "더 오피스",
+   "The Office (US)",
+   "The Office (US) Extended Superfan Cut",
+   "The Office: An American Workplace",
+   "The Office: Superfan Episodes",
+   "The Office Superfan Episodes"
+  ],
+  "image": "/pXCphifRdzRh48uXEOBT7BJygTA.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Personal History of David Copperfield",
+  "titles": [
+   "The Personal History of David Copperfield",
+   "Lična Istorija Davida Koperfilda",
+   "David Copperfieldi isiklik elulugu",
+   "ザ・パーソナル・ヒストリー・オブ・デイビッド・コパーフィールド",
+   "Deivido Koperfildo istorija",
+   "David Copperfields äventyr och iakttagelser",
+   "Історія Девіда Копперфілда",
+   "David Copperfields personlige historie",
+   "Особиста історія Девіда Копперфілда",
+   "A Vida Extraordinária de David Copperfield",
+   "ההיסטוריה האישית של דייויד קופרפילד"
+  ],
+  "image": "/rVdCkVYe82KWznjDskz4enJeTBS.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "A",
+    0.549,
+    0.1,
+    0.1479
+   ]
+  ]
+ },
+ {
+  "name": "The Super Mario Galaxy Movie",
+  "titles": [
+   "The Super Mario Galaxy Movie",
+   "The Super Mario Bros. Movie 2",
+   "Super Mario Dünyası",
+   "Super Mario World",
+   "האחים סופר מריו: גלקסי",
+   "Super Mario Galaxy",
+   "Super Mario Galaktika",
+   "Super Mario Galatički Film",
+   "เดอะ ซูเปอร์มาริโอ กาแล็กซี่ มูฟวี่",
+   "ザ・スーパーマリオギャラクシー・ムービー",
+   "슈퍼마리오 갤럭시",
+   "Супербратья Марио 2",
+   "Супербратья Марио в кино 2",
+   "Süper Mario Galaksi Filmi",
+   "超级玛利欧银河大电影",
+   "Super Mario 200",
+   "Süper Mario 2",
+   "Super Mario galaktika film",
+   "Super Mario Galaxy La película"
+  ],
+  "image": "/pcTweebSCQYIbdpjbN3r0Tw8iI2.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Tudors",
+  "titles": [
+   "The Tudors",
+   "Los tudor",
+   "הטיודורס",
+   "I Tudor",
+   "The Tudors ～背徳の王冠～",
+   "ザ・チューダーズ はいとくのおうかん",
+   "Os Tudors",
+   "Tudorovci: Sex, moc a intrigy"
+  ],
+  "image": "/ygp7YgolZev7fSgD08DOQdSKhrF.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Uprising",
+  "titles": [
+   "The Uprising",
+   "The Rage",
+   "The Hood",
+   "The Uprising: The Rise of Robin Hood",
+   "O Rebelde",
+   "قیام",
+   "Pemberontakan",
+   "La révolte"
+  ],
+  "image": "/ohrQUqO0eXDo7mC2wS8026IaAe2.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Wedding Banquet",
+  "titles": [
+   "The Wedding Banquet",
+   "喜宴(新版)",
+   "新版喜宴",
+   "囍宴"
+  ],
+  "image": "/lX7QLWCHi4fdqwaehA5KOrwL8MR.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "The Witcher",
+  "titles": [
+   "The Witcher",
+   "გრძნეული"
+  ],
+  "image": "/eEDadRyYO8q6nTb24u7cOD4COb7.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "There Was a Cute Girl in the Hero's Party, So I Tried Confessing to Her",
+  "titles": [
+   "There Was a Cute Girl in the Hero's Party, So I Tried Confessing to Her",
+   "勇者パーティーにかわいい子がいたので、告白してみた。",
+   "Yuusha Party ni Kawaii Ko ga Ita no de, Kokuhaku Shitemita.",
+   "Yuukawa",
+   "ゆうかわ",
+   "Yuusha Party ni Kawaii Ko ga Ita node, Kokuhaku shitemita",
+   "Милая девушка в команде героя",
+   "У компанії героя була мила дівчина, тож я їй зізнався.",
+   "У компанії героя була мила дівчина",
+   "There was a Cute Girl in the Hero's Party, So I Tried Confessing to Her",
+   "There Was a Cute Girl in the Hero's Party"
+  ],
+  "image": "/h4wBD8Lrq8hSAxd4fRgbIDTzDLJ.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Toy Story 2",
+  "titles": [
+   "Toy Story 2",
+   "Toy Story 2 - Woody e Buzz alla Riscossa",
+   "Toy Story II",
+   "反斗奇兵2",
+   "Příběh hraček 2",
+   "Toy Story 2: Los juguetes vuelven a la carga",
+   "Toy Story 2 - Woody & Buzz alla riscossa",
+   "Câu Chuyện Đồ Chơi 2",
+   "Oyuncaq Hekayəsi 2",
+   "Leikfangasaga 2",
+   "История игрушек 2",
+   "Priča o igračkama 2"
+  ],
+  "image": "/7rPd1QtVkiJFsgY9d9kNQyhSWE2.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "NOOOO",
+    0.5391,
+    0.0736,
+    0.2729
+   ]
+  ]
+ },
+ {
+  "name": "Toy Story 5",
+  "titles": [
+   "Toy Story 5",
+   "Priča o igračkama 5",
+   "Oyuncaq Hekayəsi 5",
+   "玩具總動員5",
+   "反斗奇兵 5",
+   "Histoire de jouets 5",
+   "Oyuncak Hikayesi 5",
+   "ทอย สตอรี่ 5",
+   "Leikfangasaga 5",
+   "ທອຍ ສະຕໍຣີ 5",
+   "Приказна за играчките 5",
+   "Pukllanamanta Willakuy 5",
+   "Oýunjak hekaýasy 5",
+   "反斗奇兵5",
+   "玩具总动员5",
+   "Η Ιστορία των Παιχνιδιών 5",
+   "داستان اسباب‌ بازی ۵",
+   "История игрушек 5",
+   "Disney Pixar'dan: Oyuncak Hikayesi 5"
+  ],
+  "image": "/4D5k1Cs9hA0REwXN6w5Lxxlhba5.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Tuner",
+  "titles": [
+   "Tuner",
+   "Тюнер",
+   "El Afinador",
+   "Penyetel",
+   "Настройщик",
+   "The Piano Tuner",
+   "На слух",
+   "Настроювач"
+  ],
+  "image": "/sB1jmJWgFvh1P2l43gd4WqJi4hu.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "0",
+    0.9991,
+    0.0556,
+    0.0583
+   ],
+   [
+    "30",
+    0.7381,
+    0.0944,
+    0.1229
+   ],
+   [
+    "9",
+    0.9993,
+    0.0722,
+    0.0729
+   ],
+   [
+    "40",
+    1.0,
+    0.1,
+    0.1604
+   ],
+   [
+    "50",
+    1.0,
+    0.0625,
+    0.1208
+   ]
+  ]
+ },
+ {
+  "name": "UNABOMBER",
+  "titles": [
+   "UNABOMBER",
+   "Unabom"
+  ],
+  "image": "/wtLHb8uM8yhtmqS7ioEcYxHLhIL.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "5510",
+    0.9508,
+    0.0681,
+    0.05
+   ]
+  ]
+ },
+ {
+  "name": "Upgrade",
+  "titles": [
+   "Upgrade",
+   "Stem",
+   "Стем",
+   "Aktualizacja",
+   "Ulepszczenie",
+   "超能復仇",
+   "Atualização",
+   "Upgrade (Ilimitado)",
+   "Апгрейд",
+   "Upgrade: Máquina Assassina",
+   "Upgrade: máquina asesina",
+   "アップグレード",
+   "Újrainditás",
+   "Upgrade - Javított verzió",
+   "升级",
+   "Yükselme"
+  ],
+  "image": "/zTw8qgQHlSu0KQg7IJVW7wDeqWY.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Wake Up Dead Man: A Knives Out Mystery",
+  "titles": [
+   "Wake Up Dead Man: A Knives Out Mystery",
+   "Knives Out 3",
+   "Wake Up Dead Man",
+   "나이브스 아웃 3",
+   "Достать ножи 3",
+   "Puñales por la espalda 3",
+   "利刃出鞘3",
+   "利刃出鞘：亡者归来",
+   "Knives Out 3 - Wake Up Dead Man",
+   "Wake Up Dead Man - Knives Out Mystery",
+   "Wake Up Dead Man - Une histoire à couteaux tirés",
+   "Wake Up Dead Man, Une histoire à couteaux tirés",
+   "Wake Up Dead Man Une histoire à couteaux tirés",
+   "ฆาตกรรมหรรษา ปาฏิหาริย์คนบาป",
+   "Wake Up Dead Man：A Knives Out Mystery",
+   "De Entre Los Muertos: Un Misterio de Entre Navajas y Secretos",
+   "רצח כתוב היטב: התעורר, איש מת",
+   "Wake Up Dead Man - A Knives Out Mystery"
+  ],
+  "image": "/lAedGod5tI7UOyVn2wiqTtzJN1e.jpg",
+  "expect": "clean",
+  "lines": [
+   [
+    "mila",
+    0.5345,
+    0.0403,
+    0.0792
+   ],
+   [
+    "LEHO",
+    0.701,
+    0.0306,
+    0.0729
+   ]
+  ]
+ },
+ {
+  "name": "Young Washington",
+  "titles": [
+   "Young Washington",
+   "Młody Waszyngton"
+  ],
+  "image": "/3HcyKJ1nbOhpQZcJYFVrW0O89Bi.jpg",
+  "expect": "clean",
+  "lines": []
+ },
+ {
+  "name": "Young Washington",
+  "titles": [
+   "Young Washington",
+   "Młody Waszyngton"
+  ],
+  "image": "/snxxcOsLmQwTYQ0ADKi4fSSNVXC.jpg",
+  "expect": "text",
+  "lines": [
+   [
+    "William",
+    0.9992,
+    0.0344,
+    0.1354
+   ],
+   [
+    "Franklyn-Miller",
+    1.0,
+    0.0344,
+    0.2521
+   ],
+   [
+    "as",
+    1.0,
+    0.0156,
+    0.0312
+   ],
+   [
+    "GEORGE",
+    0.9999,
+    0.0594,
+    0.2083
+   ],
+   [
+    "WASHINGTON",
+    0.9539,
+    0.0625,
+    0.3438
+   ],
+   [
+    "YOUNG",
+    0.9993,
+    0.0422,
+    0.1729
+   ],
+   [
+    "WASHINGTON",
+    0.998,
+    0.0391,
+    0.2104
+   ],
+   [
+    "INDEPENDENCE DAY WEEKEND",
+    0.9988,
+    0.0172,
+    0.2833
+   ],
+   [
+    "IN THEATERS NOW",
+    0.9445,
+    0.0203,
+    0.2313
+   ],
+   [
+    "W-NDER",
+    0.9768,
+    0.0172,
+    0.0625
+   ],
+   [
+    "ANGEL",
+    1.0,
+    0.0203,
+    0.0917
+   ]
+  ]
+ }
+]

@@ -65,6 +65,8 @@ Render a few titles with `uv run posteryard preview` and look at them. A change 
 UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
 ```
 
+`tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. A change to the rule that changes past decisions also changes the `textless` cache keys in `artwork.py`, so cached choices are made again.
+
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 
 A new setting also goes into the Unraid template, `templates/posteryard.xml`, with its default as the value. `tests/test_unraid.py` fails when a template default does not load or a template setting is missing from `README.md`.

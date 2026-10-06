@@ -23,6 +23,8 @@ MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 DISPLAY_HEIGHT = 0.035
 DISPLAY_WIDTH = 0.35
+# OCR reads large shapes such as a window or an emblem as one character. One character is not display text.
+MIN_DISPLAY_LENGTH = 2
 
 
 @dataclass(frozen=True)
@@ -127,7 +129,12 @@ def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
 
 
 def is_display(line: TextLine) -> bool:
-    return line.score >= MIN_SCORE and line.height > DISPLAY_HEIGHT and line.width > DISPLAY_WIDTH
+    return (
+        line.score >= MIN_SCORE
+        and line.height > DISPLAY_HEIGHT
+        and line.width > DISPLAY_WIDTH
+        and len(normalise(line.text)) >= MIN_DISPLAY_LENGTH
+    )
 
 
 def has_display_text(lines: Iterable[TextLine]) -> bool:
