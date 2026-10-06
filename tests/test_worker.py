@@ -1,4 +1,5 @@
 import io
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +86,15 @@ def test_dry_run_writes_previews_once(tmp_path: Path) -> None:
     assert (tmp_path / "previews" / "1-art.jpg").exists()
     assert worker.process("1") == Outcome.UNCHANGED
     assert plex.uploads == []
+
+
+def test_rest_frees_images_and_keeps_results(tmp_path: Path) -> None:
+    worker, _, _, _ = make(tmp_path)
+    worker.ctx.fetch = lru_cache(maxsize=8)(fetch)
+    assert worker.process("1") == Outcome.PREVIEW
+    worker.rest()
+    assert worker.ctx.fetch.cache_info().currsize == 0
+    assert worker.process("1") == Outcome.UNCHANGED
 
 
 def test_upload_then_leave_a_manual_change_alone(tmp_path: Path) -> None:

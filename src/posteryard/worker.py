@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import http, overrides, pipeline, service_collections
+from posteryard import http, memory, ocr, overrides, pipeline, service_collections
 from posteryard.automarks import AutoMarks
 from posteryard.config import Config, EpisodeMode
 from posteryard.fanart import Fanart
@@ -82,6 +82,7 @@ class Worker:
             apple_region=cfg.regions[0] if cfg.apple_art and cfg.regions else None,
         )
         self._leaving: Leaving | None = None
+        self._rested = True
 
     def leaving_days(self) -> dict[str, date]:
         if self._leaving and time.monotonic() - self._leaving.fetched < LEAVING_CACHE_SECONDS:
@@ -96,6 +97,13 @@ class Worker:
             days = {k: date.fromisoformat(v) for k, v in saved.items()}
         self._leaving = Leaving(days, time.monotonic())
         return days
+
+    def rest(self) -> None:
+        if not self._rested:
+            self.ctx.forget()
+            memory.release()
+            self._rested = True
+        ocr.close_idle()
 
     def allowed(self, item: Item) -> bool:
         if item.get("type") not in SUPPORTED:
@@ -113,6 +121,7 @@ class Worker:
         return not only or bool(only & related)
 
     def process(self, rating_key: str, *, force: bool = False) -> Outcome:
+        self._rested = False
         title = rating_key
         try:
             item = self.server.item(rating_key)

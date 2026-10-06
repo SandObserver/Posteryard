@@ -38,7 +38,6 @@ LOOKUP_SIZE = 4096
 DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
-# Thumbnails held in memory to compare pictures. They are not stored, to keep the database small.
 THUMB_CACHE = 2000
 
 
@@ -128,6 +127,14 @@ class Context:
             while len(self.lookups) > LOOKUP_SIZE:
                 self.lookups.popitem(last=False)
         return value
+
+    def forget(self) -> None:
+        if clear := getattr(self.fetch, "cache_clear", None):
+            clear()
+        now = time.monotonic()
+        with self._lock:
+            _drop_expired(self.lookups, now)
+            _drop_expired(self.titles, now)
 
     def load(self, path: str) -> Image.Image:
         if path.startswith(overrides.FILE_PREFIX):
@@ -342,6 +349,11 @@ class Context:
         title = Title(kind, tid, name, every, service, font)
         self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
+
+
+def _drop_expired[K, V](cache: dict[K, tuple[float, V]], now: float) -> None:
+    for key in [key for key, (stored, _) in cache.items() if now - stored >= TITLE_CACHE_SECONDS]:
+        del cache[key]
 
 
 def resolve_tmdb(ctx: Context, item: Item, kind: Kind) -> int | None:

@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Draw Persian, Arabic, Hebrew, Hindi, Thai, Chinese, Japanese and Korean names with matching fonts and shaping.
 - Use TMDB network logos as streaming marks for services without a built-in mark, such as Exxen, SkyShowtime, U-NEXT, JioHotstar and BINGE.
 
+### Changed
+
+- Stop the text reader after 10 idle minutes and drop downloaded images while idle, to use less memory.
+
 ### Fixed
 
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.

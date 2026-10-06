@@ -137,6 +137,7 @@ class Service:
             except queue.Empty:
                 self.worker_beat = time.monotonic()
                 self.idle()
+                self.worker.rest()
                 continue
             started = time.monotonic()
             try:
