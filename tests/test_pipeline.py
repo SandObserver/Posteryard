@@ -206,17 +206,6 @@ def test_next_art_skips_the_current_picture() -> None:
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop2.jpg"
 
 
-def test_the_title_cache_is_written_under_the_lock() -> None:
-    ctx = context([ref("/textless.jpg", None)])
-    with ctx._lock:
-        writer = threading.Thread(target=ctx.title, args=("tv", 42, "Example Show"))
-        writer.start()
-        writer.join(0.5)
-        assert writer.is_alive()
-    writer.join(5)
-    assert ("tv", 42) in ctx.titles
-
-
 def test_without_overrides_fingerprints_stay_the_same() -> None:
     plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
     assert "override" not in plan.inputs
@@ -592,3 +581,14 @@ def test_titles_drawn_in_a_fallback_font_name_it() -> None:
     korean = pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "tmdb://43"}], "title": "기생충"})[0].inputs
     assert "font" not in latin
     assert korean["font"] == "Pretendard"
+
+
+def test_the_title_cache_is_written_under_the_lock() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    with ctx._lock:
+        writer = threading.Thread(target=ctx.title, args=("tv", 42, "Example Show"))
+        writer.start()
+        writer.join(0.5)
+        assert writer.is_alive()
+    writer.join(5)
+    assert ("tv", 42) in ctx.titles
