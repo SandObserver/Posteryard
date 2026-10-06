@@ -331,6 +331,19 @@ Webhook and label changes go ahead of a running full pass.
 
 Images that would come out the same are not rendered or uploaded again. If you change an image in Plex by hand, Posteryard leaves it alone until you run `forget TITLE`. Failed titles are retried from 15 minutes up to every 12 hours. See [Alerts](#alerts) for what is sent when. See [Monitoring](#monitoring) for health checks.
 
+## What it changes
+
+Posteryard changes images, removes the `posteryard-next` label, and keeps the collections it made. It never edits titles, descriptions or other metadata, and it has no access to your media files. With `DRY_RUN=true` it changes nothing.
+
+| What | When | How to undo |
+| --- | --- | --- |
+| Posters, backgrounds and episode thumbnails | For every title in `LIBRARIES`. Plex images are locked, so a refresh keeps them. | `restore --all` gives every image back and unlocks it. `EPISODE_THUMBNAILS=off` gives back episode thumbnails only. `posteryard-ignore` stops changes to one title. |
+| Collection posters | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. | `restore --all`. |
+| The `posteryard-next` label | Removed after the art is switched. No other label on a title is added or removed. | Nothing to undo. |
+| Collections | With `SERVICE_COLLECTIONS`: created per service, shows added and removed, and deleted below 3 shows. Only collections with the `posteryard-collection` label. | Delete the collections with the `posteryard-collection` label. |
+
+On Jellyfin and Emby, a new background replaces all of a title's backgrounds, and `restore --all` deletes the uploaded image and refreshes the item, so the server downloads its own art again.
+
 ## Troubleshooting
 
 Read the log first: `docker logs --tail 100 posteryard`. After a start, Posteryard prints the settings it runs with. After that, each line has the time in UTC, a level (`INF`, `WRN` or `ERR`), the message, and details such as the title and the reason:
