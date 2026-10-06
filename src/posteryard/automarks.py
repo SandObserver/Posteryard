@@ -191,12 +191,22 @@ def _networks() -> dict[str, list[tuple[int, str]]]:
     return {key: [(int(i), str(c)) for i, c in rows] for key, rows in raw.items()}
 
 
+@cache
+def _provider_networks() -> dict[int, int]:
+    raw = json.loads((layers.ASSETS / "provider_networks.json").read_text(encoding="utf-8"))
+    return {int(provider): int(network) for provider, network in raw.items()}
+
+
 def network_for(offer: Offer) -> int | None:
+    """Never pick a network by name alone among several: one name can be unrelated services in other countries."""
     rows = _networks().get(network_key(offer.name), [])
     for wanted in (offer.region, ""):
         if match := next((i for i, country in rows if country == wanted), None):
             return match
-    return rows[0][0] if len(rows) == 1 else None
+    if len(rows) == 1:
+        return rows[0][0]
+    network = _provider_networks().get(offer.provider_id)
+    return network if network in {i for i, _ in rows} else None
 
 
 class AutoMarks:

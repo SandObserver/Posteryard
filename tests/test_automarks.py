@@ -102,6 +102,14 @@ def test_network_follows_the_offer_region() -> None:
     assert network_for(Offer(1, "Not a network anywhere", "/x.png", "US")) is None
 
 
+def test_a_service_without_a_network_in_the_region_uses_its_network_from_another() -> None:
+    assert network_for(Offer(99, "Shudder", "/x.png", "GB")) == 2949
+    assert network_for(Offer(520, "Discovery +", "/x.png", "CA")) == 4353
+    assert network_for(Offer(524, "Discovery+", "/x.png", "IE")) == 4883
+    assert network_for(Offer(524, "Discovery+", "/x.png", "IT")) == 4741
+    assert network_for(Offer(1, "Shudder", "/x.png", "GB")) is None
+
+
 class FakeTmdb:
     def __init__(self, logo: str = "/exxen.svg") -> None:
         self.asked: list[int] = []
