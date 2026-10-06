@@ -37,6 +37,7 @@ BACKGROUND = frozenset({"daily", "unlisted"})
 NEW_REASONS = frozenset({"webhook", "changed", "retry"})
 NEW_BATCH_SECONDS = 900
 NEW_WAIT_SECONDS = 300
+RESUMED = "resumed after a restart"
 EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
 
 
@@ -253,7 +254,7 @@ class Service:
             "unchanged": tally[Outcome.UNCHANGED], "by_hand": tally[Outcome.MANUAL], "skipped": tally[Outcome.SKIPPED],
             "removed": tally[Outcome.GONE], "failed": tally[Outcome.FAILED],
         })  # fmt: skip
-        if changed or tally[Outcome.FAILED]:
+        if self.store.meta("full_reason") == "daily" and (changed or tally[Outcome.FAILED]):
             parts = [f"{changed:,} {'previewed' if self.cfg.dry_run else 'updated'}"]
             if tally[Outcome.FAILED]:
                 parts.append(f"{tally[Outcome.FAILED]:,} failed")
@@ -262,7 +263,7 @@ class Service:
 
     def resume(self) -> None:
         if self.store.meta("full_pending") == "1":
-            self.full("resumed after a restart")
+            self.full(RESUMED)
 
     def _sync_collections(self) -> None:
         shows = [s for s in self._sections() if s.get("type") == "show"]
@@ -297,6 +298,8 @@ class Service:
         self.enqueue(sorted(seen), "daily")
         self.enqueue(unlisted, "unlisted")
         self.store.set_meta("full_pending", "1")
+        if reason != RESUMED:
+            self.store.set_meta("full_reason", reason)
         self.store.set_meta("last_full", datetime.now().date().isoformat())
         self._tally, self._full_started = Counter(), time.monotonic()
         log.info("full check started", extra={"reason": reason, "items": len(seen), "missing": len(unlisted)})
