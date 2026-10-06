@@ -10,7 +10,7 @@ from PIL import Image
 
 from posteryard.pipeline import DESIGN_VERSION
 from posteryard.quality import Badge
-from posteryard.render import designs, lines
+from posteryard.render import category, designs, lines
 from posteryard.render.layers import APPLE_GREEN
 
 GOLDEN = Path(__file__).parent / "golden"
@@ -44,6 +44,7 @@ RENDERS: dict[str, Callable[[], Image.Image]] = {
     "episode-plain": lambda: designs.episode_still(art(1920, 1080), 3, None),
     "channel": lambda: designs.channel_tile(art(2000, 3000), designs.text_logo("Golden Example"), "hbomax"),
     "background": lambda: designs.background(art(2400, 1200)),
+    "category": lambda: category.category_tile(art(2000, 3000), "Golden Example Collection"),
 }
 
 

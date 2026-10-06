@@ -224,7 +224,7 @@ class AutoMarks:
         if not logo:
             self.choices.put_choice(f"automark:{name}", {"logo": "", "ok": False})
             return None
-        png = logo.removesuffix(".svg") + ".png"
+        png = logo.removesuffix(".svg").removesuffix(".png") + ".png"
         return self._made(name, logo, lambda: one_colour(Tmdb.image(png, NETWORK_SIZE)))
 
     def _made(self, name: str, source: str, make: Callable[[], Image.Image | None]) -> str | None:
