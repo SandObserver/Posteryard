@@ -73,17 +73,17 @@ class Picker:
         return picked
 
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        return self._cached(f"textless:{key}", refs, lambda lines: _textless(lines, titles))
+        return self._cached(f"textless2:{key}", refs, lambda lines: _textless(lines, titles))
 
     def textless_all(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
     ) -> list[str]:
         candidates = [r.path for r in refs[:limit]]
-        hit = self.cache.get_choice(f"textless-all:{key}")
+        hit = self.cache.get_choice(f"textless-all2:{key}")
         if hit is not None and hit.get("candidates") == candidates:
             return [str(p) for p in hit.get("paths", [])]
         paths = [path for path in candidates if _textless(self.read(self.fetch(path)), titles)]
-        self.cache.put_choice(f"textless-all:{key}", {"candidates": candidates, "paths": paths})
+        self.cache.put_choice(f"textless-all2:{key}", {"candidates": candidates, "paths": paths})
         return paths
 
     def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:

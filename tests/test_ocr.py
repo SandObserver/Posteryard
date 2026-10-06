@@ -20,6 +20,7 @@ def test_title_match_ignores_case_spacing_and_punctuation() -> None:
 def test_display_text_is_large_text_only() -> None:
     assert ocr.has_display_text([line("A TAGLINE", height=0.06, width=0.6)])
     assert not ocr.has_display_text([line("WORLD'S BEST BOSS", height=0.02, width=0.2)])
+    assert not ocr.has_display_text([line("8", height=0.8, width=0.75), line("福", height=0.6, width=0.8)])
 
 
 def test_engine_reads_rendered_text() -> None:
