@@ -18,6 +18,8 @@ from posteryard.server import Item
 from posteryard.service import NEW_REASONS, Service, other_server, parse_webhook, related_keys
 from posteryard.store import Store
 from posteryard.worker import Outcome
+from tests import fakes
+from tests.fakes import FakeServer
 
 
 def test_multipart_webhook_payload() -> None:
@@ -60,18 +62,14 @@ def test_an_episode_brings_its_season_and_show() -> None:
     assert related_keys("x") == []
 
 
-class FakePlex:
-    name = "Plex"
-    url = "http://plex.example:32400"
-    collections_per_library = True
-
+class FakePlex(FakeServer):
     def __init__(self) -> None:
-        self.ignored: list[dict[str, str]] = []
+        self.ignored: list[Item] = []
 
-    def sections(self) -> list[dict[str, str]]:
+    def sections(self) -> list[Item]:
         return [{"key": "3", "title": "Movies", "type": "movie"}]
 
-    def section_items(self, section: str, kind: str, **filters: str) -> list[dict[str, str]]:
+    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
         if filters.get("label") == "posteryard-next":
             return [{"ratingKey": "9"}]
         if filters.get("label") == "posteryard-ignore":
@@ -79,15 +77,6 @@ class FakePlex:
         if filters:
             return []
         return [{"ratingKey": "1"}, {"ratingKey": "2"}]
-
-    def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
-        return []
-
-    def item(self, rating_key: str) -> None:
-        return None
-
-    def server_id(self) -> str:
-        return "plex:example"
 
 
 def queued(service: Service) -> list[str]:
@@ -98,7 +87,14 @@ def queued(service: Service) -> list[str]:
 
 def make_service(tmp_path: Path, plex: FakePlex | None = None) -> Service:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path)})
-    return Service(cfg, plex or FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    return start(cfg, plex or FakePlex())
+
+
+def start(
+    cfg: config.Config, server: FakeServer, store: Store | None = None, notifier: Notifier | None = None
+) -> Service:
+    store = store or Store(cfg.state_path)
+    return Service(cfg, server, store, fakes.worker(cfg, server, store, notifier))
 
 
 def test_a_full_pass_stays_pending_until_the_queue_drains(tmp_path: Path) -> None:
@@ -124,17 +120,19 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
     assert queued(finished) == []
 
 
-def test_the_sweep_queues_labelled_items(tmp_path: Path) -> None:
+def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service = make_service(tmp_path)
-    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
     service.sweep()
     assert queued(service) == ["9"]
 
 
-def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(tmp_path: Path) -> None:
+def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     service = make_service(tmp_path)
     days = {"20": date(2026, 11, 1), "21": date(2026, 11, 2)}
-    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: dict(days))})()
+    monkeypatch.setattr(service.worker, "leaving_days", lambda: dict(days))
 
     def swept() -> list[str]:
         service.sweep()
@@ -152,10 +150,10 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     assert swept() == ["21", "22"]
 
 
-def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:
+def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     plex = FakePlex()
     service = make_service(tmp_path, plex)
-    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
     plex.ignored = [{"ratingKey": "5"}]
     service.sweep()
     assert "5" not in queued(service)
@@ -176,14 +174,14 @@ class Alerts(Notifier):
 
 
 class BrokenPlex(FakePlex):
-    def sections(self) -> list[dict[str, str]]:
+    def sections(self) -> list[Item]:
         raise AttributeError("unexpected answer")
 
 
 def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:
     service = make_service(tmp_path, BrokenPlex())
     alerts = Alerts()
-    service.worker = type("W", (), {"notifier": alerts})()
+    service.worker.notifier = alerts
     thread = threading.Thread(target=service._schedule, daemon=True)
     thread.start()
     deadline = time.monotonic() + 5
@@ -209,7 +207,7 @@ def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) ->
     store = Store(tmp_path / "state.db")
     store.manual("1", "poster", "Example")
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_LIBRARIES": "Movie"})
-    service = Service(cfg, FakePlex(), store, worker=None)  # type: ignore[arg-type]
+    service = start(cfg, FakePlex(), store)
     with pytest.raises(LookupError, match="Movie"):
         service.full("daily")
     assert store.get("1", "poster") is not None
@@ -226,7 +224,7 @@ def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path
 
 def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
-    service = Service(cfg, FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    service = start(cfg, FakePlex())
     server = ThreadingHTTPServer(("127.0.0.1", 0), service.handler())
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = server.server_address[1]
@@ -288,7 +286,7 @@ def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
     threading.Thread(target=receiver.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{receiver.server_address[1]}/api/push/example?status=up"
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": url})
-    service = Service(cfg, FakePlex(), Store(cfg.state_path), worker=None)  # type: ignore[arg-type]
+    service = start(cfg, FakePlex())
     try:
         service.heartbeat()
         service.heartbeat()
@@ -311,7 +309,7 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)
     alerts = Alerts()
-    service.worker = type("W", (), {"notifier": alerts})()
+    service.worker.notifier = alerts
     dead = threading.Thread(target=lambda: None, name="worker")
     dead.start()
     dead.join()
@@ -329,13 +327,14 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
     service.server_checked.set()
     done: list[str] = []
 
-    def process(key: str) -> str:
-        done.append(key)
-        if key == "2":
+    def process(rating_key: str, *, force: bool = False) -> Outcome:
+        done.append(rating_key)
+        if rating_key == "2":
             raise RuntimeError("unexpected")
-        return "uploaded"
+        return Outcome.UPLOADED
 
-    service.worker = type("W", (), {"process": staticmethod(process), "rest": lambda self: None})()
+    monkeypatch.setattr(service.worker, "process", process)
+    monkeypatch.setattr(service.worker, "rest", lambda: None)
     service.enqueue(["1", "2", "1"], "test")
     thread = threading.Thread(target=service._work, daemon=True)
     thread.start()
@@ -348,10 +347,10 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
     assert not thread.is_alive()
 
 
-def test_a_webhook_item_queues_the_item_and_its_parents(tmp_path: Path) -> None:
+def test_a_webhook_item_queues_the_item_and_its_parents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service = make_service(tmp_path)
     episode: Item = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
-    service.server.item = lambda key: episode if key == "d" * 32 else None  # type: ignore[method-assign, assignment]
+    monkeypatch.setattr(service.server, "item", lambda key: episode if key == "d" * 32 else None)
     service.item_added("dddddddd-dddd-dddd-dddd-dddddddddddd")
     assert queued(service) == ["d" * 32, "c" * 32, "b" * 32]
     service.item_added("../etc")
@@ -393,7 +392,7 @@ class FakeNotifier(Notifier):
 
 
 class TwoShowLibraries(FakePlex):
-    def sections(self) -> list[dict[str, str]]:
+    def sections(self) -> list[Item]:
         return [{"key": "4", "title": "TV Shows", "type": "show"}, {"key": "5", "title": "Anime", "type": "show"}]
 
 
@@ -401,8 +400,7 @@ def collections_service(tmp_path: Path, plex: FakePlex, **env: str) -> tuple[Ser
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "SERVICE_COLLECTIONS": "true",
                        "LIBRARIES": "TV Shows,Anime", **env})  # fmt: skip
     notifier = FakeNotifier()
-    worker = type("W", (), {"ctx": None, "notifier": notifier})()
-    return Service(cfg, plex, Store(cfg.state_path), worker), [], notifier  # type: ignore[arg-type]
+    return start(cfg, plex, notifier=notifier), [], notifier
 
 
 def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -458,7 +456,7 @@ def test_the_service_stops_on_a_data_folder_from_another_server(tmp_path: Path) 
     first.store.close()
     service = make_service(tmp_path, OtherServer())
     alerts = Alerts()
-    service.worker = type("W", (), {"notifier": alerts})()
+    service.worker.notifier = alerts
     service._schedule()
     assert service.exit_code == 2
     assert service._stop.is_set() and not service.server_checked.is_set()
@@ -495,8 +493,7 @@ class Messages(Notifier):
 def messages_service(tmp_path: Path) -> tuple[Service, Messages]:
     notifier = Messages()
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "DRY_RUN": "false"})
-    worker = type("W", (), {"notifier": notifier, "fresh": []})()
-    return Service(cfg, FakePlex(), Store(cfg.state_path), worker), notifier  # type: ignore[arg-type]
+    return start(cfg, FakePlex(), notifier=notifier), notifier
 
 
 def test_a_full_check_ends_with_a_summary(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -508,7 +505,7 @@ def test_a_full_check_ends_with_a_summary(tmp_path: Path, caplog: pytest.LogCapt
     with caplog.at_level(logging.INFO):
         service.idle()
     done = next(r for r in caplog.records if r.getMessage() == "full check done")
-    assert (done.uploaded, done.unchanged, done.failed) == (2, 5, 1)  # type: ignore[attr-defined]
+    assert (vars(done)["uploaded"], vars(done)["unchanged"], vars(done)["failed"]) == (2, 5, 1)
     assert notifier.summaries[0].startswith("Checked 8 items in ")
     assert notifier.summaries[0].endswith(": 2 updated, 1 failed.")
 
@@ -566,8 +563,8 @@ def test_a_missing_library_is_named(tmp_path: Path, caplog: pytest.LogCaptureFix
     with caplog.at_level(logging.INFO):
         service.connect()
     connected, missing = caplog.records
-    assert connected.libraries == "Movies"  # type: ignore[attr-defined]
-    assert (missing.getMessage(), missing.library) == ("library not found", "TV Shows")  # type: ignore[attr-defined]
+    assert vars(connected)["libraries"] == "Movies"
+    assert (missing.getMessage(), vars(missing)["library"]) == ("library not found", "TV Shows")
 
 
 def test_the_startup_block_lists_the_settings(tmp_path: Path) -> None:
@@ -600,15 +597,15 @@ class ChangedSince(FakePlex):
         super().__init__()
         self.since: list[int] = []
 
-    def changed_since(self, section: str, kind: str, since: int) -> list[dict[str, str]]:
+    def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         self.since.append(since)
         return [{"ratingKey": "1"}] if since < 1_000_000_000 else []
 
 
-def test_a_new_data_folder_sweeps_from_now(tmp_path: Path) -> None:
+def test_a_new_data_folder_sweeps_from_now(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     plex = ChangedSince()
     service = make_service(tmp_path, plex)
-    service.worker = type("W", (), {"leaving_days": lambda self: {}})()
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
     before = int(time.time())
     service.sweep(6 * 3600)
     assert min(plex.since) >= before

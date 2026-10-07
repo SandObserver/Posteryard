@@ -3,20 +3,20 @@ from typing import Any
 import pytest
 
 from posteryard import lookup
+from posteryard.server import Item
+from tests.fakes import FakeServer
 
 LIBRARIES = ("Movies", "TV Shows")
 
 
-class FakePlex:
-    name = "Plex"
-    url = "http://plex.example:32400"
+class FakePlex(FakeServer):
     identity = "plex:example"
 
     def server_id(self) -> str:
         return self.identity
 
     def __init__(self) -> None:
-        self.titles = {
+        self.titles: dict[str, list[Item]] = {
             "movie": [
                 {"ratingKey": "4411", "title": "Dune", "year": 1984, "type": "movie"},
                 {"ratingKey": "8120", "title": "Dune", "year": 2021, "type": "movie"},
@@ -26,23 +26,23 @@ class FakePlex:
             ],
             "show": [{"ratingKey": "5646", "title": "The Office", "year": 2005, "type": "show"}],
         }
-        self.keys = {"1917": {"ratingKey": "1917", "title": "Pilot", "type": "episode"}}
+        self.keys: dict[str, Item] = {"1917": {"ratingKey": "1917", "title": "Pilot", "type": "episode"}}
 
-    def sections(self) -> list[dict[str, str]]:
+    def sections(self) -> list[Item]:
         return [
             {"key": "3", "title": "Movies", "type": "movie"},
             {"key": "4", "title": "TV Shows", "type": "show"},
             {"key": "5", "title": "Music", "type": "artist"},
         ]
 
-    def section_items(self, section: str, kind: str) -> list[dict[str, Any]]:
+    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
         return self.titles[kind]
 
-    def item(self, key: str) -> dict[str, Any] | None:
+    def item(self, rating_key: str) -> Item | None:
         every = [*self.titles["movie"], *self.titles["show"]]
-        return self.keys.get(key) or next((i for i in every if i["ratingKey"] == key), None)
+        return self.keys.get(rating_key) or next((i for i in every if i["ratingKey"] == rating_key), None)
 
-    def children(self, key: str) -> list[dict[str, Any]]:
+    def children(self, rating_key: str) -> list[Item]:
         return [
             {"ratingKey": "5647", "index": 1, "title": "Season 1"},
             {"ratingKey": "5648", "index": 2, "title": "Season 2"},
@@ -50,7 +50,7 @@ class FakePlex:
 
 
 def resolve(text: str) -> lookup.Match:
-    return lookup.resolve(FakePlex(), LIBRARIES, text)  # type: ignore[arg-type]
+    return lookup.resolve(FakePlex(), LIBRARIES, text)
 
 
 @pytest.mark.parametrize(
@@ -101,7 +101,7 @@ def test_nothing_close_points_to_find() -> None:
 
 
 def test_search_finds_parts_of_names() -> None:
-    titles = lookup.library_titles(FakePlex(), LIBRARIES)  # type: ignore[arg-type]
+    titles = lookup.library_titles(FakePlex(), LIBRARIES)
     assert [m.rating_key for m in lookup.search(titles, "dune")] == ["4411", "8120"]
     assert lookup.search(titles, "  ") == []
 
@@ -109,10 +109,10 @@ def test_search_finds_parts_of_names() -> None:
 def test_season_picks_a_child_or_explains() -> None:
     plex = FakePlex()
     show = resolve("The Office")
-    season = lookup.season(plex, show, 2)  # type: ignore[arg-type]
+    season = lookup.season(plex, show, 2)
     assert season.rating_key == "5648"
     assert season.label == "The Office (2005) Season 2"
     with pytest.raises(ValueError, match="Seasons in Plex: 1, 2"):
-        lookup.season(plex, show, 9)  # type: ignore[arg-type]
+        lookup.season(plex, show, 9)
     with pytest.raises(ValueError, match="not a show"):
-        lookup.season(plex, resolve("Dune 2021"), 1)  # type: ignore[arg-type]
+        lookup.season(plex, resolve("Dune 2021"), 1)

@@ -8,8 +8,8 @@ from posteryard.artwork import rejection
 from posteryard.ocr import TextLine
 from posteryard.server import Item
 from posteryard.store import Store
+from tests.fakes import context, ref
 from tests.test_cli import run  # noqa: F401
-from tests.test_pipeline import context, ref
 
 MOVIE: Item = {"ratingKey": "1", "type": "movie", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}]}
 
@@ -65,12 +65,12 @@ def test_art_next_shows_the_skipped_art_and_the_wider_pool(store: Store) -> None
     assert "/textless.jpg  2000x3000  rated 5.0 (10 votes)  skipped by art next" in text
 
 
-def test_custom_art_lists_no_candidates(store: Store, tmp_path: Path) -> None:
+def test_custom_art_lists_no_candidates(store: Store, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     custom = tmp_path / "custom.jpg"
     ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="label")
     pipeline_load = ctx.load
-    ctx.load = lambda path: pipeline_load("/textless.jpg") if path.startswith("file:") else pipeline_load(path)  # type: ignore[method-assign]
+    monkeypatch.setattr(ctx, "load", lambda path: pipeline_load("/textless.jpg" if path.startswith("file:") else path))
     result = why.report(ctx, MOVIE, store)
     assert result.notices == ["Custom art from label. `art reset` returns to automatic art."]
     assert result.groups == []

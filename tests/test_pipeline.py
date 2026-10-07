@@ -1,99 +1,30 @@
-import hashlib
 import threading
 import time
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pytest
-from PIL import Image, ImageDraw
+from PIL import Image
 
 from posteryard import apple, overrides, pipeline
 from posteryard import http as posteryard_http
+from posteryard.artwork import MemoryChoices
+from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
-from posteryard.fanart import FanartImages
-from posteryard.ocr import TextLine
-from posteryard.quality import Badge, QualityMinimums
+from posteryard.fanart import Fanart, FanartImages
+from posteryard.quality import Badge
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
 from posteryard.render.lines import Badges, Caption, Label
 from posteryard.server import Item
-from posteryard.tmdb import ImageRef, Images, RegionOffers
+from posteryard.services import Offer
+from posteryard.tmdb import Images, Kind, RegionOffers, Tmdb
+from tests.fakes import FakeServer, context, fetch, ref, tmdb_of
 
 
-def ref(path: str, language: str | None) -> ImageRef:
-    return ImageRef(path, language, 2000, 3000, 5.0, 10)
-
-
-class FakeTmdb:
-    """A show with seasons 1 to 4. Seasons 1 and 3 have their own textless art."""
-
-    def __init__(self, posters: list[ImageRef], seasons: int = 4) -> None:
-        self.posters = posters
-        self.seasons = seasons
-        self.logos = [ref("/logo.png", "en")]
-
-    def details(self, kind: str, tid: int) -> dict[str, Any]:
-        return {"title": "Example Movie", "seasons": [{"season_number": n} for n in range(1, self.seasons + 1)]}
-
-    def images(self, kind: str, tid: int) -> Images:
-        backdrops = [
-            ImageRef("/backdrop.jpg", None, 3840, 2160, 5, 10),
-            ImageRef("/backdrop2.jpg", None, 3840, 2160, 4, 1),
-        ]
-        return Images(self.posters, backdrops, self.logos)
-
-    def season_images(self, tid: int, season: int) -> Images:
-        return Images([ref(f"/season{season}.jpg", None)] if season in (1, 3) else [], [], [])
-
-    def all_titles(self, kind: str, tid: int) -> list[str]:
-        return ["Example Movie", "Película de Ejemplo"]
-
-    def watch_providers(self, kind: str, tid: int) -> dict[str, Any]:
-        return {}
-
-    def episode(self, tid: int, season: int, episode: int) -> dict[str, Any]:
-        return {"still_path": f"/still-{season}-{episode}.jpg"}
-
-    def find(self, source: str, external_id: str) -> dict[str, int]:
-        self.finds = [*getattr(self, "finds", []), external_id]
-        return {"movie": 77} if external_id == "tt0000077" else {}
-
-
-TEXT = {"/foreign.jpg": "PELICULA DE EJEMPLO", "/english.jpg": "EXAMPLE MOVIE"}
-
-
-def fetch(path: str) -> Image.Image:
-    if path.endswith(".png"):
-        logo = Image.new("RGBA", (600, 120), (0, 0, 0, 0))
-        ImageDraw.Draw(logo).rectangle((0, 0, 599, 119), fill=(255, 255, 255, 255))
-        return logo
-    noise = np.random.default_rng(int(hashlib.sha256(path.encode()).hexdigest()[:8], 16)).integers(0, 160, (8, 9))
-    image = Image.fromarray(noise.astype(np.uint8)).convert("RGB").resize((200, 300), Image.Resampling.NEAREST)
-    image.info["path"] = path
-    return image
-
-
-def read(image: Image.Image) -> list[TextLine]:
-    text = TEXT.get(str(image.info.get("path")), "")
-    return [TextLine(text, 0.99, 0.06, 0.6)] if text else []
-
-
-def context(posters: list[ImageRef], seasons: int = 4) -> pipeline.Context:
-    return pipeline.Context(
-        tmdb=FakeTmdb(posters, seasons),  # type: ignore[arg-type]
-        minimums=QualityMinimums(),
-        regions=("CA",),
-        action_days={"1": date(2026, 10, 4)},
-        today=date(2026, 10, 1),
-        read=read,
-        fetch=fetch,
-    )
-
-
-class DatedPlex:
-    def newest_added(self, section: str, kind: str, **filters: Any) -> int | None:
+class DatedPlex(FakeServer):
+    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
         if kind == "episode":
             return int(datetime(2026, 9, 29).timestamp())
         return int(datetime(2025, 1, 1).timestamp())
@@ -153,7 +84,7 @@ def test_specials_keep_a_caption_and_no_number() -> None:
 
 def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.server = DatedPlex()  # type: ignore[assignment]
+    ctx.server = DatedPlex()
     added = int(datetime(2025, 1, 1).timestamp())
     plan = pipeline.show(ctx, {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4})[0]
     assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
@@ -190,7 +121,7 @@ def test_custom_art_works_when_no_source_has_clean_art(tmp_path: Path) -> None:
     custom = tmp_path / "1-abc.jpg"
     Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
     ctx = context([])
-    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign,assignment]
+    tmdb_of(ctx).backdrops = []
     with pytest.raises(pipeline.NotFoundError):
         pipeline.movie(ctx, ITEM)
     ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
@@ -236,16 +167,13 @@ def test_without_overrides_fingerprints_stay_the_same() -> None:
     assert "override" not in plan.inputs
 
 
-class FakePlex:
+class FakePlex(FakeServer):
     """A show (1) with seasons 1 and 2 (11, 12), each with two episodes."""
 
-    name = "Plex"
-    url = "http://plex.example:32400"
-
     def __init__(self) -> None:
-        show = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
-        self.items: dict[str, dict[str, Any]] = {"1": show}
-        self.kids: dict[str, list[dict[str, Any]]] = {"1": []}
+        show: Item = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
+        self.items: dict[str, Item] = {"1": show}
+        self.kids: dict[str, list[Item]] = {"1": []}
         for season in (1, 2):
             key = str(10 + season)
             self.items[key] = {"ratingKey": key, "type": "season", "index": season, "parentRatingKey": "1"}
@@ -256,16 +184,16 @@ class FakePlex:
                 for n in (1, 2)
             ]  # fmt: skip
 
-    def item(self, key: str) -> dict[str, Any] | None:
-        return self.items.get(key)
+    def item(self, rating_key: str) -> Item | None:
+        return self.items.get(rating_key)
 
-    def children(self, key: str) -> list[dict[str, Any]]:
-        return self.kids.get(key, [])
+    def children(self, rating_key: str) -> list[Item]:
+        return self.kids.get(rating_key, [])
 
 
 def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.server = FakePlex()  # type: ignore[assignment]
+    ctx.server = FakePlex()
     plans = pipeline.plan_preview(ctx, "1", episodes=1)
     assert [(p.rating_key, p.target) for p in plans] == [
         ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
@@ -290,7 +218,7 @@ def test_episode_modes() -> None:
 
 def test_a_title_without_a_logo_is_set_in_text() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.tmdb.logos = []  # type: ignore[attr-defined]
+    tmdb_of(ctx).logos = []
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["logo"] is None
     assert plan.inputs["text_logo"] == "Example Movie"
@@ -311,7 +239,7 @@ def test_preview_of_a_missing_item_fails() -> None:
     ctx = context([ref("/textless.jpg", None)])
     with pytest.raises(pipeline.NotFoundError, match="configured"):
         pipeline.plan_preview(ctx, "1")
-    ctx.server = FakePlex()  # type: ignore[assignment]
+    ctx.server = FakePlex()
     with pytest.raises(pipeline.NotFoundError, match="no item"):
         pipeline.plan_preview(ctx, "99")
 
@@ -335,7 +263,7 @@ def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
     assert ctx.titles[("movie", 77)]
     ctx.lookups.clear()
     pipeline.movie(ctx, item)
-    assert ctx.tmdb.finds == ["tt0000077"]  # type: ignore[attr-defined]
+    assert tmdb_of(ctx).finds == ["tt0000077"]
     with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
         pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "imdb://tt0000078"}]})
 
@@ -353,22 +281,22 @@ def test_forget_drops_downloaded_images_and_expired_lookups() -> None:
     assert ("movie", 42) in ctx.titles
 
 
-class CollectionPlex:
-    def collection_children(self, key: str) -> list[dict[str, Any]]:
+class CollectionPlex(FakeServer):
+    def collection_children(self, rating_key: str) -> list[Item]:
         return (
             [
                 {"ratingKey": "1", "type": "show", "title": "Old Show", "addedAt": 100, "Guid": [{"id": "tmdb://41"}]},
                 {"ratingKey": "2", "type": "show", "title": "New Show", "addedAt": 200, "Guid": [{"id": "tmdb://42"}]},
                 {"ratingKey": "3", "type": "show", "title": "No Id", "addedAt": 300},
             ]
-            if key != "9"
+            if rating_key != "9"
             else []
         )
 
 
 def test_collections_take_art_from_their_newest_member() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.server = CollectionPlex()  # type: ignore[assignment]
+    ctx.server = CollectionPlex()
     channel = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "Netflix"})[0]
     assert channel.inputs["design"] == "channel"
     assert channel.inputs["service"] == "netflix"
@@ -380,11 +308,12 @@ def test_collections_take_art_from_their_newest_member() -> None:
     assert pipeline.plan_item(ctx, {"ratingKey": "9", "type": "collection", "title": "Empty"}) == []
 
 
-class FakeFanart:
+class FakeFanart(Fanart):
     def __init__(self) -> None:
+        super().__init__("example")
         self.calls = 0
 
-    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+    def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
         self.calls += 1
         poster = ref("https://assets.fanart.tv/fanart/movies/42/movieposter/clean.jpg", None)
         logo = ref("https://assets.fanart.tv/fanart/movies/42/hdmovielogo/logo.png", "en")
@@ -393,29 +322,31 @@ class FakeFanart:
 
 def test_fanart_is_used_only_when_tmdb_has_nothing_usable() -> None:
     ctx = context([ref("/english.jpg", "en")])
-    ctx.tmdb.images = lambda kind, tid: Images([ref("/english.jpg", "en")], [], [])  # type: ignore[method-assign, assignment]
+    tmdb = tmdb_of(ctx)
+    tmdb.backdrops, tmdb.logos = [], []
     with pytest.raises(pipeline.NotFoundError, match="TMDB has no textless art"):
         pipeline.movie(ctx, ITEM)
-    ctx.fanart = FakeFanart()  # type: ignore[assignment]
+    ctx.fanart = FakeFanart()
     poster = pipeline.movie(ctx, ITEM)[0]
     assert poster.inputs["art"] == "https://assets.fanart.tv/fanart/movies/42/movieposter/clean.jpg"
     assert poster.inputs["logo"] == "https://assets.fanart.tv/fanart/movies/42/hdmovielogo/logo.png"
     with_tmdb_art = context([ref("/textless.jpg", None)])
     fanart = FakeFanart()
-    with_tmdb_art.fanart = fanart  # type: ignore[assignment]
+    with_tmdb_art.fanart = fanart
     assert pipeline.movie(with_tmdb_art, ITEM)[0].inputs["art"] == "/textless.jpg"
     assert fanart.calls == 0
 
 
-class BrokenFanart:
-    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+class BrokenFanart(Fanart):
+    def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
         raise posteryard_http.RequestError("ConnectionError", "https://webservice.fanart.tv/v3/movies/42")
 
 
 def test_a_fanart_outage_fails_the_item_instead_of_changing_its_poster() -> None:
     ctx = context([ref("/english.jpg", "en")])
-    ctx.tmdb.images = lambda kind, tid: Images([ref("/english.jpg", "en")], [], [])  # type: ignore[method-assign, assignment]
-    ctx.fanart = BrokenFanart()  # type: ignore[assignment]
+    tmdb = tmdb_of(ctx)
+    tmdb.backdrops, tmdb.logos = [], []
+    ctx.fanart = BrokenFanart("example")
     with pytest.raises(posteryard_http.RequestError):
         pipeline.movie(ctx, ITEM)
     assert not any(key[0] == "fanart" for key in ctx.lookups)
@@ -427,29 +358,18 @@ def test_lookups_are_bounded_and_details_trimmed(monkeypatch: pytest.MonkeyPatch
     for n in "01234":
         ctx.remember(("n", n), str)
     assert [key[1] for key in ctx.lookups] == ["2", "3", "4"]
-    ctx.tmdb.details = lambda kind, tid: {"name": "A", "images": {"posters": []}}  # type: ignore[method-assign, assignment]
+    monkeypatch.setattr(ctx.tmdb, "details", lambda kind, tid: {"name": "A", "images": {"posters": []}})
     assert ctx.details("tv", 7) == {"name": "A"}
+
+
+class ImdbCollection(FakeServer):
+    def collection_children(self, rating_key: str) -> list[Item]:
+        return [{"ratingKey": "1", "type": "movie", "title": "Old", "addedAt": 1, "Guid": [{"id": "imdb://tt0000077"}]}]
 
 
 def test_collections_use_imdb_ids_too() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.server = type(
-        "P",
-        (),
-        {
-            "collection_children": staticmethod(
-                lambda key: [
-                    {
-                        "ratingKey": "1",
-                        "type": "movie",
-                        "title": "Old",
-                        "addedAt": 1,
-                        "Guid": [{"id": "imdb://tt0000077"}],
-                    },
-                ]
-            )
-        },
-    )()
+    ctx.server = ImdbCollection()
     plans = pipeline.collection(ctx, {"ratingKey": "9", "type": "collection", "title": "Favourites"})
     assert plans[0].inputs["art"] == "/textless.jpg"
 
@@ -464,14 +384,14 @@ def test_a_textless_tmdb_poster_comes_before_apple_art(monkeypatch: pytest.Monke
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
 
 
-class RejectingMarks:
-    def get(self, offer: Any, tmdb: Any = None) -> str | None:
+class RejectingMarks(AutoMarks):
+    def get(self, offer: Offer, tmdb: Tmdb | None = None) -> str | None:
         return None
 
 
-def test_a_left_out_mark_is_not_replaced_by_the_next_service() -> None:
+def test_a_left_out_mark_is_not_replaced_by_the_next_service(tmp_path: Path) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.marks = RejectingMarks()  # type: ignore[assignment]
+    ctx.marks = RejectingMarks(tmp_path, MemoryChoices())
     providers: dict[str, RegionOffers] = {"CA": {"flatrate": [
         {"provider_id": 510, "provider_name": "Discovery+", "logo_path": "/d.jpg", "display_priority": 1},
         {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.jpg", "display_priority": 2},
@@ -541,7 +461,7 @@ def test_apple_art_that_cannot_be_loaded_falls_back_to_other_art(monkeypatch: py
 
 def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.tmdb.logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]  # type: ignore[attr-defined]
+    tmdb_of(ctx).logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]
     ctx.fetch = lambda path: (
         Image.new("RGBA", (600, 120), (20, 20, 20, 255))
         if path == "/dark.png"
@@ -558,7 +478,7 @@ def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPa
 
 def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.tmdb.logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]  # type: ignore[attr-defined]
+    tmdb_of(ctx).logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]
 
     def fetch(path: str) -> Image.Image:
         if path == "/dark.png":
@@ -575,8 +495,8 @@ def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.Mon
     assert "logo_ink" not in poster.inputs
 
 
-class DownFanart:
-    def images(self, kind: str, tid: int, tvdb_id: int | None) -> FanartImages:
+class DownFanart(Fanart):
+    def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
         raise posteryard_http.HttpError(503, "https://webservice.fanart.tv/v3/movies/42")
 
 
@@ -584,8 +504,8 @@ def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
     custom = tmp_path / "1-abc.jpg"
     Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
     ctx = context([])
-    ctx.tmdb.images = lambda kind, tid: Images([], [], [ref("/logo.png", "en")])  # type: ignore[method-assign,assignment]
-    ctx.fanart = DownFanart()  # type: ignore[assignment]
+    tmdb_of(ctx).backdrops = []
+    ctx.fanart = DownFanart("example")
     ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
     plans = pipeline.movie(ctx, ITEM)
     assert [plan.target for plan in plans] == ["poster"]
@@ -614,9 +534,9 @@ def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
 
 
-def test_titles_drawn_in_a_fallback_font_name_it() -> None:
+def test_titles_drawn_in_a_fallback_font_name_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.logo = lambda title, dark=False: None  # type: ignore[method-assign,misc]
+    monkeypatch.setattr(ctx, "logo", lambda title, dark=False: None)
     latin = pipeline.movie(ctx, ITEM)[0].inputs
     korean = pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "tmdb://43"}], "title": "기생충"})[0].inputs
     assert "font" not in latin

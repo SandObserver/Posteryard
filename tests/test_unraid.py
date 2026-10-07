@@ -31,7 +31,7 @@ def test_the_template_defaults_start_the_service() -> None:
 
 def test_the_template_matches_the_image_and_the_readme() -> None:
     dockerfile = (ROOT / "Dockerfile").read_text()
-    assert _configs("Path").keys() == {re.search(r"DATA_DIR=(\S+)", dockerfile)[1]}  # type: ignore[index]
-    assert _configs("Port").keys() == {re.search(r"EXPOSE (\d+)", dockerfile)[1]}  # type: ignore[index]
+    assert _configs("Path").keys() == set(re.findall(r"DATA_DIR=(\S+)", dockerfile))
+    assert _configs("Port").keys() == set(re.findall(r"EXPOSE (\d+)", dockerfile))
     readme = (ROOT / "README.md").read_text()
     assert [name for name in _configs("Variable") if f"`{name}`" not in readme] == []
