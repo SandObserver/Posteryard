@@ -76,6 +76,8 @@ uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
 
 The tests need no API keys and no internet connection. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with actionlint and zizmor, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
+Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
+
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex.
 
 `tests/test_golden.py` compares every design with the reference images in `tests/golden`. It fails when the output changes and `DESIGN_VERSION` does not. After bumping it, write the references again and commit them:

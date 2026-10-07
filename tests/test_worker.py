@@ -1,60 +1,53 @@
 import io
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 import pytest
 from PIL import Image
 
 from posteryard import config, http, pipeline
 from posteryard.notify import Notifier
-from posteryard.server import Item
+from posteryard.server import Item, Target
 from posteryard.store import Status, Store
 from posteryard.worker import Outcome, Worker
-from tests.test_pipeline import FakeTmdb, fetch, read, ref
+from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
 
-MOVIE = {
+MOVIE: Item = {
     "ratingKey": "1", "type": "movie", "title": "Example Movie", "librarySectionTitle": "Movies",
     "librarySectionID": "3", "Guid": [{"id": "tmdb://42"}], "Media": [],
 }  # fmt: skip
 
 
-class FakePlex:
-    name = "Plex"
-    url = "http://plex.example:32400"
-
+class FakePlex(FakeServer):
     def __init__(self) -> None:
-        self.items: dict[str, dict[str, Any]] = {"1": dict(MOVIE)}
+        self.items: dict[str, Item] = {"1": Item(**MOVIE)}
         self.selected_keys: dict[tuple[str, str], str] = {}
         self.uploads: list[tuple[str, str]] = []
         self.fail = False
         self.restored: list[tuple[str, str]] = []
 
-    def item(self, key: str) -> dict[str, Any] | None:
+    def item(self, rating_key: str) -> Item | None:
         if self.fail:
             raise http.RequestError("ConnectionError", "http://plex.example:32400/library/metadata/1")
-        return self.items.get(key)
+        return self.items.get(rating_key)
 
-    def selected(self, key: str, target: str) -> str | None:
-        return self.selected_keys.get((key, target))
+    def selected(self, rating_key: str, target: Target) -> str | None:
+        return self.selected_keys.get((rating_key, target))
 
-    def upload(self, key: str, target: str, jpeg: bytes) -> str:
+    def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         assert jpeg[:2] == b"\xff\xd8"
-        self.uploads.append((key, target))
+        self.uploads.append((rating_key, target))
         image_key = f"upload-{len(self.uploads)}"
-        self.selected_keys[(key, target)] = image_key
+        self.selected_keys[(rating_key, target)] = image_key
         return image_key
 
-    def lock(self, item: Any, target: str) -> None:
-        pass
-
-    def restore(self, item: Any, target: str) -> None:
+    def restore(self, item: Item, target: Target) -> None:
         self.restored.append((str(item["ratingKey"]), target))
 
-    def remove_label(self, item: Any, label: str) -> None:
+    def remove_label(self, item: Item, label: str) -> None:
         self.items["1"]["Label"] = [t for t in self.items["1"].get("Label", []) if t["tag"] != label]
 
-    def poster_bytes(self, item: Any) -> bytes:
+    def poster_bytes(self, item: Item) -> bytes:
         buffer = io.BytesIO()
         Image.new("RGB", (600, 900), (10, 120, 200)).save(buffer, "JPEG")
         return buffer.getvalue()
@@ -74,7 +67,7 @@ def make(tmp_path: Path, **env: str) -> tuple[Worker, FakePlex, Store, Alerts]:
         {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_URL": "http://plex.example:32400", **env}
     )
     plex, store, alerts = FakePlex(), Store(tmp_path / "state.db"), Alerts()
-    worker = Worker(cfg, plex, store, alerts, FakeTmdb([ref("/english.jpg", "en")]))  # type: ignore[arg-type]
+    worker = Worker(cfg, plex, store, alerts, FakeTmdb([ref("/english.jpg", "en")]))
     worker.ctx.read, worker.ctx.fetch = read, fetch
     return worker, plex, store, alerts
 
@@ -178,23 +171,24 @@ def test_next_label_switches_art_once_and_is_removed(tmp_path: Path) -> None:
     assert worker.process("1") == Outcome.UNCHANGED
 
 
-def test_next_label_keeps_its_text_and_skips_once_when_removal_fails(tmp_path: Path) -> None:
+def test_next_label_keeps_its_text_and_skips_once_when_removal_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
     plex.items["1"]["Label"] = [{"tag": "Posteryard-Next"}]
     removed: list[str] = []
-    remove = plex.remove_label
 
-    def failing(item: Any, label: str) -> None:
+    def failing(item: Item, label: str) -> None:
         removed.append(label)
         raise http.RequestError("HTTP 500", "http://plex.example:32400/library/sections/3/all")
 
-    plex.remove_label = failing  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "remove_label", failing)
     assert worker.process("1") == Outcome.FAILED
     assert worker.process("1") == Outcome.FAILED
     assert removed == ["Posteryard-Next", "Posteryard-Next"]
     assert store.override("1") is None
-    plex.remove_label = remove  # type: ignore[method-assign]
+    monkeypatch.undo()
     assert worker.process("1") == Outcome.UPLOADED
     override = store.override("1")
     assert override is not None and len(override.skip) == 1
@@ -244,7 +238,7 @@ def test_the_ignore_label_leaves_the_item_alone(tmp_path: Path) -> None:
 
 def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false", EPISODE_THUMBNAILS="off")
-    episode = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+    episode: Item = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
                "librarySectionTitle": "TV Shows"}  # fmt: skip
     plex.items["5"], plex.items["6"] = episode, {**episode, "ratingKey": "6"}
     store.uploaded("5", "thumb", "Pilot", "abc", "upload-1")
@@ -270,13 +264,13 @@ def test_a_dry_run_keeps_the_record_of_a_thumbnail_it_does_not_give_back(tmp_pat
     assert store.get("5", "thumb") is not None
 
 
-def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path) -> None:
+def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     worker, plex, store, alerts = make(tmp_path)
 
-    def broken(key: str) -> dict[str, Any] | None:
+    def broken(rating_key: str) -> Item | None:
         raise KeyError("Metadata")
 
-    plex.item = broken  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "item", broken)
     for _ in range(3):
         assert worker.process("1") == Outcome.FAILED
     assert alerts.sent == ["rendering"]
@@ -288,7 +282,9 @@ def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path) -> None:
 def test_items_outside_the_libraries_are_skipped(tmp_path: Path) -> None:
     worker, plex, _, _ = make(tmp_path)
     plex.items["7"] = {**MOVIE, "ratingKey": "7", "librarySectionTitle": "Home Videos"}
-    plex.items["8"] = {k: v for k, v in MOVIE.items() if k != "librarySectionTitle"} | {"ratingKey": "8"}
+    unlisted: Item = {**MOVIE, "ratingKey": "8"}
+    del unlisted["librarySectionTitle"]
+    plex.items["8"] = unlisted
     assert worker.process("7") == Outcome.SKIPPED
     assert worker.process("8") == Outcome.SKIPPED
 

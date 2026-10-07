@@ -110,8 +110,9 @@ def test_a_service_without_a_network_in_the_region_uses_its_network_from_another
     assert network_for(Offer(1, "Shudder", "/x.png", "GB")) is None
 
 
-class FakeTmdb:
+class NetworkTmdb(Tmdb):
     def __init__(self, logo: str = "/exxen.svg") -> None:
+        super().__init__("example")
         self.asked: list[int] = []
         self.logo = logo
 
@@ -131,15 +132,15 @@ def test_a_network_logo_is_preferred_over_the_provider_icon(
         return two_colour_logo() if path == "/exxen.png" else flat_icon()
 
     monkeypatch.setattr(Tmdb, "image", staticmethod(image))
-    tmdb = FakeTmdb(logo)
+    tmdb = NetworkTmdb(logo)
     marks = AutoMarks(tmp_path / "marks", MemoryChoices())
     offer = Offer(5, "Exxen", "/icon.jpg", "TR")
-    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"  # type: ignore[arg-type]
-    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"  # type: ignore[arg-type]
+    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"
+    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"
     assert fetched == [("/exxen.png", "w500")]
     assert tmdb.asked == [4405]
     hidive = Offer(6, "HIDIVE", "/icon.jpg", "US")
-    assert marks.get(hidive, tmdb) == f"auto-6-v{automarks.VERSION}"  # type: ignore[arg-type]
+    assert marks.get(hidive, tmdb) == f"auto-6-v{automarks.VERSION}"
     assert marks.get(hidive) == f"auto-6-v{automarks.VERSION}"
 
 
