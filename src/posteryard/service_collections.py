@@ -11,7 +11,7 @@ MANAGED_LABEL = "posteryard-collection"
 MIN_SHOWS = 3
 
 
-def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:
+def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # noqa: C901, PLR0912
     """Create, fill, empty and delete Posteryard's service collections in one TV library. Returns the kept keys.
 
     When a show's service cannot be looked up, nothing is removed or deleted in that pass.

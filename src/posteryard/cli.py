@@ -135,7 +135,7 @@ def _resolve(plex: MediaServer, cfg: config.Config, args: argparse.Namespace) ->
     return lookup.season(plex, match, args.season) if args.season is not None else match
 
 
-def _preview(args: argparse.Namespace, cfg: config.Config) -> int:
+def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901, PLR0912
     if not args.title and not args.tmdb:
         print("Give a title or --tmdb KIND:ID.")
         return 2
@@ -254,7 +254,7 @@ def _test_alert(cfg: config.Config) -> int:
     return 1
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
     logfmt.setup()
     args = _parser().parse_args(argv)
     try:

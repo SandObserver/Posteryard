@@ -197,7 +197,7 @@ def fade_strength(art: Image.Image, logo: Image.Image, lines_below: list[lines.L
     return FADE_STEPS[-1]
 
 
-def tile_poster(
+def tile_poster(  # noqa: PLR0913
     art: Image.Image,
     logo: Image.Image,
     *,

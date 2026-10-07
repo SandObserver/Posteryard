@@ -331,7 +331,7 @@ class Service:
             sort_keys=True,
         )
 
-    def _schedule(self) -> None:
+    def _schedule(self) -> None:  # noqa: C901
         next_sweep = 0.0
         lookback = RESTART_LOOKBACK
         resumed = False
@@ -430,7 +430,7 @@ class Service:
                 self._stop.set()
         server.shutdown()
 
-    def handler(self) -> type[BaseHTTPRequestHandler]:
+    def handler(self) -> type[BaseHTTPRequestHandler]:  # noqa: C901
         service = self
         webhook_path = f"/webhook/{self.cfg.webhook_secret}"
 

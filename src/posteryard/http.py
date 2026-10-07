@@ -54,7 +54,7 @@ def redact(url: str) -> str:
     return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
 
 
-def request(
+def request(  # noqa: PLR0913
     method: str,
     url: str,
     *,
