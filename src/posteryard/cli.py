@@ -178,6 +178,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
         settings,
         fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
         marks=AutoMarks(cfg.data_dir / "marks", MemoryChoices()),
+        text_check=cfg.text_check,
     )
     ctx = pipeline.Context(settings, sources, plex)
     out_dir: Path = args.out or cfg.preview_dir

@@ -110,3 +110,18 @@ def test_why_command_prints_the_report(run: Any, monkeypatch: pytest.MonkeyPatch
     assert seen == ["301"]
     out = capsys.readouterr().out
     assert out.startswith("Blade Runner 2049 (2017, movie)\n  Uses: art from TMDB /a.jpg\n  Logo: the name in text")
+
+
+def test_without_the_text_check_the_first_candidate_is_used_and_kept_apart(store: Store) -> None:
+    posters = [ref("/english.jpg", None), ref("/textless.jpg", None)]
+    checked = context(posters)
+    checked.sources.choices = store
+    assert why.report(checked, MOVIE, store).art == "/textless.jpg"
+    unchecked = context(posters)
+    unchecked.sources.choices = store
+    unchecked.sources.text_check = False
+    unchecked.sources.read = lambda image: pytest.fail("text was read")
+    result = why.report(unchecked, MOVIE, store)
+    assert result.art == "/english.jpg"
+    assert "TEXT_CHECK is off: art is not checked for printed titles." in result.notices
+    assert why.report(checked, MOVIE, store).art == "/textless.jpg"
