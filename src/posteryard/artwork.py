@@ -9,6 +9,8 @@ from posteryard.render.layers import mean_luminance, trim
 from posteryard.tmdb import ImageRef, Images
 
 MAX_CANDIDATES = 6
+# Prefix of art choices made without reading text. They must never be reused with the text check on.
+UNCHECKED = "unchecked-"
 POOL_SIZE = 12
 MIN_BACKDROP_WIDTH = 1920
 WORDMARK_ASPECT = 1.8
@@ -59,6 +61,7 @@ class Picker:
     cache: ChoiceCache
     fetch: Fetch
     read: Read
+    prefix: str = ""
 
     def _cached(
         self, key: str, refs: Sequence[ImageRef], accept: Callable[[list[ocr.TextLine]], bool]
@@ -85,12 +88,12 @@ class Picker:
         return picked
 
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        return self._cached(f"textless{TEXTLESS_RULE}:{key}", refs, lambda lines: _textless(lines, titles))
+        return self._cached(f"{self.prefix}textless{TEXTLESS_RULE}:{key}", refs, lambda lines: _textless(lines, titles))
 
     def textless_pool(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
     ) -> "Pool":
-        return Pool(self, f"textless-all{TEXTLESS_RULE}:{key}", [r.path for r in refs[:limit]], titles)
+        return Pool(self, f"{self.prefix}textless-all{TEXTLESS_RULE}:{key}", [r.path for r in refs[:limit]], titles)
 
     def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
         return self.textless(f"{key}:posters", images.textless_posters(), titles) or self.textless(

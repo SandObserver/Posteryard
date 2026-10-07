@@ -15,6 +15,7 @@ from posteryard.artwork import (
     MAX_CANDIDATES,
     POOL_SIZE,
     TEXTLESS_RULE,
+    UNCHECKED,
 )
 from posteryard.config import EpisodeMode
 from posteryard.fanart import is_fanart
@@ -37,6 +38,7 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "poster-": ("poster-hash:",),
     "logo": (f"logo{LOGO_RULE}:",),
     "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
+    UNCHECKED: (f"{UNCHECKED}textless{TEXTLESS_RULE}:", f"{UNCHECKED}textless-all{TEXTLESS_RULE}:"),
     "titled:": (),
 }
 

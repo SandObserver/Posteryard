@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Add `TEXT_CHECK=false` to skip reading text on art, for machines with little memory such as a Raspberry Pi.
 - Support Emby 4.10 as the media server, with `EMBY_URL` and `EMBY_API_KEY` and its built-in webhooks.
 - Refuse to start with a data folder that belongs to another media server.
 - Give collections that are not a streaming service Apple TV's category tile: the art in a genre palette with the name.

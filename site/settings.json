@@ -21,6 +21,7 @@
       "name": "Art",
       "settings": [
         { "key": "APPLE_ART", "label": "Fill gaps with Apple TV art", "type": "switch", "default": "false" },
+        { "key": "TEXT_CHECK", "label": "Check art for printed titles", "type": "switch", "default": "true", "help": "Off uses about 350 MB less memory, for a Raspberry Pi. A few posters then show the title twice." },
         { "key": "FANART_API_KEY", "label": "fanart.tv as a second source", "type": "text", "default": "", "placeholder": "your-fanart-api-key", "help": "From your fanart.tv profile." },
         { "key": "LOGO_LANGUAGES", "label": "Title logo languages, in order", "type": "text", "default": "en", "placeholder": "en", "help": "Such as fr,en." },
         { "key": "PREFER_WORDMARK", "label": "Prefer wide title logos", "type": "switch", "default": "true", "help": "Wide logos spell out the title. Off takes the first logo TMDB lists, which can be tall or square." }

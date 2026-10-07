@@ -11,7 +11,7 @@ from typing import Any, cast
 from PIL import Image
 
 from posteryard import apple, http, ocr, overrides, services
-from posteryard.artwork import ChoiceCache, MemoryChoices, Picked, Picker
+from posteryard.artwork import UNCHECKED, ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
@@ -58,11 +58,14 @@ class Sources:
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     apple_down_until: float = 0.0
     apple_dropped: bool = False
+    text_check: bool = True
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @property
     def picker(self) -> Picker:
+        if not self.text_check:
+            return Picker(self.choices, self.fetch, lambda _image: [], UNCHECKED)
         return Picker(self.choices, self.fetch, self.read)
 
     def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
