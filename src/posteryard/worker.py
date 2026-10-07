@@ -120,7 +120,7 @@ class Worker:
     def process(self, rating_key: str, *, force: bool = False) -> Outcome:  # noqa: C901
         self._rested = False
         self.fresh = []
-        title = rating_key
+        title, kind = rating_key, ""
         try:
             item = self.server.item(rating_key)
             if item is None:
@@ -129,7 +129,7 @@ class Worker:
                 return Outcome.GONE
             if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
                 return Outcome.SKIPPED
-            title = str(item.get("title", rating_key))
+            title, kind = str(item.get("title", rating_key)), str(item.get("type"))
             self.ctx.settings.action_days = self.leaving_days()
             self.ctx.settings.today = date.today()
             redo_poster = self._follow_labels(item)
@@ -143,6 +143,15 @@ class Worker:
                 outcomes = self._apply_all(item, force, redo_poster)
             for cause in (self.server.name, "TMDB"):
                 self.notifier.resolve(cause, f"{cause} works again.")
+        except pipeline.UnmatchedError as exc:
+            self.store.forget_target(rating_key, ITEM_TARGET)
+            level = logging.INFO if kind in ("movie", "show") else logging.DEBUG
+            log.log(
+                level,
+                f"not matched to TMDB, match it in {self.server.name} to get a poster",
+                extra={"title": title, "reason": str(exc)},
+            )
+            return Outcome.SKIPPED
         except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED

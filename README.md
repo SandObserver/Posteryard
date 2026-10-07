@@ -378,7 +378,7 @@ Set `LOG_LEVEL=debug` to see every item Posteryard checks.
 | --- | --- |
 | `library not found` | One name in `LIBRARIES` is not on the server. Use the names exactly as the sidebar shows them. |
 | `Plex has no movie or TV library named ...` | Set `LIBRARIES` to the library names exactly as the Plex sidebar shows them. |
-| `... has no TMDB id, and TMDB knows no IMDb or TVDB id of it` | The title is unmatched, or matched by an agent without TMDB, IMDb or TVDB ids, such as HAMA. In Plex, choose **Fix Match** or **Refresh Metadata**. |
+| `not matched to TMDB, match it in ... to get a poster` | The title is unmatched, or matched by an agent without TMDB, IMDb or TVDB ids, such as HAMA. Posteryard skips it until it is matched. In Plex, choose **Fix Match** or **Refresh Metadata**. In Jellyfin and Emby, choose **Identify**. |
 | `TMDB has no textless art for ...` | TMDB has no usable art yet. Set `FANART_API_KEY` to try fanart.tv too, use `art set` with your own image, or add the `posteryard-ignore` label. |
 | `NewConnectionError for http://.../library/sections`, or `ConnectTimeoutError` or `NameResolutionError` |  Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |

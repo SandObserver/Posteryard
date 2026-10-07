@@ -60,6 +60,7 @@ def test_an_episode_brings_its_season_and_show() -> None:
     assert related_keys({"ratingKey": 7, "parentRatingKey": 6, "grandparentRatingKey": 5}) == ["7", "6", "5"]
     assert related_keys({"ratingKey": "9"}) == ["9"]
     assert related_keys("x") == []
+    assert related_keys({"ratingKey": "../../x", "parentRatingKey": "6", "grandparentRatingKey": "5a"}) == ["6"]
 
 
 class FakePlex(FakeServer):
@@ -178,6 +179,28 @@ class BrokenPlex(FakePlex):
         raise AttributeError("unexpected answer")
 
 
+class UnreachablePlex(FakePlex):
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls = 0
+
+    def sections(self) -> list[Item]:
+        self.calls += 1
+        raise posteryard_http.RequestError("ConnectionError", "http://plex.example:32400/library/sections")
+
+
+def test_a_failed_scheduled_run_waits_before_trying_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    plex = UnreachablePlex()
+    service = make_service(tmp_path, plex)
+    thread = threading.Thread(target=service._schedule, daemon=True)
+    thread.start()
+    time.sleep(0.3)
+    service.stop()
+    thread.join(timeout=5)
+    assert plex.calls == 1
+
+
 def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:
     service = make_service(tmp_path, BrokenPlex())
     alerts = Alerts()
@@ -245,6 +268,8 @@ def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
         assert post("/webhook/example-secret", b'{"event": "library.new", "Metadata": "x"}', json_type) == 200
         assert post("/webhook/example-secret", good, {**json_type, "Content-Length": "abc"}) == 413
         assert post("/webhook/example-secret", good, json_type) == 200
+        bad_key = b'{"event": "library.new", "Metadata": {"ratingKey": "../../x"}}'
+        assert post("/webhook/example-secret", bad_key, json_type) == 200
         assert queued(service) == ["7"]
         emby = b'{"Event": "library.new", "Item": {"Id": "245", "Type": "Episode"}}'
         assert post("/webhook/example-secret", emby, {"Content-Type": "application/json; charset=utf-8"}) == 200
@@ -345,6 +370,22 @@ def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypa
     thread.join(timeout=5)
     assert done == ["1", "2"]
     assert not thread.is_alive()
+
+
+@pytest.mark.parametrize("checked", [True, False])
+def test_a_stop_wakes_the_idle_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, checked: bool) -> None:
+    service = make_service(tmp_path)
+    if checked:
+        service.server_checked.set()
+    monkeypatch.setattr(service.worker, "rest", lambda: None)
+    thread = threading.Thread(target=service._work, daemon=True)
+    thread.start()
+    time.sleep(0.1)
+    started = time.monotonic()
+    service.stop()
+    thread.join(timeout=5)
+    assert not thread.is_alive()
+    assert time.monotonic() - started < 2
 
 
 def test_a_webhook_item_queues_the_item_and_its_parents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

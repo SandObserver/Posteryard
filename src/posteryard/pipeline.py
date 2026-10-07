@@ -45,6 +45,10 @@ class NotFoundError(Exception):
     pass
 
 
+class UnmatchedError(NotFoundError):
+    pass
+
+
 def art_source(path: str) -> str:
     if apple.is_apple(path):
         return "Apple TV"
@@ -101,7 +105,7 @@ def _require_tmdb(ctx: Context, item: Item, kind: Kind) -> int:
     tid = resolve_tmdb(ctx, item, kind)
     if tid is not None:
         return tid
-    raise NotFoundError(
+    raise UnmatchedError(
         f"{item.get('title')} ({item.get('ratingKey')}) has no TMDB id, and TMDB knows no IMDb or TVDB id of it"
     )
 

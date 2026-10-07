@@ -15,7 +15,7 @@ TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "epi
 INCLUDE = {kind: name for name, kind in TYPES.items()}
 LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
-FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height"
+FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
 PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 
@@ -152,6 +152,8 @@ class Jellyfin:
             "Label": [{"tag": tag} for tag in self._tags(raw)],
             "Guid": [{"id": f"{source}://{value}"} for source, name in PROVIDERS if (value := providers.get(name))],
         }
+        if raw.get("ProductionYear"):
+            item["year"] = int(raw["ProductionYear"])
         if raw.get("IndexNumber") is not None:
             item["index"] = int(raw["IndexNumber"])
         if raw.get("ParentIndexNumber") is not None:

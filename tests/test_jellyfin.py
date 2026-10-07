@@ -26,6 +26,7 @@ FORD = {
     "DateCreated": "2026-10-03T22:05:11.4294499Z",
     "Tags": ["racing", "Posteryard-Ignore"],
     "ProviderIds": {"Tmdb": "359724", "Imdb": "tt7286456"},
+    "ProductionYear": 2019,
     "ImageTags": {"Primary": "p1"},
     "BackdropImageTags": ["b1", "b2"],
     "MediaStreams": [
@@ -90,6 +91,7 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
     assert movie["Guid"] == [{"id": "tmdb://359724"}, {"id": "imdb://tt7286456"}]
     assert movie["librarySectionTitle"] == "Movies"
     assert movie["addedAt"] == 1791065111
+    assert movie["year"] == 2019
     assert {label["tag"] for label in movie["Label"]} == {"racing", "Posteryard-Ignore"}
     assert next(c for c in server.calls if c[1] == f"/Items/{MOVIE}")[2] == {"userId": USER}
     quality = best(movie["Media"])
@@ -98,6 +100,7 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
     assert episode is not None
     assert (episode["parentRatingKey"], episode["grandparentRatingKey"]) == (SEASON, SERIES)
     assert (episode["index"], episode["parentIndex"], episode["librarySectionTitle"]) == (1, 2, "Shows")
+    assert "year" not in episode
     assert [s["title"] for s in jellyfin.sections()] == ["Movies", "Shows"]
 
 
@@ -120,6 +123,7 @@ def test_section_items_filters_and_pages(serve: Any) -> None:
     assert query["ParentId"] == LIBRARY
     assert query["IncludeItemTypes"] == "Movie"
     assert query["Tags"] == "posteryard-next"
+    assert "ProductionYear" in query["Fields"].split(",")
     assert query["MinDateLastSaved"] == "2026-10-03T22:05:11Z"
     assert "MinDateCreated" not in query
     assert item_calls[1][2]["StartIndex"] == "1"
