@@ -123,7 +123,7 @@ class Worker:
         related = {str(item.get(k, "")) for k in ("ratingKey", "parentRatingKey", "grandparentRatingKey")}
         return not only or bool(only & related)
 
-    def process(self, rating_key: str, *, force: bool = False) -> Outcome:
+    def process(self, rating_key: str, *, force: bool = False) -> Outcome:  # noqa: C901
         self._rested = False
         self.fresh = []
         title = rating_key

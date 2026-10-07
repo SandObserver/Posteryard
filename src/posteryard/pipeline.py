@@ -292,7 +292,7 @@ class Context:
             self.choices.put_choice(key, hit)
         return bool(hit["dark"])
 
-    def dark_reads(
+    def dark_reads(  # noqa: PLR0913
         self,
         art: str,
         logo: str | None,
@@ -473,7 +473,7 @@ def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True)
     return any(path == other or ctx.same_picture(path, other, redrawn=redrawn) for other in used)
 
 
-def _bottom_ink(
+def _bottom_ink(  # noqa: PLR0913
     ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line], *, label: lines.Label | None
 ) -> tuple[str | None, bool, bool]:
     """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn dark.
@@ -509,7 +509,7 @@ def _drawn_with(
     return drawn
 
 
-def _poster(
+def _poster(  # noqa: C901, PLR0912, PLR0913
     ctx: Context,
     title: Title,
     key: str,

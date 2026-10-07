@@ -165,7 +165,7 @@ def tracked_width(text: str, face: ImageFont.FreeTypeFont, tracking: float) -> f
     return sum(face.getlength(ch) for ch in text) + tracking * face.size * max(0, len(text) - 1)
 
 
-def draw_tracked(
+def draw_tracked(  # noqa: PLR0913
     canvas: Image.Image,
     xy: tuple[float, float],
     text: str,

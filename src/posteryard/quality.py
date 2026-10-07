@@ -78,7 +78,7 @@ def _text(*values: Any) -> str:
     return " ".join(str(v) for v in values if v).lower()
 
 
-def analyse(media: Mapping[str, Any]) -> MediaQuality:
+def analyse(media: Mapping[str, Any]) -> MediaQuality:  # noqa: C901
     video_streams = _streams(media, 1)
     audio_streams = _streams(media, 2)
 
