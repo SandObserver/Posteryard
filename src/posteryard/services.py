@@ -35,6 +35,8 @@ SERVICE_PATTERNS: tuple[tuple[str, str], ...] = (
     ("rtl+", "rtl"),
     ("movistar plus+", "movistar"),
     ("channel 4", "channel4"),
+    ("animation digital network", "adn"),
+    ("anime digital network", "adn"),
 )
 NAMES = {
     "appletv": "Apple TV",
@@ -58,6 +60,7 @@ NAMES = {
     "rtl": "RTL+",
     "movistar": "Movistar Plus+",
     "channel4": "Channel 4",
+    "adn": "ADN",
 }
 EXCLUDED_WORDS = (
     "amazon channel", "apple tv channel", "roku premium channel", "plex channel", "store", "youtube tv", "fubo",
