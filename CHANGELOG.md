@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Document what Posteryard changes on the server and how to undo each change.
 - Add the `why TITLE` command to list a poster's art candidates and why each was used or not.
 - Add the `health` command, which the Docker health check now runs.
+- Document starting Posteryard with `docker run` instead of Compose.
 
 ### Changed
 

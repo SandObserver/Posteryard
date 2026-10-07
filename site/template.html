@@ -146,14 +146,6 @@
       .doc { min-width: 0; max-width: 860px; }
       .doc p, .doc li { font-size: 15px; line-height: 1.5; color: #d1d1d6; }
       .doc code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; color: var(--label); }
-      .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; }
-      .step { position: relative; padding: 0 0 22px 44px; counter-increment: step; }
-      .step::before { content: counter(step); position: absolute; left: 0; top: -1px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; display: grid; place-items: center; }
-      .step::after { content: ""; position: absolute; left: 12px; top: 32px; bottom: 6px; width: 2px; background: var(--separator); }
-      .step:last-child { padding-bottom: 0; }
-      .step:last-child::after { display: none; }
-      .step h3 { margin: 0 0 8px; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
-      .step > p:first-of-type { margin-top: 0; }
       .code { margin: 10px 0; border: 1px solid var(--separator); border-radius: 12px; background: #0d1117; overflow: hidden; }
       .code-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--separator); font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
       .copy { position: relative; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--label); font: 600 13px var(--font); cursor: pointer; }
@@ -162,47 +154,8 @@
       .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
       .code pre { margin: 0; padding: 10px 14px; overflow-x: auto; }
       .code pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.4; color: #e6edf3; }
-      .code .cm { color: #8b949e; }
-      .defs { margin: 16px 0; border-top: 1px solid var(--separator); }
-      .def { display: grid; grid-template-columns: minmax(0, 210px) minmax(0, 1fr); gap: 4px 20px; padding: 12px 0; border-bottom: 1px solid var(--separator); }
-      .def dt { font-size: 14.5px; line-height: 1.6; }
-      .def dt code { background: none; padding: 0; font-weight: 600; overflow-wrap: anywhere; }
-      .def dd { margin: 0; }
-      .def dd p { margin: 0; font-size: 15px; line-height: 1.55; }
-      .default { display: inline-block; margin-top: 6px; font-size: 13.5px; color: var(--dim); }
-      .recipes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
-      .recipe { min-width: 0; padding: 14px; border-radius: 14px; background: var(--bg-2); }
-      .recipe h3 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
-      .doc .recipe p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.45; color: var(--dim); }
-      .recipe .code { margin: 0; }
-      .set-group { margin: 20px 0 2px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
-      .set-group:first-child { margin-top: 8px; }
-      .set { border-bottom: 1px solid var(--separator); }
-      .set summary { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) auto 16px; gap: 2px 14px; align-items: baseline; padding: 7px 0; cursor: pointer; list-style: none; }
-      .set summary::-webkit-details-marker { display: none; }
-      .set summary::after { content: ""; width: 16px; height: 16px; background: var(--dim); mask: var(--chevron-down) center / contain no-repeat; align-self: center; grid-column: -2; }
-      .set[open] summary::after { transform: rotate(180deg); }
-      .set summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .doc .set-name code { padding: 0; background: none; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
-      .set-sum { font-size: 14px; color: #d1d1d6; }
-      .set summary:hover .set-sum, .set[open] .set-sum { color: var(--label); }
-      .doc .set-default code { padding: 0; background: none; font-size: 12px; color: var(--dim); }
-      .doc .set p { margin: 0 0 10px; padding-left: 214px; font-size: 13.5px; line-height: 1.5; color: var(--dim); }
-      .expand > summary { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 20px; border-radius: 22px; background: var(--fill); color: var(--label); font-size: 15px; font-weight: 600; cursor: pointer; list-style: none; }
-      .expand > summary::-webkit-details-marker { display: none; }
-      .expand > summary::after { content: ""; width: 20px; height: 20px; background: currentColor; mask: var(--chevron-down) center / contain no-repeat; }
-      .expand[open] > summary::after { transform: rotate(180deg); }
-      .expand > summary:hover { background: var(--fill-hover); }
-      .expand > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      .expand .when-open, .expand[open] .when-closed { display: none; }
-      .expand[open] .when-open { display: inline; }
-      .expand-body { padding-top: 8px; overflow: hidden; }
-      .expand.closing .when-open { display: none; }
-      .expand.closing .when-closed { display: inline; }
-      .expand > summary::after { transition: transform 0.35s var(--ease); }
-      .expand.closing > summary::after { transform: none; }
-      .pill, .btn, .copy, .f-arrow, .expand > summary { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
-      .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled), .expand > summary:active { transform: scale(0.97); }
+      .pill, .btn, .copy, .f-arrow { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
+      .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled) { transform: scale(0.97); }
       a, .sources img { transition: color 0.2s ease, opacity 0.2s ease; }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
       @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
@@ -236,13 +189,8 @@
         .band h2 { font-size: 30px; }
         .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
         .setup-side { position: static; }
-        .def { grid-template-columns: minmax(0, 1fr); }
       }
       @media (max-width: 600px) {
-        .recipes { grid-template-columns: minmax(0, 1fr); }
-        .set summary { grid-template-columns: minmax(0, 1fr) auto 16px; }
-        .set-sum { grid-column: 1 / 3; grid-row: 2; }
-        .doc .set p { padding-left: 0; }
         .f-title { font-size: 26px; margin-bottom: 20px; }
         .f-ctrl { display: none; }
         .f-media { padding: 16px 18px 20px; }
@@ -264,6 +212,111 @@
         .code pre code { font-size: 12px; }
         .foot-in { flex-direction: column; gap: 20px; }
       }
+      #getting-started { --fill-1: rgba(120, 120, 128, 0.36); --fill-3: rgba(118, 118, 128, 0.24); --seg-on: rgba(255, 255, 255, 0.36); --a11y-border: #838387; --row-sep: rgba(255, 255, 255, 0.17); --ov-strong: rgba(255, 255, 255, 0.1); --menu-bg: rgba(30, 30, 32, 0.72); --menu-rim: rgba(255, 255, 255, 0.12); --shadow-pop: 0 8px 48px rgba(0, 0, 0, 0.45); --pill-ease: cubic-bezier(0.22, 1, 0.36, 1); --green: #30d158; }
+      .pop-root { position: relative; }
+      .sy-i { fill: currentColor; } .sy-a { fill: var(--accent); } .sy-is { stroke: currentColor; } .sy-as { stroke: var(--accent); }
+      .gs { display: grid; gap: 16px; align-content: start; }
+      .gs .code, .s9 .code { margin: 0; }
+      .sentence { margin: 0 0 4px; font-size: 22px; line-height: 1.55; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+      .pop { display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline; border: 0; margin: 0 1px; padding: 1px 6px 2px 12px; border-radius: 12px; background: var(--fill-3); color: var(--accent); font: inherit; letter-spacing: inherit; cursor: pointer; transition: background 0.15s ease; }
+      .pop:hover, .pop[aria-expanded="true"] { background: var(--fill-1); }
+      .pop svg { width: 20px; height: 20px; opacity: 0.85; flex-shrink: 0; }
+      .pop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .code .v { color: var(--accent); }
+      .code .c { color: rgba(235, 235, 245, 0.62); }
+      .gs pre:focus-visible, .s9 pre:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .code .chg { display: inline-block; min-width: calc(100% + 28px); margin-inline: -14px; padding-inline: 14px; animation: chg 2.4s var(--ease) forwards; }
+      @keyframes chg { 0%, 45% { background: rgba(255, 214, 10, 0.16); box-shadow: inset 2px 0 0 var(--accent); } 100% { background: transparent; box-shadow: inset 2px 0 0 transparent; } }
+      .fill-note { margin: -4px 0 0; padding-inline: 4px; font-size: 13px; line-height: 1.5; color: var(--dim); }
+      .fill-note a { white-space: nowrap; }
+      .fill-note .v { font-family: var(--mono); font-size: 0.9em; color: var(--accent); background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; }
+      .ext { width: 12px; height: 12px; vertical-align: -1px; margin-left: 2px; }
+
+      .menu { position: absolute; z-index: 30; margin: 0; padding: 10px 0; list-style: none; min-width: 230px; max-width: calc(100% - 16px); max-height: 360px; overflow-y: auto; overscroll-behavior: contain; background: var(--menu-bg); -webkit-backdrop-filter: blur(32px) saturate(180%); backdrop-filter: blur(32px) saturate(180%); border: 0.5px solid var(--menu-rim); border-radius: 34px; box-shadow: var(--shadow-pop); opacity: 0; transform: scale(0.9); pointer-events: none; transition: opacity 0.14s ease, transform 0.14s ease; }
+      .menu.open { opacity: 1; transform: none; pointer-events: auto; transition: opacity 0.2s ease, transform 0.38s var(--ease); }
+      .menu [role="option"] { position: relative; margin-inline: 8px; border-radius: 20px; padding-block: 10px; padding-inline: 6px 16px; min-height: 40px; display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 1.29; letter-spacing: -0.025em; color: #f5f5f5; cursor: pointer; outline: none; }
+      .menu [role="option"]::before { content: ""; width: 24px; flex-shrink: 0; text-align: center; font-weight: 600; }
+      .menu [role="option"][aria-selected="true"]::before { content: "\2713"; }
+      .menu [role="option"] small { margin-inline-start: auto; padding-inline-start: 14px; font-size: 13px; color: var(--dim); letter-spacing: 0; }
+      .menu .mp { position: absolute; top: 0; left: 0; border-radius: 20px; background: var(--ov-strong); pointer-events: none; opacity: 0; transition: opacity 0.12s ease; }
+      .menu .mp.on { opacity: 1; transition: opacity 0.12s ease, transform 0.19s var(--pill-ease), width 0.19s var(--pill-ease), height 0.19s var(--pill-ease); }
+      @media (prefers-reduced-transparency: reduce) { .menu, .tp { background: var(--bg-3); -webkit-backdrop-filter: none; backdrop-filter: none; } }
+
+      .ilist { margin: 0; padding: 0; list-style: none; background: var(--bg-2); border-radius: 18px; }
+      .ilist > li { position: relative; }
+      .ilist > li + li::before { content: ""; position: absolute; top: 0; inset-inline: 16px 0; height: 1px; background: var(--row-sep); z-index: 1; }
+      .ilist.icons > li + li::before { inset-inline-start: 52px; }
+      .irow { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; }
+      .irow.top { align-items: flex-start; }
+      .imain { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .iname { font-size: 15px; line-height: 1.33; font-weight: 500; color: var(--label); }
+      .itext { font-size: 13.5px; line-height: 1.45; color: var(--dim); }
+      .ikey { font: 11.5px var(--mono); color: var(--dim); }
+      .ihelp { font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+      .si { flex-shrink: 0; width: 24px; height: 24px; margin-top: 1px; color: var(--dim); }
+
+      .s9 { container-type: inline-size; display: grid; gap: 16px; max-width: none; }
+      .tabs-scroll { max-width: 100%; justify-self: start; overflow-x: auto; scrollbar-width: none; padding-block: 8px; margin-block: -8px; }
+      .tabs-scroll::-webkit-scrollbar { display: none; }
+      .tabs-scroll.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+      .tabs-scroll.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%); mask-image: linear-gradient(90deg, transparent, #000 15%); }
+      .tabs-scroll.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
+      .tabs { display: inline-flex; gap: 4px; padding: 2px; border-radius: 16px; background: var(--fill-3); }
+      .tabs button { position: relative; flex-shrink: 0; min-height: 28px; padding-inline: 14px; border: 0; border-radius: 14px; background: transparent; color: var(--label); font: 500 13px/1 var(--font); cursor: pointer; transition: background 0.15s ease; }
+      .tabs button[aria-selected="true"] { background: var(--seg-on); font-weight: 600; }
+      .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+      .tabs .dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+      .s9-grid { display: grid; gap: 16px; align-items: start; }
+      @container (min-width: 760px) { .s9-grid { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 20px; } .s9-side { position: sticky; top: 24px; } }
+      .list-head { padding-inline: 16px; margin: 0 0 6px; font-size: 13px; line-height: 1.38; color: var(--dim); }
+      .list-foot { padding-inline: 16px; margin: 6px 0 0; font-size: 13px; line-height: 1.38; color: var(--dim); }
+      .s9 .code-bar { min-height: 39px; }
+      .bar-btns { display: inline-flex; gap: 2px; flex-shrink: 0; }
+      .ghost { height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--accent); font: 600 13px var(--font); cursor: pointer; }
+      .ghost:hover { background: var(--fill); }
+      .ghost:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .val-btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 2px; border: 0; background: transparent; color: var(--dim); font: 15px var(--font); padding: 4px 4px 4px 8px; border-radius: 8px; cursor: pointer; transition: color 0.15s ease; }
+      .val-btn:hover { color: var(--label); }
+      .val-btn svg { width: 18px; height: 18px; }
+      .val-btn:focus-visible, .time-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      .irow.changed .val-btn, .irow.changed .time-btn, .irow.changed .field { color: var(--accent); }
+      .irow.wide { flex-wrap: wrap; }
+      .tog { position: relative; display: inline-flex; flex-shrink: 0; cursor: pointer; }
+      .tog input { position: absolute; opacity: 0; width: 0; height: 0; }
+      .tr { width: 64px; height: 28px; border-radius: 14px; background: var(--fill); position: relative; transition: background 0.2s; }
+      .tog input:checked + .tr { background: var(--green); }
+      .tr::after { content: ""; position: absolute; width: 38px; height: 24px; border-radius: 12px; background: #fff; top: 2px; left: 2px; transition: transform 0.2s, width 0.2s; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); }
+      .tog input:checked + .tr::after { transform: translateX(22px); }
+      .tog:active .tr::after { width: 46px; }
+      .tog:active input:checked + .tr::after { transform: translateX(14px); }
+      .tog input:focus-visible + .tr { outline: 2px solid var(--accent); outline-offset: 3px; }
+      .field { flex: 0 1 48%; min-width: 0; font: 14px var(--mono); color: var(--label); background: var(--fill-3); border: 1px solid var(--a11y-border); border-radius: 8px; padding: 6px 10px; text-align: end; }
+      .field::placeholder { color: rgba(235, 235, 245, 0.55); }
+      .field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+      @container (max-width: 520px) { .irow.wide .field { flex-basis: 100%; text-align: start; } }
+      .time-btn { position: relative; flex-shrink: 0; border: 1px solid var(--a11y-border); border-radius: 8px; padding: 4px 10px; background: var(--fill-3); color: var(--dim); font: 15px/1.2 var(--font); font-variant-numeric: tabular-nums; cursor: pointer; transition: color 0.15s, background 0.15s; }
+      .time-btn:hover { background: var(--fill-1); color: var(--label); }
+      .time-btn[aria-expanded="true"] { color: var(--accent); }
+      .tp { position: absolute; z-index: 30; padding: 8px 10px 7px; background: var(--menu-bg); -webkit-backdrop-filter: blur(32px) saturate(180%); backdrop-filter: blur(32px) saturate(180%); border: 0.5px solid var(--menu-rim); border-radius: 18px; box-shadow: var(--shadow-pop); opacity: 0; transform: scale(0.9); pointer-events: none; transition: opacity 0.14s ease, transform 0.14s ease; }
+      .tp.open { opacity: 1; transform: none; pointer-events: auto; transition: opacity 0.2s ease, transform 0.38s var(--ease); }
+      .wheels { position: relative; display: flex; align-items: center; gap: 2px; }
+      .wheels::before { content: ""; position: absolute; inset-inline: 0; top: 50%; height: 28px; margin-top: -14px; border-radius: 10px; background: var(--ov-strong); pointer-events: none; }
+      .wheel { position: relative; margin: 0; padding: 28px 0; list-style: none; width: 40px; height: 84px; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; overscroll-behavior: contain; outline: none; -webkit-mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(transparent, #000 30%, #000 70%, transparent); }
+      .wheel::-webkit-scrollbar { display: none; }
+      .wheel [role="option"] { height: 28px; display: grid; place-items: center; scroll-snap-align: center; font: 15px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--dim); cursor: pointer; }
+      .wheel [role="option"][aria-selected="true"] { color: var(--label); font-weight: 600; }
+      .wheel:focus-visible li[aria-selected="true"] { color: var(--accent); }
+      .colon { font: 600 15px var(--font); color: var(--label); }
+      .tp-foot { margin: 4px 0 0; text-align: center; font-size: 11px; color: var(--dim); }
+      .tp-foot code { font-size: 0.9em; }
+      @media (max-width: 600px) { .sentence { font-size: 20px; } }
+      @media (prefers-reduced-motion: reduce) { .menu, .menu.open, .tp, .tp.open { transform: none !important; } .tr, .tr::after, .menu .mp.on { transition-duration: 0.01ms !important; } }
+
+      .pop, .val-btn, .ghost { position: relative; }
+      .pop::after, .val-btn::after, .time-btn::after, .ghost::after, .tabs button::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+      .tog { min-height: 44px; align-items: center; }
+      .gs.morphing, .s9-side pre.morphing { overflow: hidden; }
+      @media (prefers-reduced-motion: reduce) { .code .chg { animation: none; background: rgba(255, 214, 10, 0.16); } }
     </style>
   </head>
   <body>
@@ -306,7 +359,7 @@
           <h2 class="f-title">What Posteryard changes</h2>
           <div class="f-track" id="f-track" tabindex="0" role="region" aria-label="Features">
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/deadpool-wolverine-before.webp" srcset="/img/compare/deadpool-wolverine-before-200.webp 200w, /img/compare/deadpool-wolverine-before-336.webp 336w, /img/compare/deadpool-wolverine-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/deadpool-wolverine-clean.webp" srcset="/img/compare/deadpool-wolverine-clean-200.webp 200w, /img/compare/deadpool-wolverine-clean-336.webp 336w, /img/compare/deadpool-wolverine-clean.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Deadpool &amp; Wolverine, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/superman-before.webp" srcset="/img/compare/superman-before-200.webp 200w, /img/compare/superman-before-336.webp 336w, /img/compare/superman-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Superman, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/superman-after.webp" srcset="/img/compare/superman-after-200.webp 200w, /img/compare/superman-after-336.webp 336w, /img/compare/superman-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Superman, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
               <div class="f-text"><h3>Clean art.</h3> <p>Textless art from TMDB, Apple TV or fanart.tv, with the title logo in one spot at one size.</p></div>
               <div class="chips"><code>TMDB_API_KEY</code><code>APPLE_ART=true</code><code>FANART_API_KEY</code></div>
             </article>
@@ -321,13 +374,13 @@
               <div class="chips"><code>QUALITY_MIN_VIDEO</code><code>QUALITY_MIN_HDR</code><code>QUALITY_MIN_AUDIO</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/lilo-stitch-before.webp" srcset="/img/compare/lilo-stitch-before-200.webp 200w, /img/compare/lilo-stitch-before-336.webp 336w, /img/compare/lilo-stitch-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/lilo-stitch-after.webp" srcset="/img/compare/lilo-stitch-after-200.webp 200w, /img/compare/lilo-stitch-after-336.webp 336w, /img/compare/lilo-stitch-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Lilo &amp; Stitch, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
-              <div class="f-text"><h3>Status labels.</h3> <p>Just added, New episode, New season, or New season Oct 21 before a premiere. With Maintainerr, a red label counts down to its delete date: Leaving in 5 days, then tomorrow, then today.</p></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/f1-before.webp" srcset="/img/compare/f1-before-200.webp 200w, /img/compare/f1-before-336.webp 336w, /img/compare/f1-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="F1, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/f1-after.webp" srcset="/img/compare/f1-after-200.webp 200w, /img/compare/f1-after-336.webp 336w, /img/compare/f1-after.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="F1 with a Leaving tomorrow label, rendered by Posteryard" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
+              <div class="f-text"><h3>Status labels.</h3> <p>Just added, New episode and New season labels, plus a red countdown to the date Maintainerr deletes a title.</p></div>
               <div class="chips"><code>STATUS_LABELS</code><code>MAINTAINERR_URL</code></div>
             </article>
             <article class="f-card">
-              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/dune-part-two-before.webp" srcset="/img/compare/dune-part-two-before-200.webp 200w, /img/compare/dune-part-two-before-336.webp 336w, /img/compare/dune-part-two-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="Dune: Part Two, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/scifi-collection.webp" srcset="/img/compare/scifi-collection-200.webp 200w, /img/compare/scifi-collection-336.webp 336w, /img/compare/scifi-collection.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="A Sci-Fi collection tile rendered by Posteryard from Dune: Part Two art" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
-              <div class="f-text"><h3>Collections.</h3> <p>Genre, award and chart collections get a tile in one of Apple TV's genre colours, with their name, so they never pass for a movie poster. Streaming service collections get a channel tile with the service's mark.</p></div>
+              <div class="f-media"><div class="pair"><div><span class="tag">Before</span><img src="/img/compare/john-wick-4-before.webp" srcset="/img/compare/john-wick-4-before-200.webp 200w, /img/compare/john-wick-4-before-336.webp 336w, /img/compare/john-wick-4-before.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="John Wick: Chapter 4, official poster" width="432" height="648" loading="lazy" decoding="async" /></div><div><span class="tag tag-py">Posteryard</span><img src="/img/compare/action-collection.webp" srcset="/img/compare/action-collection-200.webp 200w, /img/compare/action-collection-336.webp 336w, /img/compare/action-collection.webp 432w" sizes="(max-width: 600px) 38vw, (max-width: 900px) 26vw, 156px" alt="An Action collection tile rendered by Posteryard from John Wick: Chapter 4 art" width="432" height="648" loading="lazy" decoding="async" /></div></div></div>
+              <div class="f-text"><h3>Collections.</h3> <p>Genre and chart collections get a tile in Apple TV's genre colours. Service collections get the service's mark.</p></div>
               <div class="chips"><code>COLLECTION_POSTERS</code><code>SERVICE_COLLECTIONS</code></div>
             </article>
             <article class="f-card">
@@ -340,42 +393,44 @@
         </div>
       </section>
 
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs><mask id="sy-solid-p1-pre-m" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><circle cx="12" cy="12" r="3" fill="#000" stroke="#000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></mask><symbol id="sy-solid-p1-pre" viewBox="0 0 24 24"><g mask="url(#sy-solid-p1-pre-m)"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z" class="sy-is" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g><g><circle cx="12" cy="12" r="3" class="sy-a"/></g></symbol><mask id="sy-solid-p1-live-m" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="#fff"/><path d="M12 16V4M7 9l5-5 5 5" fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></mask><symbol id="sy-solid-p1-live" viewBox="0 0 24 24"><g mask="url(#sy-solid-p1-live-m)"><path d="M4 15v3a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3v-3" class="sy-is" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g><g><path d="M12 16V4M7 9l5-5 5 5" class="sy-as" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g></symbol></defs>
+        <symbol id="i-chevrons" viewBox="0 0 24 24"><path d="M8 9l4-4 4 4M8 15l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+        <symbol id="i-ext" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+      </svg>
       <section class="band" id="getting-started">
-        <div class="wrap setup-grid">
+        <div class="wrap setup-grid pop-root">
           <div class="setup-side">
             <h2>Get started</h2>
-            <div class="lede">{{getting_started_lead}}</div>
+            <p class="lede">Free and self-hosted. Runs on any x86-64 or ARM64 machine with Docker.</p>
           </div>
-          <div class="doc">{{getting_started}}</div>
+          <div class="doc gs" id="gs">
+            <p class="sentence">I use <button class="pop" type="button" aria-haspopup="listbox" aria-expanded="false" data-k="server" aria-label="Media server: {{install_server}}"><span>{{install_server}}</span><svg aria-hidden="true"><use href="#i-chevrons"/></svg></button> and run containers with <button class="pop" type="button" aria-haspopup="listbox" aria-expanded="false" data-k="method" aria-label="Install method: {{install_method}}"><span>{{install_method}}</span><svg aria-hidden="true"><use href="#i-chevrons"/></svg></button>.</p>
+            <div class="code" id="g-code"><div class="code-bar"><span class="fname">{{install_fname}}</span><button type="button" class="copy" aria-label="Copy the install file">Copy</button></div><pre tabindex="0" role="region" aria-label="Install file"><code class="out">{{install_code}}</code></pre></div>
+            <p class="fill-note" id="g-fill">{{install_fill}}</p>
+            <div class="code" id="g-start"><div class="code-bar"><span>Terminal, in the folder with compose.yml</span><button type="button" class="copy" aria-label="Copy the start commands">Copy</button></div><pre tabindex="0" role="region" aria-label="Start commands"><code class="out">{{install_start}}</code></pre></div>
+            <ul class="ilist icons" id="g-next">{{install_next}}</ul>
+          </div>
         </div>
-        <div class="wrap setup-grid" id="settings">
+        <div class="wrap setup-grid pop-root" id="settings">
           <div class="setup-side">
             <h2>Settings</h2>
-            <p class="lede">{{settings_count}} optional settings for badges, status labels, collections, Jellyfin, Emby, Maintainerr, alerts and the schedule. Commands, Plex labels and monitoring are in the <a href="{{repo}}#readme">full documentation</a>.</p>
+            <p class="lede">Every setting starts at a default. Change one and its line appears, ready to paste.</p>
           </div>
-          <div class="doc">
-            <div class="recipes">
-              <div class="recipe"><h3>Use Jellyfin instead of Plex</h3><p>Replace <code>PLEX_URL</code> and <code>PLEX_TOKEN</code> with these two lines.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use jellyfin instead of plex">Copy</button></div><pre><code>- JELLYFIN_URL=http://192.168.1.10:8096
-- JELLYFIN_API_KEY=your-jellyfin-api-key</code></pre></div></div>
-              <div class="recipe"><h3>Use Emby instead of Plex</h3><p>Replace <code>PLEX_URL</code> and <code>PLEX_TOKEN</code> with these two lines.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy use emby instead of plex">Copy</button></div><pre><code>- EMBY_URL=http://192.168.1.10:8096
-- EMBY_API_KEY=your-emby-api-key</code></pre></div></div>
-              <div class="recipe"><h3>Get alerts in Discord</h3><p>Use the two parts of your Discord webhook URL. Any Apprise address works, such as <code>ntfys://</code> or <code>mailtos://</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy get alerts in discord">Copy</button></div><pre><code>- NOTIFY_URLS=discord://WEBHOOK_ID/WEBHOOK_TOKEN</code></pre></div></div>
-              <div class="recipe"><h3>Count down to Maintainerr deletions</h3><p>Titles Maintainerr will delete get <code>LEAVING IN 5 DAYS</code>, then <code>TOMORROW</code>, then <code>TODAY</code>.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy count down to maintainerr deletions">Copy</button></div><pre><code>- MAINTAINERR_URL=http://192.168.1.10:6246</code></pre></div></div>
-              <div class="recipe"><h3>Streaming services outside the US</h3><p>The default is <code>US</code>. Put your country first and keep <code>US</code> as a fallback. This example is the UK.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy streaming services outside the us">Copy</button></div><pre><code>- STREAMING_REGIONS=GB,US</code></pre></div></div>
-              <div class="recipe"><h3>Badges for 1080p and 5.1 too</h3><p>By default only 4K, HDR10 or better, and Dolby Atmos get a badge.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy badges for 1080p and 5.1 too">Copy</button></div><pre><code>- QUALITY_MIN_VIDEO=1080
-- QUALITY_MIN_AUDIO=5.1</code></pre></div></div>
-              <div class="recipe"><h3>Fill gaps with Apple TV art</h3><p>Used when TMDB has no textless poster, before backdrops.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy fill gaps with apple tv art">Copy</button></div><pre><code>- APPLE_ART=true</code></pre></div></div>
-              <div class="recipe"><h3>Go live on two titles first</h3><p><code>posteryard find NAME</code> lists rating keys. Remove <code>ONLY_RATING_KEYS</code> when you are happy.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy go live on two titles first">Copy</button></div><pre><code>- DRY_RUN=false
-- ONLY_RATING_KEYS=5646,8730</code></pre></div></div>
-              <div class="recipe"><h3>Show the episode title on thumbnails</h3><p>Adds <code>EPISODE N</code> and the title to each episode still.</p><div class="code"><div class="code-bar"><span>environment</span><button type="button" class="copy" aria-label="Copy show the episode title on thumbnails">Copy</button></div><pre><code>- EPISODE_THUMBNAILS=titled</code></pre></div></div>
+          <div class="doc s9">
+            <div class="tabs-scroll" id="s9-scroll"><div class="tabs" role="tablist" aria-label="Setting groups" id="s9-tabs">{{s9_tabs}}</div></div>
+            <div class="s9-grid">
+              <div role="tabpanel" id="s9-panel" aria-labelledby="s9-tab-0" tabindex="-1"><ul class="ilist" id="s9">{{s9_rows}}</ul></div>
+              <div class="s9-side">
+                <p class="list-head" id="s9-head">Add these lines under <code>environment:</code> in <code>compose.yml</code></p>
+                <div class="code" id="s9-out"><div class="code-bar"><span>compose.yml</span><span class="bar-btns"><button class="ghost" type="button" id="s9-reset"{{s9_reset_hidden}}>Reset</button><button type="button" class="copy" aria-label="Copy the setting lines"{{s9_copy_hidden}}>Copy</button></span></div><pre tabindex="0" role="region" aria-labelledby="s9-head"><code class="out">{{s9_lines}}</code></pre></div>
+                <p class="list-foot" id="s9-foot">{{s9_foot}}</p>
+              </div>
             </div>
-            <details class="expand">
-              <summary><span class="when-closed">Show all {{settings_count}} settings</span><span class="when-open">Hide settings</span></summary>
-              <div class="expand-body">{{settings}}</div>
-            </details>
           </div>
         </div>
       </section>
+      <script type="application/json" id="settings-data">{{settings_json}}</script>
     </main>
 
     <footer class="footer">
@@ -394,6 +449,7 @@
         <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}"><span>release</span> <b>v{{version}}</b></a>
       </div>
     </footer>
+    <p class="sr-only" id="live" aria-live="polite"></p>
     <script>
       {
         const pool = {{poster_pool}};
@@ -463,46 +519,24 @@
         );
         for (const card of ends.keys()) observer.observe(card);
       }
-      function openFromHash() {
-        if (location.hash === "#settings") document.querySelector("#settings details").open = true;
-      }
-      addEventListener("hashchange", openFromHash);
-      openFromHash();
-      const reduceMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-      for (const details of document.querySelectorAll("details.expand")) {
-        const summary = details.querySelector("summary");
-        const body = details.querySelector(".expand-body");
-        let animation = null;
-        summary.addEventListener("click", (event) => {
-          if (reduceMotion()) return;
-          event.preventDefault();
-          const opening = !details.open || details.classList.contains("closing");
-          const from = details.open ? body.getBoundingClientRect().height : 0;
-          animation?.cancel();
-          details.open = true;
-          details.classList.toggle("closing", !opening);
-          const to = opening ? body.scrollHeight : 0;
-          animation = body.animate(
-            { height: [`${from}px`, `${to}px`], opacity: opening ? [0, 1] : [1, 0] },
-            { duration: Math.min(450, 240 + Math.abs(to - from) / 30), easing: "cubic-bezier(0.32, 0.72, 0, 1)" },
-          );
-          animation.onfinish = () => {
-            animation = null;
-            if (!opening) {
-              details.open = false;
-              details.classList.remove("closing");
-            }
-          };
-        });
-      }
       const live = document.getElementById("live");
+      async function copyText(code) {
+        try {
+          await navigator.clipboard.writeText(code.textContent);
+        } catch {
+          getSelection().selectAllChildren(code);
+          const copied = document.execCommand("copy");
+          getSelection().removeAllRanges();
+          if (!copied) throw new Error("copy refused");
+        }
+      }
       for (const button of document.querySelectorAll(".copy")) {
         button.addEventListener("click", async () => {
           const code = button.closest(".code").querySelector("code");
           try {
-            await navigator.clipboard.writeText(code.textContent);
+            await copyText(code);
             button.textContent = "Copied";
-            live.textContent = `${button.getAttribute("aria-label").replace(/^Copy /, "")} copied`;
+            live.textContent = `Copied ${button.getAttribute("aria-label").replace(/^Copy /, "")}`;
             setTimeout(() => {
               button.textContent = "Copy";
               live.textContent = "";
@@ -513,6 +547,315 @@
         });
       }
     </script>
-    <p class="sr-only" id="live" aria-live="polite"></p>
+    <script type="module">
+      import { install, pickers, flatten, defaults, isChanged, shown, tabs, rows, lines, esc } from "/setup.mjs";
+
+      const data = JSON.parse(document.getElementById("settings-data").textContent);
+      const settings = flatten(data);
+      const groups = data.groups;
+
+      const $ = (s, r = document) => r.querySelector(s);
+      const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+      const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+      const live = $("#live");
+      const say = (text) => { live.textContent = ""; requestAnimationFrame(() => (live.textContent = text)); };
+      const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+
+      /* Animates an element from its current height to the height after mutate(). */
+      function morph(el, mutate, animate = true) {
+        const from = el.offsetHeight;
+        mutate();
+        if (!animate || reduce.matches) return;
+        const to = el.offsetHeight;
+        if (from === to) return;
+        el.classList.add("morphing");
+        el.animate({ height: [`${from}px`, `${to}px`] }, { duration: Math.min(480, 260 + Math.abs(to - from) / 4), easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+          .finished.finally(() => el.classList.remove("morphing"));
+      }
+
+      let openMenu = null;
+      function closeMenu(refocus) {
+        if (!openMenu) return;
+        const { list, btn } = openMenu;
+        list.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+        btn.removeAttribute("aria-controls");
+        setTimeout(() => list.remove(), 160);
+        if (refocus) btn.focus({ preventScroll: true });
+        openMenu = null;
+      }
+      function placePill(list, li) {
+        const pill = $(".mp", list);
+        if (!li) { pill.classList.remove("on"); return; }
+        pill.style.width = `${li.offsetWidth}px`;
+        pill.style.height = `${li.offsetHeight}px`;
+        pill.style.transform = `translate3d(${li.offsetLeft}px, ${li.offsetTop}px, 0)`;
+        if (!pill.classList.contains("on")) { pill.getBoundingClientRect(); pill.classList.add("on"); }
+      }
+      let menuSeq = 0;
+      function showMenu(btn, { label, options, selected, multiple = false, onPick, align = "start" }) {
+        if (openMenu?.btn === btn) { closeMenu(true); return; }
+        closeMenu(); closeTime();
+        const root = btn.closest(".pop-root");
+        const list = document.createElement("div");
+        list.className = "menu";
+        list.id = `menu-${++menuSeq}`;
+        list.setAttribute("role", "listbox");
+        list.setAttribute("aria-label", label);
+        if (multiple) list.setAttribute("aria-multiselectable", "true");
+        list.innerHTML = '<div class="mp" aria-hidden="true"></div>' + options.map((o) =>
+          `<div class="opt" role="option" tabindex="-1" data-v="${esc(o.v)}" aria-selected="${selected.has(o.v)}">${esc(o.label)}${o.note ? `<small>${esc(o.note)}</small>` : ""}</div>`).join("");
+        root.append(list);
+        const opts = $$("[role=option]", list);
+        const rr = root.getBoundingClientRect(), br = btn.getBoundingClientRect();
+        let left = align === "end" ? br.right - rr.left - list.offsetWidth : br.left - rr.left;
+        left = Math.min(Math.max(8, left), rr.width - list.offsetWidth - 8);
+        list.style.left = `${left}px`;
+        list.style.top = `${br.bottom - rr.top + 6}px`;
+        list.style.transformOrigin = `${Math.max(16, Math.min(list.offsetWidth - 16, br.left - rr.left - left + br.width / 2))}px -6px`;
+        btn.setAttribute("aria-expanded", "true");
+        btn.setAttribute("aria-controls", list.id);
+        requestAnimationFrame(() => list.classList.add("open"));
+        openMenu = { list, btn };
+        let active = Math.max(0, opts.findIndex((o) => selected.has(o.dataset.v)));
+        const setActive = (i) => { active = (i + opts.length) % opts.length; opts[active].focus({ preventScroll: true }); placePill(list, opts[active]); };
+        const choose = (o) => {
+          if (multiple) {
+            const on = o.getAttribute("aria-selected") !== "true";
+            o.setAttribute("aria-selected", on);
+            onPick(o.dataset.v, on);
+          } else { closeMenu(true); onPick(o.dataset.v); }
+        };
+        opts.forEach((o) => {
+          o.addEventListener("pointerenter", () => placePill(list, o));
+          o.addEventListener("click", () => choose(o));
+        });
+        list.addEventListener("pointerleave", () => placePill(list, document.activeElement?.closest?.(".menu [role=option]")));
+        list.addEventListener("focusout", (e) => { if (!list.contains(e.relatedTarget) && e.relatedTarget !== btn) closeMenu(); });
+        let typed = "", typedAt = 0;
+        list.addEventListener("keydown", (e) => {
+          if (e.key === "ArrowDown") { e.preventDefault(); setActive(active + 1); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActive(active - 1); }
+          else if (e.key === "Home") { e.preventDefault(); setActive(0); }
+          else if (e.key === "End") { e.preventDefault(); setActive(opts.length - 1); }
+          else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(opts[active]); }
+          else if (e.key === "Escape") { e.preventDefault(); closeMenu(true); }
+          else if (e.key === "Tab") closeMenu(true);
+          else if (e.key.length === 1) {
+            const now = Date.now();
+            typed = now - typedAt > 800 ? e.key.toLowerCase() : typed + e.key.toLowerCase();
+            typedAt = now;
+            const hit = opts.findIndex((o) => o.textContent.toLowerCase().startsWith(typed));
+            if (hit >= 0) setActive(hit);
+          }
+        });
+        requestAnimationFrame(() => setActive(active));
+      }
+      document.addEventListener("pointerdown", (e) => { if (openMenu && !openMenu.list.contains(e.target) && !openMenu.btn.contains(e.target)) closeMenu(); });
+      addEventListener("resize", () => { closeMenu(); closeTime(); });
+
+      /* Install block. */
+      const saved = store.get("posteryard-install") || {};
+      const g = { server: pickers.server.options[saved.server] ? saved.server : "plex", method: pickers.method.options[saved.method] ? saved.method : "compose" };
+      const plain = (html) => { const t = document.createElement("template"); t.innerHTML = html; return t.content.textContent; };
+      function highlight(oldText, html) {
+        const old = new Set(oldText.split("\n"));
+        return html.split("\n").map((line) => (old.has(plain(line)) ? line : `<span class="chg">${line}</span>`)).join("\n");
+      }
+      function drawInstall(animate) {
+        const view = install(g.server, g.method);
+        const code = $("#g-code .out"), oldText = code.textContent, sameFile = $("#g-code .fname").textContent === view.fname;
+        morph($("#gs"), () => {
+          $("#g-code .fname").textContent = view.fname;
+          code.innerHTML = animate && sameFile ? highlight(oldText, view.code) : view.code;
+          $("#g-start").hidden = !view.start;
+          $("#g-start .out").innerHTML = view.start;
+          $("#g-fill").innerHTML = view.fill;
+          $("#g-next").innerHTML = view.next;
+          for (const b of $$("#gs .pop")) {
+            const k = b.dataset.k, name = pickers[k].options[g[k]].label;
+            $("span", b).textContent = name;
+            b.setAttribute("aria-label", `${pickers[k].name}: ${name}`);
+          }
+        }, animate);
+        if (animate) say(`Install steps now show ${view.summary}.`);
+      }
+      $$("#gs .pop").forEach((b) => {
+        const k = b.dataset.k;
+        const open = () => showMenu(b, {
+          label: pickers[k].name,
+          options: Object.entries(pickers[k].options).map(([v, o]) => ({ v, label: o.label })),
+          selected: new Set([g[k]]),
+          onPick: (v) => {
+            if (g[k] === v) return;
+            g[k] = v;
+            store.set("posteryard-install", g);
+            drawInstall(true);
+            if (k === "server") drawPanel(false);
+          },
+        });
+        b.addEventListener("click", (e) => { e.stopPropagation(); open(); });
+        b.addEventListener("keydown", (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); } });
+      });
+
+      /* Settings. */
+      const vals = defaults(data);
+      let tab = 0;
+      const byKey = (k) => settings.find((s) => s.key === k);
+      function drawOut(animate) {
+        const out = lines(data, vals), pre = $("#s9-out pre");
+        morph(pre, () => { $(".out", pre).innerHTML = out.html; }, animate);
+        $("#s9-reset").hidden = !out.changed;
+        $("#s9-out .copy").hidden = !out.count;
+        $("#s9-foot").innerHTML = out.foot;
+        $$("#s9-tabs [role=tab]").forEach((b, i) => {
+          const has = groups[i].settings.some((s) => isChanged(s, vals)), dot = $(".dot", b);
+          if (has && !dot) b.insertAdjacentHTML("beforeend", '<i class="dot" aria-hidden="true"></i><span class="sr-only">, changed</span>');
+          if (!has && dot) { dot.nextElementSibling?.remove(); dot.remove(); }
+        });
+      }
+      function drawPanel(focusTab) {
+        $("#s9-tabs").innerHTML = tabs(data, tab, vals);
+        $("#s9").innerHTML = rows(data, tab, vals, g.server);
+        $("#s9-panel").setAttribute("aria-labelledby", `s9-tab-${tab}`);
+        bindTabs(); bindRows();
+        const current = $(`#s9-tab-${tab}`);
+        current.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduce.matches ? "auto" : "smooth" });
+        if (focusTab) current.focus({ preventScroll: true });
+        fades();
+      }
+      function bindTabs() {
+        $$("#s9-tabs [role=tab]").forEach((b) => {
+          b.addEventListener("click", () => { tab = +b.dataset.i; drawPanel(true); });
+          b.addEventListener("keydown", (e) => {
+            const d = { ArrowRight: 1, ArrowLeft: -1, Home: -tab, End: groups.length - 1 - tab }[e.key];
+            if (d === undefined) return;
+            e.preventDefault();
+            tab = (tab + d + groups.length) % groups.length;
+            drawPanel(true);
+          });
+        });
+      }
+      function update(key, value) {
+        const s = byKey(key), before = vals[key];
+        vals[key] = value;
+        if (before === value) return;
+        $(`#s9 [data-row="${key}"]`)?.classList.toggle("changed", isChanged(s, vals));
+        const keyEl = $(`#s9 [data-row="${key}"] .ikey`);
+        if (keyEl) keyEl.innerHTML = `${key}${isChanged(s, vals) ? '<span class="sr-only">, changed</span>' : ""}`;
+        drawOut(true);
+        say(isChanged(s, vals) ? `${s.label} set to ${shown(s, vals)}. Line updated.` : `${s.label} is back to its default. Line removed.`);
+      }
+      function bindRows() {
+        $$("#s9 .val-btn").forEach((b) => {
+          const s = byKey(b.dataset.k);
+          const open = () => showMenu(b, {
+            label: s.label, align: "end", multiple: s.type === "multi",
+            options: s.options.map(([v, label, note]) => ({ v, label, note })),
+            selected: new Set(vals[s.key].split(",")),
+            onPick: (v, on) => {
+              let next = v;
+              if (s.type === "multi") {
+                const set = new Set(vals[s.key].split(",").filter(Boolean));
+                on ? set.add(v) : set.delete(v);
+                if (set.size < (s.min ?? 0)) {
+                  set.add(v);
+                  $(`[data-v="${v}"]`, openMenu.list).setAttribute("aria-selected", "true");
+                  say(`${s.label} needs at least one choice.`);
+                  return;
+                }
+                next = s.options.map((o) => o[0]).filter((x) => set.has(x)).join(",");
+              }
+              update(s.key, next);
+              $("span", b).textContent = shown(s, vals);
+              b.setAttribute("aria-label", `${s.label}: ${shown(s, vals)}`);
+            },
+          });
+          b.addEventListener("click", (e) => { e.stopPropagation(); open(); });
+          b.addEventListener("keydown", (e) => { if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); open(); } });
+        });
+        $$("#s9 .tog input").forEach((i) => i.addEventListener("change", () => update(i.dataset.k, String(i.checked))));
+        $$("#s9 .time-btn").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); openTime(b); }));
+        $$("#s9 .field").forEach((i) => i.addEventListener("input", () => update(i.dataset.k, i.value.trim() || byKey(i.dataset.k).default)));
+      }
+      function fades() {
+        const s = $("#s9-scroll");
+        s.classList.toggle("fade-l", s.scrollLeft > 2);
+        s.classList.toggle("fade-r", s.scrollLeft + s.clientWidth < s.scrollWidth - 2);
+      }
+      $("#s9-scroll").addEventListener("scroll", fades, { passive: true });
+      addEventListener("resize", fades);
+      $("#s9-reset").addEventListener("click", () => {
+        Object.assign(vals, defaults(data));
+        drawPanel(false); drawOut(true);
+        say("All settings are back to their defaults.");
+        $("#s9-tabs [aria-selected=true]").focus();
+      });
+
+      /* Compact time picker. */
+      let openTimeFor = null;
+      function closeTime(refocus) {
+        if (!openTimeFor) return;
+        const { tp, btn } = openTimeFor;
+        tp.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+        setTimeout(() => tp.remove(), 160);
+        if (refocus) btn.focus({ preventScroll: true });
+        openTimeFor = null;
+      }
+      function openTime(btn) {
+        if (openTimeFor?.btn === btn) { closeTime(true); return; }
+        closeTime(); closeMenu();
+        const k = btn.dataset.k, root = btn.closest(".pop-root");
+        const [hh, mm] = vals[k].split(":");
+        const hours = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+        const mins = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
+        if (!mins.includes(mm)) { mins.push(mm); mins.sort(); }
+        const tp = document.createElement("div");
+        tp.className = "tp";
+        tp.setAttribute("role", "dialog");
+        tp.setAttribute("aria-label", "Full pass time");
+        const col = (name, list, cur) => `<div class="wheel" role="listbox" tabindex="0" aria-label="${name}" data-col="${name}" aria-activedescendant="tp-${name}-${cur}">${list.map((x) => `<div class="opt" role="option" id="tp-${name}-${x}" data-v="${x}" aria-selected="${x === cur}">${x}</div>`).join("")}</div>`;
+        tp.innerHTML = `<div class="wheels">${col("Hour", hours, hh)}<span class="colon" aria-hidden="true">:</span>${col("Minute", mins, mm)}</div><p class="tp-foot">24-hour, your <code>TZ</code></p>`;
+        root.append(tp);
+        const rr = root.getBoundingClientRect(), br = btn.getBoundingClientRect();
+        const left = Math.min(Math.max(8, br.right - rr.left - tp.offsetWidth), rr.width - tp.offsetWidth - 8);
+        tp.style.left = `${left}px`;
+        tp.style.top = `${br.bottom - rr.top + 6}px`;
+        tp.style.transformOrigin = `${br.left - rr.left - left + br.width / 2}px -6px`;
+        btn.setAttribute("aria-expanded", "true");
+        openTimeFor = { tp, btn };
+        const value = () => `${$('[data-col="Hour"] [aria-selected="true"]', tp).dataset.v}:${$('[data-col="Minute"] [aria-selected="true"]', tp).dataset.v}`;
+        const commit = () => { update(k, value()); btn.textContent = vals[k]; btn.setAttribute("aria-label", `Full pass every day at ${vals[k]}`); };
+        for (const wheel of $$(".wheel", tp)) {
+          const items = $$("[role=option]", wheel);
+          const center = (o, smooth) => wheel.scrollTo({ top: o.offsetTop - (wheel.clientHeight - o.offsetHeight) / 2, behavior: smooth && !reduce.matches ? "smooth" : "auto" });
+          const select = (o, smooth) => { items.forEach((x) => x.setAttribute("aria-selected", x === o)); wheel.setAttribute("aria-activedescendant", o.id); center(o, smooth); commit(); };
+          center($('[aria-selected="true"]', wheel), false);
+          items.forEach((o) => o.addEventListener("click", () => select(o, true)));
+          let t;
+          wheel.addEventListener("scroll", () => {
+            clearTimeout(t);
+            t = setTimeout(() => {
+              const mid = wheel.scrollTop + wheel.clientHeight / 2;
+              const o = items.reduce((a, b) => (Math.abs(b.offsetTop + b.offsetHeight / 2 - mid) < Math.abs(a.offsetTop + a.offsetHeight / 2 - mid) ? b : a));
+              if (o.getAttribute("aria-selected") !== "true") { items.forEach((x) => x.setAttribute("aria-selected", x === o)); wheel.setAttribute("aria-activedescendant", o.id); commit(); }
+            }, 110);
+          });
+          wheel.addEventListener("keydown", (e) => {
+            const i = items.findIndex((x) => x.getAttribute("aria-selected") === "true");
+            if (e.key === "ArrowDown") { e.preventDefault(); select(items[Math.min(items.length - 1, i + 1)], true); }
+            else if (e.key === "ArrowUp") { e.preventDefault(); select(items[Math.max(0, i - 1)], true); }
+            else if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); closeTime(true); }
+          });
+        }
+        tp.addEventListener("focusout", (e) => { if (!tp.contains(e.relatedTarget)) closeTime(); });
+        requestAnimationFrame(() => { tp.classList.add("open"); $(".wheel", tp).focus({ preventScroll: true }); });
+      }
+      document.addEventListener("pointerdown", (e) => { if (openTimeFor && !openTimeFor.tp.contains(e.target) && !openTimeFor.btn.contains(e.target)) closeTime(); });
+
+      if (g.server !== "plex" || g.method !== "compose") drawInstall(false);
+      bindTabs(); bindRows(); fades();
+    </script>
   </body>
 </html>

@@ -69,11 +69,15 @@ UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
 
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 
-A new setting also goes into the Unraid template, `templates/posteryard.xml`, with its default as the value. `tests/test_unraid.py` fails when a template default does not load or a template setting is missing from `README.md`.
+A new setting also goes into the Unraid template, `templates/posteryard.xml`, with its default as the value, and into `site/settings.json`. `tests/test_unraid.py` fails when a template default does not load or a template setting is missing from `README.md`.
 
 ## Website
 
-`site/` builds the landing page at https://posteryard.sandobserver.com. Its Getting started and Settings sections and the version come from `README.md` and `CHANGELOG.md` at build time, so edit those files, not the page. Each setting's description starts with a bold one-line summary; the build fails without one. The settings recipes above the list are page copy in `site/template.html`. Cloudflare Pages rebuilds the site on every push to `main`.
+`site/` builds the landing page at https://posteryard.sandobserver.com. The version comes from `CHANGELOG.md`. Cloudflare Pages rebuilds the site on every push to `main`.
+
+The install block comes from `site/public/setup.mjs`. The build fails when its compose file, `docker run` command or Unraid command differs from `README.md`, so change both together.
+
+The settings section reads `site/settings.json`: each setting's label, control, default and choices. `tests/test_site_settings.py` fails when that file disagrees with `config.py` or the README, and names each setting that is missing. A setting the page leaves out goes under `elsewhere`, with the reason.
 
 ```sh
 cd site && npm ci && npm run build

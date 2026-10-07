@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } fr
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
+import * as installer from './public/setup.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -28,97 +29,34 @@ function escape(text) {
   return text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 }
 
-const onPage = new Set(['getting-started', 'settings']);
+const marked = new Marked({ gfm: true });
 
-function href(link) {
-  if (/^[a-z]+:/i.test(link)) return link;
-  if (link.startsWith('#')) return onPage.has(link.slice(1)) ? link : `${repo}${link}`;
-  return `${repo}/blob/main/${link}`;
+function codeBlocks(heading) {
+  return marked.lexer(section(heading)).filter((token) => token.type === 'code').map((token) => token.text);
 }
 
-const codeLabels = { yaml: 'compose.yml', sh: 'Terminal', json: 'Response', text: 'Output' };
+const plain = (html) =>
+  html.replace(/<[^>]+>/g, '').replace(/&(amp|lt|gt|quot);/g, (_, e) => ({ amp: '&', lt: '<', gt: '>', quot: '"' })[e]);
+const withoutComments = (text) => text.split('\n').filter((line) => !line.trim().startsWith('#')).join('\n');
 
-const marked = new Marked({
-  gfm: true,
-  renderer: {
-    link({ href: target, tokens }) {
-      const url = href(target);
-      const text = this.parser.parseInline(tokens);
-      const external = url.startsWith('http') ? ' target="_blank" rel="noopener noreferrer"' : '';
-      return `<a href="${url}"${external}>${text}</a>`;
-    },
-    code({ text, lang }) {
-      const label = codeLabels[lang] ?? lang ?? 'Code';
-      return (
-        `<div class="code"><div class="code-bar"><span>${escape(label)}</span>` +
-        `<button type="button" class="copy" aria-label="Copy ${escape(label)}">Copy</button></div>` +
-        `<pre><code>${escape(text).replace(/^(\s*)(#.*)$/gm, '$1<span class="cm">$2</span>')}</code></pre></div>`
-      );
-    },
-    table({ header, rows }) {
-      const names = header.map((cell) => cell.text.toLowerCase());
-      const items = rows.map((cells) => {
-        const [term, ...rest] = cells.map((cell) => this.parser.parseInline(cell.tokens));
-        const details = rest
-          .map((html, i) => {
-            if (!html) return '';
-            return names[i + 1] === 'default'
-              ? `<span class="default">Default ${html}</span>`
-              : `<p>${html}</p>`;
-          })
-          .join('');
-        return `<div class="def"><dt>${term}</dt><dd>${details}</dd></div>`;
-      });
-      return `<dl class="defs">${items.join('')}</dl>`;
-    },
-  },
-});
-
-function steps(markdown) {
-  const groups = [];
-  let lead = [];
-  for (const token of marked.lexer(markdown)) {
-    if (token.type === 'heading' && token.depth === 3) groups.push({ title: token.text, tokens: [] });
-    else if (groups.length) groups.at(-1).tokens.push(token);
-    else lead.push(token);
+function checkInstall() {
+  const readmeBlocks = { 'Getting started': codeBlocks('Getting started').map(withoutComments), Unraid: codeBlocks('Unraid') };
+  for (const [method, heading] of [['compose', 'Getting started'], ['run', 'Getting started'], ['unraid', 'Unraid']]) {
+    const view = installer.install('plex', method);
+    for (const code of [view.code, view.start].filter(Boolean)) {
+      if (!readmeBlocks[heading].includes(plain(code))) fail(`public/setup.mjs ${method} code differs from README.md "${heading}"`);
+    }
   }
-  if (!groups.length) fail('README.md Getting started has no ### step headings');
-  lead.links = {};
-  const items = groups.map((group) => {
-    group.tokens.links = {};
-    return `<li class="step"><h3>${marked.parseInline(group.title)}</h3>${marked.parser(group.tokens)}</li>`;
-  });
-  return { lead: marked.parser(lead), steps: `<ol class="steps">${items.join('')}</ol>` };
 }
 
 const tagline = readme.match(/<b>(.+?)<\/b>/)?.[1] ?? fail('README.md has no bold tagline');
 const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGELOG.md has no released version');
 
-function settingsList(markdown) {
-  let count = 0;
-  const parts = [];
-  for (const token of marked.lexer(markdown)) {
-    if (token.type === 'heading' && token.depth === 3) parts.push(`<h3 class="set-group">${marked.parseInline(token.text)}</h3>`);
-    if (token.type !== 'table') continue;
-    const rows = token.rows.map(([name, text, fallback]) => {
-      const [first] = text.tokens;
-      if (first?.type !== 'strong') fail(`README.md setting ${name.text} has no bold summary`);
-      count += 1;
-      const value = fallback.text ? `<span class="set-default">${marked.parseInline(fallback.text)}</span>` : '';
-      return (
-        `<details class="set"><summary><span class="set-name">${marked.parseInline(name.text)}</span>` +
-        `<span class="set-sum">${marked.parseInline(first.text)}</span>${value}</summary>` +
-        `<p>${marked.parseInline(text.text.slice(first.raw.length).trim())}</p></details>`
-      );
-    });
-    parts.push(rows.join(''));
-  }
-  if (!count) fail('README.md Settings section has no settings table');
-  return { html: parts.join(''), count };
-}
-
-const setup = steps(section('Getting started'));
-const settings = settingsList(section('Settings'));
+checkInstall();
+const settingsData = JSON.parse(readFileSync(join(here, 'settings.json'), 'utf8'));
+const firstView = installer.install('plex', 'compose');
+const firstVals = installer.defaults(settingsData);
+const firstLines = installer.lines(settingsData, firstVals);
 
 const card = readFileSync(join(root, 'docs', 'social-card.png'));
 const socialCard = `${site}/img/social-card.png?v=${createHash('sha256').update(card).digest('hex').slice(0, 8)}`;
@@ -183,10 +121,20 @@ const values = {
   social_card: socialCard,
   version,
   schema: JSON.stringify(schema).replaceAll('<', '\\u003c'),
-  getting_started_lead: setup.lead,
-  getting_started: setup.steps,
-  settings_count: String(settings.count),
-  settings: settings.html,
+  install_server: installer.servers.plex.label,
+  install_method: installer.methods.compose.label,
+  install_fname: firstView.fname,
+  install_code: firstView.code,
+  install_start: firstView.start,
+  install_fill: firstView.fill,
+  install_next: firstView.next,
+  s9_tabs: installer.tabs(settingsData, 0, firstVals),
+  s9_rows: installer.rows(settingsData, 0, firstVals, 'plex'),
+  s9_lines: firstLines.html,
+  s9_foot: firstLines.foot,
+  s9_reset_hidden: firstLines.changed ? '' : ' hidden',
+  s9_copy_hidden: firstLines.count ? '' : ' hidden',
+  settings_json: JSON.stringify(settingsData).replaceAll('<', '\\u003c'),
   tv_grid: preview.grid,
   poster_pool: JSON.stringify(posters).replaceAll('<', '\\u003c'),
 };

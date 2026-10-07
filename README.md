@@ -55,11 +55,29 @@ Plex in Docker on the same network? Use its container name, such as `http://plex
 ### Start it
 
 ```sh
-mkdir -p data && sudo chown 1000:1000 data
+mkdir -p ./data && sudo chown 1000:1000 ./data
 docker compose up -d
 ```
 
 Posteryard runs as user 1000 and writes only to `./data` and `/tmp`.
+
+Without Compose, the same container in one command:
+
+```sh
+mkdir -p ./data && sudo chown 1000:1000 ./data
+docker run -d --name posteryard --restart unless-stopped \
+  --init --read-only --tmpfs /tmp --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  -e TMDB_API_KEY=your-tmdb-api-key \
+  -e PLEX_URL=http://192.168.1.10:32400 \
+  -e PLEX_TOKEN=your-plex-token \
+  -e WEBHOOK_SECRET=any-long-random-text \
+  -e TZ=America/New_York -e DRY_RUN=true \
+  -v ./data:/data -p 8000:8000 \
+  ghcr.io/sandobserver/posteryard:latest
+```
+
+To go live, run `docker rm -f posteryard` and the same command with `DRY_RUN=false`.
 
 ### Preview, then go live
 
