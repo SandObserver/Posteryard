@@ -1,7 +1,9 @@
 import re
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Literal
+
+from posteryard.tmdb import RegionOffers
 
 # First match wins. Keep longer names before their prefixes.
 SERVICE_PATTERNS: tuple[tuple[str, str], ...] = (
@@ -66,7 +68,7 @@ EXCLUDED_WORDS = (
     "amazon channel", "apple tv channel", "roku premium channel", "plex channel", "store", "youtube tv", "fubo",
     "stacktv", "live tv", "justwatch", "spectrum on demand", "philo", "sling tv",
 )  # fmt: skip
-OFFER_TYPES = ("flatrate", "free", "ads")
+OFFER_TYPES: tuple[Literal["flatrate", "free", "ads"], ...] = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")
 NOT_KEY = re.compile(r"[^a-z0-9+]")
 
@@ -102,7 +104,7 @@ class Offer:
     region: str = ""
 
 
-def offers(providers_by_region: Mapping[str, Any], regions: Iterable[str]) -> Iterator[Offer]:
+def offers(providers_by_region: Mapping[str, RegionOffers], regions: Iterable[str]) -> Iterator[Offer]:
     for region in regions:
         by_type = providers_by_region.get(region) or {}
         for offer_type in OFFER_TYPES:

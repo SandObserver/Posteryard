@@ -1,10 +1,9 @@
-from typing import Any
-
 from posteryard.render import layers
 from posteryard.services import NAMES, offers, service_for, service_named
+from posteryard.tmdb import RegionOffers
 
 
-def pick(providers: dict[str, Any], regions: list[str]) -> str | None:
+def pick(providers: dict[str, RegionOffers], regions: list[str]) -> str | None:
     return next((key for offer in offers(providers, regions) if (key := service_for(offer.name))), None)
 
 
@@ -19,7 +18,7 @@ def test_service_names() -> None:
 
 
 def test_first_region_with_a_known_service_wins() -> None:
-    providers = {
+    providers: dict[str, RegionOffers] = {
         "CA": {"buy": [{"provider_name": "Apple TV"}], "flatrate": [{"provider_name": "Unknown Service"}]},
         "US": {
             "flatrate": [
@@ -46,7 +45,7 @@ def test_new_services_and_add_on_channels() -> None:
 
 
 def test_offers_skip_add_on_channels_and_keep_order() -> None:
-    providers = {
+    providers: dict[str, RegionOffers] = {
         "CA": {
             "flatrate": [
                 {"provider_name": "Crunchyroll Amazon Channel", "provider_id": 1, "display_priority": 1},
@@ -60,7 +59,7 @@ def test_offers_skip_add_on_channels_and_keep_order() -> None:
 
 
 def test_offers_skip_cable_and_live_tv_services() -> None:
-    providers = {
+    providers: dict[str, RegionOffers] = {
         "US": {
             "flatrate": [
                 {"provider_name": "HBO Max Amazon Channel", "provider_id": 1825, "display_priority": 11},

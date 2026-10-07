@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from PIL import Image
@@ -24,7 +24,7 @@ from posteryard.quality import Badge, QualityMinimums
 from posteryard.render import category, designs, lines
 from posteryard.render.layers import NEAR_BLACK, WHITE, cover, family_for, preferred_family, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
-from posteryard.tmdb import ImageRef, Images, Kind, Tmdb, open_image
+from posteryard.tmdb import Details, ImageRef, Images, Kind, RegionOffers, Tmdb, open_image
 
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
@@ -334,12 +334,12 @@ class Context:
         images: Images = self.remember(key, lambda: self.tmdb.season_images(tid, season))
         return images
 
-    def details(self, kind: Kind, tid: int) -> Mapping[str, Any]:
-        def load() -> Mapping[str, Any]:
-            full = self.tmdb.details(kind, tid)
-            return {name: full[name] for name in DETAIL_FIELDS if name in full}
+    def details(self, kind: Kind, tid: int) -> Details:
+        def load() -> Details:
+            full: Mapping[str, object] = self.tmdb.details(kind, tid)
+            return cast(Details, {name: full[name] for name in DETAIL_FIELDS if name in full})
 
-        details: Mapping[str, Any] = self.remember(("details", kind, str(tid)), load)
+        details: Details = self.remember(("details", kind, str(tid)), load)
         return details
 
     def find(self, kind: Kind, source: str, external_id: str) -> int | None:
@@ -353,7 +353,7 @@ class Context:
         value = hit.get(kind)
         return int(value) if value else None
 
-    def service(self, providers: Mapping[str, Any]) -> str | None:
+    def service(self, providers: Mapping[str, RegionOffers]) -> str | None:
         """The first offer is the service. When its mark is left out, the poster has no mark."""
         for offer in services.offers(providers, self.regions):
             if key := services.service_for(offer.name):
