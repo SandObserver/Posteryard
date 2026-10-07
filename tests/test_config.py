@@ -11,6 +11,8 @@ def test_defaults() -> None:
     cfg = load({"TMDB_API_KEY": "example"})
     assert cfg.regions == ("US",)
     assert (cfg.quality.video, cfg.quality.hdr, cfg.quality.audio) == (VideoLevel.UHD, HdrLevel.HDR10, AudioLevel.ATMOS)
+    assert cfg.text_check
+    assert not load({"TMDB_API_KEY": "example", "TEXT_CHECK": "false"}).text_check
 
 
 def test_quality_minimums_are_validated() -> None:

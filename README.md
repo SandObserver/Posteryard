@@ -108,8 +108,9 @@ Add any of these under `environment:`.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
-| `APPLE_ART` | **Fill gaps with Apple TV's key art.** `true` uses the art from a title's Apple TV page when TMDB has no textless poster for it, before TMDB backdrops. The art is found through the title's Apple TV id on Wikidata, in the store of your first `STREAMING_REGIONS` country. `art next`, `art set` and the labels still override it. Apple can change its pages without notice. | `false` |
+| `APPLE_ART` | **Fill gaps with Apple TV's key art.** `true` uses the art from a title's Apple TV page when TMDB has no textless poster for it, before TMDB backdrops. The art is found through the title's Apple TV id on Wikidata, in the store of your first `STREAMING_REGIONS` country. `art next`, `art set` and the labels still override it. Apple can change its pages without notice. Leave it off with `TEXT_CHECK=false`: Apple TV art is not labelled text-free, and about 1 in 6 has the title printed on it. | `false` |
 | `FANART_API_KEY` | **A second source when TMDB has no clean art.** Your personal API key from your [fanart.tv](https://fanart.tv) profile. When TMDB has no usable art, title logo or backdrop for a title, Posteryard tries fanart.tv's, with the same check for printed text. | |
+| `TEXT_CHECK` | **Check art for printed titles.** `true` reads the text on each picture and skips art with the title or large text printed on it. `false` skips the check, for a Raspberry Pi or another small machine: Posteryard then uses about 350 MB less memory and renders much faster, but trusts TMDB's text-free label. In a test library, 3 to 5 in 100 posters then showed the title twice. | `true` |
 | `LOGO_LANGUAGES` | **Title logo languages, in order.** Two-letter codes separated by commas, such as `fr,en`. Posteryard uses the first language TMDB has a logo in. | `en` |
 | `PREFER_WORDMARK` | **Prefer the title written out over an emblem.** When TMDB has both a wide logo with the name and a square emblem, `true` picks the wide one. | `true` |
 

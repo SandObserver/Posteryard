@@ -60,7 +60,15 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
     if override and override.skip:
         result.skipped = override.skip
         result.notices.append(f"`art next` skipped {len(override.skip)} image(s). `art reset` returns to the first.")
+    if not ctx.sources.text_check:
+        result.notices.append("TEXT_CHECK is off: art is not checked for printed titles.")
+    _add_candidates(ctx, item, result)
+    return result
+
+
+def _add_candidates(ctx: pipeline.Context, item: Item, result: Report) -> None:
     titles = _titles(ctx, item)
+    read = ctx.sources.picker.read
     checked: set[str] = set()
     found = False
     for name, refs in pipeline.art_candidates(ctx, item, next_art=bool(result.skipped)):
@@ -69,12 +77,11 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
             if fresh:
                 result.unchecked.append(name)
             continue
-        candidates = [Candidate(ref, rejection(ctx.sources.read(ctx.sources.fetch(ref.path)), titles)) for ref in fresh]
+        candidates = [Candidate(ref, rejection(read(ctx.sources.fetch(ref.path)), titles)) for ref in fresh]
         checked.update(ref.path for ref in fresh)
         if candidates:
             result.groups.append((name, candidates))
         found = result.art in checked
-    return result
 
 
 def _titles(ctx: pipeline.Context, item: Item) -> list[str]:

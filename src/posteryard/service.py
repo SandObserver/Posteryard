@@ -345,6 +345,7 @@ class Service:
                 "service_collections": cfg.service_collections,
                 "fanart": bool(cfg.fanart_api_key),
                 "apple_art": cfg.apple_art,
+                "text_check": cfg.text_check,
             },
             sort_keys=True,
         )
@@ -543,6 +544,8 @@ class Service:
         ]
         if cfg.only_rating_keys:
             rows.append(("Only", f"{len(cfg.only_rating_keys)} items from ONLY_RATING_KEYS"))
+        if not cfg.text_check:
+            rows.append(("Text check", "off, art is not checked for printed titles"))
         if cfg.dry_run:
             rows.append(("Mode", "DRY_RUN, previews only, nothing is uploaded"))
         return logfmt.banner(f"Posteryard {__version__} · Python {platform.python_version()}", rows)

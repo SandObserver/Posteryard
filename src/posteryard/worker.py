@@ -74,6 +74,7 @@ class Worker:
             overrides=store.override,
             fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
             marks=AutoMarks(cfg.data_dir / "marks", store),
+            text_check=cfg.text_check,
         )
         self.ctx = pipeline.Context(settings, sources, server)
         self._leaving: Leaving | None = None
