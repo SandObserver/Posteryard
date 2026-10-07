@@ -4,9 +4,10 @@ from typing import Any
 import pytest
 
 from posteryard import http, pipeline, service_collections
-from posteryard.pipeline import Title
 from posteryard.quality import QualityMinimums
 from posteryard.server import Item
+from posteryard.settings import Settings
+from posteryard.sources import Sources, Title
 from posteryard.tmdb import Kind
 from tests.fakes import FakeServer, FakeTmdb
 
@@ -63,23 +64,24 @@ def test_a_collection_that_cannot_be_labelled_is_removed() -> None:
 def test_a_show_whose_lookup_fails_keeps_its_membership(monkeypatch: pytest.MonkeyPatch) -> None:
     plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
     ctx = context()
-    real = ctx.title
+    real = ctx.sources.title
 
     def title(kind: Kind, tid: int, name: str) -> Title:
         if tid == 6:
             raise http.HttpError(404, "https://api.themoviedb.org/3/tv/6")
         return real(kind, tid, name)
 
-    monkeypatch.setattr(ctx, "title", title)
+    monkeypatch.setattr(ctx.sources, "title", title)
     plex.members["50"] = {"6", "7", "8"}
     assert "50" in service_collections.sync(plex, ctx, "4")
     assert not any(c[0] in ("remove", "delete") for c in plex.calls)
 
 
 def context() -> pipeline.Context:
-    ctx = pipeline.Context(FakeTmdb(), QualityMinimums(), ("US",), {}, date(2026, 10, 3))
+    settings = Settings(QualityMinimums(), ("US",), {}, date(2026, 10, 3))
+    ctx = pipeline.Context(settings, Sources(FakeTmdb(), settings))
     for key, service in SHOWS.items():
-        ctx.titles[("tv", int(key))] = (float("inf"), Title("tv", int(key), f"Show {key}", [], service))
+        ctx.sources.titles[("tv", int(key))] = (float("inf"), Title("tv", int(key), f"Show {key}", [], service))
     return ctx
 
 

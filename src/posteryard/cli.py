@@ -17,6 +17,8 @@ from posteryard.notify import Notifier
 from posteryard.plex import Plex
 from posteryard.server import MediaServer
 from posteryard.service import Service, other_server
+from posteryard.settings import Settings
+from posteryard.sources import Sources
 from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind, Tmdb
 from posteryard.worker import Outcome, Worker
@@ -170,22 +172,14 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
     except (http.RequestError, ValueError) as exc:
         log.warning("Maintainerr unavailable, rendering without leaving labels", extra={"reason": str(exc)})
         days = {}
-    ctx = pipeline.Context(
+    settings = Settings.from_config(cfg, days, date.today())
+    sources = Sources(
         Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
-        cfg.quality,
-        cfg.regions,
-        days,
-        date.today(),
-        plex,
-        labels=cfg.status_labels,
-        accessibility=cfg.accessibility,
-        episodes=cfg.episodes,
-        logo_languages=cfg.logo_languages,
-        prefer_wordmark=cfg.prefer_wordmark,
+        settings,
         fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
         marks=AutoMarks(cfg.data_dir / "marks", MemoryChoices()),
-        apple_region=cfg.regions[0] if cfg.apple_art and cfg.regions else None,
     )
+    ctx = pipeline.Context(settings, sources, plex)
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     episodes = None if args.episodes < 0 else args.episodes
@@ -329,8 +323,8 @@ def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store:
     if item is None:
         print(f"{plex.name} has no item {match.rating_key}")
         return 1
-    worker.ctx.choices = why.ReadOnlyChoices(store)
-    worker.ctx.marks = None
+    worker.ctx.sources.choices = why.ReadOnlyChoices(store)
+    worker.ctx.sources.marks = None
     try:
         result = why.report(worker.ctx, item, store)
     except (pipeline.NotFoundError, overrides.ArtError) as exc:

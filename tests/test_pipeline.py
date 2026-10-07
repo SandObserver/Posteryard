@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import apple, overrides, pipeline
+from posteryard import apple, overrides, pipeline, sources
 from posteryard import http as posteryard_http
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
@@ -46,7 +46,7 @@ def test_movie_uses_textless_art_that_shows_no_title() -> None:
 
 def test_seasons_get_their_own_art_then_unused_series_art_then_the_show_art() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    title = ctx.title("tv", 42, "Example Show")
+    title = ctx.sources.title("tv", 42, "Example Show")
     art = {
         n: pipeline.season(ctx, title, {"ratingKey": str(10 + n), "index": n, "parentRatingKey": "1"})[0].inputs["art"]
         for n in (1, 2, 3, 4)
@@ -60,16 +60,16 @@ def test_seasons_get_their_own_art_then_unused_series_art_then_the_show_art() ->
 
 def test_the_same_picture_under_another_name_is_not_reused() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    real = ctx.fetch
-    ctx.fetch = lambda path: real("/season1.jpg" if path == "/backdrop.jpg" else path)
-    title = ctx.title("tv", 42, "Example Show")
+    real = ctx.sources.fetch
+    ctx.sources.fetch = lambda path: real("/season1.jpg" if path == "/backdrop.jpg" else path)
+    title = ctx.sources.title("tv", 42, "Example Show")
     art = pipeline.season(ctx, title, {"ratingKey": "12", "index": 2})[0].inputs["art"]
     assert art == "/backdrop2.jpg"
 
 
 def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
     ctx = context([ref("/textless.jpg", None)], seasons=7)
-    title = ctx.title("tv", 42, "Example Show")
+    title = ctx.sources.title("tv", 42, "Example Show")
     plan = pipeline.season(ctx, title, {"ratingKey": "17", "index": 7})[0]
     assert plan.inputs["art"] == "/textless.jpg"
     assert plan.inputs["number"] == 7
@@ -78,7 +78,7 @@ def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
 
 def test_specials_keep_a_caption_and_no_number() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    title = ctx.title("tv", 42, "Example Show")
+    title = ctx.sources.title("tv", 42, "Example Show")
     plan = pipeline.season(ctx, title, {"ratingKey": "10", "index": 0})[0]
     assert plan.inputs["number"] is None
     assert plan.inputs["lines"] == [Caption("Specials")]
@@ -94,7 +94,7 @@ def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
 
 def test_labels_can_be_turned_off_but_leaving_stays() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.labels = False
+    ctx.settings.labels = False
     plan = pipeline.movie(ctx, {**ITEM, "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
     assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
     plan = pipeline.movie(ctx, {**ITEM, "ratingKey": "2", "addedAt": int(datetime(2026, 9, 30).timestamp())})[0]
@@ -112,7 +112,7 @@ def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
     custom = tmp_path / "1-abc.jpg"
     Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
     ctx = context([ref("/textless.jpg", None)])
-    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command") if key == "1" else None
+    ctx.sources.overrides = lambda key: overrides.Override(custom=str(custom), source="command") if key == "1" else None
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["art"] == f"file:{custom}"
     assert plan.inputs["override"] == "1-abc.jpg"
@@ -126,30 +126,30 @@ def test_custom_art_works_when_no_source_has_clean_art(tmp_path: Path) -> None:
     tmdb_of(ctx).backdrops = []
     with pytest.raises(pipeline.NotFoundError):
         pipeline.movie(ctx, ITEM)
-    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
+    ctx.sources.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == f"file:{custom}"
 
 
 def test_next_art_skips_the_current_picture() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["art"] == "/backdrop.jpg"
-    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/backdrop.jpg"}))
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/backdrop.jpg"}))
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop2.jpg"
 
 
 def test_next_art_steps_past_skipped_art_the_server_deleted() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    real = ctx.fetch
+    real = ctx.sources.fetch
 
     def gone(path: str) -> Image.Image:
         if path == "/deleted.jpg":
             raise posteryard_http.HttpError(404, "https://image.tmdb.org/t/p/original/deleted.jpg")
         return real(path)
 
-    ctx.fetch = gone
-    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/deleted.jpg"}))
+    ctx.sources.fetch = gone
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg", "/deleted.jpg"}))
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
@@ -159,9 +159,9 @@ def test_an_outage_while_comparing_art_still_fails_the_item() -> None:
     def down(path: str) -> Image.Image:
         raise posteryard_http.HttpError(503, "https://image.tmdb.org/t/p/original/x.jpg")
 
-    ctx.fetch = down
+    ctx.sources.fetch = down
     with pytest.raises(posteryard_http.HttpError):
-        ctx.same_picture("/a.jpg", "/b.jpg")
+        ctx.measures.same_picture("/a.jpg", "/b.jpg")
 
 
 def test_without_overrides_fingerprints_stay_the_same() -> None:
@@ -208,13 +208,13 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
 
 def test_episode_modes() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    title = ctx.title("tv", 42, "Example Show")
+    title = ctx.sources.title("tv", 42, "Example Show")
     item: Item = {"ratingKey": "111", "index": 1, "parentIndex": 1, "title": "Pilot"}
-    ctx.episodes = EpisodeMode.TITLED
+    ctx.settings.episodes = EpisodeMode.TITLED
     titled = pipeline.episode(ctx, title, item)[0]
     assert titled.inputs["title"] == "Pilot"
     assert titled.draw().size == (1920, 1080)
-    ctx.episodes = EpisodeMode.OFF
+    ctx.settings.episodes = EpisodeMode.OFF
     assert pipeline.episode(ctx, title, item) == []
 
 
@@ -229,7 +229,7 @@ def test_a_title_without_a_logo_is_set_in_text() -> None:
 
 def test_accessibility_badges_get_their_own_line() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.accessibility = frozenset({Badge.SDH, Badge.AD})
+    ctx.settings.accessibility = frozenset({Badge.SDH, Badge.AD})
     media = [
         {"Part": [{"Stream": [{"streamType": 3, "hearingImpaired": True}, {"streamType": 2, "title": "English AD"}]}]}
     ]
@@ -262,8 +262,8 @@ def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
     ctx = context([ref("/textless.jpg", None)])
     item: Item = {**ITEM, "Guid": [{"id": "imdb://tt0000077"}]}
     assert pipeline.movie(ctx, item)[0].inputs["art"] == "/textless.jpg"
-    assert ctx.titles[("movie", 77)]
-    ctx.lookups.clear()
+    assert ctx.sources.titles[("movie", 77)]
+    ctx.sources.lookups.clear()
     pipeline.movie(ctx, item)
     assert tmdb_of(ctx).finds == ["tt0000077"]
     with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
@@ -272,15 +272,15 @@ def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
 
 def test_forget_drops_downloaded_images_and_expired_lookups() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.fetch = lru_cache(maxsize=pipeline.FETCH_CACHE)(fetch)
+    ctx.sources.fetch = lru_cache(maxsize=sources.FETCH_CACHE)(fetch)
     pipeline.movie(ctx, ITEM)
-    old = time.monotonic() - pipeline.TITLE_CACHE_SECONDS
-    ctx.lookups[("old",)] = (old, None)
-    fresh = set(ctx.lookups) - {("old",)}
-    ctx.forget()
-    assert ctx.fetch.cache_info().currsize == 0
-    assert set(ctx.lookups) == fresh
-    assert ("movie", 42) in ctx.titles
+    old = time.monotonic() - sources.TITLE_CACHE_SECONDS
+    ctx.sources.lookups[("old",)] = (old, None)
+    fresh = set(ctx.sources.lookups) - {("old",)}
+    ctx.sources.forget()
+    assert ctx.sources.fetch.cache_info().currsize == 0
+    assert set(ctx.sources.lookups) == fresh
+    assert ("movie", 42) in ctx.sources.titles
 
 
 class CollectionPlex(FakeServer):
@@ -328,13 +328,13 @@ def test_fanart_is_used_only_when_tmdb_has_nothing_usable() -> None:
     tmdb.backdrops, tmdb.logos = [], []
     with pytest.raises(pipeline.NotFoundError, match="TMDB has no textless art"):
         pipeline.movie(ctx, ITEM)
-    ctx.fanart = FakeFanart()
+    ctx.sources.fanart = FakeFanart()
     poster = pipeline.movie(ctx, ITEM)[0]
     assert poster.inputs["art"] == "https://assets.fanart.tv/fanart/movies/42/movieposter/clean.jpg"
     assert poster.inputs["logo"] == "https://assets.fanart.tv/fanart/movies/42/hdmovielogo/logo.png"
     with_tmdb_art = context([ref("/textless.jpg", None)])
     fanart = FakeFanart()
-    with_tmdb_art.fanart = fanart
+    with_tmdb_art.sources.fanart = fanart
     assert pipeline.movie(with_tmdb_art, ITEM)[0].inputs["art"] == "/textless.jpg"
     assert fanart.calls == 0
 
@@ -348,20 +348,20 @@ def test_a_fanart_outage_fails_the_item_instead_of_changing_its_poster() -> None
     ctx = context([ref("/english.jpg", "en")])
     tmdb = tmdb_of(ctx)
     tmdb.backdrops, tmdb.logos = [], []
-    ctx.fanart = BrokenFanart("example")
+    ctx.sources.fanart = BrokenFanart("example")
     with pytest.raises(posteryard_http.RequestError):
         pipeline.movie(ctx, ITEM)
-    assert not any(key[0] == "fanart" for key in ctx.lookups)
+    assert not any(key[0] == "fanart" for key in ctx.sources.lookups)
 
 
 def test_lookups_are_bounded_and_details_trimmed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(pipeline, "LOOKUP_SIZE", 3)
+    monkeypatch.setattr(sources, "LOOKUP_SIZE", 3)
     ctx = context([ref("/textless.jpg", None)])
     for n in "01234":
-        ctx.remember(("n", n), str)
-    assert [key[1] for key in ctx.lookups] == ["2", "3", "4"]
-    monkeypatch.setattr(ctx.tmdb, "details", lambda kind, tid: {"name": "A", "images": {"posters": []}})
-    assert ctx.details("tv", 7) == {"name": "A"}
+        ctx.sources.remember(("n", n), str)
+    assert [key[1] for key in ctx.sources.lookups] == ["2", "3", "4"]
+    monkeypatch.setattr(ctx.sources.tmdb, "details", lambda kind, tid: {"name": "A", "images": {"posters": []}})
+    assert ctx.sources.details("tv", 7) == {"name": "A"}
 
 
 class ImdbCollection(FakeServer):
@@ -382,7 +382,7 @@ APPLE_URL = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/
 def test_a_textless_tmdb_poster_comes_before_apple_art(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
     ctx = context([ref("/textless.jpg", None)])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
 
 
@@ -393,12 +393,12 @@ class RejectingMarks(AutoMarks):
 
 def test_a_left_out_mark_is_not_replaced_by_the_next_service(tmp_path: Path) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.marks = RejectingMarks(tmp_path, MemoryChoices())
+    ctx.sources.marks = RejectingMarks(tmp_path, MemoryChoices())
     providers: dict[str, RegionOffers] = {"CA": {"flatrate": [
         {"provider_id": 510, "provider_name": "Discovery+", "logo_path": "/d.jpg", "display_priority": 1},
         {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.jpg", "display_priority": 2},
     ]}}  # fmt: skip
-    assert ctx.service(providers) is None
+    assert ctx.sources.service(providers) is None
 
 
 def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -410,11 +410,11 @@ def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch
 
     monkeypatch.setattr(apple, "find", find)
     ctx = context([ref("/english.jpg", "en")])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     pipeline.movie(ctx, ITEM)
     assert calls == ["CA"]
-    ctx.overrides = lambda key: overrides.Override(skip=frozenset({APPLE_URL}))
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({APPLE_URL}))
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
@@ -422,9 +422,9 @@ def test_apple_art_is_looked_up_again_after_a_month(monkeypatch: pytest.MonkeyPa
     calls: list[str] = []
     monkeypatch.setattr(apple, "find", lambda kind, details, region: calls.append(region))
     ctx = context([ref("/english.jpg", "en")])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
-    ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
+    ctx.settings.today += timedelta(days=sources.APPLE_ART_DAYS)
     pipeline.movie(ctx, ITEM)
     assert len(calls) == 2
 
@@ -439,9 +439,9 @@ def test_an_apple_outage_keeps_the_last_apple_art_or_uses_other_art(monkeypatch:
 
     monkeypatch.setattr(apple, "find", find)
     ctx = context([ref("/english.jpg", "en")])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
-    ctx.today += timedelta(days=pipeline.APPLE_ART_DAYS)
+    ctx.settings.today += timedelta(days=sources.APPLE_ART_DAYS)
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
     other: Item = {**ITEM, "Guid": [{"id": "tmdb://43"}]}
     assert pipeline.movie(ctx, other)[0].inputs["art"] == "/backdrop.jpg"
@@ -450,21 +450,21 @@ def test_an_apple_outage_keeps_the_last_apple_art_or_uses_other_art(monkeypatch:
 def test_apple_art_that_cannot_be_loaded_falls_back_to_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
     ctx = context([ref("/english.jpg", "en")])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
 
     def fetch_or_fail(path: str) -> Image.Image:
         if path == APPLE_URL:
             raise posteryard_http.HttpError(503, path)
         return fetch(path)
 
-    ctx.fetch = fetch_or_fail
+    ctx.sources.fetch = fetch_or_fail
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
 def test_light_art_takes_a_dark_logo_and_records_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     tmdb_of(ctx).logos = [ref("/logo.png", "en"), ref("/dark.png", "en")]
-    ctx.fetch = lambda path: (
+    ctx.sources.fetch = lambda path: (
         Image.new("RGBA", (600, 120), (20, 20, 20, 255))
         if path == "/dark.png"
         else Image.new("RGBA", (600, 120), (255, 255, 255, 255))
@@ -491,7 +491,7 @@ def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.Mon
             return coloured
         return Image.new("RGB", (200, 300), "white")
 
-    ctx.fetch = fetch
+    ctx.sources.fetch = fetch
     poster = pipeline.movie(ctx, ITEM)[0]
     assert poster.inputs["logo"] == "/dark.png"
     assert "logo_ink" not in poster.inputs
@@ -507,8 +507,8 @@ def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
     Image.new("RGB", (800, 1200), (200, 30, 30)).save(custom)
     ctx = context([])
     tmdb_of(ctx).backdrops = []
-    ctx.fanart = DownFanart("example")
-    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
+    ctx.sources.fanart = DownFanart("example")
+    ctx.sources.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
     plans = pipeline.movie(ctx, ITEM)
     assert [plan.target for plan in plans] == ["poster"]
     assert plans[0].inputs["art"] == f"file:{custom}"
@@ -517,7 +517,7 @@ def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
 def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
     ctx = context([ref("/english.jpg", "en")])
-    ctx.apple_region = "CA"
+    ctx.settings.apple_region = "CA"
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["art"] == APPLE_URL
 
@@ -526,19 +526,19 @@ def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest
             raise posteryard_http.HttpError(503, path)
         return fetch(path)
 
-    ctx.fetch = fetch_or_fail
+    ctx.sources.fetch = fetch_or_fail
     with pytest.raises(posteryard_http.HttpError):
         plan.draw()
-    assert ctx.retry_without_apple()
-    assert not ctx.retry_without_apple()
+    assert ctx.sources.retry_without_apple()
+    assert not ctx.sources.retry_without_apple()
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
-    ctx.apple_down_until = 0.0
+    ctx.sources.apple_down_until = 0.0
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
 
 
 def test_titles_drawn_in_a_fallback_font_name_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    monkeypatch.setattr(ctx, "logo", lambda title, dark=False: None)
+    monkeypatch.setattr(ctx.sources, "logo", lambda title, dark=False: None)
     latin = pipeline.movie(ctx, ITEM)[0].inputs
     korean = pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "tmdb://43"}], "title": "기생충"})[0].inputs
     assert "font" not in latin
@@ -547,13 +547,13 @@ def test_titles_drawn_in_a_fallback_font_name_it(monkeypatch: pytest.MonkeyPatch
 
 def test_the_title_cache_is_written_under_the_lock() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    with ctx._lock:
-        writer = threading.Thread(target=ctx.title, args=("tv", 42, "Example Show"))
+    with ctx.sources._lock:
+        writer = threading.Thread(target=ctx.sources.title, args=("tv", 42, "Example Show"))
         writer.start()
         writer.join(0.5)
         assert writer.is_alive()
     writer.join(5)
-    assert ("tv", 42) in ctx.titles
+    assert ("tv", 42) in ctx.sources.titles
 
 
 def test_measurements_are_keyed_by_the_design_version() -> None:
@@ -573,7 +573,7 @@ def test_a_design_change_measures_the_art_again(monkeypatch: pytest.MonkeyPatch)
     pipeline.movie(ctx, ITEM)
     pipeline.movie(ctx, ITEM)
     assert measured == ["fade"]
-    monkeypatch.setattr(pipeline, "MEASURED", "measured:next:")
+    ctx.measures.prefix = "measured:next:"
     pipeline.movie(ctx, ITEM)
     assert measured == ["fade", "fade"]
 
@@ -590,7 +590,7 @@ class RecordingChoices(MemoryChoices):
 
 def test_start_up_cleaning_keeps_every_choice_in_use() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.choices = choices = RecordingChoices()
+    ctx.sources.choices = choices = RecordingChoices()
     pipeline.movie(ctx, ITEM)
     families = pipeline.CHOICE_FAMILIES.items()
     dropped = [k for k in choices.keys for f, keep in families if k.startswith(f) and not k.startswith(keep)]

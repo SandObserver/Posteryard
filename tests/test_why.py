@@ -57,7 +57,7 @@ def test_the_first_clean_candidate_is_the_art_the_service_uses(store: Store) -> 
 
 def test_art_next_shows_the_skipped_art_and_the_wider_pool(store: Store) -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
     result = why.report(ctx, MOVIE, store)
     assert result.art == "/backdrop.jpg"
     assert "`art next` skipped 1 image(s). `art reset` returns to the first." in result.notices
@@ -68,9 +68,11 @@ def test_art_next_shows_the_skipped_art_and_the_wider_pool(store: Store) -> None
 def test_custom_art_lists_no_candidates(store: Store, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     custom = tmp_path / "custom.jpg"
-    ctx.overrides = lambda key: overrides.Override(custom=str(custom), source="label")
-    pipeline_load = ctx.load
-    monkeypatch.setattr(ctx, "load", lambda path: pipeline_load("/textless.jpg" if path.startswith("file:") else path))
+    ctx.sources.overrides = lambda key: overrides.Override(custom=str(custom), source="label")
+    pipeline_load = ctx.sources.load
+    monkeypatch.setattr(
+        ctx.sources, "load", lambda path: pipeline_load("/textless.jpg" if path.startswith("file:") else path)
+    )
     result = why.report(ctx, MOVIE, store)
     assert result.notices == ["Custom art from label. `art reset` returns to automatic art."]
     assert result.groups == []

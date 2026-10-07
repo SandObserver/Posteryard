@@ -35,6 +35,7 @@ A title goes through these modules in order:
 | `service.py` | Webhook server, sweep, daily full pass and the work queue. |
 | `worker.py` | Handles one item: labels, overrides, plans, upload or preview, failures and alerts. |
 | `pipeline.py` | Plans the images for one item and fingerprints each plan before anything is drawn. |
+| `settings.py`, `sources.py`, `measures.py` | What a plan reads: the settings, art and metadata from TMDB, fanart.tv and Apple TV, and measurements of art and logos saved in `state.db`. `pipeline.Context` holds one of each. |
 | `artwork.py`, `ocr.py` | Choose TMDB art and logos; reject art with printed text. |
 | `render/` | Draw the designs: `designs.py` composes, `category.py` draws collection tiles, `lines.py` places the lines under the logo, `badges.py` and `layers.py` draw parts. `layers.font_for` picks a fallback font for scripts Inter lacks. |
 | `store.py` | SQLite state: what was uploaded, overrides, cached art choices. |
