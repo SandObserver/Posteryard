@@ -215,6 +215,9 @@ class Service:
             raise LookupError(f"{self.server.name} has no movie or TV library named {', '.join(self.cfg.libraries)}")
         return sections
 
+    def _keys(self, items: Iterable[Item]) -> list[str]:
+        return [str(i["ratingKey"]) for i in items if self.worker.in_scope(i)]
+
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
         started = int(time.time())
         cursor = self.store.meta("sweep_cursor")
@@ -223,11 +226,11 @@ class Service:
         for section in self._sections():
             for kind in self._kinds(section):
                 changed = self.server.changed_since(str(section["key"]), kind, since)
-                self.enqueue((str(i["ratingKey"]) for i in changed), "changed")
+                self.enqueue(self._keys(changed), "changed")
                 for label in (overrides.CUSTOM_LABEL, overrides.NEXT_LABEL):
                     # Adding a label does not change an item's updatedAt, so changed_since misses it.
                     labelled = self.server.section_items(str(section["key"]), kind, label=label)
-                    self.enqueue((str(i["ratingKey"]) for i in labelled), "label")
+                    self.enqueue(self._keys(labelled), "label")
         ignored = {
             str(i["ratingKey"])
             for section in self._sections()
@@ -304,13 +307,16 @@ class Service:
             self.worker.notifier.resolve("collections", "Service collections update again.")
 
     def full(self, reason: str) -> None:
+        listed: set[str] = set()
         seen: set[str] = set()
         if self.cfg.service_collections:
             self._sync_collections()
         for section in self._sections():
             for kind in self._kinds(section):
-                seen.update(str(i["ratingKey"]) for i in self.server.section_items(str(section["key"]), kind))
-        unlisted = sorted(self.store.keys() - seen)
+                items = list(self.server.section_items(str(section["key"]), kind))
+                listed.update(str(i["ratingKey"]) for i in items)
+                seen.update(self._keys(items))
+        unlisted = sorted(self.store.keys() - listed)
         self.enqueue(sorted(seen), "daily")
         self.enqueue(unlisted, "unlisted")
         self.store.set_meta("full_pending", "1")
