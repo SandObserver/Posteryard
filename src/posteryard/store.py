@@ -208,6 +208,16 @@ class Store:
                 (key, json.dumps(value)),
             )
 
+    def drop_choices(self, family: str, keep: tuple[str, ...]) -> int:
+        """Delete the choices whose key starts with `family` but with none of `keep`."""
+        kept = " ".join("AND substr(key, 1, ?) != ?" for _ in keep)
+        values = [value for prefix in keep for value in (len(prefix), prefix)]
+        with self._lock:
+            cursor = self._db.execute(
+                f"DELETE FROM choices WHERE substr(key, 1, ?) = ? {kept}", (len(family), family, *values)
+            )
+        return cursor.rowcount
+
     def meta(self, key: str, default: str = "") -> str:
         with self._lock:
             row = self._db.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()

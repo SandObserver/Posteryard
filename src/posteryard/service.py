@@ -15,7 +15,7 @@ from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, logfmt, memory, overrides, service_collections
+from posteryard import __version__, http, logfmt, memory, overrides, pipeline, service_collections
 from posteryard.config import Config
 from posteryard.notify import Event
 from posteryard.server import Item, MediaServer, is_item_key
@@ -524,8 +524,14 @@ class Service:
             rows.append(("Mode", "DRY_RUN, previews only, nothing is uploaded"))
         return logfmt.banner(f"Posteryard {__version__} · Python {platform.python_version()}", rows)
 
+    def drop_old_choices(self) -> None:
+        dropped = sum(self.store.drop_choices(family, keep) for family, keep in pipeline.CHOICE_FAMILIES.items())
+        if dropped:
+            log.info("old cached choices deleted", extra={"rows": dropped})
+
     def run(self) -> int:
         print(self.banner(), flush=True)
+        self.drop_old_choices()
         log.info(
             "service ready", extra={"version": __version__, "port": self.cfg.listen_port, "dry_run": self.cfg.dry_run}
         )

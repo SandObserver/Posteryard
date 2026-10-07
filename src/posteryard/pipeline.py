@@ -15,7 +15,17 @@ import numpy as np
 from PIL import Image
 
 from posteryard import apple, http, maintainerr, ocr, overrides, quality, services, similar, status
-from posteryard.artwork import MAX_CANDIDATES, POOL_SIZE, ChoiceCache, MemoryChoices, Picked, Picker
+from posteryard.artwork import (
+    LOGO_RULE,
+    MAX_CANDIDATES,
+    POOL_SIZE,
+    TEXTLESS_RULE,
+    ChoiceCache,
+    MemoryChoices,
+    Picked,
+    Picker,
+    remember,
+)
 from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages, is_fanart
@@ -33,6 +43,15 @@ APPLE_RETRY_SECONDS = 3600
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
 DESIGN_VERSION = "0.4.0"
+MEASURED = f"measured:{DESIGN_VERSION}:"
+# Each cache key family, with the prefixes still in use. Rows of a family under any other prefix are deleted at start.
+CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
+    "measured:": (MEASURED,),
+    "poster-": ("poster-hash:",),
+    "logo": (f"logo{LOGO_RULE}:",),
+    "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
+    "titled:": (),
+}
 SAME_PICTURE_BITS = 10
 LOOKUP_SIZE = 4096
 DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
@@ -276,20 +295,16 @@ class Context:
 
     def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line], prefer: str = "") -> float:
         text = name + (f"@{prefer}" if prefer else "")
-        key = f"poster-fade:{art}:{logo or text}:{','.join(type(line).__name__ for line in below)}"
-        hit = self.choices.get_choice(key)
-        if hit is None:
+        key = f"fade:{art}:{logo or text}:{','.join(type(line).__name__ for line in below)}"
+
+        def measure() -> Mapping[str, Any]:
             image = trim(self.fetch(logo)) if logo else designs.text_logo(name, prefer=prefer)
-            hit = {"strength": designs.fade_strength(self.load(art), image, below)}
-            self.choices.put_choice(key, hit)
-        return float(hit["strength"])
+            return {"strength": designs.fade_strength(self.load(art), image, below)}
+
+        return float(self._measured(key, measure)["strength"])
 
     def corner_dark(self, path: str, area: str) -> bool:
-        key = f"poster-corner:{path}:{area}"
-        hit = self.choices.get_choice(key)
-        if hit is None:
-            hit = {"dark": designs.corner_dark(self.load(path), area)}
-            self.choices.put_choice(key, hit)
+        hit = self._measured(f"corner:{path}:{area}", lambda: {"dark": designs.corner_dark(self.load(path), area)})
         return bool(hit["dark"])
 
     def dark_reads(  # noqa: PLR0913
@@ -302,20 +317,20 @@ class Context:
         label: lines.Label | None,
         prefer: str = "",
     ) -> bool:
-        key = f"poster-dark-ink:{art}:{logo or name}:{prefer}:{below!r}:{label.text if label else ''}"
-        hit = self.choices.get_choice(key)
-        if hit is None:
+        key = f"dark-ink:{art}:{logo or name}:{prefer}:{below!r}:{label.text if label else ''}"
+
+        def measure() -> Mapping[str, Any]:
             image = trim(self.fetch(logo)) if logo else designs.text_logo(name, prefer=prefer)
-            hit = {"reads": designs.dark_logo_reads(self.load(art), image, below, label)}
-            self.choices.put_choice(key, hit)
-        return bool(hit["reads"])
+            return {"reads": designs.dark_logo_reads(self.load(art), image, below, label)}
+
+        return bool(self._measured(key, measure)["reads"])
 
     def one_colour(self, logo: str) -> bool:
-        hit = self.choices.get_choice(f"logo-colour:{logo}")
-        if hit is None:
-            hit = {"one": designs.one_colour(trim(self.fetch(logo)))}
-            self.choices.put_choice(f"logo-colour:{logo}", hit)
+        hit = self._measured(f"logo-colour:{logo}", lambda: {"one": designs.one_colour(trim(self.fetch(logo)))})
         return bool(hit["one"])
+
+    def _measured(self, key: str, measure: Callable[[], Mapping[str, Any]]) -> Mapping[str, Any]:
+        return remember(self.choices, MEASURED + key, measure)
 
     def backdrop(self, title: "Title") -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"

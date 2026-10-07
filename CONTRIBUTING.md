@@ -78,7 +78,7 @@ The tests need no API keys and no internet connection. Ruff limits each function
 
 Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
 
-Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex.
+Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. The bump also measures the fade and logo ink of every poster again.
 
 `tests/test_golden.py` compares every design with the reference images in `tests/golden`. It fails when the output changes and `DESIGN_VERSION` does not. After bumping it, write the references again and commit them:
 
@@ -86,7 +86,7 @@ Render a few titles with `uv run posteryard preview` and look at them. A change 
 UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
 ```
 
-`tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. A change to the rule that changes past decisions also changes the `textless` cache keys in `artwork.py`, so cached choices are made again.
+`tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. A change to the rule that changes past decisions bumps `TEXTLESS_RULE` in `artwork.py`, so cached choices are made again. A change to the logo choice bumps `LOGO_RULE`. `serve` deletes cached rows from older versions at start.
 
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 

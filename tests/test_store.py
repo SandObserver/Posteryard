@@ -104,3 +104,16 @@ def test_a_database_that_cannot_be_opened_is_refused(tmp_path: Path) -> None:
     (tmp_path / "state.db").mkdir()
     with pytest.raises(StoreError, match=r"state\.db could not be opened"):
         Store(tmp_path / "state.db")
+
+
+def test_old_versions_of_cached_choices_are_deleted(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    keys = ["textless1:movie:1", "textless2:movie:1", "textless-all1:tv:2", "textless-all2:tv:2", "apple:tv:2:CA"]
+    for key in keys:
+        store.put_choice(key, {})
+    assert store.drop_choices("textless", ("textless2:", "textless-all2:")) == 2
+    assert [key for key in keys if store.get_choice(key) is not None] == [
+        "textless2:movie:1", "textless-all2:tv:2", "apple:tv:2:CA",
+    ]  # fmt: skip
+    store.put_choice("titled:movie:1", {})
+    assert store.drop_choices("titled:", ()) == 1

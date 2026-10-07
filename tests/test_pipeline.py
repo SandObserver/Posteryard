@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Mapping
 from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +16,7 @@ from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages
 from posteryard.quality import Badge
+from posteryard.render import designs
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
 from posteryard.render.lines import Badges, Caption, Label
 from posteryard.server import Item
@@ -552,3 +554,44 @@ def test_the_title_cache_is_written_under_the_lock() -> None:
         assert writer.is_alive()
     writer.join(5)
     assert ("tv", 42) in ctx.titles
+
+
+def test_measurements_are_keyed_by_the_design_version() -> None:
+    assert f"measured:{pipeline.DESIGN_VERSION}:" == pipeline.MEASURED
+
+
+def test_a_design_change_measures_the_art_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    measured: list[str] = []
+    real = designs.fade_strength
+
+    def fade_strength(*args: Any) -> float:
+        measured.append("fade")
+        return real(*args)
+
+    monkeypatch.setattr(designs, "fade_strength", fade_strength)
+    pipeline.movie(ctx, ITEM)
+    pipeline.movie(ctx, ITEM)
+    assert measured == ["fade"]
+    monkeypatch.setattr(pipeline, "MEASURED", "measured:next:")
+    pipeline.movie(ctx, ITEM)
+    assert measured == ["fade", "fade"]
+
+
+class RecordingChoices(MemoryChoices):
+    def __init__(self) -> None:
+        super().__init__()
+        self.keys: list[str] = []
+
+    def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
+        self.keys.append(key)
+        super().put_choice(key, value)
+
+
+def test_start_up_cleaning_keeps_every_choice_in_use() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.choices = choices = RecordingChoices()
+    pipeline.movie(ctx, ITEM)
+    families = pipeline.CHOICE_FAMILIES.items()
+    dropped = [k for k in choices.keys for f, keep in families if k.startswith(f) and not k.startswith(keep)]
+    assert choices.keys and dropped == []
