@@ -1,5 +1,6 @@
 import atexit
 import multiprocessing
+import os
 import time
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
@@ -12,6 +13,9 @@ import numpy as np
 from PIL import Image
 
 from posteryard import memory
+
+# onnxruntime reads this once, at import. Without it, onnxruntime contacts Microsoft's telemetry server.
+os.environ["ORT_DISABLE_TELEMETRY"] = "1"
 
 READ_WIDTH = 480
 # Each onnxruntime thread holds its own buffers. More threads push the service past its memory limit.
