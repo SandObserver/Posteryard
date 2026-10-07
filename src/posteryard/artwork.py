@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -87,16 +87,10 @@ class Picker:
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
         return self._cached(f"textless{TEXTLESS_RULE}:{key}", refs, lambda lines: _textless(lines, titles))
 
-    def textless_all(
+    def textless_pool(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
-    ) -> list[str]:
-        candidates = [r.path for r in refs[:limit]]
-        hit = self.cache.get_choice(f"textless-all{TEXTLESS_RULE}:{key}")
-        if hit is not None and hit.get("candidates") == candidates:
-            return [str(p) for p in hit.get("paths", [])]
-        paths = [path for path in candidates if _textless(self.read(self.fetch(path)), titles)]
-        self.cache.put_choice(f"textless-all{TEXTLESS_RULE}:{key}", {"candidates": candidates, "paths": paths})
-        return paths
+    ) -> "Pool":
+        return Pool(self, f"textless-all{TEXTLESS_RULE}:{key}", [r.path for r in refs[:limit]], titles)
 
     def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
         return self.textless(f"{key}:posters", images.textless_posters(), titles) or self.textless(
@@ -157,3 +151,28 @@ def _short(text: str, limit: int = 40) -> str:
 
 def _textless(lines: list[ocr.TextLine], titles: Sequence[str]) -> bool:
     return rejection(lines, titles) is None
+
+
+class Pool:
+    """Textless art in candidate order. An image is read only when iteration reaches it."""
+
+    def __init__(self, picker: Picker, key: str, candidates: list[str], titles: Sequence[str]) -> None:
+        self._picker, self._key, self._candidates, self._titles = picker, key, candidates, titles
+        self._verdicts: dict[str, bool] = {}
+        hit = picker.cache.get_choice(key)
+        if hit is not None and hit.get("candidates") == candidates:
+            if "paths" in hit:
+                kept = set(hit["paths"])
+                self._verdicts = {path: path in kept for path in candidates}
+            else:
+                self._verdicts = {str(path): bool(ok) for path, ok in hit.get("verdicts", {}).items()}
+
+    def __iter__(self) -> Iterator[str]:
+        for path in self._candidates:
+            if path not in self._verdicts:
+                self._verdicts[path] = _textless(self._picker.read(self._picker.fetch(path)), self._titles)
+                self._picker.cache.put_choice(
+                    self._key, {"candidates": self._candidates, "verdicts": dict(self._verdicts)}
+                )
+            if self._verdicts[path]:
+                yield path

@@ -15,6 +15,7 @@ from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
 from posteryard.config import EpisodeMode
 from posteryard.fanart import Fanart, FanartImages
+from posteryard.ocr import TextLine
 from posteryard.quality import Badge
 from posteryard.render import designs
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
@@ -56,6 +57,22 @@ def test_seasons_get_their_own_art_then_unused_series_art_then_the_show_art() ->
     assert art[2] == "/backdrop.jpg"
     assert art[4] == "/backdrop2.jpg"
     assert len(set(art.values())) == 4
+
+
+def test_seasons_with_their_own_art_read_no_series_art() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    reads: list[str] = []
+
+    def read(image: Image.Image) -> list[TextLine]:
+        reads.append(str(image.info["path"]))
+        return []
+
+    ctx.sources.read = read
+    title = ctx.sources.title("tv", 42, "Example Show")
+    reads.clear()
+    assignment = pipeline._assign_seasons(ctx, title, "/textless.jpg", [1, 3])
+    assert {n: path for n, (path, _) in assignment.items()} == {1: "/season1.jpg", 3: "/season3.jpg"}
+    assert reads == ["/season1.jpg", "/season3.jpg"]
 
 
 def test_the_same_picture_under_another_name_is_not_reused() -> None:

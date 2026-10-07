@@ -1,6 +1,6 @@
 from PIL import Image
 
-from posteryard.artwork import MemoryChoices, Picker
+from posteryard.artwork import TEXTLESS_RULE, MemoryChoices, Picker
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef, Images
 
@@ -37,14 +37,31 @@ def test_textless_skips_titles_and_display_text_and_caches() -> None:
     assert reads[2:] == ["/c.jpg"]
 
 
-def test_textless_all_keeps_every_acceptable_image_in_order() -> None:
+def test_textless_pool_keeps_every_acceptable_image_in_order() -> None:
     picker, reads = make()
-    assert picker.textless_all("tv:1", refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"), ["Example"]) == [
-        "/b.jpg",
-        "/c.jpg",
-    ]
-    picker.textless_all("tv:1", refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"), ["Example"])
+    pool = refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg")
+    assert list(picker.textless_pool("tv:1", pool, ["Example"])) == ["/b.jpg", "/c.jpg"]
+    assert list(picker.textless_pool("tv:1", pool, ["Example"])) == ["/b.jpg", "/c.jpg"]
     assert len(reads) == 4
+
+
+def test_textless_pool_reads_only_what_is_used() -> None:
+    picker, reads = make()
+    pool = refs("/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg")
+    assert next(iter(picker.textless_pool("tv:1", pool, ["Example"]))) == "/b.jpg"
+    assert reads == ["/a.jpg", "/b.jpg"]
+    assert list(picker.textless_pool("tv:1", pool, ["Example"])) == ["/b.jpg", "/c.jpg"]
+    assert reads == ["/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"]
+
+
+def test_textless_pool_reads_the_cache_of_earlier_versions() -> None:
+    picker, reads = make()
+    candidates = ["/a.jpg", "/b.jpg", "/d.jpg", "/c.jpg"]
+    picker.cache.put_choice(
+        f"textless-all{TEXTLESS_RULE}:tv:1", {"candidates": candidates, "paths": ["/b.jpg", "/c.jpg"]}
+    )
+    assert list(picker.textless_pool("tv:1", refs(*candidates), ["Example"])) == ["/b.jpg", "/c.jpg"]
+    assert reads == []
 
 
 def test_logo_prefers_a_light_wordmark_unless_turned_off() -> None:
