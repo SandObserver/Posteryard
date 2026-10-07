@@ -153,7 +153,7 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
         if not _seen(ctx, picked.path, used):
             used.append(picked.path)
             assignment[number] = (picked.path, f"season art from {art_source(picked.path)}")
-    pool = ctx.sources.picker.textless_all(
+    pool = ctx.sources.picker.textless_pool(
         f"{base}:pool", ctx.sources.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
     reserved = [path for number, path in own.items() if number not in assignment]
@@ -177,7 +177,7 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
 
 def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str]) -> str | None:
     base = f"{title.kind}:{title.tmdb_id}"
-    pool = ctx.sources.picker.textless_all(
+    pool = ctx.sources.picker.textless_pool(
         f"{base}:pool", ctx.sources.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
     used = [*avoid, *skip]
