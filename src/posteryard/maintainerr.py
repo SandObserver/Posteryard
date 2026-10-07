@@ -1,11 +1,11 @@
 from collections.abc import Mapping
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
 from posteryard import http
 
 
-def action_days(collections: Any) -> dict[str, date]:
+def action_days(collections: Any, zone: tzinfo | None = None) -> dict[str, date]:
     if not isinstance(collections, list):
         raise ValueError("Maintainerr did not return a list of collections")
     out: dict[str, date] = {}
@@ -24,7 +24,8 @@ def action_days(collections: Any) -> dict[str, date]:
             if not key or not added:
                 continue
             try:
-                day = datetime.fromisoformat(str(added).replace("Z", "+00:00")).date() + timedelta(days=int(days))
+                added_at = datetime.fromisoformat(str(added).replace("Z", "+00:00")).astimezone(zone)
+                day = added_at.date() + timedelta(days=int(days))
             except OverflowError:
                 continue
             out[key] = min(day, out.get(key, day))

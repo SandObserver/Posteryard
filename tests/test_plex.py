@@ -1,3 +1,4 @@
+import hashlib
 import json
 import urllib.parse
 from collections.abc import Callable
@@ -88,6 +89,20 @@ def test_upload_selects_the_new_image(serve: Any) -> None:
     )
     assert plex.upload("1", "poster", b"jpeg") == "new"
     assert server.calls[-1] == ("PUT", "/library/metadata/1/poster", {"url": "new"})
+
+
+def test_upload_of_bytes_uploaded_before_selects_their_image(serve: Any) -> None:
+    earlier = "upload://posters/" + hashlib.sha1(b"jpeg").hexdigest()
+    listing = [{"ratingKey": earlier}, {"ratingKey": "upload://posters/other", "selected": True}]
+    plex, server = serve(
+        {
+            "GET /library/metadata/1/posters": {"Metadata": listing},
+            "POST /library/metadata/1/posters": b"",
+            "PUT /library/metadata/1/poster": b"",
+        }
+    )
+    assert plex.upload("1", "poster", b"jpeg") == earlier
+    assert server.calls[-1] == ("PUT", "/library/metadata/1/poster", {"url": earlier})
 
 
 def test_upload_that_leaves_nothing_fails(serve: Any) -> None:

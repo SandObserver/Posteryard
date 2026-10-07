@@ -83,6 +83,10 @@ def service_for(provider_name: str) -> str | None:
     return None
 
 
+def service_named(name: str) -> str | None:
+    return next((key for key, label in NAMES.items() if label == name), None) or service_for(name)
+
+
 def network_key(name: str) -> str:
     name = name.strip().lower()
     for suffix in AD_SUFFIXES:

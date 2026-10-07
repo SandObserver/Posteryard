@@ -9,7 +9,7 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import date, datetime
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -229,11 +229,15 @@ class Service:
             self.store.forget(key)
         self.enqueue(released, "unignored")
         self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
-        previous = set(json.loads(self.store.meta("leaving_keys", "[]")))
-        current = set(self.worker.leaving_days())
-        self.enqueue(sorted(previous | current), "leaving")
+        previous: dict[str, str] = json.loads(self.store.meta("leaving_dates", "{}"))
+        current = {key: day.isoformat() for key, day in self.worker.leaving_days().items()}
+        today = date.today().isoformat()
+        new_day = self.store.meta("leaving_checked") != today
+        leaving = previous.keys() | current.keys()
+        self.enqueue(sorted(k for k in leaving if new_day or previous.get(k) != current.get(k)), "leaving")
         self.enqueue(self.store.retry_due(), "retry")
-        self.store.set_meta("leaving_keys", json.dumps(sorted(current)))
+        self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
+        self.store.set_meta("leaving_checked", today)
         self.store.set_meta("sweep_cursor", str(started))
         self.last_sweep_ok = time.monotonic()
 

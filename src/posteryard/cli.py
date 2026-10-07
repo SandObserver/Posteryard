@@ -2,6 +2,8 @@ import argparse
 import logging
 import re
 import shlex
+import urllib.error
+import urllib.request
 from datetime import date
 from pathlib import Path
 
@@ -52,6 +54,8 @@ def _parser() -> argparse.ArgumentParser:
     commands.add_parser("serve", help="run the service: webhook, sweep and daily pass")
 
     commands.add_parser("test-alert", help="send a test alert to every notification service")
+
+    commands.add_parser("health", help="check the running service; exit 0 when it is healthy")
 
     restore = commands.add_parser(
         "restore",
@@ -227,6 +231,17 @@ def _server(cfg: config.Config) -> MediaServer:
     return Plex(cfg.plex_url, cfg.plex_token)
 
 
+def _health(cfg: config.Config) -> int:
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{cfg.listen_port}/healthz", timeout=4):
+            return 0
+    except urllib.error.HTTPError as exc:
+        print(f"unhealthy: HTTP {exc.code}")
+    except OSError as exc:
+        print(f"not reachable on port {cfg.listen_port}: {exc}")
+    return 1
+
+
 def _test_alert(cfg: config.Config) -> int:
     notifier = Notifier(cfg.notify_urls)
     if not notifier.configured:
@@ -252,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
     except config.ConfigError as exc:
         print(exc)
         return 2
+    if args.command == "health":
+        return _health(cfg)
     if args.command == "preview":
         return _preview(args, cfg)
     if args.command == "test-alert":

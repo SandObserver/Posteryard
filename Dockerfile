@@ -19,5 +19,5 @@ USER 1000:1000
 VOLUME /data
 EXPOSE 8000
 HEALTHCHECK --interval=60s --timeout=5s --start-period=60s \
-  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=4)"]
+  CMD ["posteryard", "health"]
 CMD ["posteryard", "serve"]
