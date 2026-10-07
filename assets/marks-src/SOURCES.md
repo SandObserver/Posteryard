@@ -1,6 +1,6 @@
 # Mark sources
 
-Each SVG comes from Wikimedia Commons, where it is marked public domain, or from [Simple Icons](https://simpleicons.org) 16.34.0, released under CC0 1.0. The marks are trademarks of their owners. Services without a file here get their TMDB network logo, or a cut of their TMDB provider icon, at runtime (`src/posteryard/automarks.py`). No other logo files are stored in the repository.
+Each SVG, and `adn.png`, comes from Wikimedia Commons, where it is marked public domain, or from [Simple Icons](https://simpleicons.org) 16.34.0, released under CC0 1.0. The marks are trademarks of their owners. Services without a file here get their TMDB network logo, or a cut of their TMDB provider icon, at runtime (`src/posteryard/automarks.py`). No other logo files are stored in the repository.
 
 | File | Source | License on Commons |
 | --- | --- | --- |
@@ -16,9 +16,10 @@ Each SVG comes from Wikimedia Commons, where it is marked public domain, or from
 | `youtube.svg` | [YouTube Logo 2017.svg](https://commons.wikimedia.org/wiki/File:YouTube_Logo_2017.svg) | Public domain |
 | `plutotv.svg` | [Pluto TV logo 2020.svg](https://commons.wikimedia.org/wiki/File:Pluto_TV_logo_2020.svg) | Public domain |
 | `crunchyroll.svg`, `tubi.svg`, `starz.svg`, `mubi.svg`, `viaplay.svg`, `sky.svg`, `now.svg`, `rtl.svg`, `movistar.svg`, `channel4.svg` | [Simple Icons](https://github.com/simple-icons/simple-icons) 16.34.0, same slugs | CC0 1.0 |
+| `adn.png` | [ADN Logo 2016.png](https://commons.wikimedia.org/wiki/File:ADN_Logo_2016.png) | Public domain |
 | `dolbyvision.svg` | [Dolby Vision (logo).svg](https://commons.wikimedia.org/wiki/File:Dolby_Vision_(logo).svg) | Public domain |
 | `dolbyatmos.svg` | [Dolby Atmos (logo).svg](https://commons.wikimedia.org/wiki/File:Dolby_Atmos_(logo).svg) | Public domain |
 
-`appletv.svg` has the "4K" glyphs removed.
+`appletv.svg` has the "4K" glyphs removed. `adn.png` is cropped to the letters; Commons has no vector version, so its white ink becomes the mark.
 
 Rebuild the PNG marks after a change: `uv run python tools/build_marks.py`.

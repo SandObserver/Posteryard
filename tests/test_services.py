@@ -1,6 +1,7 @@
 from typing import Any
 
-from posteryard.services import offers, service_for
+from posteryard.render import layers
+from posteryard.services import NAMES, offers, service_for
 
 
 def pick(providers: dict[str, Any], regions: list[str]) -> str | None:
@@ -33,6 +34,9 @@ def test_first_region_with_a_known_service_wins() -> None:
 
 def test_new_services_and_add_on_channels() -> None:
     assert service_for("Crunchyroll") == "crunchyroll"
+    assert service_for("Animation Digital Network") == "adn"
+    assert service_for("Anime Digital Network") == "adn"
+    assert service_for("Anime Digital Network Amazon Channel") is None
     assert service_for("Tubi TV") == "tubi"
     assert service_for("Channel 4") == "channel4"
     assert service_for("Now TV") == "now"
@@ -79,3 +83,8 @@ def test_offers_skip_cable_and_live_tv_services() -> None:
     }
     assert [o.name for o in offers(providers, ["US"])] == ["HBO Max"]
     assert pick(providers, ["US"]) == "hbomax"
+
+
+def test_every_service_has_a_built_in_mark() -> None:
+    marks = layers.ASSETS / "marks"
+    assert all((marks / f"{key}.png").is_file() for key in NAMES)
