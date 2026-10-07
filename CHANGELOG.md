@@ -31,7 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Stop rejecting clean art when OCR reads a large shape, such as a window or an emblem, as one character. Art is checked again once after the update.
-- Hide the onnxruntime telemetry warning from the log, and image decoder messages from the debug log.
+- Turn off onnxruntime's telemetry, which looked up Microsoft's telemetry server from the container, and its warning in the log.
+- Hide image decoder messages from the debug log.
 - Keep a mistyped `NOTIFY_URLS` address, and the secret in it, out of the log.
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
 - Give seasons of a Jellyfin or Emby show without season folders their show's library, so they are no longer skipped.

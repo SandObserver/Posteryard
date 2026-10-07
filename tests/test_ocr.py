@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 import time
 
 import numpy as np
@@ -61,3 +62,7 @@ def test_a_stuck_read_stops_the_ocr_process(monkeypatch: pytest.MonkeyPatch) -> 
     assert ocr._process.pool is None
     assert time.monotonic() - started < 15
     assert not multiprocessing.active_children()
+
+
+def test_onnxruntime_telemetry_is_off() -> None:
+    assert os.environ["ORT_DISABLE_TELEMETRY"] == "1"
