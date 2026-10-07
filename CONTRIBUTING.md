@@ -36,16 +36,35 @@ A title goes through these modules in order:
 | `worker.py` | Handles one item: labels, overrides, plans, upload or preview, failures and alerts. |
 | `pipeline.py` | Plans the images for one item and fingerprints each plan before anything is drawn. |
 | `artwork.py`, `ocr.py` | Choose TMDB art and logos; reject art with printed text. |
-| `render/` | Draw the designs: `designs.py` composes, `category.py` draws collection tiles, `lines.py` places the lines under the logo, `badges.py` and `layers.py` draw parts. `layers.font_for` picks a fallback font for scripts Inter lacks; rebuild those fonts with `uv run python tools/build_fonts.py`. |
+| `render/` | Draw the designs: `designs.py` composes, `category.py` draws collection tiles, `lines.py` places the lines under the logo, `badges.py` and `layers.py` draw parts. `layers.font_for` picks a fallback font for scripts Inter lacks. |
 | `store.py` | SQLite state: what was uploaded, overrides, cached art choices. |
 | `plex.py`, `jellyfin.py` | The media servers, behind the `MediaServer` protocol in `server.py`. Jellyfin and Emby (`jellyfin.py`) answer with Plex-shaped items. |
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
-| `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. Rebuild the table with `TMDB_API_KEY=... uv run python tools/build_networks.py`. |
+| `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
 | `cli.py`, `config.py` | Commands and settings. |
 | `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
 | `logfmt.py` | The log format and the startup block. |
 
 Log a short fixed message and put the values in `extra`: `log.info("poster uploaded", extra={"title": name})`. Keys must not be `LogRecord` attribute names, such as `name`, `module` or `thread`: logging raises `KeyError`.
+
+## Scripts in `tools/`
+
+| Script | Job | Needs |
+| --- | --- | --- |
+| `build_marks.py` | Turns `assets/marks-src` into the white marks in `src/posteryard/assets/marks`. | |
+| `build_fonts.py` | Fetches the fallback fonts for scripts Inter lacks. | Internet |
+| `build_networks.py` | Rebuilds `assets/networks.json` and `assets/provider_networks.json` from TMDB. | `TMDB_API_KEY` |
+| `ocr_readings.py` | Adds real OCR readings to `tests/ocr_readings.json`. | `TMDB_API_KEY` |
+
+Run each with `uv run python tools/<script>`.
+
+## Adding a streaming mark
+
+1. Put the logo in `assets/marks-src/<key>.svg`. It must be public domain or CC0. Add its source and license to `assets/marks-src/SOURCES.md`. Use a `.png` only when no vector version exists; its white ink becomes the mark.
+2. Run `uv run python tools/build_marks.py` and commit the new file in `src/posteryard/assets/marks`.
+3. In `src/posteryard/services.py`, add the provider names TMDB uses to `SERVICE_PATTERNS` and the display name to `NAMES`.
+4. Add the provider names to `test_new_services_and_add_on_channels` in `tests/test_services.py`. `test_every_service_has_a_built_in_mark` fails when a key in `NAMES` has no mark file.
+5. Add the service to the "Built-in marks" list in `README.md`.
 
 ## Before opening a PR
 
@@ -55,7 +74,7 @@ CI runs the same checks:
 uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
 ```
 
-`pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with actionlint and zizmor, and scans the image with Grype; a fixable critical vulnerability fails the build.
+The tests need no API keys and no internet connection. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with actionlint and zizmor, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex.
 
