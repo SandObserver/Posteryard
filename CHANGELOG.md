@@ -33,6 +33,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Measure the fade and logo ink again when the poster design changes, instead of reusing values from the old design. Every poster is measured once after the update.
+- Delete cached art choices and measurements from older versions at start.
 - Stop rejecting clean art when OCR reads a large shape, such as a window or an emblem, as one character. Art is checked again once after the update.
 - Turn off onnxruntime's telemetry, which looked up Microsoft's telemetry server from the container, and its warning in the log.
 - Hide image decoder messages from the debug log.

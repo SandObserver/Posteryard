@@ -15,6 +15,10 @@ WORDMARK_ASPECT = 1.8
 VISIBLE_LUMINANCE = 0.12
 LIGHT_LUMINANCE = 0.4
 DARK_LUMINANCE = 0.3
+# Part of the cache keys of art and logo choices. Change one when its rule decides differently: choices made under
+# the old version are then made again. The old rows are deleted at start.
+TEXTLESS_RULE = 2
+LOGO_RULE = 3
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -34,6 +38,14 @@ class MemoryChoices:
 
     def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
         self._data[key] = value
+
+
+def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, Any]]) -> Mapping[str, Any]:
+    hit = cache.get_choice(key)
+    if hit is None:
+        hit = compute()
+        cache.put_choice(key, hit)
+    return hit
 
 
 @dataclass(frozen=True)
@@ -73,17 +85,17 @@ class Picker:
         return picked
 
     def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        return self._cached(f"textless2:{key}", refs, lambda lines: _textless(lines, titles))
+        return self._cached(f"textless{TEXTLESS_RULE}:{key}", refs, lambda lines: _textless(lines, titles))
 
     def textless_all(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
     ) -> list[str]:
         candidates = [r.path for r in refs[:limit]]
-        hit = self.cache.get_choice(f"textless-all2:{key}")
+        hit = self.cache.get_choice(f"textless-all{TEXTLESS_RULE}:{key}")
         if hit is not None and hit.get("candidates") == candidates:
             return [str(p) for p in hit.get("paths", [])]
         paths = [path for path in candidates if _textless(self.read(self.fetch(path)), titles)]
-        self.cache.put_choice(f"textless-all2:{key}", {"candidates": candidates, "paths": paths})
+        self.cache.put_choice(f"textless-all{TEXTLESS_RULE}:{key}", {"candidates": candidates, "paths": paths})
         return paths
 
     def textless_art(self, key: str, images: Images, titles: Sequence[str]) -> Picked | None:
@@ -106,7 +118,7 @@ class Picker:
     ) -> str | None:
         refs = images.logos_in(languages)[:MAX_CANDIDATES]
         candidates = [r.path for r in refs]
-        cache_key = f"logo3:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        cache_key = f"logo{LOGO_RULE}:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
         if dark:
             cache_key += ":dark"
         hit = self.cache.get_choice(cache_key)
