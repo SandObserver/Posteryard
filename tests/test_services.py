@@ -87,4 +87,4 @@ def test_offers_skip_cable_and_live_tv_services() -> None:
 
 def test_every_service_has_a_built_in_mark() -> None:
     marks = layers.ASSETS / "marks"
-    assert all((marks / f"{key}.png").exists() for key in NAMES)
+    assert all((marks / f"{key}.png").is_file() for key in NAMES)
