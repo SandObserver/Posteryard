@@ -121,6 +121,8 @@ curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-Posteryard.xml \
 
 Then pick **Posteryard** under **Docker**, **Add Container**, **Template**. Fill in the TMDB API key, the Plex URL and token, and a webhook secret. Previews land in `/mnt/user/appdata/posteryard/previews`. The template runs as Unraid's `nobody` user (`--user=99:100`) with the same lockdown as the compose file.
 
+To go live, open the container's **Edit** screen, set **Dry Run** to `false` and choose **Apply**. The container's **Logs** show progress.
+
 ## Settings
 
 Every setting has a default. Add a line under `environment:` only to change one. The [landing page](https://posteryard.sandobserver.com/#settings) builds these lines for you.
@@ -141,10 +143,10 @@ Every setting has a default. Add a line under `environment:` only to change one.
 | `STREAMING_REGIONS` | Countries to look up a show's streaming service in, in order. Outside the US, put yours first, such as `GB,US`. | `US` |
 | `FANART_API_KEY` | Your [fanart.tv](https://fanart.tv) API key. A second art source when TMDB has nothing clean. | |
 | `APPLE_ART` | Use Apple TV's key art when TMDB has no textless poster. See [Where the art comes from](docs/how-it-works.md#where-the-art-comes-from). | `false` |
-| `TEXT_CHECK` | Skip art with the title printed on it. `false` saves about 350 MB of memory on small machines, but a few posters may show the title twice. | `true` |
+| `TEXT_CHECK` | Check art for printed titles and skip it. `false` saves about 350 MB of memory on small machines, but a few posters may show the title twice. | `true` |
 | `LOGO_LANGUAGES` | Title logo languages in order, such as `fr,en`. | `en` |
 | `PREFER_WORDMARK` | Prefer a wide logo with the name written out. `false` allows tall or square logos. | `true` |
-| `EPISODE_THUMBNAILS` | `plain` adds a light shade, `titled` adds the episode number and title, `off` leaves episodes alone. | `plain` |
+| `EPISODE_THUMBNAILS` | `plain` adds a light shade, `titled` adds the episode number and title, `off` gives episodes back their server thumbnails. | `plain` |
 | `COLLECTION_POSTERS` | Give every collection a poster. See [Collections](docs/how-it-works.md#collections). | `false` |
 | `SERVICE_COLLECTIONS` | Keep one collection per streaming service with at least 3 shows. See [Collections](docs/how-it-works.md#collections). | `false` |
 | `NOTIFY_URLS` | Where alerts go: [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas, for Discord, Telegram, ntfy, email and about 100 more. See [Alerts](docs/alerts-and-monitoring.md#alerts). | |

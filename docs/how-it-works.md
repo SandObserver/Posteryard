@@ -23,6 +23,8 @@ For a movie or show, Posteryard tries these sources in order and uses the first 
 3. TMDB backdrops.
 4. With `FANART_API_KEY`, fanart.tv's posters, then its backdrops. fanart.tv also fills in a missing title logo.
 
+Backgrounds come from TMDB's textless backdrops, then, with `FANART_API_KEY`, from fanart.tv.
+
 Art that prints the title or other large text is rejected, even when TMDB marks it as textless. `TEXT_CHECK=false` skips this check: Posteryard then uses about 350 MB less memory and renders much faster, but trusts TMDB's text-free label. In a test library, 3 to 5 in 100 posters then showed the title twice. Leave `APPLE_ART` off with `TEXT_CHECK=false`: Apple TV art is not labelled text-free, and about 1 in 6 has the title printed on it.
 
 The title logo comes from TMDB, in the first of your `LOGO_LANGUAGES` that has one. When TMDB has both a wide logo with the name and a square emblem, `PREFER_WORDMARK=true` picks the wide one.
