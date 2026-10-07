@@ -556,6 +556,10 @@ def test_the_title_cache_is_written_under_the_lock() -> None:
     assert ("tv", 42) in ctx.titles
 
 
+def test_measurements_are_keyed_by_the_design_version() -> None:
+    assert f"measured:{pipeline.DESIGN_VERSION}:" == pipeline.MEASURED
+
+
 def test_a_design_change_measures_the_art_again(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     measured: list[str] = []
