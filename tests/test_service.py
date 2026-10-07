@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 from collections.abc import Sequence
+from datetime import date
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -128,6 +129,27 @@ def test_the_sweep_queues_labelled_items(tmp_path: Path) -> None:
     service.worker = type("W", (), {"leaving_days": staticmethod(lambda: {})})()
     service.sweep()
     assert queued(service) == ["9"]
+
+
+def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    days = {"20": date(2026, 11, 1), "21": date(2026, 11, 2)}
+    service.worker = type("W", (), {"leaving_days": staticmethod(lambda: dict(days))})()
+
+    def swept() -> list[str]:
+        service.sweep()
+        keys = [key for key in queued(service) if key != "9"]
+        while queued(service):
+            service.take(0)
+        return keys
+
+    assert swept() == ["20", "21"]
+    assert swept() == []
+    days.pop("20")
+    days["21"], days["22"] = date(2026, 11, 3), date(2026, 11, 4)
+    assert swept() == ["20", "21", "22"]
+    service.store.set_meta("leaving_checked", "2000-01-01")
+    assert swept() == ["21", "22"]
 
 
 def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path) -> None:

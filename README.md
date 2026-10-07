@@ -158,6 +158,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `why TITLE` | Show the art in use, and every candidate checked with the reason it was used or not, such as text found on it. Changes nothing. |
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
 | `test-alert` | Send a test alert to every service in `NOTIFY_URLS`. |
+| `health` | Exit with `0` when the running service is healthy, `1` when not. The Docker health check runs it. |
 | `restore --all` | Give every image Posteryard uploaded back to the server's own. See [Uninstalling](#uninstalling). |
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
@@ -244,7 +245,7 @@ Add these labels to a title in Plex instead of running a command. In Plex Web, o
 
 | Label | What it does |
 | --- | --- |
-| `posteryard-next` | Switch to the next best art. The label is removed when done. |
+| `posteryard-next` | Switch to the next best art. The label is removed when done. With `DRY_RUN=true`, the label stays and nothing changes. |
 | `posteryard-custom` | Keep the poster you uploaded in Plex as the art, with the title and badges drawn on top. Remove the label to go back to automatic art. |
 | `posteryard-ignore` | Leave this title alone. On a show it covers the show only; label seasons separately. Remove the label and it is rendered fresh. |
 
@@ -283,7 +284,7 @@ Check the setup with `docker exec posteryard posteryard test-alert`. Posteryard 
 
 ## Monitoring
 
-The image has a Docker health check. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, it sends an alert and exits, and `restart: unless-stopped` starts it again.
+The image has a Docker health check that calls `/healthz` on `LISTEN_PORT`. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, it sends an alert and exits, and `restart: unless-stopped` starts it again.
 
 `GET /healthz` answers `200` when healthy and `503` when not:
 

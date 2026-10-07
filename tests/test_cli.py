@@ -1,6 +1,8 @@
 import logging
 import sqlite3
+import threading
 from contextlib import closing
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -97,6 +99,34 @@ def test_preview_needs_something_to_render(run: Any) -> None:
 def test_test_alert_needs_a_service(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["test-alert"]) == 1
     assert "NOTIFY_URLS" in capsys.readouterr().out
+
+
+def test_health_asks_the_service_on_its_port(
+    run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    status = [200]
+
+    class Health(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            self.send_response(status[0] if self.path == "/healthz" else 404)
+            self.end_headers()
+
+        def log_message(self, *args: Any) -> None:
+            pass
+
+    server = HTTPServer(("127.0.0.1", 0), Health)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setenv("LISTEN_PORT", str(server.server_address[1]))
+        assert run(["health"]) == 0
+        status[0] = 503
+        assert run(["health"]) == 1
+        assert "HTTP 503" in capsys.readouterr().out
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert run(["health"]) == 1
+    assert "not reachable" in capsys.readouterr().out
 
 
 def test_a_database_from_a_newer_release_stops_the_command(

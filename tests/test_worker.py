@@ -178,6 +178,37 @@ def test_next_label_switches_art_once_and_is_removed(tmp_path: Path) -> None:
     assert worker.process("1") == Outcome.UNCHANGED
 
 
+def test_next_label_keeps_its_text_and_skips_once_when_removal_fails(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.items["1"]["Label"] = [{"tag": "Posteryard-Next"}]
+    removed: list[str] = []
+    remove = plex.remove_label
+
+    def failing(item: Any, label: str) -> None:
+        removed.append(label)
+        raise http.RequestError("HTTP 500", "http://plex.example:32400/library/sections/3/all")
+
+    plex.remove_label = failing  # type: ignore[method-assign]
+    assert worker.process("1") == Outcome.FAILED
+    assert worker.process("1") == Outcome.FAILED
+    assert removed == ["Posteryard-Next", "Posteryard-Next"]
+    assert store.override("1") is None
+    plex.remove_label = remove  # type: ignore[method-assign]
+    assert worker.process("1") == Outcome.UPLOADED
+    override = store.override("1")
+    assert override is not None and len(override.skip) == 1
+    assert plex.items["1"]["Label"] == []
+
+
+def test_next_label_changes_nothing_in_a_dry_run(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path)
+    plex.items["1"]["Label"] = [{"tag": "posteryard-next"}]
+    assert worker.process("1") == Outcome.PREVIEW
+    assert plex.items["1"]["Label"] == [{"tag": "posteryard-next"}]
+    assert store.override("1") is None
+
+
 def test_custom_label_adopts_the_poster_uploaded_in_plex(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
@@ -226,6 +257,32 @@ def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
     worker.process("6")
     assert plex.restored == [("5", "thumb")]
     assert store.get("6", "thumb") is None
+
+
+def test_a_dry_run_keeps_the_record_of_a_thumbnail_it_does_not_give_back(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, EPISODE_THUMBNAILS="off")
+    plex.items["5"] = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+                       "librarySectionTitle": "TV Shows"}  # fmt: skip
+    store.uploaded("5", "thumb", "Pilot", "abc", "upload-1")
+    plex.selected_keys[("5", "thumb")] = "upload-1"
+    worker.process("5")
+    assert plex.restored == []
+    assert store.get("5", "thumb") is not None
+
+
+def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path) -> None:
+    worker, plex, store, alerts = make(tmp_path)
+
+    def broken(key: str) -> dict[str, Any] | None:
+        raise KeyError("Metadata")
+
+    plex.item = broken  # type: ignore[method-assign]
+    for _ in range(3):
+        assert worker.process("1") == Outcome.FAILED
+    assert alerts.sent == ["rendering"]
+    record = store.get("1", "item")
+    assert record is not None and record.failures == 3
+    assert store.retry_due(now=record.updated_at + 10**6) == ["1"]
 
 
 def test_items_outside_the_libraries_are_skipped(tmp_path: Path) -> None:

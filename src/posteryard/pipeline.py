@@ -710,7 +710,7 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
     if art is None:
         raise ctx.no_art(f"{title.name}, the newest title in {name}")
     art_path = art.path
-    service = services.service_for(name)
+    service = services.service_named(name)
     if service:
         logo = ctx.logo(title)
 

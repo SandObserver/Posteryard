@@ -69,6 +69,10 @@ def labels(item: Item) -> set[str]:
     return {str(label.get("tag", "")).lower() for label in item.get("Label") or []}
 
 
+def label_tag(item: Item, label: str) -> str | None:
+    return next((str(t["tag"]) for t in item.get("Label") or [] if str(t.get("tag", "")).lower() == label), None)
+
+
 def external_ids(item: Item) -> dict[str, str]:
     ids: dict[str, str] = {}
     for guid in item.get("Guid") or []:

@@ -16,7 +16,7 @@ from posteryard.config import Config, EpisodeMode
 from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.server import TARGETS, Item, MediaServer, Target, labels
+from posteryard.server import TARGETS, Item, MediaServer, Target, label_tag, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -152,6 +152,10 @@ class Worker:
         except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED
+        except Exception as exc:
+            log.exception("unexpected error", extra={"title": title, "key": rating_key})
+            self._failed(rating_key, title, exc)
+            return Outcome.FAILED
         self.store.forget_target(rating_key, ITEM_TARGET)
         for outcome in (Outcome.UPLOADED, Outcome.PREVIEW, Outcome.MANUAL, Outcome.UNCHANGED):
             if outcome in outcomes:
@@ -173,7 +177,7 @@ class Worker:
         item = self.server.item(rating_key)
         if item is None:
             raise pipeline.NotFoundError(f"{self.server.name} has no item {rating_key}")
-        self._skip_current(item)
+        self._skip(rating_key, self._current_art(item))
         return self.process(rating_key, force=True)
 
     def reset_art(self, rating_key: str) -> Outcome:
@@ -206,12 +210,13 @@ class Worker:
             self.store.forget_target(record.rating_key, record.target)
         return counts
 
-    def _skip_current(self, item: Item) -> None:
-        key = str(item["ratingKey"])
+    def _current_art(self, item: Item) -> str:
         poster = next((p for p in pipeline.plan_item(self.ctx, item) if p.target == "poster"), None)
         if poster is None:
             raise pipeline.NotFoundError(f"{item.get('title')} has no poster to replace")
-        art = str(poster.inputs["art"])
+        return str(poster.inputs["art"])
+
+    def _skip(self, key: str, art: str) -> None:
         if art.startswith(overrides.FILE_PREFIX):
             self.store.reset_override(key)
         else:
@@ -222,7 +227,9 @@ class Worker:
         record = self.store.get(key, target)
         if record is None:
             return
-        if record.status == Status.UPLOADED and not self.cfg.dry_run:
+        if record.status == Status.UPLOADED:
+            if self.cfg.dry_run:
+                return
             if self.server.selected(key, target) != record.image_key:
                 log.info(f"{NOUNS[target]} changed by hand, left alone", extra={"title": item.get("title")})
             else:
@@ -235,9 +242,13 @@ class Worker:
         redo = False
         if item.get("type") == "collection":
             return redo
-        if overrides.NEXT_LABEL in tags:
-            self._skip_current(item)
-            self.server.remove_label(item, overrides.NEXT_LABEL)
+        if (next_tag := label_tag(item, overrides.NEXT_LABEL)) and self.cfg.dry_run:
+            log.info("next art label left alone while DRY_RUN is on", extra={"title": item.get("title")})
+        elif next_tag:
+            art = self._current_art(item)
+            # Remove the label before saving the skip. A retry after a failed removal must not skip twice.
+            self.server.remove_label(item, next_tag)
+            self._skip(key, art)
             log.info("switching to the next art", extra={"title": item.get("title")})
             redo = True
         current = self.store.override(key)

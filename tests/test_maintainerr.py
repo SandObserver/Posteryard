@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, timedelta, timezone
 
 import pytest
 
@@ -36,3 +36,10 @@ def test_unexpected_answers_are_rejected_or_skipped() -> None:
         {"isActive": True, "deleteAfterDays": 3, "media": ["x", {"mediaServerId": "12", "addDate": "2026-09-01"}]},
     ]
     assert action_days(collections) == {"12": date(2026, 9, 4)}
+
+
+def test_add_date_counts_in_the_local_time_zone() -> None:
+    media = [{"mediaServerId": "10", "addDate": "2026-09-02T02:00:00.000Z"}]
+    collections = [{"isActive": True, "deleteAfterDays": 7, "media": media}]
+    assert action_days(collections, timezone(timedelta(hours=-4))) == {"10": date(2026, 9, 8)}
+    assert action_days(collections, UTC) == {"10": date(2026, 9, 9)}

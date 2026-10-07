@@ -1,3 +1,4 @@
+import hashlib
 import json
 import urllib.parse
 from collections.abc import Iterator, Mapping
@@ -145,6 +146,7 @@ class Plex:
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         listing, select, _ = ENDPOINTS[target]
         before = {str(i.get("ratingKey")) for i in self.images(rating_key, target)}
+        digest = hashlib.sha1(jpeg, usedforsecurity=False).hexdigest()
         http.request(
             "POST",
             self._url(f"/library/metadata/{_key(rating_key)}/{listing}"),
@@ -152,9 +154,10 @@ class Plex:
             headers={"Content-Type": "image/jpeg"},
             timeout=120,
         )
-        after = self.images(rating_key, target)
-        new = [str(i["ratingKey"]) for i in after if str(i.get("ratingKey")) not in before]
-        image_key = new[0] if new else next((str(i["ratingKey"]) for i in after if i.get("selected")), None)
+        after = [str(i.get("ratingKey")) for i in self.images(rating_key, target)]
+        # Plex names an upload after the SHA-1 of its bytes. Uploading the same bytes again adds no entry.
+        same = [k for k in after if k.startswith("upload://") and k.endswith(f"/{digest}")]
+        image_key = next(iter(same or [k for k in after if k not in before]), None)
         if not image_key:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/library/metadata/{rating_key}"))
         http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=image_key))

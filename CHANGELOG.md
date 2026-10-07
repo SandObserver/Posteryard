@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Print the settings in use at start, and log each name in `LIBRARIES` the server does not have.
 - Document what Posteryard changes on the server and how to undo each change.
 - Add the `why TITLE` command to list a poster's art candidates and why each was used or not.
+- Add the `health` command, which the Docker health check now runs.
 
 ### Changed
 
@@ -27,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep the 6-hour alert limit across restarts, and try an undelivered alert again after 10 minutes.
 - Use TMDB's best-voted textless poster before Apple TV art; with `APPLE_ART`, Apple TV art now fills in before backdrops.
 - Leave the unused sympy library out of the image, about 31 MB smaller.
+- Process leaving titles again only when their Maintainerr date changes, and all of them once a day, instead of every sweep.
 
 ### Fixed
 
@@ -45,6 +47,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Choose a dark logo only when it reads where the logo sits, not across the whole bottom of the art.
 - Treat crops and redrawn versions of a picture as the same picture when giving seasons their art.
 - Keep `art next` working when art it skipped earlier has since been deleted from TMDB or Apple TV.
+- Select the right image when a render is identical to one uploaded before, so an expired label no longer stays on the poster.
+- Give Sky service collections the channel tile instead of the category tile.
+- Count Maintainerr's leaving days in the container's time zone, so the label is no longer one day off.
+- Skip only one image when removing the `posteryard-next` label fails and is retried.
+- Remove a `posteryard-next` label typed with capital letters.
+- Leave the `posteryard-next` label and the art unchanged while `DRY_RUN` is on.
+- Run the Docker health check on `LISTEN_PORT` instead of port 8000.
+- Retry and alert on unexpected errors like other failures.
+- Keep the record of an uploaded episode thumbnail while `DRY_RUN` is on, so `restore --all` can still give it back.
 
 ## [0.7.0] - 2026-10-04
 
