@@ -38,7 +38,7 @@
     {
       "name": "Alerts and logs",
       "settings": [
-        { "key": "NOTIFY_URLS", "label": "Send alerts to", "type": "text", "default": "", "placeholder": "discord://ID/TOKEN", "help": "One or more addresses. [Address formats](#alerts)" },
+        { "key": "NOTIFY_URLS", "label": "Send alerts to", "type": "text", "default": "", "placeholder": "discord://ID/TOKEN", "help": "One or more addresses. [Address formats](docs/alerts-and-monitoring.md#alerts)" },
         { "key": "NOTIFY_EVENTS", "label": "Send alerts for", "type": "multi", "default": "problems", "min": 1, "options": [["problems", "Problems"], ["new", "New posters"], ["summary", "Daily summary"]] },
         { "key": "HEARTBEAT_URL", "label": "Call while healthy", "type": "text", "default": "", "placeholder": "https://uptime.example/push", "help": "Such as an Uptime Kuma push URL." },
         { "key": "LOG_LEVEL", "label": "Log detail", "type": "menu", "default": "info", "options": [["debug", "Debug"], ["info", "Info"], ["warning", "Warning"], ["error", "Error"]] }

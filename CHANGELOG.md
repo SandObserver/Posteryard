@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- Shorten the README to setup and settings, and move commands, server notes, alerts, troubleshooting and design details into pages in `docs/`.
 - Read series art for season posters only when a season needs it, and stop at the first usable image. The first season poster of a show no longer reads up to 12 images it does not use.
 - Stop the text reader after 10 idle minutes and drop downloaded images while idle, to use less memory. A read that hangs stops the text reader at once instead of holding up the worker.
 - Write the log as logfmt lines with the title and the art source, one line per image, and end each full pass with a summary.

@@ -9,8 +9,8 @@ const link = (href, text) => `<a href="${href}" target="_blank" rel="noopener no
 
 export const servers = {
   plex: { label: 'Plex', url: ['PLEX_URL', 'http://192.168.1.10:32400'], key: ['PLEX_TOKEN', 'your-plex-token'], keyHelp: 'Plex token', keyUrl: 'https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/', live: 'uploads the images and locks them, so a Plex refresh keeps them.' },
-  jellyfin: { label: 'Jellyfin', url: ['JELLYFIN_URL', 'http://192.168.1.10:8096'], key: ['JELLYFIN_API_KEY', 'your-jellyfin-api-key'], keyHelp: 'Jellyfin API key', keyUrl: `${REPO}#jellyfin`, live: 'uploads the images. Jellyfin keeps them unless a refresh uses Replace existing images.' },
-  emby: { label: 'Emby', url: ['EMBY_URL', 'http://192.168.1.10:8096'], key: ['EMBY_API_KEY', 'your-emby-api-key'], keyHelp: 'Emby API key', keyUrl: `${REPO}#emby`, live: 'uploads the images. Emby keeps them unless a refresh uses Replace existing images.' },
+  jellyfin: { label: 'Jellyfin', url: ['JELLYFIN_URL', 'http://192.168.1.10:8096'], key: ['JELLYFIN_API_KEY', 'your-jellyfin-api-key'], keyHelp: 'Jellyfin API key', keyUrl: `${REPO}/blob/main/docs/jellyfin-and-emby.md#jellyfin`, live: 'uploads the images. Jellyfin keeps them unless a refresh uses Replace existing images.' },
+  emby: { label: 'Emby', url: ['EMBY_URL', 'http://192.168.1.10:8096'], key: ['EMBY_API_KEY', 'your-emby-api-key'], keyHelp: 'Emby API key', keyUrl: `${REPO}/blob/main/docs/jellyfin-and-emby.md#emby`, live: 'uploads the images. Emby keeps them unless a refresh uses Replace existing images.' },
 };
 export const methods = { compose: { label: 'Docker Compose' }, run: { label: 'docker run' }, unraid: { label: 'Unraid' } };
 export const pickers = { server: { name: 'Media server', options: servers }, method: { name: 'Install method', options: methods } };
@@ -80,7 +80,8 @@ export function install(server, method) {
 
 export const inline = (text) => esc(text)
   .replace(/`([^`]+)`/g, '<code>$1</code>')
-  .replace(/\[([^\]]+)\]\((#[\w-]+)\)/g, (_, label, anchor) => link(`${REPO}${anchor}`, label));
+  .replace(/\[([^\]]+)\]\(((?:docs\/[\w-]+\.md)?#[\w-]+)\)/g, (_, label, target) =>
+    link(target.startsWith('#') ? `${REPO}${target}` : `${REPO}/blob/main/${target}`, label));
 
 export const flatten = (data) => data.groups.flatMap((g) => g.settings);
 export const defaults = (data) => Object.fromEntries(flatten(data).map((s) => [s.key, s.default]));
