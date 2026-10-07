@@ -72,7 +72,7 @@ export function install(server, method) {
     fill: m === 'unraid'
       ? `Then <b>Docker › Add Container › Template › Posteryard</b> and fill in the TMDB API key, the ${x.label} address and key, and a webhook secret. <b>Data</b> is the share where Posteryard keeps its files. Need the keys? ${keys}`
       : `Replace the yellow values. ${V(DATA)} is the folder on your server where Posteryard keeps its files; any path works. Need the keys? ${keys}`,
-    next: `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-pre"/></svg><span class="imain"><span class="iname">First, a preview. ${x.label} is not changed.</span><span class="itext">Posteryard saves every poster it would make as a JPEG in ${where}. Open a few to check them. ${logs}</span></span></div></li>`
+    next: `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-pre"/></svg><span class="imain"><span class="iname">First, a preview. ${x.label} is not changed.</span><span class="itext">Posteryard saves each poster to ${where}. Open a few to check them. ${logs}</span></span></div></li>`
       + `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-live"/></svg><span class="imain"><span class="iname">Then go live.</span><span class="itext">When you like them, ${goLive}. Posteryard ${x.live}</span></span></div></li>`,
     summary: `${x.label} with ${methods[m].label}`,
   };

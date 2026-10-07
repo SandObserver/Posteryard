@@ -170,6 +170,10 @@
       .sources a { display: inline-flex; align-items: center; min-height: 44px; }
       .sources img { display: block; height: 11px; width: auto; opacity: 0.75; }
       .sources a:hover img { opacity: 1; }
+      .more { margin: 0 0 4px; font-size: 14px; color: var(--dim); }
+      .more a { display: inline-flex; align-items: center; gap: 6px; vertical-align: bottom; color: var(--label); }
+      .more img { display: block; width: 18px; height: 18px; }
+      .more a:hover { color: var(--accent); }
       .credit { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.5); max-width: 60ch; line-height: 1.5; }
       .verbadge { display: flex; align-items: center; min-height: 44px; overflow: hidden; font-size: 12px; font-weight: 600; }
       .verbadge span { padding: 4px 8px; border-radius: 5px 0 0 5px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
@@ -217,8 +221,8 @@
       .sy-i { fill: currentColor; } .sy-a { fill: var(--accent); } .sy-is { stroke: currentColor; } .sy-as { stroke: var(--accent); }
       .gs { display: grid; gap: 16px; align-content: start; }
       .gs .code, .s9 .code { margin: 0; }
-      .sentence { margin: 0 0 4px; font-size: 22px; line-height: 1.55; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
-      .pop { display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline; border: 0; margin: 0 1px; padding: 1px 6px 2px 12px; border-radius: 12px; background: var(--fill-3); color: var(--accent); font: inherit; letter-spacing: inherit; cursor: pointer; transition: background 0.15s ease; }
+      .sentence { margin: 0 0 4px; font-size: 22px; line-height: 2.1; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+      .pop { display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline; min-height: 40px; border: 0; margin: 0 1px; padding: 0 10px 0 16px; border-radius: 20px; background: var(--fill-3); color: var(--accent); font: inherit; letter-spacing: inherit; cursor: pointer; transition: background 0.15s ease; }
       .pop:hover, .pop[aria-expanded="true"] { background: var(--fill-1); }
       .pop svg { width: 20px; height: 20px; opacity: 0.85; flex-shrink: 0; }
       .pop:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -261,8 +265,11 @@
       .tabs-scroll.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
       .tabs-scroll.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%); mask-image: linear-gradient(90deg, transparent, #000 15%); }
       .tabs-scroll.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); mask-image: linear-gradient(90deg, transparent, #000 15%, #000 85%, transparent); }
-      .tabs { display: inline-flex; gap: 4px; padding: 2px; border-radius: 16px; background: var(--fill-3); }
-      .tabs button { position: relative; flex-shrink: 0; min-height: 28px; padding-inline: 14px; border: 0; border-radius: 14px; background: transparent; color: var(--label); font: 500 13px/1 var(--font); cursor: pointer; transition: background 0.15s ease; }
+      .tabs { position: relative; display: inline-flex; gap: 4px; padding: 2px; border-radius: 16px; background: var(--fill-3); }
+      .seg-pill { position: absolute; top: 2px; bottom: 2px; left: 0; width: 0; border-radius: 14px; background: var(--seg-on); pointer-events: none; transition: transform 0.19s var(--pill-ease), width 0.19s var(--pill-ease); }
+      .tabs:not(.has-pill) .seg-pill { display: none; }
+      .tabs.has-pill button[aria-selected="true"] { background: transparent; }
+      .tabs button { position: relative; flex-shrink: 0; min-height: 28px; padding-inline: 14px; border: 0; border-radius: 14px; background: transparent; color: var(--label); font: 500 13px/1 var(--font); cursor: pointer; transition: background 0.15s ease; z-index: 1; }
       .tabs button[aria-selected="true"] { background: var(--seg-on); font-weight: 600; }
       .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
       .tabs .dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
@@ -315,7 +322,7 @@
       .pop, .val-btn, .ghost { position: relative; }
       .pop::after, .val-btn::after, .time-btn::after, .ghost::after, .tabs button::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
       .tog { min-height: 44px; align-items: center; }
-      .gs.morphing, .s9-side pre.morphing { overflow: hidden; }
+      .gs.morphing, .s9-side pre.morphing, #s9-panel.morphing { overflow: hidden; }
       @media (prefers-reduced-motion: reduce) { .code .chg { animation: none; background: rgba(255, 214, 10, 0.16); } }
     </style>
   </head>
@@ -326,7 +333,6 @@
         <a class="brand" href="/"><img src="/mark.svg" alt="" width="24" height="29" />Posteryard</a>
         <div class="nav-right">
           <a class="pill pill-solid" href="#getting-started">Install</a>
-          <a class="pill pill-ghost" href="{{repo}}#readme">Documentation</a>
           <a class="pill pill-ghost" href="{{repo}}">GitHub</a>
         </div>
       </nav>
@@ -402,7 +408,7 @@
         <div class="wrap setup-grid pop-root">
           <div class="setup-side">
             <h2>Get started</h2>
-            <p class="lede">Free and self-hosted. Runs on any x86-64 or ARM64 machine with Docker.</p>
+            <p class="lede">Free and self-hosted. Runs in Docker on Unraid, TrueNAS, Synology Plus models, a Raspberry Pi 4 or 5, or any 64-bit Linux, Mac or Windows machine.</p>
           </div>
           <div class="doc gs" id="gs">
             <p class="sentence">I use <button class="pop" type="button" aria-haspopup="listbox" aria-expanded="false" data-k="server" aria-label="Media server: {{install_server}}"><span>{{install_server}}</span><svg aria-hidden="true"><use href="#i-chevrons"/></svg></button> and run containers with <button class="pop" type="button" aria-haspopup="listbox" aria-expanded="false" data-k="method" aria-label="Install method: {{install_method}}"><span>{{install_method}}</span><svg aria-hidden="true"><use href="#i-chevrons"/></svg></button>.</p>
@@ -418,7 +424,7 @@
             <p class="lede">Every setting starts at a default. Change one and its line appears, ready to paste.</p>
           </div>
           <div class="doc s9">
-            <div class="tabs-scroll" id="s9-scroll"><div class="tabs" role="tablist" aria-label="Setting groups" id="s9-tabs">{{s9_tabs}}</div></div>
+            <div class="tabs-scroll" id="s9-scroll"><div class="tabs" role="tablist" aria-label="Setting groups" id="s9-tabs"><i class="seg-pill" id="s9-pill" aria-hidden="true"></i>{{s9_tabs}}</div></div>
             <div class="s9-grid">
               <div role="tabpanel" id="s9-panel" aria-labelledby="s9-tab-0" tabindex="-1"><ul class="ilist" id="s9">{{s9_rows}}</ul></div>
               <div class="s9-side">
@@ -443,6 +449,7 @@
             <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a>
             <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
           </div>
+          <p class="more">Also by SandObserver: <a href="https://stackyard.sandobserver.com"><img src="/img/stackyard-mark.svg" alt="" width="18" height="18" />Stackyard</a>, a calm dashboard for the services you self-host.</p>
           <div class="sources"><span>Data from</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a><a href="https://www.justwatch.com" target="_blank" rel="noopener noreferrer"><img src="/justwatch.svg" alt="JustWatch" width="74" height="11" /></a></div>
           <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB. Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
         </div>
@@ -691,7 +698,7 @@
             g[k] = v;
             store.set("posteryard-install", g);
             drawInstall(true);
-            if (k === "server") drawPanel(false);
+            if (k === "server") drawPanel(false, false);
           },
         });
         b.addEventListener("click", (e) => { e.stopPropagation(); open(); });
@@ -714,11 +721,25 @@
           if (!has && dot) { dot.nextElementSibling?.remove(); dot.remove(); }
         });
       }
-      function drawPanel(focusTab) {
-        $("#s9-tabs").innerHTML = tabs(data, tab, vals);
-        $("#s9").innerHTML = rows(data, tab, vals, g.server);
+      function placeTab(animate) {
+        const pill = $("#s9-pill"), b = $(`#s9-tab-${tab}`);
+        if (!animate || reduce.matches) pill.style.transition = "none";
+        pill.style.width = `${b.offsetWidth}px`;
+        pill.style.transform = `translateX(${b.offsetLeft}px)`;
+        pill.getBoundingClientRect();
+        pill.style.transition = "";
+      }
+      function drawPanel(focusTab, animate = true) {
+        $$("#s9-tabs [role=tab]").forEach((b, i) => {
+          b.setAttribute("aria-selected", i === tab);
+          b.tabIndex = i === tab ? 0 : -1;
+        });
+        placeTab(animate);
+        const list = $("#s9");
+        morph($("#s9-panel"), () => { list.innerHTML = rows(data, tab, vals, g.server); }, animate);
+        if (animate && !reduce.matches) list.animate({ opacity: [0, 1] }, { duration: 220, easing: "ease-out" });
         $("#s9-panel").setAttribute("aria-labelledby", `s9-tab-${tab}`);
-        bindTabs(); bindRows();
+        bindRows();
         const current = $(`#s9-tab-${tab}`);
         current.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduce.matches ? "auto" : "smooth" });
         if (focusTab) current.focus({ preventScroll: true });
@@ -726,7 +747,7 @@
       }
       function bindTabs() {
         $$("#s9-tabs [role=tab]").forEach((b) => {
-          b.addEventListener("click", () => { tab = +b.dataset.i; drawPanel(true); });
+          b.addEventListener("click", () => { if (tab === +b.dataset.i) return; tab = +b.dataset.i; drawPanel(true); });
           b.addEventListener("keydown", (e) => {
             const d = { ArrowRight: 1, ArrowLeft: -1, Home: -tab, End: groups.length - 1 - tab }[e.key];
             if (d === undefined) return;
@@ -787,7 +808,7 @@
       addEventListener("resize", fades);
       $("#s9-reset").addEventListener("click", () => {
         Object.assign(vals, defaults(data));
-        drawPanel(false); drawOut(true);
+        drawPanel(false, false); drawOut(true);
         say("All settings are back to their defaults.");
         $("#s9-tabs [aria-selected=true]").focus();
       });
@@ -855,7 +876,10 @@
       document.addEventListener("pointerdown", (e) => { if (openTimeFor && !openTimeFor.tp.contains(e.target) && !openTimeFor.btn.contains(e.target)) closeTime(); });
 
       if (g.server !== "plex" || g.method !== "compose") drawInstall(false);
-      bindTabs(); bindRows(); fades();
+      $("#s9-tabs").classList.add("has-pill");
+      bindTabs(); bindRows(); placeTab(false); fades();
+      addEventListener("resize", () => placeTab(false));
+      document.fonts?.ready.then(() => placeTab(false));
     </script>
   </body>
 </html>
