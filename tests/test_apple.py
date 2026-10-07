@@ -4,6 +4,7 @@ from typing import Any
 import pytest
 
 from posteryard import apple, http
+from posteryard.tmdb import Details
 
 UMC = "umc.cmc.hrenotb7pqaz2mo61vph1gwj"
 TEMPLATE = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/{w}x{h}nr.{f}"
@@ -35,7 +36,7 @@ def web(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
     return answers
 
 
-DETAILS = {"external_ids": {"wikidata_id": "Q147235"}}
+DETAILS: Details = {"external_ids": {"wikidata_id": "Q147235"}}
 
 
 def test_tall_art_is_found_through_wikidata(web: dict[str, Any]) -> None:

@@ -19,7 +19,7 @@ from posteryard.quality import Badge, QualityMinimums
 from posteryard.render.layers import APPLE_BLUE, APPLE_RED
 from posteryard.render.lines import Badges, Caption, Label
 from posteryard.server import Item
-from posteryard.tmdb import ImageRef, Images
+from posteryard.tmdb import ImageRef, Images, RegionOffers
 
 
 def ref(path: str, language: str | None) -> ImageRef:
@@ -472,7 +472,7 @@ class RejectingMarks:
 def test_a_left_out_mark_is_not_replaced_by_the_next_service() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.marks = RejectingMarks()  # type: ignore[assignment]
-    providers = {"CA": {"flatrate": [
+    providers: dict[str, RegionOffers] = {"CA": {"flatrate": [
         {"provider_id": 510, "provider_name": "Discovery+", "logo_path": "/d.jpg", "display_priority": 1},
         {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.jpg", "display_priority": 2},
     ]}}  # fmt: skip

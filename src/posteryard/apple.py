@@ -1,11 +1,10 @@
 import json
 import logging
 import re
-from collections.abc import Mapping
 from typing import Any
 
 from posteryard import http
-from posteryard.tmdb import Kind
+from posteryard.tmdb import Details, Kind
 
 log = logging.getLogger(__name__)
 WIKIDATA = "https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
@@ -23,7 +22,7 @@ def is_apple(path: str) -> bool:
     return bool(IMAGE_HOST.match(path))
 
 
-def apple_id(kind: Kind, details: Mapping[str, Any]) -> str | None:
+def apple_id(kind: Kind, details: Details) -> str | None:
     qid = str((details.get("external_ids") or {}).get("wikidata_id") or "")
     if not QID.match(qid):
         return None
@@ -67,7 +66,7 @@ def tall_art(kind: Kind, umc: str, region: str) -> str | None:
     return url if url and is_apple(url) else None
 
 
-def find(kind: Kind, details: Mapping[str, Any], region: str) -> str | None:
+def find(kind: Kind, details: Details, region: str) -> str | None:
     """Apple TV's tall art for a TMDB title. A page Posteryard cannot read counts as none; a network error raises."""
     umc = apple_id(kind, details)
     if umc is None:

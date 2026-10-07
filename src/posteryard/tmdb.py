@@ -3,9 +3,9 @@ import threading
 import time
 import urllib.parse
 from collections import OrderedDict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, TypedDict
 
 from PIL import Image
 
@@ -23,6 +23,90 @@ CACHE_SIZE = 64
 TITLE_PARTS = "images,alternative_titles,watch/providers,external_ids"
 
 
+class RawImage(TypedDict, total=False):
+    file_path: str
+    iso_639_1: str | None
+    width: int
+    height: int
+    vote_average: float
+    vote_count: int
+
+
+class ImageSet(TypedDict, total=False):
+    posters: list[RawImage]
+    backdrops: list[RawImage]
+    logos: list[RawImage]
+
+
+class Episode(TypedDict, total=False):
+    episode_number: int
+    air_date: str | None
+    still_path: str | None
+
+
+class SeasonSummary(TypedDict, total=False):
+    season_number: int
+
+
+class Season(TypedDict, total=False):
+    episodes: list[Episode]
+    images: ImageSet
+
+
+class ExternalIds(TypedDict, total=False):
+    tvdb_id: int | None
+    wikidata_id: str | None
+
+
+class AlternativeTitle(TypedDict, total=False):
+    title: str
+
+
+class AlternativeTitles(TypedDict, total=False):
+    titles: list[AlternativeTitle]
+    results: list[AlternativeTitle]
+
+
+class Provider(TypedDict, total=False):
+    provider_id: int
+    provider_name: str
+    logo_path: str | None
+    display_priority: int
+
+
+class RegionOffers(TypedDict, total=False):
+    link: str
+    flatrate: list[Provider]
+    free: list[Provider]
+    ads: list[Provider]
+    buy: list[Provider]
+    rent: list[Provider]
+
+
+class WatchProviders(TypedDict, total=False):
+    results: dict[str, RegionOffers]
+
+
+Details = TypedDict(
+    "Details",
+    {
+        "title": str,
+        "name": str,
+        "original_title": str,
+        "original_name": str,
+        "original_language": str,
+        "origin_country": list[str],
+        "seasons": list[SeasonSummary],
+        "next_episode_to_air": Episode | None,
+        "images": ImageSet,
+        "alternative_titles": AlternativeTitles,
+        "external_ids": ExternalIds,
+        "watch/providers": WatchProviders,
+    },
+    total=False,
+)
+
+
 @dataclass(frozen=True)
 class ImageRef:
     path: str
@@ -33,7 +117,7 @@ class ImageRef:
     vote_count: int
 
 
-def _refs(raw: Sequence[Mapping[str, Any]]) -> list[ImageRef]:
+def _refs(raw: Sequence[RawImage]) -> list[ImageRef]:
     refs = [
         ImageRef(
             path=str(r["file_path"]),
@@ -108,8 +192,8 @@ class Tmdb:
                 self._cache.popitem(last=False)
         return value
 
-    def details(self, kind: Kind, tmdb_id: int) -> Mapping[str, Any]:
-        details: Mapping[str, Any] = self._cached(
+    def details(self, kind: Kind, tmdb_id: int) -> Details:
+        details: Details = self._cached(
             f"{kind}/{tmdb_id}",
             lambda: self._get(
                 f"/{kind}/{tmdb_id}", append_to_response=TITLE_PARTS, include_image_language=self._image_languages
@@ -125,11 +209,11 @@ class Tmdb:
         raw = self.details(kind, tmdb_id).get("images") or {}
         return Images(_refs(raw.get("posters", [])), _refs(raw.get("backdrops", [])), _refs(raw.get("logos", [])))
 
-    def _season(self, show_id: int, season: int) -> Mapping[str, Any]:
+    def _season(self, show_id: int, season: int) -> Season:
 
-        def load() -> Mapping[str, Any]:
+        def load() -> Season:
             try:
-                data: Mapping[str, Any] = self._get(
+                data: Season = self._get(
                     f"/tv/{show_id}/season/{season}",
                     append_to_response="images",
                     include_image_language=self._image_languages,
@@ -140,14 +224,14 @@ class Tmdb:
                 raise
             return data
 
-        season_data: Mapping[str, Any] = self._cached(f"tv/{show_id}/season/{season}", load)
+        season_data: Season = self._cached(f"tv/{show_id}/season/{season}", load)
         return season_data
 
     def season_images(self, show_id: int, season: int) -> Images:
         raw = self._season(show_id, season).get("images") or {}
         return Images(_refs(raw.get("posters", [])), [], [])
 
-    def episode(self, show_id: int, season: int, episode: int) -> Mapping[str, Any] | None:
+    def episode(self, show_id: int, season: int, episode: int) -> Episode | None:
         episodes = self._season(show_id, season).get("episodes") or []
         return next((e for e in episodes if e.get("episode_number") == episode), None)
 
@@ -167,9 +251,8 @@ class Tmdb:
                 found[kind] = int(results[0]["id"])
         return found
 
-    def watch_providers(self, kind: Kind, tmdb_id: int) -> Mapping[str, Any]:
-        results: Mapping[str, Any] = (self.details(kind, tmdb_id).get("watch/providers") or {}).get("results", {})
-        return results
+    def watch_providers(self, kind: Kind, tmdb_id: int) -> dict[str, RegionOffers]:
+        return (self.details(kind, tmdb_id).get("watch/providers") or {}).get("results", {})
 
     def network_logo(self, network_id: int) -> str | None:
         """The network's main logo path. None when TMDB has no such network or no logo for it."""

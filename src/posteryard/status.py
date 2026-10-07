@@ -5,6 +5,7 @@ from typing import Any
 
 from posteryard.render.layers import APPLE_BLUE, APPLE_GREEN, APPLE_RED, APPLE_YELLOW
 from posteryard.render.lines import Label
+from posteryard.tmdb import Details
 
 NEW_DAYS = 7
 ADDED_DAYS = 14
@@ -51,7 +52,7 @@ def from_timestamp(value: Any) -> date | None:
         return None
 
 
-def next_season(details: Mapping[str, Any]) -> date | None:
+def next_season(details: Details) -> date | None:
     upcoming = details.get("next_episode_to_air") or {}
     if not isinstance(upcoming, Mapping) or upcoming.get("episode_number") != 1:
         return None
