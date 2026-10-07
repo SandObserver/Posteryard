@@ -253,8 +253,8 @@ def test_tmdb_preview_without_plex() -> None:
     assert [p.inputs.get("number") for p in plans] == [None, None, 1, 3]
 
 
-def test_a_title_without_a_tmdb_id_is_not_found() -> None:
-    with pytest.raises(pipeline.NotFoundError, match="no TMDB id"):
+def test_a_title_without_a_tmdb_id_is_unmatched() -> None:
+    with pytest.raises(pipeline.UnmatchedError, match="no TMDB id"):
         pipeline.movie(context([ref("/textless.jpg", None)]), {**ITEM, "Guid": []})
 
 

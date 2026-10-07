@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Use TMDB's best-voted textless poster before Apple TV art; with `APPLE_ART`, Apple TV art now fills in before backdrops.
 - Leave the unused sympy library out of the image, about 31 MB smaller.
 - Process leaving titles again only when their Maintainerr date changes, and all of them once a day, instead of every sweep.
+- Skip titles the server has not matched to TMDB, IMDb or TVDB with one log line, instead of failing, retrying and counting them in the daily summary.
 
 ### Fixed
 
@@ -38,6 +39,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stop rejecting clean art when OCR reads a large shape, such as a window or an emblem, as one character. Art is checked again once after the update.
 - Turn off onnxruntime's telemetry, which looked up Microsoft's telemetry server from the container, and its warning in the log.
 - Hide image decoder messages from the debug log.
+- Find Jellyfin and Emby titles by name and year, such as `why "Dune 2021"`.
+- Stop within a second on `docker stop`, instead of after up to 30 seconds, which Docker ended with a kill after 10.
+- Ignore Plex webhooks with an invalid rating key, instead of retrying them forever.
+- Wait 2 minutes after a failed scheduled run, as the log says, instead of 30 seconds.
+- Name the media server in the `--season` error, instead of always Plex.
 - Keep a mistyped `NOTIFY_URLS` address, and the secret in it, out of the log.
 - Match Jellyfin library folders on Windows servers, so their titles are no longer skipped.
 - Give seasons of a Jellyfin or Emby show without season folders their show's library, so they are no longer skipped.

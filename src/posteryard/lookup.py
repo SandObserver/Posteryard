@@ -117,4 +117,4 @@ def season(server: MediaServer, show: Match, number: int) -> Match:
             name = f"{show.title} ({show.year})" if show.year else show.title
             return Match(str(child["ratingKey"]), f"{name} {child.get('title', '')}".strip(), None, "season")
     available = ", ".join(str(child.get("index")) for child in children) or "none"
-    raise ValueError(f"{show.label} has no season {number}. Seasons in Plex: {available}")
+    raise ValueError(f"{show.label} has no season {number}. Seasons in {server.name}: {available}")

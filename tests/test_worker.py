@@ -1,4 +1,5 @@
 import io
+import logging
 from functools import lru_cache
 from pathlib import Path
 
@@ -144,6 +145,21 @@ def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     plex.fail = False
     assert worker.process("1") == Outcome.PREVIEW
     assert store.get("1", "item") is None
+
+
+def test_an_unmatched_title_is_skipped_without_retries_or_alerts(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    worker, plex, store, alerts = make(tmp_path)
+    store.failed("1", "item", "Example Movie", "earlier failure")
+    plex.items["1"]["Guid"] = []
+    with caplog.at_level(logging.INFO):
+        for _ in range(3):
+            assert worker.process("1") == Outcome.SKIPPED
+    assert alerts.sent == []
+    assert store.get("1", "item") is None
+    assert store.retry_due(now=float("inf")) == []
+    assert caplog.records[-1].getMessage() == "not matched to TMDB, match it in Plex to get a poster"
 
 
 @pytest.mark.parametrize(("only", "expected"), [("", Outcome.PREVIEW), ("1", Outcome.PREVIEW), ("2", Outcome.SKIPPED)])

@@ -31,7 +31,9 @@ RESTART_LOOKBACK = 6 * 3600
 SWEEP_LOOKBACK = 60
 WORKER_STALL = 600
 TICK = 30
+STOP = "stop"
 HEARTBEAT_SECONDS = 60
+RETRY_SECONDS = 120
 URGENT = frozenset({"webhook", "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
 NEW_REASONS = frozenset({"webhook", "changed", "retry"})
@@ -89,7 +91,7 @@ def related_keys(item: object) -> list[str]:
     if not isinstance(item, dict):
         return []
     keys = [item.get("ratingKey"), item.get("parentRatingKey"), item.get("grandparentRatingKey")]
-    return [str(k) for k in keys if k]
+    return [str(k) for k in keys if k and is_item_key(str(k))]
 
 
 class Service:
@@ -123,9 +125,16 @@ class Service:
                 self._queued[key] = priority
                 self.queue.put((priority, next(self._order), key, reason))
 
+    def stop(self) -> None:
+        """Wake the worker. It must not sleep through a stop: Docker kills the container after 10 seconds."""
+        self._stop.set()
+        self.queue.put((-1, next(self._order), "", STOP))
+
     def take(self, timeout: float) -> tuple[str, str]:
         while True:
             priority, _, key, reason = self.queue.get(timeout=timeout)
+            if reason == STOP:
+                raise queue.Empty
             with self._lock:
                 if self._queued.get(key) == priority:
                     del self._queued[key]
@@ -144,13 +153,16 @@ class Service:
 
     def _work(self) -> None:
         while not self._stop.is_set():
-            if not self.server_checked.wait(TICK):
+            if not self.server_checked.is_set():
                 self.worker_beat = time.monotonic()
+                self._stop.wait(1)
                 continue
             try:
                 key, reason = self.take(TICK)
             except queue.Empty:
                 self.worker_beat = time.monotonic()
+                if self._stop.is_set():
+                    return
                 self.idle()
                 self.announce_new(idle=True)
                 self.worker.rest()
@@ -335,15 +347,20 @@ class Service:
         next_sweep = 0.0
         lookback = RESTART_LOOKBACK
         resumed = False
+        retry_at = 0.0
         self.worker.notifier.resolve("restart", "Posteryard is running again.")
         while not self._stop.is_set():
+            if time.monotonic() < retry_at:
+                self.heartbeat()
+                self._stop.wait(TICK)
+                continue
             try:
                 if not self.server_checked.is_set():
                     if problem := other_server(self.server, self.store):
                         log.error("data folder belongs to another server", extra={"reason": problem})
                         self.worker.notifier.alert("server", problem)
                         self.exit_code = 2
-                        self._stop.set()
+                        self.stop()
                         return
                     self.server_checked.set()
                 if not self._connected:
@@ -368,11 +385,11 @@ class Service:
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
                 log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {exc}")
-                next_sweep = time.monotonic() + 120
+                retry_at = time.monotonic() + RETRY_SECONDS
             except Exception as exc:  # The schedule thread must survive any error.
                 log.exception("scheduled run failed, trying again in 2 minutes")
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
-                next_sweep = time.monotonic() + 120
+                retry_at = time.monotonic() + RETRY_SECONDS
             self.heartbeat()
             self._stop.wait(TICK)
 
@@ -427,7 +444,7 @@ class Service:
                 )
                 self.worker.notifier.alert("restart", f"Posteryard restarts because {', '.join(dead)} stopped.")
                 self.exit_code = 1
-                self._stop.set()
+                self.stop()
         server.shutdown()
 
     def handler(self) -> type[BaseHTTPRequestHandler]:  # noqa: C901
@@ -548,7 +565,7 @@ class Service:
 
         def stop(signum: int, _frame: object) -> None:
             log.info("shutting down", extra={"signal": signal.Signals(signum).name})
-            self._stop.set()
+            self.stop()
             threading.Thread(target=server.shutdown, daemon=True).start()
 
         signal.signal(signal.SIGTERM, stop)

@@ -114,5 +114,8 @@ def test_season_picks_a_child_or_explains() -> None:
     assert season.label == "The Office (2005) Season 2"
     with pytest.raises(ValueError, match="Seasons in Plex: 1, 2"):
         lookup.season(plex, show, 9)
+    plex.name = "Jellyfin"
+    with pytest.raises(ValueError, match="Seasons in Jellyfin: 1, 2"):
+        lookup.season(plex, show, 9)
     with pytest.raises(ValueError, match="not a show"):
         lookup.season(plex, resolve("Dune 2021"), 1)
