@@ -23,7 +23,7 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # n
             tid = pipeline.resolve_tmdb(ctx, show, "tv")
             if tid is None:
                 continue
-            service = ctx.title("tv", tid, str(show.get("title", ""))).service
+            service = ctx.sources.title("tv", tid, str(show.get("title", ""))).service
         except (http.RequestError, ValueError) as exc:
             log.warning(
                 "streaming service unknown, collections kept as they are",

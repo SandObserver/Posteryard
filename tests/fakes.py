@@ -12,6 +12,8 @@ from posteryard.notify import Notifier
 from posteryard.ocr import TextLine
 from posteryard.quality import QualityMinimums
 from posteryard.server import Item, MediaServer, Target
+from posteryard.settings import Settings
+from posteryard.sources import Sources
 from posteryard.store import Store
 from posteryard.tmdb import Details, Episode, ImageRef, Images, Kind, RegionOffers, Tmdb
 from posteryard.worker import Worker
@@ -147,17 +149,10 @@ def read(image: Image.Image) -> list[TextLine]:
 
 
 def context(posters: list[ImageRef], seasons: int = 4) -> pipeline.Context:
-    return pipeline.Context(
-        tmdb=FakeTmdb(posters, seasons),
-        minimums=QualityMinimums(),
-        regions=("CA",),
-        action_days={"1": date(2026, 10, 4)},
-        today=date(2026, 10, 1),
-        read=read,
-        fetch=fetch,
-    )
+    settings = Settings(QualityMinimums(), ("CA",), {"1": date(2026, 10, 4)}, date(2026, 10, 1))
+    return pipeline.Context(settings, Sources(FakeTmdb(posters, seasons), settings, read=read, fetch=fetch))
 
 
 def tmdb_of(ctx: pipeline.Context) -> FakeTmdb:
-    assert isinstance(ctx.tmdb, FakeTmdb)
-    return ctx.tmdb
+    assert isinstance(ctx.sources.tmdb, FakeTmdb)
+    return ctx.sources.tmdb

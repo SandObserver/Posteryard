@@ -51,7 +51,7 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
     record = store.get(key, "poster")
     if record is not None and record.status == Status.MANUAL:
         result.notices.append("The poster was changed by hand. Posteryard leaves it alone until `forget`.")
-    override = ctx.overrides(key)
+    override = ctx.sources.overrides(key)
     if override and override.custom:
         result.notices.append(
             f"Custom art from {override.source or 'a command'}. `art reset` returns to automatic art."
@@ -69,7 +69,7 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
             if fresh:
                 result.unchecked.append(name)
             continue
-        candidates = [Candidate(ref, rejection(ctx.read(ctx.fetch(ref.path)), titles)) for ref in fresh]
+        candidates = [Candidate(ref, rejection(ctx.sources.read(ctx.sources.fetch(ref.path)), titles)) for ref in fresh]
         checked.update(ref.path for ref in fresh)
         if candidates:
             result.groups.append((name, candidates))
@@ -84,7 +84,7 @@ def _titles(ctx: pipeline.Context, item: Item) -> list[str]:
     tid = pipeline.resolve_tmdb(ctx, source, kind)
     if tid is None:
         return [str(source.get("title", ""))]
-    return ctx.title(kind, tid, str(source.get("title", ""))).all_titles
+    return ctx.sources.title(kind, tid, str(source.get("title", ""))).all_titles
 
 
 def lines(name: str, result: Report) -> list[str]:

@@ -17,6 +17,8 @@ from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.server import TARGETS, Item, MediaServer, Target, label_tag, labels
+from posteryard.settings import Settings
+from posteryard.sources import Sources
 from posteryard.store import Status, Store
 from posteryard.tmdb import Tmdb
 
@@ -64,24 +66,16 @@ class Worker:
     ) -> None:
         self.cfg, self.server, self.store, self.notifier = cfg, server, store, notifier
         self.maintainerr = Maintainerr(cfg.maintainerr_url)
-        self.ctx = pipeline.Context(
+        settings = Settings.from_config(cfg, {}, date.today())
+        sources = Sources(
             tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
-            cfg.quality,
-            cfg.regions,
-            {},
-            date.today(),
-            server,
-            labels=cfg.status_labels,
-            accessibility=cfg.accessibility,
-            episodes=cfg.episodes,
-            logo_languages=cfg.logo_languages,
-            prefer_wordmark=cfg.prefer_wordmark,
+            settings,
             choices=store,
             overrides=store.override,
             fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
             marks=AutoMarks(cfg.data_dir / "marks", store),
-            apple_region=cfg.regions[0] if cfg.apple_art and cfg.regions else None,
         )
+        self.ctx = pipeline.Context(settings, sources, server)
         self._leaving: Leaving | None = None
         self._rested = True
         self.fresh: list[tuple[str, bytes]] = []
@@ -103,7 +97,7 @@ class Worker:
 
     def rest(self) -> None:
         if not self._rested:
-            self.ctx.forget()
+            self.ctx.sources.forget()
             memory.release()
             self._rested = True
         ocr.close_idle()
@@ -136,15 +130,15 @@ class Worker:
             if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
                 return Outcome.SKIPPED
             title = str(item.get("title", rating_key))
-            self.ctx.action_days = self.leaving_days()
-            self.ctx.today = date.today()
+            self.ctx.settings.action_days = self.leaving_days()
+            self.ctx.settings.today = date.today()
             redo_poster = self._follow_labels(item)
             if item.get("type") == "episode" and self.cfg.episodes == EpisodeMode.OFF:
                 self._restore(item, "thumb")
             try:
                 outcomes = self._apply_all(item, force, redo_poster)
             except http.RequestError:
-                if not self.ctx.retry_without_apple():
+                if not self.ctx.sources.retry_without_apple():
                     raise
                 outcomes = self._apply_all(item, force, redo_poster)
             for cause in (self.server.name, "TMDB"):

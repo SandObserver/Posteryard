@@ -68,7 +68,7 @@ def make(tmp_path: Path, **env: str) -> tuple[Worker, FakePlex, Store, Alerts]:
     )
     plex, store, alerts = FakePlex(), Store(tmp_path / "state.db"), Alerts()
     worker = Worker(cfg, plex, store, alerts, FakeTmdb([ref("/english.jpg", "en")]))
-    worker.ctx.read, worker.ctx.fetch = read, fetch
+    worker.ctx.sources.read, worker.ctx.sources.fetch = read, fetch
     return worker, plex, store, alerts
 
 
@@ -83,10 +83,10 @@ def test_dry_run_writes_previews_once(tmp_path: Path) -> None:
 
 def test_rest_frees_images_and_keeps_results(tmp_path: Path) -> None:
     worker, _, _, _ = make(tmp_path)
-    worker.ctx.fetch = lru_cache(maxsize=8)(fetch)
+    worker.ctx.sources.fetch = lru_cache(maxsize=8)(fetch)
     assert worker.process("1") == Outcome.PREVIEW
     worker.rest()
-    assert worker.ctx.fetch.cache_info().currsize == 0
+    assert worker.ctx.sources.fetch.cache_info().currsize == 0
     assert worker.process("1") == Outcome.UNCHANGED
 
 
@@ -333,7 +333,7 @@ def test_an_item_is_planned_again_without_apple_art_that_failed_to_load(
     def plan_item(ctx: pipeline.Context, item: Item) -> list[pipeline.Plan]:
         calls.append(1)
         if len(calls) == 1:
-            ctx.apple_dropped = True
+            ctx.sources.apple_dropped = True
             raise http.HttpError(503, "https://is1-ssl.mzstatic.com/image/thumb/art.jpg")
         return []
 
