@@ -1,0 +1,70 @@
+{
+  "groups": [
+    {
+      "name": "Badges",
+      "settings": [
+        { "key": "QUALITY_MIN_VIDEO", "label": "Badges for video from", "type": "menu", "default": "2160", "options": [["off", "Off"], ["720", "720p", "HD badge"], ["1080", "1080p", "HD badge"], ["2160", "4K", "4K badge"]] },
+        { "key": "QUALITY_MIN_HDR", "label": "Badges for HDR from", "type": "menu", "default": "hdr10", "options": [["off", "Off"], ["hdr10", "HDR10"], ["hdr10plus", "HDR10+"], ["dolbyvision", "Dolby Vision"]] },
+        { "key": "QUALITY_MIN_AUDIO", "label": "Badges for audio from", "type": "menu", "default": "atmos", "options": [["off", "Off"], ["5.1", "5.1"], ["7.1", "7.1"], ["atmos", "Atmos", "or DTS:X"]] },
+        { "key": "QUALITY_ACCESSIBILITY", "label": "Accessibility badges on movies", "type": "multi", "default": "", "options": [["sdh", "SDH", "subtitles"], ["cc", "CC", "captions"], ["ad", "AD", "audio description"]] }
+      ]
+    },
+    {
+      "name": "Labels",
+      "settings": [
+        { "key": "STATUS_LABELS", "label": "Just added and new season labels", "type": "switch", "default": "true" },
+        { "key": "MAINTAINERR_URL", "label": "Count down to Maintainerr deletions", "type": "text", "default": "", "placeholder": "http://192.168.1.10:6246", "help": "Your Maintainerr address." },
+        { "key": "STREAMING_REGIONS", "label": "Find streaming services in", "type": "menu", "default": "US", "options": [["US", "United States", "US"], ["GB,US", "United Kingdom", "GB, then US"], ["CA,US", "Canada", "CA, then US"], ["AU,US", "Australia", "AU, then US"], ["IE,US", "Ireland", "IE, then US"], ["DE,US", "Germany", "DE, then US"], ["FR,US", "France", "FR, then US"], ["NL,US", "Netherlands", "NL, then US"], ["ES,US", "Spain", "ES, then US"], ["IT,US", "Italy", "IT, then US"], ["SE,US", "Sweden", "SE, then US"], ["BR,US", "Brazil", "BR, then US"], ["IN,US", "India", "IN, then US"], ["JP,US", "Japan", "JP, then US"]] }
+      ]
+    },
+    {
+      "name": "Art",
+      "settings": [
+        { "key": "APPLE_ART", "label": "Fill gaps with Apple TV art", "type": "switch", "default": "false" },
+        { "key": "FANART_API_KEY", "label": "fanart.tv as a second source", "type": "text", "default": "", "placeholder": "your-fanart-api-key", "help": "From your fanart.tv profile." },
+        { "key": "LOGO_LANGUAGES", "label": "Title logo languages, in order", "type": "text", "default": "en", "placeholder": "en", "help": "Such as fr,en." },
+        { "key": "PREFER_WORDMARK", "label": "Prefer wide title logos", "type": "switch", "default": "true", "help": "Wide logos spell out the title. Off takes the first logo TMDB lists, which can be tall or square." }
+      ]
+    },
+    {
+      "name": "Collections",
+      "settings": [
+        { "key": "EPISODE_THUMBNAILS", "label": "Episode thumbnails", "type": "menu", "default": "plain", "options": [["plain", "Plain", "still and shade"], ["titled", "Titled", "EPISODE N and title"], ["off", "Off", "server's own"]] },
+        { "key": "COLLECTION_POSTERS", "label": "Posters for collections", "type": "switch", "default": "false" },
+        { "key": "SERVICE_COLLECTIONS", "label": "A collection per streaming service", "type": "switch", "default": "false" }
+      ]
+    },
+    {
+      "name": "Alerts and logs",
+      "settings": [
+        { "key": "NOTIFY_URLS", "label": "Send alerts to", "type": "text", "default": "", "placeholder": "discord://ID/TOKEN", "help": "One or more addresses. [Address formats](#alerts)" },
+        { "key": "NOTIFY_EVENTS", "label": "Send alerts for", "type": "multi", "default": "problems", "min": 1, "options": [["problems", "Problems"], ["new", "New posters"], ["summary", "Daily summary"]] },
+        { "key": "HEARTBEAT_URL", "label": "Call while healthy", "type": "text", "default": "", "placeholder": "https://uptime.example/push", "help": "Such as an Uptime Kuma push URL." },
+        { "key": "LOG_LEVEL", "label": "Log detail", "type": "menu", "default": "info", "options": [["debug", "Debug"], ["info", "Info"], ["warning", "Warning"], ["error", "Error"]] }
+      ]
+    },
+    {
+      "name": "Library",
+      "settings": [
+        { "key": "LIBRARIES", "label": "Libraries to manage", "type": "text", "default": "Movies,TV Shows", "placeholder": "Movies,TV Shows", "help": "Names as your server shows them." },
+        { "key": "ONLY_RATING_KEYS", "label": "Only these titles", "type": "text", "default": "", "placeholder": "5646,8730", "help": { "plex": "Separated by commas. In Plex Web, the number after `metadata%2F` in a title's address.", "other": "Separated by commas. In {server}, the `id=` value in a title's address." } },
+        { "key": "SWEEP_MINUTES", "label": "Check for new titles every", "type": "menu", "default": "15", "options": [["5", "5 minutes"], ["10", "10 minutes"], ["15", "15 minutes"], ["30", "30 minutes"], ["60", "60 minutes"]] },
+        { "key": "DAILY_AT", "label": "Full pass every day at", "type": "time", "default": "04:15" }
+      ]
+    }
+  ],
+  "elsewhere": {
+    "TMDB_API_KEY": "install block",
+    "PLEX_URL": "install block",
+    "PLEX_TOKEN": "install block",
+    "JELLYFIN_URL": "install block",
+    "JELLYFIN_API_KEY": "install block",
+    "EMBY_URL": "install block",
+    "EMBY_API_KEY": "install block",
+    "WEBHOOK_SECRET": "install block",
+    "DRY_RUN": "install block",
+    "LISTEN_PORT": "ports: in the compose file",
+    "DATA_DIR": "volumes: in the compose file",
+    "PLEX_LIBRARIES": "old name of LIBRARIES"
+  }
+}
