@@ -121,6 +121,18 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
     assert queued(finished) == []
 
 
+def test_only_rating_keys_limits_what_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "2"})
+    service = start(cfg, FakePlex())
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.full("daily")
+    assert queued(service) == ["2"]
+    while queued(service):
+        service.take(0)
+    service.sweep()
+    assert queued(service) == []
+
+
 def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service = make_service(tmp_path)
     monkeypatch.setattr(service.worker, "leaving_days", dict)

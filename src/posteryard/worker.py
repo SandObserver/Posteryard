@@ -113,6 +113,9 @@ class Worker:
         section = item.get("librarySectionTitle")
         if section not in self.cfg.libraries and item.get("type") != "collection":
             return False
+        return self.in_scope(item)
+
+    def in_scope(self, item: Item) -> bool:
         only = self.cfg.only_rating_keys
         related = {str(item.get(k, "")) for k in ("ratingKey", "parentRatingKey", "grandparentRatingKey")}
         return not only or bool(only & related)
