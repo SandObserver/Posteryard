@@ -65,7 +65,7 @@ Run each with `uv run python tools/<script>`.
 2. Run `uv run python tools/build_marks.py` and commit the new file in `src/posteryard/assets/marks`.
 3. In `src/posteryard/services.py`, add the provider names TMDB uses to `SERVICE_PATTERNS` and the display name to `NAMES`.
 4. Add the provider names to `test_new_services_and_add_on_channels` in `tests/test_services.py`. `test_every_service_has_a_built_in_mark` fails when a key in `NAMES` has no mark file.
-5. Add the service to the "Built-in marks" list in `README.md`.
+5. Add the service to the "Built-in marks" list in `docs/how-it-works.md`.
 
 ## Before opening a PR
 
