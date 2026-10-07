@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Write the log as logfmt lines with the title and the art source, one line per image, and end each full pass with a summary.
 - Keep the 6-hour alert limit across restarts, and try an undelivered alert again after 10 minutes.
 - Use TMDB's best-voted textless poster before Apple TV art; with `APPLE_ART`, Apple TV art now fills in before backdrops.
+- Leave the unused sympy library out of the image, about 31 MB smaller.
 
 ### Fixed
 
