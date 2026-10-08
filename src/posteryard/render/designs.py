@@ -27,7 +27,7 @@ NUMBER_AREA = (0.06, 0.045, 0.24, 0.18)
 ONE_COLOUR_SPREAD = 0.08
 ONE_COLOUR_CHROMA = 40.0
 LOGO_CONTRAST = 4.5
-FADE_STEPS = (1.0, 1.2, 1.4, 1.6, 1.8)
+FADE_STEPS = (0.0, 1.0, 1.2, 1.4, 1.6, 1.8)
 FADE_MAX = 0.92
 WIDE = (1920, 1080)
 
@@ -71,15 +71,6 @@ def _service_size(service: str, width: int) -> tuple[int, int]:
     return max(1, round(height * aspect)), max(1, round(height))
 
 
-def _contrast_behind(canvas: Image.Image, logo: Image.Image, at: tuple[int, int]) -> float:
-    behind = np.asarray(canvas.crop((*at, at[0] + logo.width, at[1] + logo.height)).convert("RGB"), dtype=np.float32)
-    covered = np.asarray(logo.getchannel("A")) > 127
-    if not covered.any():
-        return 21.0
-    lum = float(np.percentile(luminance(behind[covered]), 90))
-    return 1.05 / (lum + 0.05)
-
-
 def _service_logo(service: str, width: int) -> Image.Image:
     logo_w, logo_h = _service_size(service, width)
     return mark(service, logo_h).resize((logo_w, logo_h), Image.Resampling.LANCZOS)
@@ -104,6 +95,25 @@ def corner_dark(art: Image.Image, area: str) -> bool:
     return _dark_wins(_region(art, MARK_AREA if area == "mark" else NUMBER_AREA))
 
 
+def _ink_masks(  # noqa: PLR0913
+    size: tuple[int, int],
+    logo: Image.Image,
+    at: tuple[int, int],
+    *,
+    lines_below: list[lines.Line],
+    centres: list[float],
+    label: lines.Label | None,
+) -> list[np.ndarray]:
+    """One mask per drawn part: the logo first, then each line below it, then the label."""
+    parts = [Image.new("RGBA", size) for _ in range(len(lines_below) + 2)]
+    parts[0].alpha_composite(logo, at)
+    for part, line, centre in zip(parts[1:], lines_below, centres, strict=False):
+        lines.draw(part, [line], [centre])
+    if label is not None:
+        lines.draw_label_above(parts[-1], label, at[1])
+    return [np.asarray(part.getchannel("A")) > 127 for part in parts]
+
+
 def dark_logo_reads(
     art: Image.Image, logo: Image.Image, lines_below: list[lines.Line], label: lines.Label | None = None
 ) -> bool:
@@ -111,13 +121,7 @@ def dark_logo_reads(
     canvas = cover(art, *POSTER).convert("RGB")
     pixels = luminance(np.asarray(canvas, dtype=np.float32))
     logo, at, centres = _place_logo(canvas.size, logo, lines_below)
-    parts = [Image.new("RGBA", canvas.size) for _ in range(len(lines_below) + 2)]
-    parts[0].alpha_composite(logo, at)
-    for part, line, centre in zip(parts[1:], lines_below, centres, strict=False):
-        lines.draw(part, [line], [centre])
-    if label is not None:
-        lines.draw_label_above(parts[-1], label, at[1])
-    masks = [np.asarray(part.getchannel("A")) > 127 for part in parts]
+    masks = _ink_masks(canvas.size, logo, at, lines_below=lines_below, centres=centres, label=label)
     if not masks[0].any():
         return False
     return all(
@@ -186,13 +190,22 @@ def _fade(size: tuple[int, int], strength: float) -> Image.Image:
     return vertical_gradient(size, [(x, min(a * strength, FADE_MAX)) for x, a in APPLE_BOTTOM])
 
 
-def fade_strength(art: Image.Image, logo: Image.Image, lines_below: list[lines.Line]) -> float:
+def fade_strength(
+    art: Image.Image, logo: Image.Image, lines_below: list[lines.Line], label: lines.Label | None = None
+) -> float:
+    """No fade only when the logo, every line and the label read in white on the bare art."""
     canvas = cover(art, *POSTER).convert("RGBA")
-    logo, at, _ = _place_logo(canvas.size, logo, lines_below)
+    logo, at, centres = _place_logo(canvas.size, logo, lines_below)
+    masks = _ink_masks(canvas.size, logo, at, lines_below=lines_below, centres=centres, label=label)
+    if not masks[0].any():
+        return 1.0
     for strength in FADE_STEPS:
         faded = canvas.copy()
-        faded.alpha_composite(_fade(canvas.size, strength))
-        if _contrast_behind(faded, logo, at) >= LOGO_CONTRAST:
+        if strength:
+            faded.alpha_composite(_fade(canvas.size, strength))
+        pixels = luminance(np.asarray(faded.convert("RGB"), dtype=np.float32))
+        checked = masks if strength == 0 else masks[:1]
+        if all(1.05 / (float(np.percentile(pixels[m], 90)) + 0.05) >= LOGO_CONTRAST for m in checked if m.any()):
             return strength
     return FADE_STEPS[-1]
 
@@ -210,7 +223,7 @@ def tile_poster(  # noqa: PLR0913
     fade: float = 1.0,
 ) -> Image.Image:
     canvas = cover(art, *POSTER).convert("RGBA")
-    if ink == WHITE:
+    if ink == WHITE and fade:
         canvas.alpha_composite(_fade(canvas.size, fade))
     logo, at, centres = _place_logo(canvas.size, logo, lines_below)
     logo_top = at[1]

@@ -24,13 +24,22 @@ class Measures:
     thumbs: OrderedDict[str, similar.Thumb] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
-    def fade(self, art: str, logo: str | None, name: str, below: list[lines.Line], prefer: str = "") -> float:
+    def fade(  # noqa: PLR0913
+        self,
+        art: str,
+        logo: str | None,
+        name: str,
+        below: list[lines.Line],
+        *,
+        label: lines.Label | None,
+        prefer: str = "",
+    ) -> float:
         text = name + (f"@{prefer}" if prefer else "")
-        key = f"fade:{art}:{logo or text}:{','.join(type(line).__name__ for line in below)}"
+        key = f"fade:{art}:{logo or text}:{below!r}:{label.text if label else ''}"
 
         def measure() -> Mapping[str, Any]:
             image = trim(self.sources.fetch(logo)) if logo else designs.text_logo(name, prefer=prefer)
-            return {"strength": designs.fade_strength(self.sources.load(art), image, below)}
+            return {"strength": designs.fade_strength(self.sources.load(art), image, below, label)}
 
         return float(self._measured(key, measure)["strength"])
 

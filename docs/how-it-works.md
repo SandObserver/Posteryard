@@ -6,13 +6,13 @@
 
 | Image | Design |
 | --- | --- |
-| Movie and show poster | Textless art, the title logo and a soft black fade, laid out like an Apple TV tile. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
+| Movie and show poster | Textless art and the title logo, laid out like an Apple TV tile, with a soft black fade where the logo needs it. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
 | Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. Crops and other versions of a picture count as the same picture. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless art, no title. |
 | Collection poster | See [Collections](#collections). |
 
-The service mark and season number are black or white, whichever reads better where they sit, with no shadow behind the mark. When a dark logo reads on the art, like Apple TV's New Releases row, the logo and badges are dark and the fade is left off. A one-colour logo is drawn dark itself, so every poster of a show keeps one logo design. Everywhere else the logo is white over the fade, deepened where needed so it always reads.
+The service mark and season number are black or white, whichever reads better where they sit, with no shadow behind the mark. When a dark logo reads on the art, like Apple TV's New Releases row, the logo and badges are dark and the fade is left off. A one-colour logo is drawn dark itself, so every poster of a show keeps one logo design. Everywhere else the logo is white. On dark art, where the logo, labels and badges already read, there is no fade. Otherwise the logo sits over the fade, deepened where needed so it always reads.
 
 ## Where the art comes from
 
