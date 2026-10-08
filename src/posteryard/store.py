@@ -47,6 +47,7 @@ class StoreError(Exception):
 
 class Status(StrEnum):
     UPLOADED = "uploaded"
+    UPLOADING = "uploading"
     PREVIEW = "preview"
     MANUAL = "manual"
     FAILED = "failed"
@@ -110,6 +111,9 @@ class Store:
         self._upsert(rating_key, target, title=title, fingerprint=fingerprint, image_key=image_key,
                      status=Status.UPLOADED, failures=0, last_error="")  # fmt: skip
 
+    def uploading(self, rating_key: str, target: str, title: str) -> None:
+        self._upsert(rating_key, target, title=title, status=Status.UPLOADING)
+
     def previewed(self, rating_key: str, target: str, title: str, fingerprint: str) -> None:
         self._upsert(rating_key, target, title=title, fingerprint=fingerprint, status=Status.PREVIEW,
                      failures=0, last_error="")  # fmt: skip
@@ -143,7 +147,8 @@ class Store:
     def with_upload(self) -> list[Record]:
         with self._lock:
             rows = self._db.execute(
-                f"SELECT {COLUMNS} FROM images WHERE image_key != '' ORDER BY rating_key, target"
+                f"SELECT {COLUMNS} FROM images WHERE image_key != '' OR status=? ORDER BY rating_key, target",
+                (Status.UPLOADING,),
             ).fetchall()
         return [Record(*row) for row in rows]
 
