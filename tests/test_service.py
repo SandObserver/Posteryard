@@ -133,6 +133,20 @@ def test_only_rating_keys_limits_what_is_queued(tmp_path: Path, monkeypatch: pyt
     assert queued(service) == []
 
 
+def test_only_rating_keys_limits_leaving_retried_and_unignored_titles(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "2"})
+    service = start(cfg, FakePlex())
+    monkeypatch.setattr(service.worker, "leaving_days", lambda: {"2": date(2026, 11, 1), "7": date(2026, 11, 1)})
+    service.store.set_meta("ignored_keys", '["8"]')
+    service.store.failed("9", "poster", "Nine", "boom")
+    service.store.failed("2", "poster", "Two", "boom")
+    service.sweep(lookback=0)
+    assert "7" not in queued(service) and "8" not in queued(service)
+    assert "2" in queued(service)
+
+
 def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service = make_service(tmp_path)
     monkeypatch.setattr(service.worker, "leaving_days", dict)
