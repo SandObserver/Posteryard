@@ -20,10 +20,12 @@ class Server:
         self.routes = routes
         self.calls: list[tuple[str, str, dict[str, str]]] = []
 
-    def __call__(self, method: str, url: str, **kwargs: Any) -> bytes:
+    def __call__(self, method: str, url: str, *, headers: dict[str, str], redirects: bool, **kwargs: Any) -> bytes:
         parts = urllib.parse.urlsplit(url)
         query = dict(urllib.parse.parse_qsl(parts.query))
-        assert query.pop("X-Plex-Token") == "example-token"
+        assert headers["X-Plex-Token"] == "example-token"
+        assert "example-token" not in url
+        assert not redirects
         self.calls.append((method, parts.path, query))
         answer = self.routes.get(f"{method} {parts.path}", self.routes.get(parts.path))
         if callable(answer):

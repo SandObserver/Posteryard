@@ -14,6 +14,7 @@ ENDPOINTS: dict[Target, tuple[str, str, str]] = {
 }
 TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4, "collection": 18}
 PAGE = 200
+JSON = {"Accept": "application/json"}
 
 
 class Plex:
@@ -26,10 +27,30 @@ class Plex:
         self._machine_id: str | None = None
 
     def _url(self, path: str, **params: Any) -> str:
-        return f"{self.url}{path}?{urllib.parse.urlencode({**params, 'X-Plex-Token': self.token})}"
+        return f"{self.url}{path}{'?' + urllib.parse.urlencode(params) if params else ''}"
+
+    def _send(  # noqa: PLR0913
+        self,
+        method: str,
+        path: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        data: bytes | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: float = 30,
+    ) -> bytes:
+        """Send the token as a header and refuse redirects. A redirect must never carry the token to another host."""
+        return http.request(
+            method,
+            self._url(path, **(params or {})),
+            headers={"X-Plex-Token": self.token, **(headers or {})},
+            data=data,
+            timeout=timeout,
+            redirects=False,
+        )
 
     def _get(self, path: str, **params: Any) -> Mapping[str, Any]:
-        container: Mapping[str, Any] = http.get_json(self._url(path, **params))["MediaContainer"]
+        container: Mapping[str, Any] = json.loads(self._send("GET", path, params, headers=JSON))["MediaContainer"]
         return container
 
     def sections(self) -> list[Item]:
@@ -84,7 +105,7 @@ class Plex:
 
     def machine_id(self) -> str:
         if self._machine_id is None:
-            self._machine_id = str(http.get_json(self._url("/identity"))["MediaContainer"]["machineIdentifier"])
+            self._machine_id = str(self._get("/identity")["machineIdentifier"])
         return self._machine_id
 
     def _uri(self, rating_keys: list[str]) -> str:
@@ -98,37 +119,36 @@ class Plex:
         return items
 
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
-        url = self._url(
+        answer = self._send(
+            "POST",
             "/library/collections",
-            type=TYPE_IDS[kind],
-            title=title,
-            smart=0,
-            sectionId=_key(section_key),
-            uri=self._uri(rating_keys),
+            {
+                "type": TYPE_IDS[kind],
+                "title": title,
+                "smart": 0,
+                "sectionId": _key(section_key),
+                "uri": self._uri(rating_keys),
+            },
+            headers=JSON,
         )
-        answer = http.request("POST", url, headers={"Accept": "application/json"})
         created = json.loads(answer)["MediaContainer"]["Metadata"][0]
         return str(created["ratingKey"])
 
     def add_to_collection(self, rating_key: str, members: list[str]) -> None:
-        http.request("PUT", self._url(f"/library/collections/{_key(rating_key)}/items", uri=self._uri(members)))
+        self._send("PUT", f"/library/collections/{_key(rating_key)}/items", {"uri": self._uri(members)})
 
     def remove_from_collection(self, rating_key: str, member: str) -> None:
-        http.request("DELETE", self._url(f"/library/collections/{_key(rating_key)}/items/{_key(member)}"))
+        self._send("DELETE", f"/library/collections/{_key(rating_key)}/items/{_key(member)}")
 
     def delete_collection(self, rating_key: str) -> None:
-        http.request("DELETE", self._url(f"/library/collections/{_key(rating_key)}"))
+        self._send("DELETE", f"/library/collections/{_key(rating_key)}")
 
     def set_label(self, section_key: str, kind: str, rating_key: str, label: str) -> None:
         """Replace the item's labels with one label."""
-        http.request(
+        self._send(
             "PUT",
-            self._url(
-                f"/library/sections/{_key(section_key)}/all",
-                type=TYPE_IDS[kind],
-                id=_key(rating_key),
-                **{"label[0].tag.tag": label, "label.locked": 1},
-            ),
+            f"/library/sections/{_key(section_key)}/all",
+            {"type": TYPE_IDS[kind], "id": _key(rating_key), "label[0].tag.tag": label, "label.locked": 1},
         )
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
@@ -149,9 +169,9 @@ class Plex:
         listing, select, _ = ENDPOINTS[target]
         before = {str(i.get("ratingKey")) for i in self.images(rating_key, target)}
         digest = hashlib.sha1(jpeg, usedforsecurity=False).hexdigest()
-        http.request(
+        self._send(
             "POST",
-            self._url(f"/library/metadata/{_key(rating_key)}/{listing}"),
+            f"/library/metadata/{_key(rating_key)}/{listing}",
             data=jpeg,
             headers={"Content-Type": "image/jpeg"},
             timeout=120,
@@ -162,7 +182,7 @@ class Plex:
         image_key = next(iter(same or [k for k in after if k not in before]), None)
         if not image_key:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/library/metadata/{rating_key}"))
-        http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=image_key))
+        self._send("PUT", f"/library/metadata/{_key(rating_key)}/{select}", {"url": image_key})
         return image_key
 
     def restore(self, item: Item, target: Target) -> None:
@@ -176,45 +196,33 @@ class Plex:
             ),
             None,
         )
-        http.request(
+        self._send(
             "PUT",
-            self._url(
-                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
-                type=TYPE_IDS[str(item["type"])],
-                id=rating_key,
-                **{f"{field}.locked": 0},
-            ),
+            f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+            {"type": TYPE_IDS[str(item["type"])], "id": rating_key, f"{field}.locked": 0},
         )
         if original:
-            http.request("PUT", self._url(f"/library/metadata/{_key(rating_key)}/{select}", url=original))
+            self._send("PUT", f"/library/metadata/{_key(rating_key)}/{select}", {"url": original})
 
     def poster_bytes(self, item: Item) -> bytes:
         thumb = str(item.get("thumb") or "")
         if not thumb.startswith("/library/"):
             raise http.RequestError("the item has no poster", self._url(f"/library/metadata/{item.get('ratingKey')}"))
-        return http.request("GET", self._url(thumb), timeout=60)
+        return self._send("GET", thumb, timeout=60)
 
     def remove_label(self, item: Item, label: str) -> None:
-        http.request(
+        self._send(
             "PUT",
-            self._url(
-                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
-                type=TYPE_IDS[str(item["type"])],
-                id=item["ratingKey"],
-                **{"label[].tag.tag-": label},
-            ),
+            f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+            {"type": TYPE_IDS[str(item["type"])], "id": item["ratingKey"], "label[].tag.tag-": label},
         )
 
     def lock(self, item: Item, target: Target) -> None:
         _, _, field = ENDPOINTS[target]
-        http.request(
+        self._send(
             "PUT",
-            self._url(
-                f"/library/sections/{_key(str(item['librarySectionID']))}/all",
-                type=TYPE_IDS[str(item["type"])],
-                id=item["ratingKey"],
-                **{f"{field}.locked": 1},
-            ),
+            f"/library/sections/{_key(str(item['librarySectionID']))}/all",
+            {"type": TYPE_IDS[str(item["type"])], "id": item["ratingKey"], f"{field}.locked": 1},
         )
 
 
