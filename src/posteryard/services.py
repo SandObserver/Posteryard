@@ -71,6 +71,7 @@ EXCLUDED_WORDS = (
 OFFER_TYPES: tuple[Literal["flatrate", "free", "ads"], ...] = ("flatrate", "free", "ads")
 AD_SUFFIXES = (" standard with ads", " basic with ads", " with ads")
 NOT_KEY = re.compile(r"[^a-z0-9+]")
+COLLECTION_SUFFIXES = ("", " movies", " shows", " tv shows", " series", " originals", " kids")
 
 
 def service_for(provider_name: str) -> str | None:
@@ -86,7 +87,11 @@ def service_for(provider_name: str) -> str | None:
 
 
 def service_named(name: str) -> str | None:
-    return next((key for key, label in NAMES.items() if label == name), None) or service_for(name)
+    if key := next((key for key, label in NAMES.items() if label == name), None):
+        return key
+    name = name.strip().lower()
+    bases = {name.removesuffix(suffix) for suffix in COLLECTION_SUFFIXES if name.endswith(suffix)}
+    return next((service for pattern, service in SERVICE_PATTERNS if pattern in bases), None)
 
 
 def network_key(name: str) -> str:

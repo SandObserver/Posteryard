@@ -61,6 +61,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Choose a dark logo only when it reads where the logo sits, not across the whole bottom of the art.
 - Treat crops and redrawn versions of a picture as the same picture when giving seasons their art.
 - Keep `art next` working when art it skipped earlier has since been deleted from TMDB or Apple TV.
+- Give collections that only start with a service's name, such as Max Payne Collection, a category tile instead of that service's channel tile.
 - Select the right image when a render is identical to one uploaded before, so an expired label no longer stays on the poster.
 - Give Sky service collections the channel tile instead of the category tile.
 - Count Maintainerr's leaving days in the container's time zone, so the label is no longer one day off.
