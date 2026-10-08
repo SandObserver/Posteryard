@@ -92,4 +92,14 @@ def test_every_service_has_a_built_in_mark() -> None:
 def test_every_collection_name_maps_back_to_its_service() -> None:
     assert {service_named(name) for name in NAMES.values()} == set(NAMES)
     assert service_named("Netflix Kids") == "netflix"
+    assert service_named("Netflix Movies") == "netflix"
+    assert service_named("Hulu Originals") == "hulu"
+    assert service_named("Amazon Prime Video") == "prime"
     assert service_named("Sky Movies") is None
+
+
+def test_a_collection_that_only_starts_with_a_service_word_is_no_service() -> None:
+    assert service_named("Now You See Me Collection") is None
+    assert service_named("Max Payne Collection") is None
+    assert service_named("Starz Collection") is None
+    assert service_named("Netflix Kids & Family Picks") is None
