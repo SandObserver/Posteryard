@@ -64,6 +64,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Give collections that only start with a service's name, such as Max Payne Collection, a category tile instead of that service's channel tile.
 - Select the right image when a render is identical to one uploaded before, so an expired label no longer stays on the poster.
 - Give Sky service collections the channel tile instead of the category tile.
+- Keep a show the server has not matched in the service collections it is in, instead of removing it or deleting a collection left with fewer than 3 shows.
 - Count Maintainerr's leaving days in the container's time zone, so the label is no longer one day off.
 - Skip only one image when removing the `posteryard-next` label fails and is retried.
 - Remove a `posteryard-next` label typed with capital letters.
