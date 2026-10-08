@@ -120,6 +120,7 @@ const values = {
   description,
   social_card: socialCard,
   version,
+  year: String(new Date().getFullYear()),
   schema: JSON.stringify(schema).replaceAll('<', '\\u003c'),
   install_server: installer.servers.plex.label,
   install_method: installer.methods.compose.label,
