@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -65,20 +66,48 @@ const description =
   'Automatic textless posters for Plex, Jellyfin and Emby: the title in one spot, quality badges and streaming marks. ' +
   'Free and self-hosted in Docker.';
 
+const template = readFileSync(join(here, 'template.html'), 'utf8');
+const features = [...template.matchAll(/<div class="f-text"><h3>(.+?)\.<\/h3> <p>(.+?)<\/p><\/div>/g)].map(
+  ([, title, text]) => `${plain(title)}: ${plain(text)}`,
+);
+if (features.length === 0) fail('template.html has no feature cards');
+
 const schema = {
   '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: 'Posteryard',
-  description,
-  url: `${site}/`,
-  image: socialCard,
-  applicationCategory: 'MultimediaApplication',
-  operatingSystem: 'Docker',
-  softwareVersion: version,
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
-  sameAs: [repo],
-  author: { '@type': 'Person', name: 'SandObserver', url: 'https://github.com/SandObserver' },
+  '@graph': [
+    { '@type': 'WebSite', name: 'Posteryard', url: `${site}/` },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Posteryard',
+      description,
+      url: `${site}/`,
+      image: socialCard,
+      applicationCategory: 'MultimediaApplication',
+      operatingSystem: 'Docker',
+      softwareVersion: version,
+      featureList: features,
+      isAccessibleForFree: true,
+      license: 'https://www.apache.org/licenses/LICENSE-2.0',
+      downloadUrl: `${repo}/pkgs/container/posteryard`,
+      softwareHelp: { '@type': 'CreativeWork', url: `${repo}/tree/main/docs` },
+      offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+      sameAs: [repo],
+      author: { '@type': 'Person', name: 'SandObserver', url: 'https://github.com/SandObserver' },
+    },
+  ],
 };
+
+function lastChange() {
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  try {
+    if (git('rev-parse', '--is-shallow-repository') !== 'false') return '';
+    return git('log', '-1', '--format=%cs', '--', 'site', 'README.md', 'CHANGELOG.md', 'docs');
+  } catch {
+    return '';
+  }
+}
+
+const lastmod = lastChange();
 
 const LIBRARY = 12;
 const posters = JSON.parse(readFileSync(join(here, 'posters.json'), 'utf8'));
@@ -158,6 +187,6 @@ writeFileSync(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${s
 writeFileSync(
   join(dist, 'sitemap.xml'),
   `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
-    `  <url><loc>${site}/</loc></url>\n</urlset>\n`,
+    `  <url><loc>${site}/</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ''}</url>\n</urlset>\n`,
 );
 console.log(`site: built Posteryard ${version} into dist/`);
