@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-07
+
 ### Added
 
 - Add `TEXT_CHECK=false` to skip reading text on art, for machines with little memory such as a Raspberry Pi.
@@ -265,7 +267,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/SandObserver/Posteryard/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/SandObserver/Posteryard/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/SandObserver/Posteryard/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/SandObserver/Posteryard/compare/v0.5.0...v0.5.1

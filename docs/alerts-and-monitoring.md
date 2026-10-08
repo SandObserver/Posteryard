@@ -42,7 +42,7 @@ The image has a Docker health check that calls `/healthz` on `LISTEN_PORT`. `doc
 ```json
 {"ok": true, "checks": {"threads_running": true, "worker_responsive": true, "sweep_recent": true},
  "last_sweep_seconds_ago": 312, "last_full_pass": "2026-10-03", "full_pass_running": false,
- "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.7.0"}
+ "queue": 0, "images": {"uploaded": 2410}, "dry_run": false, "version": "0.8.0"}
 ```
 
 | Check | Fails when |
