@@ -26,9 +26,11 @@ def test_a_malformed_url_error_never_carries_the_token() -> None:
 
 
 def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
+    plex = Plex("http://plex.example:32400", SECRET)
     for key in ("1 2", "١٢", "../1"):
+        assert plex.item(key) is None
         with pytest.raises(ValueError, match="rating key"):
-            Plex("http://plex.example:32400", SECRET).item(key)
+            plex.children(key)
 
 
 class Server:
