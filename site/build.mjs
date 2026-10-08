@@ -98,8 +98,9 @@ const schema = {
 };
 
 function lastChange() {
-  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', timeout: 60_000 }).trim();
   try {
+    if (git('rev-parse', '--is-shallow-repository') !== 'false') git('fetch', '--quiet', '--unshallow');
     if (git('rev-parse', '--is-shallow-repository') !== 'false') return '';
     return git('log', '-1', '--format=%cs', '--', 'site', 'README.md', 'CHANGELOG.md', 'docs');
   } catch {
