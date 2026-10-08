@@ -39,9 +39,9 @@ With `MAINTAINERR_URL`, a title in a Maintainerr collection that deletes after a
 
 ## Streaming service
 
-The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Posteryard goes through the countries in order and uses the first service it has a mark for. Stores, live TV, cable on-demand services such as Spectrum On Demand, and add-on channels sold through Amazon, Apple TV or Roku are skipped.
+The streaming service is the first subscription, free or ad-supported offer in `STREAMING_REGIONS`, from TMDB's watch provider data by [JustWatch](https://www.justwatch.com). Posteryard goes through the countries in order and takes the first offer it finds. Stores, live TV, cable on-demand services such as Spectrum On Demand, and add-on channels sold through Amazon, Apple TV or Roku are skipped. When that service's mark is left out, the poster has no mark; Posteryard does not move on to the next offer.
 
-Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+, Channel 4 and ADN. Any other service gets its TMDB network logo in one colour, such as Exxen, SkyShowtime, U-NEXT, JioHotstar, BINGE, discovery+ or Shudder. When TMDB has no such logo, the mark is cut from the service's TMDB icon. Logos that would turn into a block or loose specks in one colour are left out, so the poster has no mark.
+Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramount+, Peacock, YouTube, Crave, Crunchyroll, Tubi, Pluto TV, Starz, MUBI, Viaplay, Sky, NOW, RTL+, Movistar Plus+, Channel 4 and ADN. Any other service gets its TMDB network logo in one colour, such as Exxen, SkyShowtime, U-NEXT, JioHotstar, BINGE, discovery+ or Shudder. When TMDB has no such logo, or the logo would turn into a block or loose specks in one colour, the mark is cut from the service's TMDB icon. When the icon would too, the poster has no mark.
 
 ## Collections
 
