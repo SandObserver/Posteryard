@@ -281,7 +281,11 @@ def _poster(  # noqa: PLR0913
     dark_corner = corner is not None and ctx.measures.corner_dark(art_path, corner)
     ink = NEAR_BLACK if dark_bottom else WHITE
     corner_ink = NEAR_BLACK if dark_corner else WHITE
-    fade = 1.0 if dark_bottom else ctx.measures.fade(art_path, logo_path, title.name, below, title.font)
+    fade = (
+        1.0
+        if dark_bottom
+        else ctx.measures.fade(art_path, logo_path, title.name, below, label=label, prefer=title.font)
+    )
 
     def draw() -> Image.Image:
         if logo_path is None:

@@ -202,8 +202,32 @@ def test_dark_ink_drops_the_fade_and_draws_dark() -> None:
     assert pixels.min() < 60
 
 
+def banded(top: float, bottom: float) -> Image.Image:
+    image = art(colour=(10, 10, 10))
+    image.paste((240, 240, 240), (0, round(top * 3000), 2000, round(bottom * 3000)))
+    return image
+
+
+def test_dark_art_gets_no_fade() -> None:
+    assert designs.fade_strength(art(colour=(20, 20, 20)), logo(), []) == 0.0
+    bare = tile(colour=(20, 20, 20), fade=0.0)
+    assert np.asarray(bare.convert("RGB"))[-5].max() == 20
+
+
+def test_the_fade_stays_when_a_line_or_label_would_not_read() -> None:
+    caption: list[lines.Line] = [lines.Caption("Season 2")]
+    assert designs.fade_strength(banded(0.88, 0.93), logo(), caption) >= 1.0
+    assert designs.fade_strength(banded(0.0, 0.0), logo(), caption) == 0.0
+    grey = art(colour=(100, 100, 100))
+    assert designs.fade_strength(grey, logo(), []) == 0.0
+    assert designs.fade_strength(grey, logo(), caption) >= 1.0
+    label = lines.Label("JUST ADDED", APPLE_GREEN)
+    assert designs.fade_strength(grey, logo(), [], label) >= 1.0
+    assert designs.fade_strength(banded(0.79, 0.825), logo(), [], label) >= 1.0
+    assert designs.fade_strength(banded(0.79, 0.825), logo(), []) == 0.0
+
+
 def test_the_fade_deepens_until_a_white_logo_reads() -> None:
-    assert designs.fade_strength(art(colour=(20, 20, 20)), logo(), []) == 1.0
     assert designs.fade_strength(art(colour=(255, 255, 255)), logo(), []) >= 1.0
     strong, weak = tile(colour=(255, 255, 255), fade=1.8), tile(colour=(255, 255, 255))
     assert np.asarray(strong.convert("L"))[-200].mean() < np.asarray(weak.convert("L"))[-200].mean()
