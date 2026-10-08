@@ -63,6 +63,10 @@ class Alerts(Notifier):
         self.sent.append(subject)
 
 
+def _env(tmp_path: Path) -> dict[str, str]:
+    return {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_URL": "http://plex.example:32400"}
+
+
 def make(tmp_path: Path, **env: str) -> tuple[Worker, FakePlex, Store, Alerts]:
     cfg = config.load(
         {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_URL": "http://plex.example:32400", **env}
@@ -101,6 +105,42 @@ def test_upload_then_leave_a_manual_change_alone(tmp_path: Path) -> None:
     record = store.get("1", "poster")
     assert record is not None and record.status == Status.MANUAL
     assert len(plex.uploads) == 2
+
+
+def test_a_dry_run_and_going_live_again_leave_a_hand_change_alone(tmp_path: Path) -> None:
+    worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "true"})
+    assert worker.process("1") == Outcome.MANUAL
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "false"})
+    assert worker.process("1") == Outcome.MANUAL
+    assert plex.selected_keys[("1", "poster")] == "chosen-by-hand"
+    assert len(plex.uploads) == 2
+
+
+def test_a_dry_run_preview_of_an_uploaded_title_keeps_its_record(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "true"})
+    plex.items["1"]["Media"] = [{"videoResolution": "4k", "Part": []}]
+    uploaded = plex.selected_keys[("1", "poster")]
+    assert worker.process("1") == Outcome.PREVIEW
+    record = store.get("1", "poster")
+    assert record is not None and (record.status, record.image_key) == (Status.UPLOADED, uploaded)
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "false"})
+    assert worker.process("1") == Outcome.UPLOADED
+    assert plex.uploads.count(("1", "poster")) == 2
+    assert plex.uploads.count(("1", "art")) == 1
+
+
+def test_a_failure_after_an_upload_still_sees_a_hand_change(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    store.failed("1", "poster", "Example Movie", "boom")
+    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
+    assert worker.process("1") == Outcome.MANUAL
+    assert plex.uploads.count(("1", "poster")) == 1
 
 
 def test_a_changed_input_renders_again(tmp_path: Path) -> None:

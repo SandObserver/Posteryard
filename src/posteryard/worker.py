@@ -278,21 +278,25 @@ class Worker:
     def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:
         key, target, noun = plan.rating_key, plan.target, NOUNS[plan.target]
         record = self.store.get(key, target)
-        if not self.cfg.dry_run and record and not force:
+        uploaded = record is not None and record.status in (Status.UPLOADED, Status.FAILED) and bool(record.image_key)
+        if record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
-            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
-                self.store.manual(key, target, plan.name)
+            if uploaded and self.server.selected(key, target) != record.image_key:
+                if not self.cfg.dry_run:
+                    self.store.manual(key, target, plan.name)
                 log.info(f"{noun} changed by hand, left alone", extra={"title": plan.name})
                 return Outcome.MANUAL
-        wanted = Status.PREVIEW if self.cfg.dry_run else Status.UPLOADED
-        if record and record.status == wanted and record.fingerprint == plan.fingerprint and not force:
+        done = (Status.PREVIEW, Status.UPLOADED) if self.cfg.dry_run else (Status.UPLOADED,)
+        if record and record.status in done and record.fingerprint == plan.fingerprint and not force:
             return Outcome.UNCHANGED
         image = plan.draw()
         if self.cfg.dry_run:
             self.cfg.preview_dir.mkdir(parents=True, exist_ok=True)
             image.convert("RGB").save(self.cfg.preview_dir / f"{key}-{target}.jpg", quality=JPEG_QUALITY)
-            self.store.previewed(key, target, plan.name, plan.fingerprint)
+            # Keep the record of an upload. Going live again must still see posters changed by hand.
+            if not uploaded:
+                self.store.previewed(key, target, plan.name, plan.fingerprint)
             log.info(f"{noun} preview saved", extra={"title": plan.name, "using": "; ".join(plan.notes)})
             return Outcome.PREVIEW
         data = jpeg(image)
