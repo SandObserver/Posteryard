@@ -54,6 +54,7 @@ def test_items_children_and_a_missing_item(serve: Any) -> None:
     assert plex.sections() == [{"key": "3", "title": "Movies"}]
     assert plex.item("1") == {"ratingKey": "1"}
     assert plex.item("9") is None
+    assert plex.item("0123456789abcdef0123456789abcdef") is None
     assert plex.children("1") == [{"ratingKey": "2"}]
 
 

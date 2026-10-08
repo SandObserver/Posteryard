@@ -37,6 +37,8 @@ class Plex:
         return sections
 
     def item(self, rating_key: str) -> Item | None:
+        if not is_rating_key(rating_key):
+            return None
         try:
             meta = self._get(f"/library/metadata/{_key(rating_key)}", includeGuids=1).get("Metadata") or []
         except http.HttpError as exc:
