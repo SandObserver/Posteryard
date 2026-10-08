@@ -218,6 +218,13 @@ class Service:
     def _keys(self, items: Iterable[Item]) -> list[str]:
         return [str(i["ratingKey"]) for i in items if self.worker.in_scope(i)]
 
+    def _scoped(self, keys: Iterable[str]) -> list[str]:
+        """Keys without their item: those in ONLY_RATING_KEYS, or with a record, which only an item in scope gets."""
+        if not (only := self.cfg.only_rating_keys):
+            return list(keys)
+        known = self.store.keys()
+        return [k for k in keys if k in only or k in known]
+
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
         started = int(time.time())
         cursor = self.store.meta("sweep_cursor")
@@ -242,15 +249,17 @@ class Service:
         released = sorted(set(json.loads(self.store.meta("ignored_keys", "[]"))) - ignored)
         for key in released:
             self.store.forget(key)
-        self.enqueue(released, "unignored")
+        self.enqueue(self._scoped(released), "unignored")
         self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
         previous: dict[str, str] = json.loads(self.store.meta("leaving_dates", "{}"))
         current = {key: day.isoformat() for key, day in self.worker.leaving_days().items()}
         today = date.today().isoformat()
         new_day = self.store.meta("leaving_checked") != today
         leaving = previous.keys() | current.keys()
-        self.enqueue(sorted(k for k in leaving if new_day or previous.get(k) != current.get(k)), "leaving")
-        self.enqueue(self.store.retry_due(), "retry")
+        self.enqueue(
+            self._scoped(sorted(k for k in leaving if new_day or previous.get(k) != current.get(k))), "leaving"
+        )
+        self.enqueue(self._scoped(self.store.retry_due()), "retry")
         self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
         self.store.set_meta("leaving_checked", today)
         self.store.set_meta("sweep_cursor", str(started))
