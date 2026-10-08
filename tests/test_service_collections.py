@@ -77,6 +77,19 @@ def test_a_show_whose_lookup_fails_keeps_its_membership(monkeypatch: pytest.Monk
     assert not any(c[0] in ("remove", "delete") for c in plex.calls)
 
 
+class UnmatchedShow(FakePlex):
+    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+        items = super().section_items(section_key, kind, **filters)
+        return [{**i, "Guid": []} if i["ratingKey"] == "8" else i for i in items]
+
+
+def test_an_unmatched_show_keeps_its_membership() -> None:
+    plex = UnmatchedShow([{"ratingKey": "50", "title": "Apple TV"}])
+    plex.members["50"] = {"6", "7", "8"}
+    assert "50" in service_collections.sync(plex, context(), "4")
+    assert not any(c[0] in ("remove", "delete") for c in plex.calls)
+
+
 def context() -> pipeline.Context:
     settings = Settings(QualityMinimums(), ("US",), {}, date(2026, 10, 3))
     ctx = pipeline.Context(settings, Sources(FakeTmdb(), settings))
