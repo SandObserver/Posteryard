@@ -196,6 +196,7 @@ class Worker:
 
         Images changed by hand are left as they are. A failed item keeps its record, so a second run retries it.
         An item without a selected image is restored again: a run that stopped halfway leaves it so.
+        An upload that was stopped halfway is restored too.
         """
         counts = Restored()
         for record in self.store.with_upload():
@@ -205,7 +206,8 @@ class Worker:
             try:
                 item = self.server.item(record.rating_key)
                 selected = self.server.selected(record.rating_key, target) if item is not None else None
-                if item is not None and selected in (record.image_key, None):
+                ours = selected in (record.image_key, None) or record.status == Status.UPLOADING
+                if item is not None and ours:
                     self.server.restore(item, target)
                     counts.restored += 1
                 elif item is not None:
@@ -300,6 +302,8 @@ class Worker:
             log.info(f"{noun} preview saved", extra={"title": plan.name, "using": "; ".join(plan.notes)})
             return Outcome.PREVIEW
         data = jpeg(image)
+        # Mark the upload before it starts. A container killed during it must not look like a change by hand.
+        self.store.uploading(key, target, plan.name)
         image_key = self.server.upload(key, target, data)
         try:
             self.server.lock(item, target)

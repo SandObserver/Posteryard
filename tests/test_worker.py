@@ -134,6 +134,22 @@ def test_a_dry_run_preview_of_an_uploaded_title_keeps_its_record(tmp_path: Path)
     assert plex.uploads.count(("1", "art")) == 1
 
 
+def test_an_upload_stopped_halfway_is_redone_and_restored(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.items["1"]["Media"] = [{"videoResolution": "4k", "Part": []}]
+    store.uploading("1", "poster", "Example Movie")
+    plex.selected_keys[("1", "poster")] = "upload-halfway"
+    assert worker.process("1") == Outcome.UPLOADED
+    assert plex.uploads.count(("1", "poster")) == 2
+    store.uploading("1", "poster", "Example Movie")
+    store.uploading("2", "poster", "Two")
+    plex.items["2"] = Item(**{**MOVIE, "ratingKey": "2"})
+    plex.selected_keys[("1", "poster")] = "upload-halfway"
+    assert worker.restore_all().restored == 3
+    assert ("2", "poster") in plex.restored
+
+
 def test_a_changed_input_renders_again(tmp_path: Path) -> None:
     worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")

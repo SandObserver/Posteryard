@@ -46,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Hide image decoder messages from the debug log.
 - Find Jellyfin and Emby titles by name and year, such as `why "Dune 2021"`.
 - Stop within a second on `docker stop`, instead of after up to 30 seconds, which Docker ended with a kill after 10.
+- Upload an image again when a stop or crash cut its upload off, instead of treating the poster as changed by hand, and give it back with `restore --all`.
 - Ignore Plex webhooks with an invalid rating key, including a Jellyfin-style ID, instead of retrying them forever.
 - Wait 2 minutes after a failed scheduled run, as the log says, instead of 30 seconds.
 - Name the media server in the `--season` error, instead of always Plex.
