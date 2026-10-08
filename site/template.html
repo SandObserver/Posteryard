@@ -59,7 +59,7 @@
       .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
       .brand { display: flex; align-items: center; min-height: 44px; gap: 12px; color: var(--label); font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
       .brand:hover { color: var(--label); }
-      .brand img { width: 26px; height: 32px; display: block; }
+      .brand img, .brand .mark { width: 26px; height: 32px; display: block; flex: none; overflow: visible; }
       .nav-right { display: flex; align-items: center; gap: 8px; }
       .pill { height: 40px; padding: 0 20px; border-radius: 20px; display: inline-flex; align-items: center; position: relative; font-size: 14px; font-weight: 600; }
       .pill::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 44px; }
@@ -202,7 +202,7 @@
         .wrap { padding: 0 16px; }
         .nav { padding: 18px 0; }
         .brand { font-size: 21px; gap: 10px; }
-        .brand img { width: 22px; height: 27px; }
+        .brand img, .brand .mark { width: 22px; height: 27px; }
         .pill { padding: 0 14px; font-size: 13px; }
         .pill-ghost { display: none; }
         .hero { padding: 24px 0 32px; }
@@ -330,7 +330,7 @@
     <a class="skip" href="#main">Skip to content</a>
     <div class="wrap">
       <nav class="nav" aria-label="Main">
-        <a class="brand" href="/"><img src="/mark.svg" alt="" width="24" height="29" />Posteryard</a>
+        <a class="brand" href="/"><svg class="mark" viewBox="282 232 478 580" width="26" height="32" aria-hidden="true" focusable="false"><line x1="352" y1="302" x2="352" y2="742" stroke="#F2F2F7" stroke-width="140" stroke-linecap="round" /><path class="flag" d="M500 292V532L712 412Z" fill="#FFD60A" stroke="#FFD60A" stroke-width="96" stroke-linejoin="round" /></svg>Posteryard</a>
         <div class="nav-right">
           <a class="pill pill-solid" href="#getting-started">Install</a>
           <a class="pill pill-ghost" href="{{repo}}">GitHub</a>
@@ -880,6 +880,30 @@
       bindTabs(); bindRows(); placeTab(false); fades();
       addEventListener("resize", () => placeTab(false));
       document.fonts?.ready.then(() => placeTab(false));
+    </script>
+    <script>
+      {
+        const brand = document.querySelector(".nav .brand");
+        const flag = brand.querySelector(".flag");
+        const reduce = matchMedia("(prefers-reduced-motion: reduce)");
+        const keyboard = () => { try { return brand.matches(":focus-visible"); } catch { return false; } };
+        let run = null;
+        const hoist = () => {
+          if (run || reduce.matches) return;
+          run = flag.animate([
+            { offset: 0, transform: "translateY(0)", easing: "cubic-bezier(0.5, 0, 0.9, 0.5)" },
+            { offset: 0.18, transform: "translateY(212px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
+            { offset: 0.36, transform: "translateY(140px)", easing: "ease-in-out" },
+            { offset: 0.42, transform: "translateY(150px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
+            { offset: 0.58, transform: "translateY(70px)", easing: "ease-in-out" },
+            { offset: 0.64, transform: "translateY(80px)", easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+            { offset: 1, transform: "translateY(0)" },
+          ], 1200);
+          run.onfinish = run.oncancel = () => (run = null);
+        };
+        brand.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch") hoist(); });
+        brand.addEventListener("focus", () => { if (keyboard()) hoist(); });
+      }
     </script>
   </body>
 </html>
