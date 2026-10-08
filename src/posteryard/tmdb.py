@@ -175,7 +175,9 @@ class Tmdb:
         if self._is_token:
             url = f"{API}{path}?{urllib.parse.urlencode(params)}"
             return http.get_json(url, {"Authorization": f"Bearer {self.api_key}"})
-        return http.get_json(f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}")
+        return http.get_json(
+            f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}", redirects=False
+        )
 
     def _cached(self, key: str, load: Callable[[], Any]) -> Any:
         now = time.monotonic()

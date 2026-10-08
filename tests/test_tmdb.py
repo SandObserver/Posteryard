@@ -16,6 +16,7 @@ def answer(routes: dict[str, Any]) -> Any:
         query = dict(urllib.parse.parse_qsl(parts.query))
         if "api.themoviedb.org" in url:
             assert query.pop("api_key") == "example-key"
+            assert kwargs["redirects"] is False
         body = routes.get(parts.path.removeprefix("/3"))
         if body is None:
             raise http.HttpError(404, url)

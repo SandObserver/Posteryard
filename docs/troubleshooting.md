@@ -19,6 +19,7 @@ Set `LOG_LEVEL=debug` to see every item Posteryard checks.
 | `TMDB has no textless art for ...` | TMDB has no usable art yet. Set `FANART_API_KEY` to try fanart.tv too, use `art set` with your own image, or add the `posteryard-ignore` label. |
 | `NewConnectionError for http://.../library/sections`, or `ConnectTimeoutError` or `NameResolutionError` |  Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
+| `refused a redirect (HTTP 301)` from Plex | `PLEX_URL` points at an address that redirects, often `http://` where Plex or a proxy wants `https://`. Set `PLEX_URL` to the address the redirect goes to. Posteryard does not follow redirects, so the token never goes to another host. |
 | A poster has art you do not expect | Run `why TITLE`. It lists the art checked in order and why each was used or not. `art next` switches to the next one. |
 | A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |
 

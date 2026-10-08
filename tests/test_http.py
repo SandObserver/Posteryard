@@ -39,6 +39,7 @@ class Server:
     def __init__(self) -> None:
         self.answers: list[tuple[int, dict[str, str], bytes]] = []
         self.connections: set[int] = set()
+        self.requests: list[tuple[str, dict[str, str]]] = []
         server = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -49,6 +50,7 @@ class Server:
 
             def do_GET(self) -> None:
                 server.connections.add(self.client_address[1])
+                server.requests.append((self.path, dict(self.headers)))
                 status, headers, body = server.answers.pop(0)
                 self.send_response(status)
                 for name, value in {"Content-Length": str(len(body)), **headers}.items():
@@ -90,6 +92,16 @@ def test_connections_are_reused(server: Server) -> None:
 def test_redirects_are_followed(server: Server) -> None:
     server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"moved")]
     assert http.request("GET", f"{server.url}/a") == b"moved"
+
+
+def test_plex_sends_the_token_as_a_header_and_refuses_redirects(server: Server) -> None:
+    server.answers = [(301, {"Location": "http://elsewhere.example/library/sections"}, b"")]
+    with pytest.raises(http.RequestError, match="refused a redirect") as caught:
+        Plex(server.url, SECRET).sections()
+    assert SECRET not in str(caught.value)
+    [(path, headers)] = server.requests
+    assert SECRET not in path
+    assert headers["X-Plex-Token"] == SECRET
 
 
 def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPatch) -> None:
