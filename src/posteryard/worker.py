@@ -282,7 +282,7 @@ class Worker:
         if record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
-            if uploaded and self.server.selected(key, target) != record.image_key:
+            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
                 if not self.cfg.dry_run:
                     self.store.manual(key, target, plan.name)
                 log.info(f"{noun} changed by hand, left alone", extra={"title": plan.name})

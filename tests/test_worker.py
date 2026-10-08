@@ -134,15 +134,6 @@ def test_a_dry_run_preview_of_an_uploaded_title_keeps_its_record(tmp_path: Path)
     assert plex.uploads.count(("1", "art")) == 1
 
 
-def test_a_failure_after_an_upload_still_sees_a_hand_change(tmp_path: Path) -> None:
-    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
-    worker.process("1")
-    store.failed("1", "poster", "Example Movie", "boom")
-    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
-    assert worker.process("1") == Outcome.MANUAL
-    assert plex.uploads.count(("1", "poster")) == 1
-
-
 def test_a_changed_input_renders_again(tmp_path: Path) -> None:
     worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")

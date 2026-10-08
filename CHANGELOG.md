@@ -72,7 +72,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Retry and alert on unexpected errors like other failures.
 - Keep the record of an uploaded episode thumbnail while `DRY_RUN` is on, so `restore --all` can still give it back.
 - Keep the record of every uploaded image while `DRY_RUN` is on, so going live again leaves posters changed by hand alone and does not upload unchanged images again.
-- Leave a poster changed by hand alone after a failed attempt to update it.
 
 ## [0.7.0] - 2026-10-04
 
