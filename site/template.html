@@ -156,28 +156,35 @@
       .code pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.4; color: #e6edf3; }
       .pill, .btn, .copy, .f-arrow { transition: background-color 0.2s ease, color 0.2s ease, opacity 0.2s ease, transform 0.15s ease; }
       .pill:active, .btn:active, .copy:active, .f-arrow:active:not(:disabled) { transform: scale(0.97); }
-      a, .sources img { transition: color 0.2s ease, opacity 0.2s ease; }
+      a, .credit-row img { transition: color 0.2s ease, opacity 0.2s ease; }
       .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
       @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
       @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
 
       .footer { padding: 40px 0 48px; }
-      .foot-in { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; }
-      .foot-links { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 12px; }
+      .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 28px 48px; }
+      .foot-main { flex: 1 1 320px; display: grid; gap: 10px; align-content: start; }
+      .foot .brand { justify-self: start; font-size: 22px; gap: 11px; }
+      .foot .brand .mark { width: 24px; height: 29px; }
+      .foot-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
       .foot-links a { font-size: 14px; color: var(--dim); display: inline-flex; align-items: center; min-height: 44px; }
       .foot-links a:hover { color: var(--label); }
-      .sources { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; margin-top: 4px; font-size: 13px; color: rgba(255, 255, 255, 0.5); }
-      .sources a { display: inline-flex; align-items: center; min-height: 44px; }
-      .sources img { display: block; height: 11px; width: auto; opacity: 0.75; }
-      .sources a:hover img { opacity: 1; }
-      .more { margin: 0 0 4px; font-size: 14px; color: var(--dim); }
-      .more a { display: inline-flex; align-items: center; gap: 6px; vertical-align: bottom; color: var(--label); }
-      .more img { display: block; width: 18px; height: 18px; }
-      .more a:hover { color: var(--accent); }
-      .credit { margin: 0; font-size: 13px; color: rgba(255, 255, 255, 0.5); max-width: 60ch; line-height: 1.5; }
-      .verbadge { display: flex; align-items: center; min-height: 44px; overflow: hidden; font-size: 12px; font-weight: 600; }
-      .verbadge span { padding: 4px 8px; border-radius: 5px 0 0 5px; background: #3a3a3c; color: rgba(235, 235, 245, 0.7); }
-      .verbadge b { padding: 4px 8px; border-radius: 0 5px 5px 0; background: var(--accent); color: var(--on-accent); }
+      .foot-legal { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
+      .foot-legal a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+      .foot-legal a:hover { color: var(--label); }
+      .credits { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 220px); gap: 0 32px; margin: 0; align-content: start; }
+      .credits > div { display: grid; grid-template-rows: auto 44px auto; align-content: start; gap: 2px; min-width: 0; }
+      .credits dt { padding-top: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
+      .credits dd { margin: 0; }
+      .credit-row { display: flex; align-items: center; gap: 16px; }
+      .credit-row a { display: inline-flex; align-items: center; min-height: 44px; }
+      .credit-row img { display: block; height: 12px; width: auto; opacity: 0.8; }
+      .credit-row a:hover img { opacity: 1; }
+      .sibling { gap: 8px; font-size: 15px; font-weight: 600; color: var(--label); }
+      .sibling:hover { color: var(--accent); }
+      .sibling svg { width: 15px; height: 18px; flex: none; overflow: visible; }
+      .sibling .orbit { transform-box: view-box; transform-origin: 512px 512px; }
+      .credit-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
 
       @media (max-width: 1180px) {
         .wrap { padding: 0 28px; }
@@ -214,7 +221,10 @@
         .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
         .code pre code { font-size: 12px; }
-        .foot-in { flex-direction: column; gap: 20px; }
+        .foot { flex-direction: column; align-items: flex-start; gap: 14px; }
+        .foot-main { display: contents; }
+        .credits { order: 2; margin-top: 10px; grid-auto-flow: row; grid-auto-columns: auto; gap: 14px; }
+        .foot-legal { order: 3; margin-top: 10px; }
       }
       #getting-started { --fill-1: rgba(120, 120, 128, 0.36); --fill-3: rgba(118, 118, 128, 0.24); --seg-on: rgba(255, 255, 255, 0.36); --a11y-border: #838387; --row-sep: rgba(255, 255, 255, 0.17); --ov-strong: rgba(255, 255, 255, 0.1); --menu-bg: rgba(30, 30, 32, 0.72); --menu-rim: rgba(255, 255, 255, 0.12); --shadow-pop: 0 8px 48px rgba(0, 0, 0, 0.45); --pill-ease: cubic-bezier(0.22, 1, 0.36, 1); --green: #30d158; }
       .pop-root { position: relative; }
@@ -440,20 +450,29 @@
     </main>
 
     <footer class="footer">
-      <div class="wrap foot-in">
-        <div>
-          <a class="brand" href="/"><img src="/mark.svg" alt="" width="24" height="29" />Posteryard</a>
-          <div class="foot-links">
+      <div class="wrap foot">
+        <div class="foot-main">
+          <a class="brand" href="/"><svg class="mark" viewBox="282 232 478 580" width="24" height="29" aria-hidden="true" focusable="false"><line x1="352" y1="302" x2="352" y2="742" stroke="#F2F2F7" stroke-width="140" stroke-linecap="round" /><path class="flag" d="M500 292V532L712 412Z" fill="#FFD60A" stroke="#FFD60A" stroke-width="96" stroke-linejoin="round" /></svg>Posteryard</a>
+          <nav class="foot-links" aria-label="Footer">
+            <a href="#getting-started">Install</a>
             <a href="{{repo}}">GitHub</a>
             <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a>
             <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a>
-            <a href="https://buymeacoffee.com/sandobserver" target="_blank" rel="noopener noreferrer">Buy me a coffee</a>
-          </div>
-          <p class="more">Also by SandObserver: <a href="https://stackyard.sandobserver.com"><img src="/img/stackyard-mark.svg" alt="" width="18" height="18" />Stackyard</a>, a calm dashboard for the services you self-host.</p>
-          <div class="sources"><span>Data from</span><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a><a href="https://www.justwatch.com" target="_blank" rel="noopener noreferrer"><img src="/justwatch.svg" alt="JustWatch" width="74" height="11" /></a></div>
-          <p class="credit">Uses the TMDB API but is not endorsed or certified by TMDB. Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
+          </nav>
+          <p class="foot-legal">© {{year}} SandObserver · Apache License 2.0 · <a href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}, changelog">v{{version}}</a><br />Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
         </div>
-        <a class="verbadge" href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}"><span>release</span> <b>v{{version}}</b></a>
+        <dl class="credits">
+          <div>
+            <dt>Data from</dt>
+            <dd class="credit-row"><a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"><img src="/tmdb.svg" alt="TMDB" width="92" height="12" /></a><a href="https://www.justwatch.com" target="_blank" rel="noopener noreferrer"><img src="/justwatch.svg" alt="JustWatch" width="80" height="12" /></a></dd>
+            <dd><p class="credit-note">Uses the TMDB API but is not endorsed or certified by TMDB.</p></dd>
+          </div>
+          <div>
+            <dt>Also by SandObserver</dt>
+            <dd class="credit-row"><a class="sibling" href="https://stackyard.sandobserver.com"><svg viewBox="146.35 105.5 772.15 816.5" width="15" height="18" aria-hidden="true" focusable="false"><defs><clipPath id="foot-orbit"><polygon points="512,512 -3000,-1515.65 -3000,-3000 4000,-3000 4000,4000 512,4000" /></clipPath></defs><g clip-path="url(#foot-orbit)"><path class="orbit" fill="#00D2E0" d="M512 105.5A406.5 406.5 0 0 1 864.04 715.25A75.5 75.5 0 0 1 733.27 639.75A255.5 255.5 0 0 0 512 256.5A75.5 75.5 0 0 1 512 105.5Z" /></g><path fill="#F2F2F7" d="M551.5 443.58L264.85 278.08A79 79 0 0 0 185.85 414.92L472.5 580.42A79 79 0 0 0 551.5 443.58ZM472.5 443.58L185.85 609.08A79 79 0 0 0 264.85 745.92L551.5 580.42A79 79 0 0 0 472.5 443.58ZM433 512L433 843A79 79 0 0 0 591 843L591 512A79 79 0 0 0 433 512Z" /></svg>Stackyard</a></dd>
+            <dd><p class="credit-note">A calm dashboard for the services you self-host.</p></dd>
+          </div>
+        </dl>
       </div>
     </footer>
     <p class="sr-only" id="live" aria-live="polite"></p>
@@ -883,26 +902,31 @@
     </script>
     <script>
       {
-        const brand = document.querySelector(".nav .brand");
-        const flag = brand.querySelector(".flag");
         const reduce = matchMedia("(prefers-reduced-motion: reduce)");
-        const keyboard = () => { try { return brand.matches(":focus-visible"); } catch { return false; } };
-        let run = null;
-        const hoist = () => {
-          if (run || reduce.matches) return;
-          run = flag.animate([
-            { offset: 0, transform: "translateY(0)", easing: "cubic-bezier(0.5, 0, 0.9, 0.5)" },
-            { offset: 0.18, transform: "translateY(212px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
-            { offset: 0.36, transform: "translateY(140px)", easing: "ease-in-out" },
-            { offset: 0.42, transform: "translateY(150px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
-            { offset: 0.58, transform: "translateY(70px)", easing: "ease-in-out" },
-            { offset: 0.64, transform: "translateY(80px)", easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
-            { offset: 1, transform: "translateY(0)" },
-          ], 1200);
-          run.onfinish = run.oncancel = () => (run = null);
+        const hoist = [[
+          { offset: 0, transform: "translateY(0)", easing: "cubic-bezier(0.5, 0, 0.9, 0.5)" },
+          { offset: 0.18, transform: "translateY(212px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
+          { offset: 0.36, transform: "translateY(140px)", easing: "ease-in-out" },
+          { offset: 0.42, transform: "translateY(150px)", easing: "cubic-bezier(0.3, 0, 0.3, 1)" },
+          { offset: 0.58, transform: "translateY(70px)", easing: "ease-in-out" },
+          { offset: 0.64, transform: "translateY(80px)", easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" },
+          { offset: 1, transform: "translateY(0)" },
+        ], 1200];
+        const spin = [[{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], { duration: 1000, easing: "cubic-bezier(0.65, 0, 0.35, 1)" }];
+        const animateOn = (part, motion) => {
+          const link = part.closest("a");
+          const keyboard = () => { try { return link.matches(":focus-visible"); } catch { return false; } };
+          let run = null;
+          const play = () => {
+            if (run || reduce.matches) return;
+            run = part.animate(...motion);
+            run.onfinish = run.oncancel = () => (run = null);
+          };
+          link.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch") play(); });
+          link.addEventListener("focus", () => { if (keyboard()) play(); });
         };
-        brand.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch") hoist(); });
-        brand.addEventListener("focus", () => { if (keyboard()) hoist(); });
+        for (const flag of document.querySelectorAll("a .flag")) animateOn(flag, hoist);
+        for (const orbit of document.querySelectorAll("a .orbit")) animateOn(orbit, spin);
       }
     </script>
   </body>
