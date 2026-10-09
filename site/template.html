@@ -162,17 +162,17 @@
       @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; } }
 
       .footer { padding: 40px 0 48px; }
-      .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 28px 48px; }
-      .foot-main { flex: 1 1 320px; display: grid; gap: 10px; align-content: start; }
+      .foot { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "main credits" "legal credits"; gap: 10px 48px; align-items: start; }
+      .foot-main { grid-area: main; display: grid; gap: 10px; align-content: start; }
       .foot .brand { justify-self: start; font-size: 22px; gap: 11px; }
       .foot .brand .mark { width: 24px; height: 29px; }
       .foot-links { display: flex; flex-wrap: wrap; gap: 0 18px; }
       .foot-links a { font-size: 14px; color: var(--dim); display: inline-flex; align-items: center; min-height: 44px; }
       .foot-links a:hover { color: var(--label); }
-      .foot-legal { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
+      .foot-legal { grid-area: legal; margin: 0; font-size: 13px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
       .foot-legal a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
       .foot-legal a:hover { color: var(--label); }
-      .credits { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 220px); gap: 0 32px; margin: 0; align-content: start; }
+      .credits { grid-area: credits; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 220px); gap: 0 32px; margin: 0; align-content: start; }
       .credits > div { display: grid; grid-template-rows: auto 44px auto; align-content: start; gap: 2px; min-width: 0; }
       .credits dt { padding-top: 6px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.5); }
       .credits dd { margin: 0; }
@@ -200,6 +200,7 @@
         .band h2 { font-size: 30px; }
         .setup-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; }
         .setup-side { position: static; }
+        .foot { grid-template-columns: minmax(0, 1fr); grid-template-areas: "main" "credits" "legal"; gap: 28px; }
       }
       @media (max-width: 600px) {
         .f-title { font-size: 26px; margin-bottom: 20px; }
@@ -221,10 +222,10 @@
         .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
         .code pre code { font-size: 12px; }
-        .foot { flex-direction: column; align-items: flex-start; gap: 14px; }
-        .foot-main { display: contents; }
-        .credits { order: 2; margin-top: 10px; grid-auto-flow: row; grid-auto-columns: auto; gap: 14px; }
-        .foot-legal { order: 3; margin-top: 10px; }
+        .foot { gap: 14px; }
+        .foot-main { gap: 14px; }
+        .credits { margin-top: 10px; grid-auto-flow: row; grid-auto-columns: auto; gap: 14px; }
+        .foot-legal { margin-top: 10px; }
       }
       #getting-started { --fill-1: rgba(120, 120, 128, 0.36); --fill-3: rgba(118, 118, 128, 0.24); --seg-on: rgba(255, 255, 255, 0.36); --a11y-border: #838387; --row-sep: rgba(255, 255, 255, 0.17); --ov-strong: rgba(255, 255, 255, 0.1); --menu-bg: rgba(30, 30, 32, 0.72); --menu-rim: rgba(255, 255, 255, 0.12); --shadow-pop: 0 8px 48px rgba(0, 0, 0, 0.45); --pill-ease: cubic-bezier(0.22, 1, 0.36, 1); --green: #30d158; }
       .pop-root { position: relative; }
@@ -459,7 +460,6 @@
             <a href="{{repo}}/blob/main/CHANGELOG.md">Changelog</a>
             <a href="{{repo}}/issues/new/choose" target="_blank" rel="noopener noreferrer">Report an issue</a>
           </nav>
-          <p class="foot-legal">© {{year}} SandObserver · Apache License 2.0 · <a href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}, changelog">v{{version}}</a><br />Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
         </div>
         <dl class="credits">
           <div>
@@ -473,6 +473,7 @@
             <dd><p class="credit-note">A calm dashboard for the services you self-host.</p></dd>
           </div>
         </dl>
+        <p class="foot-legal">© {{year}} SandObserver · Apache License 2.0 · <a href="{{repo}}/blob/main/CHANGELOG.md" aria-label="Release v{{version}}, changelog">v{{version}}</a><br />Not affiliated with Plex, Jellyfin, Emby or Apple.</p>
       </div>
     </footer>
     <p class="sr-only" id="live" aria-live="polite"></p>
