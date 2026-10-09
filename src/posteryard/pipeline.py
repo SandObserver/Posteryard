@@ -9,7 +9,7 @@ from typing import Any
 
 from PIL import Image
 
-from posteryard import apple, http, overrides, quality, services, status
+from posteryard import apple, http, overrides, quality, services, similar, status
 from posteryard.artwork import (
     LOGO_RULE,
     MAX_CANDIDATES,
@@ -36,6 +36,7 @@ MEASURED = f"measured:{DESIGN_VERSION}:"
 CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "measured:": (MEASURED,),
     "poster-": ("poster-hash:",),
+    "same-details:": (f"same-details:{similar.FEATURE_RULE}:",),
     "logo": (f"logo{LOGO_RULE}:",),
     "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
     UNCHECKED: (f"{UNCHECKED}textless{TEXTLESS_RULE}:", f"{UNCHECKED}textless-all{TEXTLESS_RULE}:"),

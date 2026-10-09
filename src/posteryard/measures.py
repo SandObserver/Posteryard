@@ -115,7 +115,8 @@ class Measures:
         def measure() -> Mapping[str, Any]:
             return {"same": similar.same_details(self._features(first), self._features(second))}
 
-        return bool(self._measured(f"same-details:{similar.FEATURES_SAME}:{first}:{second}", measure)["same"])
+        key = f"same-details:{similar.FEATURE_RULE}:{first}:{second}"
+        return bool(remember(self.sources.choices, key, measure)["same"])
 
     def _features(self, path: str) -> similar.Features:
         with self._lock:
