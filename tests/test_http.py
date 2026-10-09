@@ -119,6 +119,26 @@ def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:
     assert SECRET not in str(caught.value)
 
 
+@pytest.mark.parametrize(
+    ("query", "headers"),
+    [
+        ("", {"X-Plex-Token": SECRET}),
+        ("", {"Authorization": f"Bearer {SECRET}"}),
+        ("", {"Authorization": f'MediaBrowser Token="{SECRET}"'}),
+        ("", {"api-key": SECRET}),
+        (f"?api_key={SECRET}", {}),
+    ],
+)
+def test_an_error_page_that_echoes_a_credential_never_carries_it(
+    server: Server, query: str, headers: dict[str, str]
+) -> None:
+    server.answers = [(401, {}, f"denied for {SECRET}, sent {headers}".encode())]
+    with pytest.raises(http.HttpError) as caught:
+        http.request("GET", f"{server.url}/a{query}", headers=headers)
+    assert SECRET not in str(caught.value)
+    assert "denied for ***" in str(caught.value)
+
+
 def test_oversized_responses_are_refused(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(http, "MAX_RESPONSE", 4)
     server.answers = [(200, {}, b"too long")]
