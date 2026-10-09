@@ -15,6 +15,7 @@ from posteryard.sources import Sources
 
 SAME_PICTURE_BITS = 10
 THUMB_CACHE = 2000
+FEATURE_CACHE = 64
 
 
 @dataclass
@@ -22,6 +23,7 @@ class Measures:
     sources: Sources
     prefix: str
     thumbs: OrderedDict[str, similar.Thumb] = field(default_factory=OrderedDict)
+    features: OrderedDict[str, similar.Features] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def fade(  # noqa: PLR0913
@@ -83,9 +85,11 @@ class Measures:
             if bin(int(first["hash"]) ^ int(second["hash"])).count("1") <= SAME_PICTURE_BITS:
                 return True
             shared = similar.overlap(first["histogram"], second["histogram"])
-            if shared < similar.HISTOGRAM_SAME:
-                return False
-            return similar.same_picture(self._thumb(a), self._thumb(b), shared, redrawn=redrawn)
+            if shared >= similar.HISTOGRAM_SAME and similar.same_picture(
+                self._thumb(a), self._thumb(b), shared, redrawn=redrawn
+            ):
+                return True
+            return redrawn and self._same_details(a, b)
         except http.HttpError as exc:
             if 400 <= exc.status < 500 and exc.status not in http.RETRY_STATUSES:
                 return False
@@ -104,6 +108,27 @@ class Measures:
         hit = {"hash": value, "histogram": similar.histogram(image)}
         choices.put_choice(f"poster-hash:{path}", hit)
         return hit
+
+    def _same_details(self, a: str, b: str) -> bool:
+        first, second = sorted((a, b))
+
+        def measure() -> Mapping[str, Any]:
+            return {"same": similar.same_details(self._features(first), self._features(second))}
+
+        return bool(self._measured(f"same-details:{similar.FEATURES_SAME}:{first}:{second}", measure)["same"])
+
+    def _features(self, path: str) -> similar.Features:
+        with self._lock:
+            hit = self.features.get(path)
+            if hit is not None:
+                self.features.move_to_end(path)
+                return hit
+        value = similar.features(self.sources.fetch(path))
+        with self._lock:
+            self.features[path] = value
+            while len(self.features) > FEATURE_CACHE:
+                self.features.popitem(last=False)
+        return value
 
     def _thumb(self, path: str) -> similar.Thumb:
         with self._lock:

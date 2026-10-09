@@ -24,6 +24,7 @@ from posteryard.server import Item
 from posteryard.services import Offer
 from posteryard.tmdb import Images, Kind, RegionOffers, Tmdb
 from tests.fakes import FakeServer, context, fetch, ref, tmdb_of
+from tests.test_similar import detailed
 
 
 class DatedPlex(FakeServer):
@@ -179,6 +180,16 @@ def test_an_outage_while_comparing_art_still_fails_the_item() -> None:
     ctx.sources.fetch = down
     with pytest.raises(posteryard_http.HttpError):
         ctx.measures.same_picture("/a.jpg", "/b.jpg")
+
+
+def test_a_zoomed_version_counts_as_the_same_picture_only_when_redrawn_art_counts() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    poster = detailed(5)
+    images = {"/a.jpg": poster, "/b.jpg": poster.crop((90, 135, 510, 765)).resize((600, 900)), "/c.jpg": detailed(6)}
+    ctx.sources.fetch = images.__getitem__
+    assert ctx.measures.same_picture("/a.jpg", "/b.jpg")
+    assert not ctx.measures.same_picture("/a.jpg", "/b.jpg", redrawn=False)
+    assert not ctx.measures.same_picture("/a.jpg", "/c.jpg")
 
 
 def test_without_overrides_fingerprints_stay_the_same() -> None:
