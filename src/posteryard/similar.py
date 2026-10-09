@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 
+import cv2
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from PIL import Image, ImageFilter
@@ -19,6 +20,12 @@ SHAPE_FLOOR = 0.15
 SHAPE_SAME = 0.70
 SHAPE_COLOUR_SAME = 0.4
 SHAPE_HISTOGRAM_SAME = 0.95
+# A third look for zoomed, cropped or widened versions: image details that line up after one scale and shift.
+FEATURE_HEIGHT = 400
+FEATURES = 1000
+FEATURE_RATIO = 0.75
+FEATURE_PIXELS = 6.0
+FEATURES_SAME = 30
 
 
 @dataclass(frozen=True)
@@ -82,3 +89,34 @@ def same_picture(a: Thumb, b: Thumb, histogram_overlap: float, *, redrawn: bool 
     if not redrawn or colour < SHAPE_COLOUR_SAME or histogram_overlap < SHAPE_HISTOGRAM_SAME:
         return False
     return _score(a.shape, b.shape, SHAPE_SCALES, SHAPE_FLOOR, 1) >= SHAPE_SAME
+
+
+@dataclass(frozen=True)
+class Features:
+    points: np.ndarray
+    descriptors: np.ndarray | None
+
+
+def features(image: Image.Image) -> Features:
+    grey = image.convert("L")
+    grey = grey.resize((max(1, round(grey.width * FEATURE_HEIGHT / grey.height)), FEATURE_HEIGHT), Image.Resampling.BOX)
+    keypoints, descriptors = cv2.ORB.create(nfeatures=FEATURES).detectAndCompute(np.asarray(grey), None)
+    return Features(np.array([k.pt for k in keypoints], dtype=np.float32).reshape(-1, 2), descriptors)
+
+
+def matching_features(a: Features, b: Features) -> int:
+    """How many details of a land on the same details of b after one scale, rotation and shift."""
+    if a.descriptors is None or b.descriptors is None or len(a.points) < 2 or len(b.points) < 2:
+        return 0
+    pairs = cv2.BFMatcher(cv2.NORM_HAMMING).knnMatch(a.descriptors, b.descriptors, k=2)
+    good = [m for m, n in (p for p in pairs if len(p) == 2) if m.distance < FEATURE_RATIO * n.distance]
+    if len(good) < 3:
+        return 0
+    first = a.points[[m.queryIdx for m in good]]
+    second = b.points[[m.trainIdx for m in good]]
+    _, inliers = cv2.estimateAffinePartial2D(first, second, method=cv2.RANSAC, ransacReprojThreshold=FEATURE_PIXELS)
+    return 0 if inliers is None else int(inliers.sum())
+
+
+def same_details(a: Features, b: Features) -> bool:
+    return matching_features(a, b) >= FEATURES_SAME

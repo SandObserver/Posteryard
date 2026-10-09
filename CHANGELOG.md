@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Treat zoomed, cropped and widened versions of the same art as one picture, so `art next` and season posters move to different art.
+
 ### Security
 
 - Send the Plex token in a header and refuse redirects from Plex, so a redirect cannot pass the token to another host.
