@@ -84,6 +84,12 @@
   "year": 2024
  },
  {
+  "id": "movie-181886",
+  "kind": "movie",
+  "title": "Enemy",
+  "year": 2013
+ },
+ {
   "id": "movie-264660",
   "kind": "movie",
   "title": "Ex Machina",
@@ -99,6 +105,12 @@
   "id": "movie-746036",
   "kind": "movie",
   "title": "The Fall Guy",
+  "year": 2024
+ },
+ {
+  "id": "movie-956842",
+  "kind": "movie",
+  "title": "Fly Me to the Moon",
   "year": 2024
  },
  {
@@ -132,6 +144,12 @@
   "year": 2019
  },
  {
+  "id": "movie-399057",
+  "kind": "movie",
+  "title": "The Killing of a Sacred Deer",
+  "year": 2017
+ },
+ {
   "id": "movie-313369",
   "kind": "movie",
   "title": "La La Land",
@@ -160,6 +178,12 @@
   "kind": "movie",
   "title": "My Neighbor Totoro",
   "year": 1988
+ },
+ {
+  "id": "movie-1433367",
+  "kind": "movie",
+  "title": "One Night Only",
+  "year": 2026
  },
  {
   "id": "movie-872585",
@@ -202,6 +226,12 @@
   "kind": "movie",
   "title": "Top Gun: Maverick",
   "year": 2022
+ },
+ {
+  "id": "movie-1340206",
+  "kind": "movie",
+  "title": "Tuner",
+  "year": 2026
  },
  {
   "id": "movie-1078605",
@@ -276,10 +306,28 @@
   "seasons": 2
  },
  {
+  "id": "tv-196322",
+  "kind": "tv",
+  "title": "Dark Matter",
+  "seasons": 2
+ },
+ {
   "id": "tv-85552",
   "kind": "tv",
   "title": "Euphoria",
   "seasons": 3
+ },
+ {
+  "id": "tv-106379",
+  "kind": "tv",
+  "title": "Fallout",
+  "seasons": 2
+ },
+ {
+  "id": "tv-1434",
+  "kind": "tv",
+  "title": "Family Guy",
+  "seasons": 24
  },
  {
   "id": "tv-67070",
@@ -292,6 +340,12 @@
   "kind": "tv",
   "title": "Foundation",
   "seasons": 3
+ },
+ {
+  "id": "tv-1668",
+  "kind": "tv",
+  "title": "Friends",
+  "seasons": 10
  },
  {
   "id": "tv-95557",
@@ -316,6 +370,12 @@
   "kind": "tv",
   "title": "The Mandalorian",
   "seasons": 3
+ },
+ {
+  "id": "tv-67178",
+  "kind": "tv",
+  "title": "Marvel's The Punisher",
+  "seasons": 2
  },
  {
   "id": "tv-71446",
