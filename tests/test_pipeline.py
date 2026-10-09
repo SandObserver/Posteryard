@@ -192,6 +192,16 @@ def test_a_zoomed_version_counts_as_the_same_picture_only_when_redrawn_art_count
     assert not ctx.measures.same_picture("/a.jpg", "/c.jpg")
 
 
+def test_a_detail_match_is_stored_under_the_current_match_settings() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.sources.choices = choices = RecordingChoices()
+    poster = detailed(5)
+    ctx.sources.fetch = {"/a.jpg": poster, "/b.jpg": poster.crop((90, 135, 510, 765)).resize((600, 900))}.__getitem__
+    assert ctx.measures.same_picture("/a.jpg", "/b.jpg")
+    [key] = [k for k in choices.keys if k.startswith("same-details:")]
+    assert key.startswith(pipeline.CHOICE_FAMILIES["same-details:"])
+
+
 def test_without_overrides_fingerprints_stay_the_same() -> None:
     plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
     assert "override" not in plan.inputs
