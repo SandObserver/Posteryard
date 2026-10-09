@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 SECRET_PARAMS = frozenset({"x-plex-token", "api_key", "token", "apikey"})
+SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = "Posteryard"
 MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
@@ -54,6 +55,22 @@ def redact(url: str) -> str:
     return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
 
 
+def secrets(url: str, headers: dict[str, str]) -> set[str]:
+    found = {v for k, v in urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query) if k.lower() in SECRET_PARAMS}
+    for name, value in headers.items():
+        if name.lower() in SECRET_HEADERS:
+            last = (value.split() or [value])[-1]
+            found |= {value, last, last.removeprefix("Token=").strip('"')}
+    return {s for s in found if s}
+
+
+def hide(text: str, hidden: set[str]) -> str:
+    """Pass every response body through this before it reaches an error. A server can echo a credential back."""
+    for secret in sorted(hidden, key=len, reverse=True):
+        text = text.replace(secret, "***")
+    return text
+
+
 def request(  # noqa: PLR0913
     method: str,
     url: str,
@@ -88,7 +105,8 @@ def request(  # noqa: PLR0913
             if response.status < 400:
                 return body
             if response.status not in RETRY_STATUSES or attempt == retries:
-                raise HttpError(response.status, url, body.decode("utf-8", "replace"))
+                text = body.decode("utf-8", "replace")
+                raise HttpError(response.status, url, hide(text, secrets(url, headers or {})))
             wait = max(delay, retry_after(response.headers.get("Retry-After")))
             log.warning(
                 "retrying request", extra={"method": method, "url": redact(url), "reason": f"HTTP {response.status}"}

@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Send the Plex token in a header and refuse redirects from Plex, so a redirect cannot pass the token to another host.
 - Refuse redirects for TMDB requests that carry an API key.
+- Hide tokens and API keys in error messages when a server repeats them in its error page.
 
 ## [0.8.0] - 2026-10-07
 
