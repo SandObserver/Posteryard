@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Update the Python base image to 3.13.16 for CVE-2026-19445.
+
 ## [0.8.1] - 2026-10-08
 
 ### Fixed
