@@ -401,3 +401,10 @@ def test_long_live_titles_may_take_three_lines() -> None:
     title = "A Very Long Show Title That Goes On And On And Keeps Going Past Every Reasonable Length"
     two, three = designs.text_logo(title), designs.text_logo(title, rows=3)
     assert three.height / three.width > two.height / two.width
+
+
+def test_a_plex_show_on_several_channels_gets_no_channel_logo() -> None:
+    shows = guide_shows(
+        GUIDE, [airing("Bulletin", "a"), airing("Bulletin", "a", channel="Other"), airing("Night", "b")]
+    )
+    assert {s.title: s.logo for s in shows} == {"Bulletin": "", "Night": LOGO}

@@ -77,9 +77,13 @@ def _web(url: str) -> bool:
 
 
 def guide_shows(provider: str, airings: Iterable[Item]) -> list[GuideShow]:
-    """One entry per show or movie. A picture that several shows share is a channel image, not the show's own."""
+    """One entry per show or movie. A picture that several shows share is a channel image, not the show's own.
+
+    Plex keeps one entry for a title on several channels, so its one poster gets no channel logo.
+    """
     shows: dict[str, GuideShow] = {}
     users: dict[str, set[str]] = {}
+    channels: dict[str, set[str]] = {}
     for item in airings:
         airing: dict[str, Any] = dict(item)
         movie = airing.get("type") == "movie"
@@ -96,6 +100,7 @@ def guide_shows(provider: str, airings: Iterable[Item]) -> list[GuideShow]:
             users.setdefault(picture, set()).add(key)
         length = int(media.get("endsAt") or 0) - int(media.get("beginsAt") or 0)
         target = str(airing.get("targetKey") or key)
+        channels.setdefault(key, set()).add(str(media.get("channelCallSign") or media.get("channelTitle") or ""))
         if key not in shows:
             channel = str(media.get("channelCallSign") or media.get("channelTitle") or "")
             guid = str((airing.get("guid") if movie else airing.get("grandparentGuid")) or "")
@@ -109,7 +114,12 @@ def guide_shows(provider: str, airings: Iterable[Item]) -> list[GuideShow]:
             airtime = known.airtime + max(length, 0)
             shows[key] = replace(known, picture=known.picture or picture, airtime=airtime, targets=targets)
     return [
-        replace(show, picture="") if show.picture and len(users[show.picture]) > 1 else show for show in shows.values()
+        replace(
+            show,
+            picture="" if show.picture and len(users[show.picture]) > 1 else show.picture,
+            logo="" if len(channels[key]) > 1 else show.logo,
+        )
+        for key, show in shows.items()
     ]
 
 
