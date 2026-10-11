@@ -168,3 +168,13 @@ def test_redirects_can_be_refused(server: Server) -> None:
 
 def test_cross_host_redirects_drop_the_api_key_header() -> None:
     assert "api-key" in {h.lower() for h in http.POOL.connection_pool_kw["retries"].remove_headers_on_redirect}
+
+
+def test_redact_hides_logins_in_guide_addresses() -> None:
+    url = "http://me:hunter2@guide.example:8080/xmltv.php?username=me&password=hunter2&type=xml"
+    redacted = http.redact(url)
+    assert "hunter2" not in redacted
+    assert "me" not in redacted.split("@")[0].removeprefix("http://")
+    assert redacted.startswith("http://***@guide.example:8080/xmltv.php?")
+    assert "type=xml" in redacted
+    assert http.hide("echo hunter2 to me", http.secrets(url, {})) == "echo *** to me"

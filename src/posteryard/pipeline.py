@@ -555,7 +555,9 @@ def live_poster(ctx: Context, kind: Kind, tid: int, key: str, name: str) -> Plan
         same = wanted == _plain(str(details.get("original_title") or details.get("original_name") or ""))
         original = str(details.get("original_language") or "")
         languages = (original,) if same and original else ()
-    title = replace(ctx.sources.title(kind, tid, name), name=name, service=None, logo_languages=languages)
+    title = replace(
+        ctx.sources.title(kind, tid, name, remember=False), name=name, service=None, logo_languages=languages
+    )
     plan = _poster(ctx, title, key, name, season=None, badges=[], label=None)
     if languages is not None:
         plan.inputs["logo_languages"] = list(languages)

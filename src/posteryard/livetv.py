@@ -38,6 +38,7 @@ MATCH_MISS_SECONDS = 7 * 86400
 VOTE_LEAD = 3
 TRAILING_NOTE = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")
 JPEG_QUALITY = 90
+LOGO_CACHE = 16
 
 
 @dataclass(frozen=True)
@@ -138,7 +139,7 @@ class LiveTv:
         now = time.time() if now is None else now
         tally: Counter[str] = Counter()
         guides = self.server.guides()
-        fetch = lru_cache(maxsize=32)(self._fetch)
+        fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings)
@@ -202,14 +203,15 @@ class LiveTv:
         return "uploaded"
 
     def _preview(self, show: GuideShow, plan: pipeline.Plan, record: GuideRecord | None) -> str:
-        if record and record.fingerprint == plan.fingerprint and not record.image_key:
+        if record and record.fingerprint == plan.fingerprint:
             return "unchanged"
         self.preview_dir.mkdir(parents=True, exist_ok=True)
         name = re.sub(r"[^a-z0-9]+", "-", show.title.lower()).strip("-")[:40] or "show"
         digest = hashlib.sha1(show.record_key(show.key).encode(), usedforsecurity=False).hexdigest()[:8]
         path = self.preview_dir / f"livetv-{name}-{digest}.jpg"
         plan.draw().convert("RGB").save(path, quality=JPEG_QUALITY)
-        if show.targets:
+        # Keep the record of an upload. Going live again must still know which poster is Posteryard's.
+        if show.targets and not (record and record.image_key):
             self.store.guide_uploaded(show.record_key(show.targets[0]), show.title, plan.fingerprint, "", show.picture)
         log.info("live TV preview saved", extra={"title": show.title, "using": "; ".join(plan.notes)})
         return "preview"
@@ -253,16 +255,24 @@ class LiveTv:
                 tid = self.match(sibling)
                 picked = None
                 if tid is not None:
-                    picked = self.ctx.sources.art(self.ctx.sources.title(sibling.kind, tid, sibling.title))
+                    title = self.ctx.sources.title(sibling.kind, tid, sibling.title, remember=False)
+                    picked = self.ctx.sources.art(title)
                 if picked is not None:
                     self._featured[channel] = picked.path
                     break
         return self._featured[channel]
 
     def plan(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> pipeline.Plan:
-        """A block named after its channel gets the channel card. Then TMDB art, the guide's picture, a title card."""
+        """A block named after its channel gets the channel card. Then TMDB art, the guide's picture, a title card.
+
+        `fetch` is for channel logos, which repeat. Guide pictures are fetched once per show without the cache.
+        """
         key, logo = show.record_key(show.key), show.logo
         base = {"live": LIVE_VERSION, "title": show.title}
+
+        def mark() -> Image.Image | None:
+            return livetv.logo_mark(fetch(logo)) if logo else None
+
         placeholder = norm(show.title) == norm(show.channel)
         if placeholder and logo:
             art = self.featured_art(show)
@@ -274,24 +284,23 @@ class LiveTv:
         tid = None if placeholder else self.match(show)
         plan: pipeline.Plan | None = None
         if tid is not None:
+            shown = TRAILING_NOTE.sub("", show.title).strip() or show.title
             try:
-                plan = pipeline.live_poster(self.ctx, show.kind, tid, key, show.title)
+                plan = pipeline.live_poster(self.ctx, show.kind, tid, key, shown)
             except pipeline.NotFoundError as exc:
                 log.debug("live TV show has no TMDB art", extra={"title": show.title, "reason": str(exc)})
         if plan is None and show.picture:
             picture = show.picture
             plan = pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-picture", "picture": picture},
-                lambda: livetv.picture_card(fetch(picture), designs.text_logo(show.title)),
+                lambda: livetv.picture_card(self._fetch(picture), designs.text_logo(show.title)),
                 [f"picture from the guide {picture}"],
             )  # fmt: skip
-        if plan is None and not logo:
-            raise pipeline.NotFoundError(f"the guide has no picture or channel logo for {show.title}")
         if plan is None:
             return pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-title", "logo": logo},
-                lambda: livetv.title_card(livetv.logo_mark(fetch(logo)), designs.text_logo(show.title)),
-                [f"channel logo {logo}"],
+                lambda: livetv.title_card(mark(), designs.text_logo(show.title)),
+                [f"channel logo {logo}" if logo else "no channel logo"],
             )  # fmt: skip
         plan.inputs.update(live=LIVE_VERSION, channel_logo=logo)
         if logo:

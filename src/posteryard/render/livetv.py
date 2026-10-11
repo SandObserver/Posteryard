@@ -71,8 +71,9 @@ def channel_card(logo: Image.Image, art: Image.Image | None = None) -> Image.Ima
     return canvas.convert("RGB")
 
 
-def title_card(logo: Image.Image, title: Image.Image) -> Image.Image:
-    return with_channel(designs.tile_poster(band(H), title, lines_below=[], fade=0), logo)
+def title_card(logo: Image.Image | None, title: Image.Image) -> Image.Image:
+    card = designs.tile_poster(band(H), title, lines_below=[], fade=0)
+    return with_channel(card, logo) if logo is not None else card
 
 
 def trim_bars(image: Image.Image) -> Image.Image:

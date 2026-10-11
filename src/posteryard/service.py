@@ -191,21 +191,38 @@ class Service:
             self.worker_beat = time.monotonic()
 
     def check_live_tv(self) -> None:
-        if self.live_tv is not None and self.live_tv.due():
-            self.enqueue([LIVE_TV], "live tv")
-
-    def _live_tv(self) -> None:
         if self.live_tv is None:
             return
+        try:
+            due = self.live_tv.due()
+        except (http.RequestError, OSError, ValueError) as exc:
+            log.warning("live TV guide not checked, trying again at the next sweep", extra={"reason": str(exc)})
+            return
+        if due:
+            self.enqueue([LIVE_TV], "live tv")
+
+    def _urgent_waiting(self) -> bool:
+        with self._lock:
+            return any(priority == 0 for priority in self._queued.values())
+
+    def _live_tv(self) -> None:
+        """A webhook or label change waiting pauses the run. It starts again after them; done shows stay unchanged."""
+        if self.live_tv is None:
+            return
+        paused = False
 
         def tick() -> bool:
+            nonlocal paused
             self.worker_beat = time.monotonic()
-            return not self._stop.is_set()
+            paused = self._urgent_waiting()
+            return not (self._stop.is_set() or paused)
 
         try:
             self.live_tv.run(tick=tick)
         except (http.RequestError, OSError, ValueError) as exc:
             log.warning("live TV posters not checked, trying again later", extra={"reason": str(exc)})
+        if paused and not self._stop.is_set():
+            self.enqueue([LIVE_TV], "live tv")
         memory.release()
         self.worker_beat = time.monotonic()
 
@@ -421,9 +438,9 @@ class Service:
                     self.full("daily")
                 if time.monotonic() >= next_sweep:
                     self.sweep(lookback)
-                    self.check_live_tv()
                     lookback = SWEEP_LOOKBACK
                     next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
+                    self.check_live_tv()
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
                 log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})

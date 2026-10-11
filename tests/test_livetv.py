@@ -1,5 +1,6 @@
 import hashlib
 from collections.abc import Sequence
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -211,11 +212,39 @@ def test_a_guide_using_the_original_title_gets_its_logo_language(tmp_path: Path)
     assert plan.inputs["text_logo"] == "Ejemplo"
 
 
-def test_a_show_without_picture_or_logo_fails(tmp_path: Path) -> None:
-    live, _, _ = build(tmp_path, [])
-    show = guide_shows(GUIDE, [airing("Bulletin", "c")])[0]
-    with pytest.raises(pipeline.NotFoundError, match="no picture or channel logo"):
-        live.plan(show.__class__(**{**show.__dict__, "logo": ""}), fetch)
+def test_a_channel_without_logo_still_gets_cards(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    tmdb.results["Example Movie"] = [{"id": 5, "name": "Example Movie"}]
+    for title in ("Bulletin", "News 24", "Example Movie"):
+        show = replace(guide_shows(GUIDE, [airing(title, "c")])[0], logo="")
+        plan = live.plan(show, lambda url: pytest.fail(f"fetched {url}"))
+        assert plan.draw().size == (1000, 1500)
+        assert plan.inputs["design"] in ("live-title", "tile")
+
+
+def test_a_note_after_the_guide_title_is_left_out_of_the_tmdb_poster(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    tmdb.results["Example Movie"] = [{"id": 5, "name": "Example Movie"}]
+    plan = live.plan(guide_shows(GUIDE, [airing("Example Movie (R)", "a")])[0], fetch)
+    assert plan.inputs["design"] == "tile"
+    assert plan.inputs["logo"] == "/logo.png"
+    assert "logo_languages" not in plan.inputs
+    assert plan.name == "Example Movie"
+
+
+def test_guide_pictures_are_not_cached_but_channel_logos_are(tmp_path: Path) -> None:
+    fetched: list[str] = []
+
+    def counting(url: str) -> Image.Image:
+        fetched.append(url)
+        return fetch(url)
+
+    shows = [airing("Talk", "a", thumb="https://img.example/talk.jpg"), airing("Bulletin", "b"), airing("Night", "n")]
+    live, _, _ = build(tmp_path, shows, dry_run=True)
+    live._fetch = counting
+    live.run()
+    assert fetched.count(LOGO) == 1
+    assert fetched.count("https://img.example/talk.jpg") == 1
 
 
 def test_run_uploads_once_then_selects_again_after_a_guide_refresh(tmp_path: Path) -> None:
@@ -245,6 +274,16 @@ def test_run_uploads_again_when_the_design_changes(tmp_path: Path) -> None:
     plex.airings = [airing("Bulletin", "a", thumb="https://img.example/new.jpg")]
     assert live.run(now=2000)["uploaded"] == 1
     assert plex.uploads == ["a", "a"]
+
+
+def test_dry_run_keeps_the_record_of_an_upload(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    live.run(now=1000)
+    live.dry_run = True
+    plex.airings = [airing("Bulletin", "a", thumb="https://img.example/new.jpg")]
+    assert live.run(now=2000)["preview"] == 1
+    live.dry_run = False
+    assert live.run(now=3000)["uploaded"] == 1
 
 
 def test_dry_run_saves_previews_once(tmp_path: Path) -> None:
@@ -319,3 +358,11 @@ def test_a_remembered_picture_is_used_only_while_plex_shows_the_upload(tmp_path:
     plex.refreshed = 2
     assert live.run(now=3000)["uploaded"] == 1
     assert live.store.guide(f"{GUIDE}/a").picture == ""  # type: ignore[union-attr]
+
+
+def test_a_guide_name_never_reaches_a_library_poster(tmp_path: Path) -> None:
+    clean = pipeline.plan_tmdb(fake_context([ref("/poster.jpg", None)]), "movie", 5)[0]
+    live, _, _ = build(tmp_path, [])
+    pipeline.live_poster(live.ctx, "movie", 5, "guide/x", "Example Movie Special")
+    library = pipeline.plan_tmdb(live.ctx, "movie", 5)[0]
+    assert library.name == clean.name == "Example Movie"

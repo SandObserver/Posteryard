@@ -10,7 +10,10 @@ import urllib3
 log = logging.getLogger(__name__)
 
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
-SECRET_PARAMS = frozenset({"x-plex-token", "api_key", "token", "apikey"})
+SECRET_PARAMS = frozenset(
+    {"x-plex-token", "api_key", "token", "apikey", "username", "user", "password", "pass", "passwd", "pwd", "key"}
+)
+NAMES = frozenset({"username", "user"})
 SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = "Posteryard"
 MAX_RESPONSE = 64 * 1024 * 1024
@@ -52,11 +55,14 @@ def redact(url: str) -> str:
         (k, "***" if k.lower() in SECRET_PARAMS else v)
         for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
     ]
-    return urllib.parse.urlunsplit(parts._replace(query=urllib.parse.urlencode(query)))
+    netloc = "***@" + parts.netloc.rpartition("@")[2] if "@" in parts.netloc else parts.netloc
+    return urllib.parse.urlunsplit(parts._replace(netloc=netloc, query=urllib.parse.urlencode(query)))
 
 
 def secrets(url: str, headers: dict[str, str]) -> set[str]:
-    found = {v for k, v in urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query) if k.lower() in SECRET_PARAMS}
+    parts = urllib.parse.urlsplit(url)
+    found = {v for k, v in urllib.parse.parse_qsl(parts.query) if k.lower() in SECRET_PARAMS - NAMES}
+    found.add(parts.password or "")
     for name, value in headers.items():
         if name.lower() in SECRET_HEADERS:
             last = (value.split() or [value])[-1]

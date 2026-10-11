@@ -729,3 +729,31 @@ def test_live_tv_is_not_queued_when_not_due(tmp_path: Path) -> None:
     service.live_tv = StubLiveTv(due=False)  # type: ignore[assignment]
     service.check_live_tv()
     assert queued(service) == []
+
+
+def test_a_waiting_webhook_pauses_live_tv_and_it_goes_on_after(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    stops: list[bool] = []
+
+    class Paused(StubLiveTv):
+        def run(self, tick: Any) -> None:
+            self.runs += 1
+            service.enqueue(["7"], "webhook")
+            stops.append(tick())
+
+    service.live_tv = Paused(due=True)  # type: ignore[assignment]
+    service._live_tv()
+    assert stops == [False]
+    assert queued(service) == ["7", "live-tv"]
+
+
+def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    class Broken(StubLiveTv):
+        def due(self) -> bool:
+            raise posteryard_http.RequestError("refused", "http://plex.example")
+
+    service = make_service(tmp_path)
+    service.live_tv = Broken(due=True)  # type: ignore[assignment]
+    service.check_live_tv()
+    assert queued(service) == []
+    assert "live TV guide not checked" in caplog.text

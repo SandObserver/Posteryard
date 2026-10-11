@@ -115,7 +115,7 @@ def _parser() -> argparse.ArgumentParser:
         help="episodes to render per season of a show or season on the server; -1 for all (default 0)",
     )  # fmt: skip
     preview.add_argument(
-        "--live-tv", action="store_true", help="render a poster for every show and movie in the Plex Live TV guide"
+        "--live-tv", action="store_true", help="render a poster for every show and movie in the Live TV guide"
     )
     preview.add_argument("--out", type=Path, help="output folder (default DATA_DIR/previews)")
     return parser

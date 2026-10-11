@@ -4,6 +4,7 @@ import base64
 import gzip
 import io
 import json
+import logging
 import re
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -22,6 +23,7 @@ FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height,Production
 PAGE = 200
 PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 GUIDE = "guide"
+log = logging.getLogger(__name__)
 XMLTV_TIME = "%Y%m%d%H%M%S %z"
 
 
@@ -331,7 +333,9 @@ class Jellyfin:
 
     def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
         """Every airing is its own item. Airings of one title on one channel share a show key."""
-        pictures = self._guide_pictures()
+        pictures = self._guide_pictures(start, end)
+        channels = self._get("/LiveTv/Channels", userId=self.user(), EnableImages="true").get("Items") or []
+        logos = {str(c.get("Id")) for c in channels if (c.get("ImageTags") or {}).get("Primary")}
         airings: list[Item] = []
         while True:
             page = self._get(
@@ -339,19 +343,18 @@ class Jellyfin:
                 StartIndex=len(airings), Limit=PAGE, EnableImages="false", Fields="ChannelInfo",
             )  # fmt: skip
             raw = page.get("Items") or []
-            airings += [self._airing(p, pictures) for p in raw]
+            airings += [self._airing(p, pictures, logos) for p in raw]
             if not raw or len(airings) >= int(page.get("TotalRecordCount") or len(airings)):
                 return airings
 
-    def _airing(self, raw: Mapping[str, Any], pictures: Mapping[tuple[str, int], str]) -> Item:
+    def _airing(self, raw: Mapping[str, Any], pictures: Mapping[tuple[str, int], str], logos: set[str]) -> Item:
         channel, title = str(raw.get("ChannelName") or ""), str(raw.get("Name") or "")
         begins, ends = _timestamp(raw.get("StartDate")) or 0, _timestamp(raw.get("EndDate")) or 0
         show = f"{raw.get('ChannelId')}/{title.casefold()}"
         picture = pictures.get((channel.casefold(), begins), "")
-        media = {
-            "channelCallSign": channel, "beginsAt": begins, "endsAt": ends,
-            "channelThumb": self._url(f"/Items/{self._id(str(raw.get('ChannelId')))}/Images/Primary"),
-        }  # fmt: skip
+        channel_id = self._id(str(raw.get("ChannelId")))
+        logo = self._url(f"/Items/{channel_id}/Images/Primary") if channel_id in logos else ""
+        media = {"channelCallSign": channel, "beginsAt": begins, "endsAt": ends, "channelThumb": logo}
         if raw.get("IsMovie"):
             airing = {"type": "movie", "ratingKey": show, "title": title, "thumb": picture, "guid": show}
         else:
@@ -359,8 +362,11 @@ class Jellyfin:
                       "grandparentThumb": picture, "grandparentGuid": show}  # fmt: skip
         return {**airing, "targetKey": self._id(str(raw.get("Id"))), "Media": [media]}  # type: ignore[typeddict-item]
 
-    def _guide_pictures(self) -> dict[tuple[str, int], str]:
-        """Jellyfin keeps its copy of a guide picture, not the address. The XMLTV guides it reads still have it."""
+    def _guide_pictures(self, start: int, end: int) -> dict[tuple[str, int], str]:
+        """Jellyfin keeps its copy of a guide picture, not the address. The XMLTV guides it reads still have it.
+
+        Guide pictures are optional: a guide Posteryard cannot read gives none, and posters go on without them.
+        """
         pictures: dict[tuple[str, int], str] = {}
         for listing in (self._get("/System/Configuration/livetv") or {}).get("ListingProviders") or []:
             path = str(listing.get("Path") or "")
@@ -368,9 +374,10 @@ class Jellyfin:
                 continue
             try:
                 data = http.request("GET", path, timeout=120)
-                pictures |= _xmltv_pictures(gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data)
-            except (http.RequestError, ET.ParseError, OSError, EOFError) as exc:
-                raise http.RequestError(f"the XMLTV guide could not be read: {type(exc).__name__}", path) from None
+                pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
+            except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError) as exc:
+                reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__
+                log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": reason})
         return pictures
 
     def guide_is(self, provider: str, key: str, guid: str) -> bool:
@@ -387,7 +394,15 @@ class Jellyfin:
         raise ValueError(f"{self.name} keeps no earlier upload to select")
 
 
-def _xmltv_pictures(data: bytes) -> dict[tuple[str, int], str]:
+def _unzip(data: bytes) -> bytes:
+    with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+        out = stream.read(http.MAX_RESPONSE + 1)
+    if len(out) > http.MAX_RESPONSE:
+        raise ValueError("the XMLTV guide is larger than 64 MB unpacked")
+    return out
+
+
+def _xmltv_pictures(data: bytes, start: int, end: int) -> dict[tuple[str, int], str]:
     names: dict[str, str] = {}
     pictures: dict[tuple[str, int], str] = {}
     for _, element in ET.iterparse(io.BytesIO(data)):
@@ -402,7 +417,7 @@ def _xmltv_pictures(data: bytes) -> dict[tuple[str, int], str]:
                 begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
             except ValueError:
                 begins = 0
-            if src.startswith(("http://", "https://")) and channel is not None and begins:
+            if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
                 pictures[(channel, begins)] = src
             element.clear()
     return pictures

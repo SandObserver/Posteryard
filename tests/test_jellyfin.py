@@ -1,4 +1,5 @@
 import base64
+import gzip
 import json
 import urllib.parse
 from collections.abc import Callable
@@ -265,19 +266,24 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
                 {"Type": "xmltv", "Path": "/config/local.xml"},
                 {"Type": "SchedulesDirect"},
             ]},
-            "/LiveTv/Programs": {"TotalRecordCount": 1, "Items": [{
+            "/LiveTv/Programs": {"TotalRecordCount": 2, "Items": [{
                 "Id": PROGRAMME, "Name": "Evening", "ChannelId": CHANNEL, "ChannelName": "News 24",
+                "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
+            }, {
+                "Id": "4" * 32, "Name": "Quiet", "ChannelId": "3" * 32, "ChannelName": "No Logo",
                 "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
             }]},
             "/ScheduledTasks": [{"Key": "RefreshGuide", "LastExecutionResult": {"EndTimeUtc": "2026-10-12T03:00:00Z"}}],
+            "/LiveTv/Channels": {"Items": [{"Id": CHANNEL, "ImageTags": {"Primary": "c1"}}, {"Id": "3" * 32}]},
         }  # fmt: skip
         return json.dumps(answers[path]).encode()
 
     monkeypatch.setattr(http, "request", request)
     jellyfin = Jellyfin(BASE, "example-key")
     assert [(g.provider, g.refreshed_at) for g in jellyfin.guides()] == [("guide", 1791774000)]
-    [found] = jellyfin.guide_airings("guide", 1791780000, 1791790000)
+    found, quiet = jellyfin.guide_airings("guide", 1791780000, 1791900000)
     airing: dict[str, Any] = dict(found)
+    assert quiet["Media"][0]["channelThumb"] == ""
     assert airing["grandparentTitle"] == "Evening"
     assert airing["grandparentThumb"] == "https://img.example/evening.jpg"
     assert airing["targetKey"] == PROGRAMME
@@ -304,12 +310,18 @@ def test_guide_uploads_go_to_each_airing_and_cannot_be_selected_again(serve: Any
         jellyfin.guide_select("guide", PROGRAMME, "new")
 
 
-def test_a_broken_xmltv_guide_fails_the_run(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("body", [b"<tv><programme", gzip.compress(b" " * (http.MAX_RESPONSE + 10))])
+def test_an_unreadable_xmltv_guide_gives_no_pictures(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
+) -> None:
     def request(method: str, url: str, **kwargs: Any) -> bytes:
-        if url.startswith("https://guide.example/"):
-            return b"<tv><programme"
-        return json.dumps({"ListingProviders": [{"Type": "xmltv", "Path": "https://guide.example/g.xml"}]}).encode()
+        if url.startswith("https://"):
+            return body
+        guide = "https://me:hunter2@guide.example/g.xml?password=hunter2"
+        return json.dumps({"ListingProviders": [{"Type": "xmltv", "Path": guide}]}).encode()
 
     monkeypatch.setattr(http, "request", request)
-    with pytest.raises(http.RequestError, match="XMLTV guide could not be read"):
-        Jellyfin(BASE, "example-key")._guide_pictures()
+    assert Jellyfin(BASE, "example-key")._guide_pictures(0, 2**31) == {}
+    assert "guide pictures skipped" in caplog.text
+    assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
+    assert any("***@guide.example" in str(record.__dict__) for record in caplog.records)
