@@ -48,6 +48,7 @@
   <Config Name="Logo Languages" Target="LOGO_LANGUAGES" Default="en" Mode="" Description="Title logo languages to try in order, such as fr,en." Type="Variable" Display="advanced" Required="false" Mask="false">en</Config>
   <Config Name="Prefer Wordmark" Target="PREFER_WORDMARK" Default="true" Mode="" Description="Prefer a wide title logo over a square emblem." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
   <Config Name="Collection Posters" Target="COLLECTION_POSTERS" Default="false" Mode="" Description="Posters for collections too." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
+  <Config Name="Live TV" Target="LIVE_TV" Default="false" Mode="" Description="Posters for the shows and movies in the Live TV guide, on Plex and Jellyfin." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
   <Config Name="Service Collections" Target="SERVICE_COLLECTIONS" Default="false" Mode="" Description="Keep one collection per streaming service in each TV library." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
   <Config Name="Sweep Minutes" Target="SWEEP_MINUTES" Default="15" Mode="" Description="How often to check for new and changed titles." Type="Variable" Display="advanced" Required="false" Mask="false">15</Config>
   <Config Name="Daily Pass At" Target="DAILY_AT" Default="04:15" Mode="" Description="Time of the daily full pass, as HH:MM." Type="Variable" Display="advanced" Required="false" Mask="false">04:15</Config>

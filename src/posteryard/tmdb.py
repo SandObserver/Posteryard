@@ -253,6 +253,17 @@ class Tmdb:
                 found[kind] = int(results[0]["id"])
         return found
 
+    def language_logos(self, kind: Kind, tmdb_id: int, languages: Sequence[str]) -> list[ImageRef]:
+        raw = self._cached(
+            f"{kind}/{tmdb_id}/logos/{','.join(languages)}",
+            lambda: self._get(f"/{kind}/{tmdb_id}/images", include_image_language=",".join(languages)),
+        )
+        return _refs(raw.get("logos") or [])
+
+    def search(self, kind: Kind, query: str) -> list[dict[str, Any]]:
+        raw = self._get(f"/search/{kind}", query=query, include_adult="false")
+        return [r for r in raw.get("results") or [] if isinstance(r, dict)]
+
     def watch_providers(self, kind: Kind, tmdb_id: int) -> dict[str, RegionOffers]:
         return (self.details(kind, tmdb_id).get("watch/providers") or {}).get("results", {})
 

@@ -149,6 +149,7 @@ Every setting has a default. Add a line under `environment:` only to change one.
 | `EPISODE_THUMBNAILS` | `plain` adds a light shade, `titled` adds the episode number and title, `off` gives episodes back their server thumbnails. | `plain` |
 | `COLLECTION_POSTERS` | Give every collection a poster. See [Collections](docs/how-it-works.md#collections). | `false` |
 | `SERVICE_COLLECTIONS` | Keep one collection per streaming service with at least 3 shows. See [Collections](docs/how-it-works.md#collections). | `false` |
+| `LIVE_TV` | Posters for the shows and movies in the Live TV guide, on Plex and Jellyfin. See [Live TV](docs/how-it-works.md#live-tv). | `false` |
 | `NOTIFY_URLS` | Where alerts go: [Apprise addresses](https://github.com/caronc/apprise/wiki#notification-services) separated by spaces or commas, for Discord, Telegram, ntfy, email and about 100 more. See [Alerts](docs/alerts-and-monitoring.md#alerts). | |
 | `NOTIFY_EVENTS` | Which alerts are sent: `problems`, `new` and `summary`. | `problems` |
 | `HEARTBEAT_URL` | An address Posteryard calls every minute while healthy, such as an Uptime Kuma push URL. | |

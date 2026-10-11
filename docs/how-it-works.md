@@ -52,6 +52,20 @@ Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramoun
 
 `SERVICE_COLLECTIONS=true` keeps a collection for each service with at least 3 shows in each TV library. Posteryard only changes collections it made; they carry the `posteryard-collection` label. A show the server has not matched stays in the collections it is in. Nothing changes while `DRY_RUN` is on. Leave it off if another tool already makes these, and use `COLLECTION_POSTERS`.
 
+## Live TV
+
+`LIVE_TV=true` gives every show and movie in the Live TV guide a poster. It works with Plex and Jellyfin, not with Emby.
+
+- A title that matches exactly one TMDB title gets a poster in the library style, without a label. The logo is in the language of the guide's title. When TMDB has no logo in that language, the guide's title is written out.
+- A title with its own picture in the guide gets that picture with the title.
+- Any other title gets the title on dark grey.
+- These posters carry the channel's logo in its own colours, where a TV show poster carries its streaming mark.
+- A block named after its channel gets a [service collection](#collections) tile: art of the channel's show with the most airtime that has TMDB art, over a dark grey band with the channel's logo. A channel without such a show gets the band with its logo alone.
+
+Plex rebuilds the guide at every guide refresh, about once a day, and shows the guide's own images again. Posteryard checks at the next sweep and selects its posters again without uploading them twice. The channel logos left of the guide come from the guide; Plex takes no upload there. `posteryard preview --live-tv` saves all guide posters to a folder without changing the server.
+
+Jellyfin keeps each airing as its own item, so every airing in the next 4 days gets the show's poster, about 60 KB each. Jellyfin keeps it until the guide changes that airing. Jellyfin reads guide pictures from the XMLTV guide at its web address; a guide set up as a file path gives no guide pictures. The channel logos in Jellyfin stay as they are.
+
 ## When it runs
 
 - **Webhook**: a new title is handled right away. A new episode also refreshes its season and show.
@@ -71,6 +85,7 @@ Posteryard changes images, removes the `posteryard-next` label, and keeps the co
 | Posters, backgrounds and episode thumbnails | For every title in `LIBRARIES`. Plex images are locked, so a refresh keeps them. | `restore --all` gives every image back and unlocks it. `EPISODE_THUMBNAILS=off` gives back episode thumbnails only. `posteryard-ignore` stops changes to one title. |
 | Collection posters | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. | `restore --all`. |
 | The `posteryard-next` label | Removed after the art is switched. No other label on a title is added or removed. | Nothing to undo. |
+| Live TV guide posters | With `LIVE_TV`, on Plex and Jellyfin. | Set `LIVE_TV=false`. On Plex, the next guide refresh brings back the guide's own images. On Jellyfin, airings keep the poster until they end. |
 | Collections | With `SERVICE_COLLECTIONS`: created per service, shows added and removed, and deleted below 3 shows. Only collections with the `posteryard-collection` label. | Delete the collections with the `posteryard-collection` label. |
 
 On Jellyfin and Emby, a new background replaces all of a title's backgrounds, and `restore --all` deletes the uploaded image and refreshes the item, so the server downloads its own art again.
