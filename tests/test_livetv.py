@@ -8,7 +8,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import http, pipeline
-from posteryard.livetv import FORGET_SECONDS, LiveTv, guide_shows, norm
+from posteryard.livetv import FORGET_SECONDS, LiveTv, guide_shows, norm, shown
 from posteryard.plex import Plex
 from posteryard.render import designs
 from posteryard.render import livetv as cards
@@ -294,12 +294,33 @@ def test_dry_run_saves_previews_once(tmp_path: Path) -> None:
     assert plex.uploads == []
 
 
-def test_run_counts_failures_and_stops_when_asked(tmp_path: Path) -> None:
+def test_unreadable_logos_and_pictures_are_left_out(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     def broken(url: str) -> Image.Image:
         raise http.RequestError("refused", url)
 
-    live, _, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b")])
-    live._fetch = broken
+    shows = [airing("Bulletin", "a"), airing("Talk", "b", thumb="https://img.example/talk.jpg"), airing("News 24", "n")]
+    live, _, _ = build(tmp_path, shows)
+    calls: list[str] = []
+
+    def counted(url: str) -> Image.Image:
+        calls.append(url)
+        return broken(url)
+
+    live._fetch = counted
+    assert live.run()["uploaded"] == 3
+    assert caplog.text.count("could not be read") == 2
+    assert calls.count(LOGO) == 1
+    plan = live.plan(guide_shows(GUIDE, [airing("Bulletin", "a")])[0], broken)
+    assert plan.inputs["logo"] == ""
+
+
+def test_run_counts_failures_and_stops_when_asked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b")])
+
+    def refused(provider: str, key: str, jpeg: bytes) -> str:
+        raise http.RequestError("refused", "http://plex.example")
+
+    monkeypatch.setattr(plex, "guide_upload", refused)
     assert live.run()["failed"] == 2
     assert sum(live.run(tick=lambda: False).values()) == 0
 
@@ -366,3 +387,17 @@ def test_a_guide_name_never_reaches_a_library_poster(tmp_path: Path) -> None:
     pipeline.live_poster(live.ctx, "movie", 5, "guide/x", "Example Movie Special")
     library = pipeline.plan_tmdb(live.ctx, "movie", 5)[0]
     assert library.name == clean.name == "Example Movie"
+
+
+def test_titles_are_drawn_without_emoji_and_matched_without_notes() -> None:
+    assert shown("Fish Tank Live 🐠") == "Fish Tank Live"
+    assert shown("خبر 📰 ویژه") == "خبر ویژه"
+    assert shown("چشم‌انداز") == "چشم‌انداز"
+    assert shown("🐠") == "🐠"
+    assert norm("Inception (1080p) [HD]") == norm("inception")
+
+
+def test_long_live_titles_may_take_three_lines() -> None:
+    title = "A Very Long Show Title That Goes On And On And Keeps Going Past Every Reasonable Length"
+    two, three = designs.text_logo(title), designs.text_logo(title, rows=3)
+    assert three.height / three.width > two.height / two.width
