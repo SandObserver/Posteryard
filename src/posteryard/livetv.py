@@ -62,7 +62,8 @@ class GuideShow:
     guid: str = ""
     airtime: int = 0
     targets: tuple[str, ...] = ()
-    uploaded: bool = False
+    # The guide's picture before shared pictures are dropped. Stored, so a later run can count its users.
+    guide_picture: str = ""
 
     def record_key(self, target: str) -> str:
         return f"{self.provider}/{target}"
@@ -82,10 +83,13 @@ def _web(url: str) -> bool:
     return url.startswith(("http://", "https://"))
 
 
-def guide_shows(provider: str, airings: Iterable[Item]) -> list[GuideShow]:
+def guide_shows(
+    provider: str, airings: Iterable[Item], remembered: Callable[[str], str] = lambda _: ""
+) -> list[GuideShow]:
     """One entry per show or movie. A picture that several shows share is a channel image, not the show's own.
 
     Plex keeps one entry for a title on several channels, so its one poster gets no channel logo.
+    `remembered` gives the guide picture stored for a record key. Plex shows an upload in place of the picture.
     """
     shows: dict[str, GuideShow] = {}
     users: dict[str, set[str]] = {}
@@ -100,25 +104,28 @@ def guide_shows(provider: str, airings: Iterable[Item]) -> list[GuideShow]:
         media = (airing.get("Media") or [{}])[0]
         logo = str(media.get("channelThumb") or "")
         thumb = str((airing.get("thumb") if movie else airing.get("grandparentThumb")) or "")
-        picture = thumb if _web(thumb) and thumb != logo else ""
-        uploaded = thumb.startswith("/")
-        if picture:
-            users.setdefault(picture, set()).add(key)
-        length = int(media.get("endsAt") or 0) - int(media.get("beginsAt") or 0)
         target = str(airing.get("targetKey") or key)
+        picture = thumb if _web(thumb) and thumb != logo else ""
+        if thumb.startswith("/"):
+            picture = remembered(f"{provider}/{target}")
+        if picture:
+            # The same show on several channels has one key per channel on Jellyfin. Its title is the same.
+            users.setdefault(picture, set()).add(norm(title) or key)
+        length = int(media.get("endsAt") or 0) - int(media.get("beginsAt") or 0)
         channels.setdefault(key, set()).add(str(media.get("channelCallSign") or media.get("channelTitle") or ""))
         if key not in shows:
             channel = str(media.get("channelCallSign") or media.get("channelTitle") or "")
             guid = str((airing.get("guid") if movie else airing.get("grandparentGuid")) or "")
             kind: Kind = "movie" if movie else "tv"
             shows[key] = GuideShow(
-                provider, key, kind, title, channel, logo, picture, guid, max(length, 0), (target,), uploaded
+                provider, key, kind, title, channel, logo, picture, guid, max(length, 0), (target,), picture
             )
         else:
             known = shows[key]
             targets = known.targets if target in known.targets else (*known.targets, target)
             airtime = known.airtime + max(length, 0)
-            shows[key] = replace(known, picture=known.picture or picture, airtime=airtime, targets=targets)
+            picture = known.picture or picture
+            shows[key] = replace(known, picture=picture, airtime=airtime, targets=targets, guide_picture=picture)
     return [
         replace(
             show,
@@ -168,7 +175,7 @@ class LiveTv:
         fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
-            shows = guide_shows(guide.provider, airings)
+            shows = guide_shows(guide.provider, airings, self._remembered_picture)
             self._shows, self._featured, self._unreadable = shows, {}, set()
             for show in shows:
                 if not tick():
@@ -181,12 +188,13 @@ class LiveTv:
         log.info("live TV posters checked", extra=dict(sorted(tally.items())))
         return tally
 
+    def _remembered_picture(self, record_key: str) -> str:
+        record = self.store.guide(record_key)
+        return record.picture if record else ""
+
     def apply(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> Counter[str]:
         """One poster per show, put on each of its targets: the show on Plex, every airing on Jellyfin."""
         first = self.store.guide(show.record_key(show.targets[0])) if show.targets else None
-        # Plex shows the upload, not the guide's picture. Only then is the remembered picture still the guide's.
-        if show.uploaded and not show.picture and first and first.picture:
-            show = replace(show, picture=first.picture)
         try:
             plan = self.plan(show, fetch)
             if self.dry_run:
@@ -227,7 +235,7 @@ class LiveTv:
         if not drawn:
             drawn.append(jpeg(plan.draw()))
         image_key = self.server.guide_upload(show.provider, target, drawn[0])
-        self.store.guide_uploaded(show.record_key(target), show.title, plan.fingerprint, image_key, show.picture)
+        self.store.guide_uploaded(show.record_key(target), show.title, plan.fingerprint, image_key, show.guide_picture)
         return "uploaded"
 
     def _preview(self, show: GuideShow, plan: pipeline.Plan, record: GuideRecord | None) -> str:
@@ -240,7 +248,9 @@ class LiveTv:
         plan.draw().convert("RGB").save(path, quality=JPEG_QUALITY)
         # Keep the record of an upload. Going live again must still know which poster is Posteryard's.
         if show.targets and not (record and record.image_key):
-            self.store.guide_uploaded(show.record_key(show.targets[0]), show.title, plan.fingerprint, "", show.picture)
+            self.store.guide_uploaded(
+                show.record_key(show.targets[0]), show.title, plan.fingerprint, "", show.guide_picture
+            )
         log.info("live TV preview saved", extra={"title": show.title, "using": "; ".join(plan.notes)})
         return "preview"
 
