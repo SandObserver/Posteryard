@@ -296,7 +296,7 @@ class LiveTv:
             return None
         try:
             image = fetch(url)
-            return livetv.logo_mark(image) if what == "logo" else image
+            return livetv.logo_mark(image) if what == "logo" else livetv.guide_picture(image)
         except (http.RequestError, OSError, ValueError) as exc:
             if url not in self._unreadable:
                 self._unreadable.add(url)

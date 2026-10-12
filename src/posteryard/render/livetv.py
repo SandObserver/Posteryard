@@ -15,6 +15,8 @@ BAND_LOGO_BOX = (0.6, 0.13)
 PICTURE_TOP = 0.18
 PICTURE_BLUR, PICTURE_DIM = 40, 0.7
 BAR_SPREAD = 6.0
+# Covering the poster scales a thin picture by its aspect. A 1920x10 picture needs 1.7 GB.
+PICTURE_MAX_ASPECT = 4.0
 
 
 def logo_mark(image: Image.Image) -> Image.Image:
@@ -87,9 +89,17 @@ def trim_bars(image: Image.Image) -> Image.Image:
     return image.crop((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
 
 
+def guide_picture(image: Image.Image) -> Image.Image:
+    """The guide's picture without flat bars. A picture too thin for a poster is refused."""
+    picture = trim_bars(image).convert("RGB")
+    if max(picture.width / picture.height, picture.height / picture.width) > PICTURE_MAX_ASPECT:
+        raise ValueError(f"the picture is {picture.width}x{picture.height}, too thin for a poster")
+    return picture
+
+
 def picture_card(picture: Image.Image, title: Image.Image) -> Image.Image:
     """The guide's own picture, whole, over a blurred copy of itself, with the title in Posteryard's style."""
-    picture = trim_bars(picture).convert("RGB")
+    picture = guide_picture(picture)
     blurred = cover(picture, W, H).filter(ImageFilter.GaussianBlur(PICTURE_BLUR))
     canvas = Image.fromarray((np.asarray(blurred, dtype=np.float32) * PICTURE_DIM).astype(np.uint8), "RGB")
     height = min(round(W * picture.height / picture.width), round((1 - PICTURE_TOP) * H))
