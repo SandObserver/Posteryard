@@ -558,6 +558,11 @@ def live_poster(ctx: Context, kind: Kind, tid: int, key: str, name: str) -> Plan
     title = replace(
         ctx.sources.title(kind, tid, name, remember=False), name=name, service=None, logo_languages=languages
     )
+    picked = ctx.sources.art(title)
+    if picked is not None:
+        art = ctx.sources.load(picked.path)
+        if art.width >= art.height:
+            raise NotFoundError(f"TMDB has only wide art for {name}, which a poster would crop")
     plan = _poster(ctx, title, key, name, season=None, badges=[], label=None)
     if languages is not None:
         plan.inputs["logo_languages"] = list(languages)

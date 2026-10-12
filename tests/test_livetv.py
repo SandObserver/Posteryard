@@ -8,7 +8,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import http, pipeline
-from posteryard.livetv import FORGET_SECONDS, LiveTv, guide_shows, norm, shown
+from posteryard.livetv import FORGET_SECONDS, LeftAloneError, LiveTv, guide_shows, norm, shown
 from posteryard.plex import Plex
 from posteryard.render import designs
 from posteryard.render import livetv as cards
@@ -419,3 +419,17 @@ def test_plex_own_guide_gets_only_tmdb_posters(tmp_path: Path, monkeypatch: pyte
     monkeypatch.setattr(plex, "guides", lambda: [Guide(own, 1)])
     assert dict(live.run()) == {"uploaded": 1, "left alone": 2}
     assert plex.uploads == ["a"]
+
+
+def test_a_tmdb_title_with_only_wide_art_is_treated_as_not_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    tmdb.posters = []
+    tmdb.results["Talk"] = [{"id": 5, "name": "Talk"}]
+    monkeypatch.setattr(live.ctx.sources, "fetch", lambda path: Image.new("RGB", (1920, 1080), (40, 60, 80)))
+    show = guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/talk.jpg")])[0]
+    assert live.plan(show, fetch).inputs["design"] == "live-picture"
+    own = replace(show, provider="tv.plex.providers.epg.cloud:20")
+    with pytest.raises(LeftAloneError):
+        live.plan(own, fetch)
