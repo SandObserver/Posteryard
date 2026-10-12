@@ -356,6 +356,17 @@ def test_the_channel_logo_sits_where_a_streaming_mark_does() -> None:
     assert poster.getpixel((500, 750)) == (0, 0, 0)
 
 
+def test_a_picture_too_thin_for_a_poster_gets_the_title_card(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    live, _, _ = build(tmp_path, [])
+    strip = Image.effect_noise((1920, 10), 60).convert("RGB")
+    show = guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/strip.jpg")])[0]
+    live._fetch = lambda url: strip if url.endswith("strip.jpg") else fetch(url)
+    plan = live.plan(show, fetch)
+    assert plan.inputs["design"] == "live-title"
+    assert any("too thin for a poster" in str(getattr(r, "reason", "")) for r in caplog.records)
+    assert cards.guide_picture(Image.effect_noise((1920, 1080), 60)).size == (1920, 1080)
+
+
 def test_trim_bars_cuts_flat_padding_only() -> None:
     padded = Image.new("RGB", (100, 150), (27, 46, 68))
     padded.paste(Image.effect_noise((100, 56), 60).convert("RGB"), (0, 47))
