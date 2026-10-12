@@ -326,6 +326,8 @@ def text_logo(title: str, ink: RGB = WHITE, prefer: str = "", rows: int = 2) -> 
             options += [[" ".join(words[:cut]), " ".join(words[cut:end]), " ".join(words[end:])]
                         for end in range(cut + 1, len(words))]  # fmt: skip
     face = font_for(title, "Bold", 200, prefer)
+    if not face.getlength(title.strip()):
+        raise ValueError(f"the title {title!r} has nothing to draw")
     box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
 
     def scale(rows: list[str]) -> float:

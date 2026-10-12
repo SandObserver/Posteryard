@@ -700,7 +700,9 @@ class StubLiveTv:
             raise self.error
 
 
-@pytest.mark.parametrize("error", [None, posteryard_http.RequestError("refused", "http://plex.example")])
+@pytest.mark.parametrize(
+    "error", [None, posteryard_http.RequestError("refused", "http://plex.example"), ZeroDivisionError("float division")]
+)
 def test_live_tv_is_queued_when_due_and_run_by_the_worker(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception | None
 ) -> None:
@@ -718,9 +720,12 @@ def test_live_tv_is_queued_when_due_and_run_by_the_worker(
     deadline = time.monotonic() + 5
     while not live.runs and time.monotonic() < deadline:
         time.sleep(0.01)
+    time.sleep(0.05)
+    alive = thread.is_alive()
     service._stop.set()
     thread.join(timeout=5)
     assert live.runs == 1
+    assert alive
     assert "Live TV posters" in service.banner()
 
 

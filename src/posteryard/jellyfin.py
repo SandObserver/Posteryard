@@ -8,6 +8,7 @@ import logging
 import re
 import urllib.parse
 import xml.etree.ElementTree as ET
+import zlib
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -375,7 +376,7 @@ class Jellyfin:
             try:
                 data = http.request("GET", path, timeout=120)
                 pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
-            except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError) as exc:
+            except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError, zlib.error) as exc:
                 reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__
                 log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": reason})
         return pictures
