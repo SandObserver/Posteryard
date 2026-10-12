@@ -380,6 +380,54 @@ def test_only_shows_from_the_last_run_are_checked_for_deleted_posters(tmp_path: 
     assert not live.due(now=3000)
 
 
+@pytest.mark.parametrize("outcome", ["left alone", "failed", "skipped", "manual"])
+def test_a_deleted_poster_the_run_cannot_restore_stops_making_the_guide_due(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: str
+) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    live.run(now=1000)
+    plex.posters["a"] = [{"ratingKey": "guide-link", "selected": True}]
+    if outcome == "left alone":
+        monkeypatch.setattr(live, "plan", lambda show, fetch: (_ for _ in ()).throw(LeftAloneError(show.title)))
+    elif outcome == "failed":
+        monkeypatch.setattr(live, "plan", lambda show, fetch: (_ for _ in ()).throw(ValueError("unreadable")))
+    elif outcome == "skipped":
+        monkeypatch.setattr(plex, "guide_is", lambda provider, key, guid: False)
+    else:
+        plex.posters["a"] = [{"ratingKey": "upload://posters/by-hand", "selected": True}]
+    assert live.due(now=2000)
+    assert live.run(now=2000)[outcome] == 1
+    assert not live.due(now=3000)
+
+
+def test_dry_run_does_not_check_for_deleted_posters(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    live.run(now=1000)
+    live.dry_run = True
+    live.run(now=2000)
+    plex.posters["a"] = [{"ratingKey": "guide-link", "selected": True}]
+    assert not live.due(now=3000)
+
+
+def test_each_check_asks_for_a_few_posters_and_all_are_asked_in_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live, plex, _ = build(tmp_path, [airing(f"Show {n}", str(n)) for n in range(7)])
+    live.run(now=1000)
+    asked: list[str] = []
+    images = plex.guide_images
+
+    def counted(provider: str, key: str) -> list[Item]:
+        asked.append(key)
+        return images(provider, key)
+
+    monkeypatch.setattr(plex, "guide_images", counted)
+    for _ in range(3):
+        assert not live.due(now=2000)
+    assert len(asked) == 9
+    assert set(asked) == {str(n) for n in range(7)}
+
+
 def test_turning_dry_run_off_makes_the_guide_due(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")], dry_run=True)
     assert live.run(now=1000)["preview"] == 1

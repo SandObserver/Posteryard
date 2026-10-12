@@ -42,6 +42,8 @@ SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 JPEG_QUALITY = 90
 LOGO_CACHE = 16
 HTTP_NOT_FOUND = 404
+PROBES = 3
+CONFIRMED = frozenset({"uploaded", "unchanged", "selected again"})
 # Plex's own guide comes with artwork. Only a TMDB poster replaces it.
 OWN_ART = ("tv.plex.providers.epg.cloud:",)
 
@@ -176,6 +178,7 @@ class LiveTv:
         self._shows: list[GuideShow] = []
         self._featured: dict[tuple[str, str], str | None] = {}
         self._unreadable: set[str] = set()
+        self._confirmed: list[str] = []
 
     def due(self, now: float | None = None) -> bool:
         """After every guide refresh, once a day, when DRY_RUN is turned on or off, and when an upload is gone."""
@@ -187,12 +190,21 @@ class LiveTv:
             current != known
             or now - checked >= CHECK_SECONDS
             or self.store.meta("livetv_dry_run", "") != str(self.dry_run)
-            or self._upload_gone(checked)
+            or (not self.dry_run and self._upload_gone())
         )
 
-    def _upload_gone(self, checked: float) -> bool:
-        """Plex deletes guide upload files when it cleans bundles. The upload then leaves the show's poster list."""
-        for record in self.store.guide_uploads(seen_since=checked):
+    def _upload_gone(self) -> bool:
+        """Plex deletes all guide uploads at once when it cleans bundles. Checking a few in turn is enough."""
+        keys: list[str] = json.loads(self.store.meta("livetv_confirmed", "[]"))
+        if not keys:
+            return False
+        start = int(self.store.meta("livetv_probe", "0")) % len(keys)
+        picked = [keys[(start + i) % len(keys)] for i in range(min(PROBES, len(keys)))]
+        self.store.set_meta("livetv_probe", str(start + len(picked)))
+        for key in picked:
+            record = self.store.guide(key)
+            if record is None:
+                continue
             provider, _, target = record.key.partition("/")
             try:
                 images = self.server.guide_images(provider, target)
@@ -211,6 +223,7 @@ class LiveTv:
         tally: Counter[str] = Counter()
         guides = self.server.guides()
         fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
+        self._confirmed = []
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings, self._remembered_picture)
@@ -223,6 +236,7 @@ class LiveTv:
         self.store.guide_drop_unseen(now - FORGET_SECONDS)
         self.store.set_meta("livetv_refreshed", json.dumps({g.provider: g.refreshed_at for g in guides}))
         self.store.set_meta("livetv_checked", str(now))
+        self.store.set_meta("livetv_confirmed", json.dumps(self._confirmed))
         self.store.set_meta("livetv_dry_run", str(self.dry_run))
         log.info("live TV posters checked", extra={k.replace(" ", "_"): v for k, v in sorted(tally.items())})
         return tally
@@ -247,10 +261,15 @@ class LiveTv:
         drawn: list[bytes] = []
         for target in show.targets:
             try:
-                tally[self._apply_target(show, target, plan, drawn)] += 1
+                outcome = self._apply_target(show, target, plan, drawn)
             except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
                 log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
                 tally["failed"] += 1
+                continue
+            tally[outcome] += 1
+            record = self.store.guide(show.record_key(target))
+            if outcome in CONFIRMED and record and record.image_key.startswith("upload://"):
+                self._confirmed.append(record.key)
         if tally["uploaded"]:
             log.info("live TV poster uploaded", extra={"title": show.title, "using": "; ".join(plan.notes)})
         return tally
