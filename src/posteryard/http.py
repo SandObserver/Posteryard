@@ -120,15 +120,25 @@ def request(  # noqa: PLR0913
         except urllib3.exceptions.LocationValueError as exc:
             raise RequestError(type(exc).__name__, url) from None
         except urllib3.exceptions.HTTPError as exc:
-            reason = type(getattr(exc, "reason", None) or exc).__name__
-            if attempt == retries:
-                raise RequestError(reason, url) from None
-            log.warning("retrying request", extra={"method": method, "url": redact(url), "reason": reason})
+            if _network_failure(exc, method, url, last=attempt == retries, first=attempt == 1):
+                continue
         except ValueError as exc:
             raise RequestError(type(exc).__name__, url) from None
         time.sleep(wait)
         delay *= 2
     raise AssertionError("unreachable")
+
+
+def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *, last: bool, first: bool) -> bool:
+    """True to try again at once: a pooled connection the other side dropped while idle."""
+    cause = getattr(exc, "reason", None) or exc
+    if last:
+        raise RequestError(type(cause).__name__, url) from None
+    if first and isinstance(cause, urllib3.exceptions.ProtocolError):
+        log.debug("connection dropped, trying again", extra={"method": method, "url": redact(url)})
+        return True
+    log.warning("retrying request", extra={"method": method, "url": redact(url), "reason": type(cause).__name__})
+    return False
 
 
 def retry_after(value: str | None) -> float:

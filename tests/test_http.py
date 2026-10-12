@@ -34,7 +34,7 @@ def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
 
 
 class Server:
-    """A local HTTP server that answers each request with the next queued (status, headers, body)."""
+    """A local HTTP server that answers each request with the next queued (status, headers, body). Status 0 hangs up."""
 
     def __init__(self) -> None:
         self.answers: list[tuple[int, dict[str, str], bytes]] = []
@@ -52,6 +52,9 @@ class Server:
                 server.connections.add(self.client_address[1])
                 server.requests.append((self.path, dict(self.headers)))
                 status, headers, body = server.answers.pop(0)
+                if not status:
+                    self.close_connection = True
+                    return
                 self.send_response(status)
                 for name, value in {"Content-Length": str(len(body)), **headers}.items():
                     self.send_header(name, value)
@@ -80,6 +83,17 @@ def test_transient_failures_are_retried(server: Server, monkeypatch: pytest.Monk
     server.answers = [(503, {}, b"busy"), (429, {"Retry-After": "30"}, b"slow down"), (200, {}, b"ok")]
     assert http.request("GET", f"{server.url}/a?api_key={SECRET}") == b"ok"
     assert sleeps == [2.0, 30.0]
+
+
+def test_a_dropped_connection_is_tried_again_at_once_without_a_warning(
+    server: Server, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
+    server.answers = [(0, {}, b""), (200, {}, b"ok")]
+    assert http.request("GET", f"{server.url}/a") == b"ok"
+    assert sleeps == []
+    assert "retrying request" not in caplog.text
 
 
 def test_connections_are_reused(server: Server) -> None:

@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Add posters for the Live TV guide on Plex and Jellyfin with `LIVE_TV`.
 
+### Changed
+
+- Try a request again at once, without a warning, when a server has dropped an idle connection.
+
 ### Security
 
 - Update the Python base image to 3.13.16 for CVE-2026-19445.
