@@ -310,7 +310,17 @@ def test_guide_uploads_go_to_each_airing_and_cannot_be_selected_again(serve: Any
         jellyfin.guide_select("guide", PROGRAMME, "new")
 
 
-@pytest.mark.parametrize("body", [b"<tv><programme", gzip.compress(b" " * (http.MAX_RESPONSE + 10))])
+def _corrupt_gzip() -> bytes:
+    data = bytearray(gzip.compress(bytes(range(256)) * 400))
+    data[30:60] = b"\xff" * 30
+    return bytes(data)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [b"<tv><programme", gzip.compress(b" " * (http.MAX_RESPONSE + 10)), _corrupt_gzip()],
+    ids=["truncated", "too-large", "corrupt"],
+)
 def test_an_unreadable_xmltv_guide_gives_no_pictures(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
 ) -> None:

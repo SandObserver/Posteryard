@@ -134,6 +134,12 @@ def test_text_logo_breaks_long_titles_into_two_lines() -> None:
     assert designs.tile_poster(art(), two, lines_below=[]).size == designs.POSTER
 
 
+@pytest.mark.parametrize("title", ["", "   ", "\u200b", "\u0301"])
+def test_a_title_with_nothing_to_draw_is_refused(title: str) -> None:
+    with pytest.raises(ValueError, match="nothing to draw"):
+        designs.text_logo(title)
+
+
 def test_plain_episode_still_has_no_text() -> None:
     still = Image.new("RGB", (1920, 1080), (200, 200, 200))
     out = np.asarray(designs.episode_still(still, 3, None).convert("L"))

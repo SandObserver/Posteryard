@@ -221,6 +221,8 @@ class Service:
             self.live_tv.run(tick=tick)
         except (http.RequestError, OSError, ValueError) as exc:
             log.warning("live TV posters not checked, trying again later", extra={"reason": str(exc)})
+        except Exception:
+            log.exception("unexpected error", extra={"key": LIVE_TV})
         if paused and not self._stop.is_set():
             self.enqueue([LIVE_TV], "live tv")
         memory.release()
