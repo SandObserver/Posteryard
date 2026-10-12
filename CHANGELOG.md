@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.
+
 ## [0.9.0] - 2026-10-12
 
 ### Added
