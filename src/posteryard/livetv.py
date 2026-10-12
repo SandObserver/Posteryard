@@ -42,6 +42,12 @@ TRAILING_NOTE = re.compile(r"(\s*[\(\[][^\)\]]*[\)\]])+\s*$")
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 JPEG_QUALITY = 90
 LOGO_CACHE = 16
+# Plex's own guide comes with artwork. Only a TMDB poster replaces it.
+OWN_ART = ("tv.plex.providers.epg.cloud:",)
+
+
+class LeftAloneError(Exception):
+    """The guide's own image stays."""
 
 
 @dataclass(frozen=True)
@@ -185,6 +191,8 @@ class LiveTv:
             plan = self.plan(show, fetch)
             if self.dry_run:
                 return Counter([self._preview(show, plan, first)])
+        except LeftAloneError:
+            return Counter({"left alone": len(show.targets)})
         except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
             log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
             return Counter({"failed": len(show.targets)})
@@ -307,8 +315,9 @@ class LiveTv:
         mark = self._image(fetch, show.logo, show, "logo")
         logo = show.logo if mark is not None else ""
         base = {"live": LIVE_VERSION, "title": show.title}
+        own_art = show.provider.startswith(OWN_ART)
         placeholder = norm(show.title) == norm(show.channel)
-        if placeholder and mark is not None:
+        if placeholder and mark is not None and not own_art:
             art = self.featured_art(show)
             return pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-channel", "logo": logo, "art": art},
@@ -323,6 +332,8 @@ class LiveTv:
                 plan = pipeline.live_poster(self.ctx, show.kind, tid, key, name)
             except pipeline.NotFoundError as exc:
                 log.debug("live TV show has no TMDB art", extra={"title": show.title, "reason": str(exc)})
+        if plan is None and own_art:
+            raise LeftAloneError(show.title)
         picture = self._image(self._fetch, show.picture, show, "guide picture") if plan is None else None
         if plan is None and picture is not None:
             plan = pipeline.Plan(

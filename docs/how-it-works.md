@@ -60,6 +60,7 @@ Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramoun
 - A title with its own picture in the guide gets that picture with the title.
 - Any other title gets the title on dark grey.
 - These posters carry the channel's logo in its own colours, where a TV show poster carries its streaming mark.
+- Plex's own guide, used with antenna tuners, comes with artwork. There only titles found on TMDB get a Posteryard poster; the rest keep Plex's image.
 - A block named after its channel gets a [service collection](#collections) tile: art of the channel's show with the most airtime that has TMDB art, over a dark grey band with the channel's logo. A channel without such a show gets the band with its logo alone.
 
 Plex rebuilds the guide at every guide refresh, about once a day, and shows the guide's own images again. Posteryard checks at the next sweep and selects its posters again without uploading them twice. The channel logos left of the guide come from the guide; Plex takes no upload there. `posteryard preview --live-tv` saves all guide posters to a folder without changing the server.

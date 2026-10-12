@@ -408,3 +408,14 @@ def test_a_plex_show_on_several_channels_gets_no_channel_logo() -> None:
         GUIDE, [airing("Bulletin", "a"), airing("Bulletin", "a", channel="Other"), airing("Night", "b")]
     )
     assert {s.title: s.logo for s in shows} == {"Bulletin": "", "Night": LOGO}
+
+
+def test_plex_own_guide_gets_only_tmdb_posters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    own = "tv.plex.providers.epg.cloud:20"
+    live, plex, tmdb = build(tmp_path, [])
+    tmdb.results["Example Movie"] = [{"id": 5, "name": "Example Movie"}]
+    plex.airings = [airing("Example Movie", "a", thumb="https://img.example/a.jpg"), airing("Local News", "b"),
+                    airing("News 24", "c")]  # fmt: skip
+    monkeypatch.setattr(plex, "guides", lambda: [Guide(own, 1)])
+    assert dict(live.run()) == {"uploaded": 1, "left alone": 2}
+    assert plex.uploads == ["a"]
