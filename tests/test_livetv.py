@@ -317,6 +317,17 @@ def test_run_uploads_once_then_selects_again_after_a_guide_refresh(tmp_path: Pat
     assert plex.uploads == ["a"]
 
 
+def test_the_run_summary_has_logfmt_field_names(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    live.run(now=1000)
+    for image in plex.posters["a"]:
+        image["selected"] = image["ratingKey"] == "guide-link"
+    live.run(now=2000)
+    [summary] = [r for r in caplog.records if r.getMessage() == "live TV posters checked" and r.created][-1:]
+    assert getattr(summary, "selected_again", 0) == 1
+
+
 def test_run_leaves_a_poster_someone_else_uploaded(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
     plex.posters["a"] = [{"ratingKey": "upload://posters/by-hand", "selected": True}]

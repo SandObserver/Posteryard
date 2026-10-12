@@ -206,7 +206,7 @@ class LiveTv:
         self.store.set_meta("livetv_refreshed", json.dumps({g.provider: g.refreshed_at for g in guides}))
         self.store.set_meta("livetv_checked", str(now))
         self.store.set_meta("livetv_dry_run", str(self.dry_run))
-        log.info("live TV posters checked", extra=dict(sorted(tally.items())))
+        log.info("live TV posters checked", extra={k.replace(" ", "_"): v for k, v in sorted(tally.items())})
         return tally
 
     def _remembered_picture(self, record_key: str) -> str:
