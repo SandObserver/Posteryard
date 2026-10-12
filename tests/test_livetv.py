@@ -1,4 +1,5 @@
 import hashlib
+import time
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -8,7 +9,7 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import http, pipeline
-from posteryard.livetv import FORGET_SECONDS, LeftAloneError, LiveTv, guide_shows, norm, shown
+from posteryard.livetv import FORGET_SECONDS, LeftAloneError, LiveTv, guide_shows, norm, shown, without_notes
 from posteryard.plex import Plex
 from posteryard.render import designs
 from posteryard.render import livetv as cards
@@ -150,6 +151,39 @@ def test_one_show_on_two_channels_keeps_its_own_picture() -> None:
         [airing("Talk", "one/talk", channel="One", thumb=own), airing("Talk", "two/talk", channel="Two", thumb=own)],
     )
     assert [s.picture for s in shows] == [own, own]
+
+
+@pytest.mark.parametrize(
+    ("title", "plain"),
+    [
+        ("Hercai (Tekrar)", "Hercai"),
+        ("Inception (1080p) [HD] ", "Inception"),
+        ("A (b (c)", "A"),
+        ("Show (part] ", "Show"),
+        ("(Live)", ""),
+        ("News (live) today", "News (live) today"),
+        ("Odd ) ending )", "Odd ) ending )"),
+        ("Trailing space  ", "Trailing space  "),
+    ],
+)
+def test_trailing_notes_are_cut(title: str, plain: str) -> None:
+    assert without_notes(title) == plain
+
+
+def test_cutting_notes_is_fast_on_a_hostile_title() -> None:
+    started = time.monotonic()
+    without_notes("(]" * 32000)
+    without_notes("(x) " * 16000)
+    assert time.monotonic() - started < 1
+
+
+def test_logged_guide_addresses_hide_credentials(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    picture = "https://guide.example/p.jpg?password=hunter2"
+    live, _, _ = build(tmp_path, [airing("Talk", "a", thumb=picture)])
+    assert live.run()["uploaded"] == 1
+    assert "picture from the guide" in str([r.__dict__ for r in caplog.records])
+    assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
 
 
 def test_norm_ignores_case_marks_and_a_trailing_note() -> None:

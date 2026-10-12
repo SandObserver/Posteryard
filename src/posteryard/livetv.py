@@ -37,7 +37,6 @@ MATCH_HIT_SECONDS = 30 * 86400
 MATCH_MISS_SECONDS = 7 * 86400
 # Several exact matches: the most voted one wins only with this many times the votes of the next.
 VOTE_LEAD = 3
-TRAILING_NOTE = re.compile(r"(\s*[\(\[][^\)\]]*[\)\]])+\s*$")
 # Emoji and pictographs have no glyph in the poster fonts. The zero-width non-joiner stays: Persian needs it.
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 JPEG_QUALITY = 90
@@ -75,8 +74,25 @@ def shown(text: str) -> str:
     return " ".join(kept.split()) or " ".join(text.split())
 
 
+def without_notes(text: str) -> str:
+    """The title without trailing notes in brackets, such as "(Tekrar)" or "[HD]". Linear in the title length."""
+    end, cut = len(text.rstrip()), None
+    while end and text[end - 1] in ")]":
+        opener, i = None, end - 2
+        while i >= 0 and text[i] not in ")]":
+            if text[i] in "([":
+                opener = i
+            i -= 1
+        if opener is None:
+            break
+        while opener and text[opener - 1].isspace():
+            opener -= 1
+        cut = end = opener
+    return text if cut is None else text[:cut]
+
+
 def norm(text: str) -> str:
-    return "".join(ch for ch in TRAILING_NOTE.sub("", text).casefold() if ch.isalnum())
+    return "".join(ch for ch in without_notes(text).casefold() if ch.isalnum())
 
 
 def _web(url: str) -> bool:
@@ -270,7 +286,7 @@ class LiveTv:
             found = int(hit.get("id") or 0)
             if time.time() - float(hit.get("at") or 0) < (MATCH_HIT_SECONDS if found else MATCH_MISS_SECONDS):
                 return found or None
-        results = self.ctx.sources.tmdb.search(show.kind, TRAILING_NOTE.sub("", show.title).strip())
+        results = self.ctx.sources.tmdb.search(show.kind, without_notes(show.title).strip())
         label, original = ("title", "original_title") if show.kind == "movie" else ("name", "original_name")
         exact = [
             r
@@ -337,12 +353,12 @@ class LiveTv:
             return pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-channel", "logo": logo, "art": art},
                 lambda: livetv.channel_card(mark, self.ctx.sources.load(art) if art else None),
-                [f"channel logo {logo}"] + ([f"art from {pipeline.art_source(art)}"] if art else []),
+                [f"channel logo {http.redact(logo)}"] + ([f"art from {pipeline.art_source(art)}"] if art else []),
             )  # fmt: skip
         tid = None if placeholder else self.match(show)
         plan: pipeline.Plan | None = None
         if tid is not None:
-            name = shown(TRAILING_NOTE.sub("", show.title)) or shown(show.title)
+            name = shown(without_notes(show.title)) or shown(show.title)
             try:
                 plan = pipeline.live_poster(self.ctx, show.kind, tid, key, name)
             except pipeline.NotFoundError as exc:
@@ -354,13 +370,13 @@ class LiveTv:
             plan = pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-picture", "picture": show.picture},
                 lambda: livetv.picture_card(picture, designs.text_logo(shown(show.title), rows=3)),
-                [f"picture from the guide {show.picture}"],
+                [f"picture from the guide {http.redact(show.picture)}"],
             )  # fmt: skip
         if plan is None:
             return pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-title", "logo": logo},
                 lambda: livetv.title_card(mark, designs.text_logo(shown(show.title), rows=3)),
-                [f"channel logo {logo}" if logo else "no channel logo"],
+                [f"channel logo {http.redact(logo)}" if logo else "no channel logo"],
             )  # fmt: skip
         plan.inputs.update(live=LIVE_VERSION, channel_logo=logo)
         if mark is not None:
