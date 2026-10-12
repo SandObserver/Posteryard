@@ -259,6 +259,15 @@ class Store:
                 (key, title, fingerprint, image_key, picture, int(time.time())),
             )
 
+    def guide_uploads(self, seen_since: float) -> list[GuideRecord]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT key, title, fingerprint, image_key, picture, seen_at FROM guide "
+                "WHERE seen_at >= ? AND image_key LIKE 'upload://%' ORDER BY key",
+                (int(seen_since),),
+            ).fetchall()
+        return [GuideRecord(*row) for row in rows]
+
     def guide_seen(self, keys: list[str], now: float | None = None) -> None:
         stamp = int(time.time() if now is None else now)
         with self._lock:

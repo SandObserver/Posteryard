@@ -353,6 +353,33 @@ def test_dry_run_keeps_the_record_of_an_upload(tmp_path: Path) -> None:
     assert live.run(now=3000)["uploaded"] == 1
 
 
+def test_a_poster_the_server_deleted_makes_the_guide_due(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b")])
+    live.run(now=1000)
+    assert not live.due(now=2000)
+    plex.posters["b"] = [{"ratingKey": "guide-link", "selected": True}]
+    assert live.due(now=2000)
+    assert live.run(now=2000)["uploaded"] == 1
+    assert plex.uploads == ["a", "b", "b"]
+    assert not live.due(now=3000)
+
+    def gone(provider: str, key: str) -> list[Item]:
+        raise http.HttpError(404, "http://plex.example")
+
+    monkeypatch.setattr(plex, "guide_images", gone)
+    assert not live.due(now=3000)
+
+
+def test_only_shows_from_the_last_run_are_checked_for_deleted_posters(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b")])
+    live.run(now=1000)
+    plex.airings = [airing("Bulletin", "a")]
+    plex.refreshed = 2
+    live.run(now=2000)
+    plex.posters["b"] = []
+    assert not live.due(now=3000)
+
+
 def test_turning_dry_run_off_makes_the_guide_due(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")], dry_run=True)
     assert live.run(now=1000)["preview"] == 1

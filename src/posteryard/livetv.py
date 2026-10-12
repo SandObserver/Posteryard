@@ -41,6 +41,7 @@ VOTE_LEAD = 3
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 JPEG_QUALITY = 90
 LOGO_CACHE = 16
+HTTP_NOT_FOUND = 404
 # Plex's own guide comes with artwork. Only a TMDB poster replaces it.
 OWN_ART = ("tv.plex.providers.epg.cloud:",)
 
@@ -177,15 +178,32 @@ class LiveTv:
         self._unreadable: set[str] = set()
 
     def due(self, now: float | None = None) -> bool:
-        """After every guide refresh, once a day, and when DRY_RUN is turned on or off."""
+        """After every guide refresh, once a day, when DRY_RUN is turned on or off, and when an upload is gone."""
         now = time.time() if now is None else now
         known = json.loads(self.store.meta("livetv_refreshed", "{}"))
         current = {g.provider: g.refreshed_at for g in self.server.guides()}
+        checked = float(self.store.meta("livetv_checked", "0"))
         return (
             current != known
-            or now - float(self.store.meta("livetv_checked", "0")) >= CHECK_SECONDS
+            or now - checked >= CHECK_SECONDS
             or self.store.meta("livetv_dry_run", "") != str(self.dry_run)
+            or self._upload_gone(checked)
         )
+
+    def _upload_gone(self, checked: float) -> bool:
+        """Plex deletes guide upload files when it cleans bundles. The upload then leaves the show's poster list."""
+        for record in self.store.guide_uploads(seen_since=checked):
+            provider, _, target = record.key.partition("/")
+            try:
+                images = self.server.guide_images(provider, target)
+            except http.HttpError as exc:
+                if exc.status == HTTP_NOT_FOUND:
+                    continue
+                raise
+            if record.image_key not in {str(image.get("ratingKey")) for image in images}:
+                log.info("a live TV poster is gone from the server, checking the guide", extra={"title": record.title})
+                return True
+        return False
 
     def run(self, now: float | None = None, tick: Callable[[], bool] = lambda: True) -> Counter[str]:
         """`tick` runs before each show. When it returns False, the run stops and is done again later."""
