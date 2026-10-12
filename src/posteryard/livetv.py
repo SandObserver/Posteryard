@@ -161,11 +161,15 @@ class LiveTv:
         self._unreadable: set[str] = set()
 
     def due(self, now: float | None = None) -> bool:
-        """After every guide refresh, and once a day."""
+        """After every guide refresh, once a day, and when DRY_RUN is turned on or off."""
         now = time.time() if now is None else now
         known = json.loads(self.store.meta("livetv_refreshed", "{}"))
         current = {g.provider: g.refreshed_at for g in self.server.guides()}
-        return current != known or now - float(self.store.meta("livetv_checked", "0")) >= CHECK_SECONDS
+        return (
+            current != known
+            or now - float(self.store.meta("livetv_checked", "0")) >= CHECK_SECONDS
+            or self.store.meta("livetv_dry_run", "") != str(self.dry_run)
+        )
 
     def run(self, now: float | None = None, tick: Callable[[], bool] = lambda: True) -> Counter[str]:
         """`tick` runs before each show. When it returns False, the run stops and is done again later."""
@@ -185,6 +189,7 @@ class LiveTv:
         self.store.guide_drop_unseen(now - FORGET_SECONDS)
         self.store.set_meta("livetv_refreshed", json.dumps({g.provider: g.refreshed_at for g in guides}))
         self.store.set_meta("livetv_checked", str(now))
+        self.store.set_meta("livetv_dry_run", str(self.dry_run))
         log.info("live TV posters checked", extra=dict(sorted(tally.items())))
         return tally
 

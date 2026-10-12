@@ -752,6 +752,23 @@ def test_a_waiting_webhook_pauses_live_tv_and_it_goes_on_after(tmp_path: Path) -
     assert queued(service) == ["7", "live-tv"]
 
 
+def test_a_running_live_tv_pass_is_not_queued_again(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    during: list[str] = []
+
+    class Long(StubLiveTv):
+        def run(self, tick: Any) -> None:
+            self.runs += 1
+            service.check_live_tv()
+            during.extend(queued(service))
+
+    service.live_tv = Long(due=True)  # type: ignore[assignment]
+    service._live_tv()
+    assert during == []
+    service.check_live_tv()
+    assert queued(service) == ["live-tv"]
+
+
 def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     class Broken(StubLiveTv):
         def due(self) -> bool:

@@ -308,6 +308,16 @@ def test_dry_run_keeps_the_record_of_an_upload(tmp_path: Path) -> None:
     assert live.run(now=3000)["uploaded"] == 1
 
 
+def test_turning_dry_run_off_makes_the_guide_due(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")], dry_run=True)
+    assert live.run(now=1000)["preview"] == 1
+    assert not live.due(now=2000)
+    live.dry_run = False
+    assert live.due(now=2000)
+    assert live.run(now=2000)["uploaded"] == 1
+    assert plex.uploads == ["a"]
+
+
 def test_dry_run_saves_previews_once(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")], dry_run=True)
     assert live.run()["preview"] == 1

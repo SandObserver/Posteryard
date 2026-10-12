@@ -111,6 +111,7 @@ class Service:
         self.threads: list[threading.Thread] = []
         self.exit_code = 0
         self.server_checked = threading.Event()
+        self._live_tv_running = threading.Event()
         self._last_heartbeat = float("-inf")
         self._connected = False
         self._tally: Counter[Outcome] = Counter()
@@ -191,7 +192,7 @@ class Service:
             self.worker_beat = time.monotonic()
 
     def check_live_tv(self) -> None:
-        if self.live_tv is None:
+        if self.live_tv is None or self._live_tv_running.is_set():
             return
         try:
             due = self.live_tv.due()
@@ -217,12 +218,15 @@ class Service:
             paused = self._urgent_waiting()
             return not (self._stop.is_set() or paused)
 
+        self._live_tv_running.set()
         try:
             self.live_tv.run(tick=tick)
         except (http.RequestError, OSError, ValueError) as exc:
             log.warning("live TV posters not checked, trying again later", extra={"reason": str(exc)})
         except Exception:
             log.exception("unexpected error", extra={"key": LIVE_TV})
+        finally:
+            self._live_tv_running.clear()
         if paused and not self._stop.is_set():
             self.enqueue([LIVE_TV], "live tv")
         memory.release()
