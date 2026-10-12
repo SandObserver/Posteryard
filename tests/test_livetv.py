@@ -130,6 +130,28 @@ def test_guide_shows_group_airings_and_drop_shared_pictures() -> None:
     assert {s.title: s.kind for s in shows}["Film"] == "movie"
 
 
+def test_a_shared_picture_stays_shared_after_one_show_is_uploaded(tmp_path: Path) -> None:
+    shared = "https://img.example/shared.jpg"
+    live, _, _ = build(tmp_path, [airing("Morning", "a", thumb=shared), airing("Evening", "b", thumb=shared)])
+    live.run(now=1000)
+    assert live.store.guide(f"{GUIDE}/a").picture == shared  # type: ignore[union-attr]
+    shows = guide_shows(
+        GUIDE,
+        [airing("Morning", "a", thumb="/library/metadata/1/thumb/2"), airing("Evening", "b", thumb=shared)],
+        live._remembered_picture,
+    )
+    assert [s.picture for s in shows] == ["", ""]
+
+
+def test_one_show_on_two_channels_keeps_its_own_picture() -> None:
+    own = "https://img.example/talk.jpg"
+    shows = guide_shows(
+        GUIDE,
+        [airing("Talk", "one/talk", channel="One", thumb=own), airing("Talk", "two/talk", channel="Two", thumb=own)],
+    )
+    assert [s.picture for s in shows] == [own, own]
+
+
 def test_norm_ignores_case_marks_and_a_trailing_note() -> None:
     assert norm("Kim Milyoner Olmak İster? (Tekrar)") == norm("kim milyoner olmak ister")
 
