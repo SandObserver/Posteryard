@@ -1,15 +1,19 @@
 """Jellyfin and Emby, answering with the Plex-shaped items the rest of Posteryard reads. See `server.py`."""
 
 import base64
+import gzip
+import io
 import json
+import logging
 import re
 import urllib.parse
+import xml.etree.ElementTree as ET
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
 from posteryard import http
-from posteryard.server import Item, Target
+from posteryard.server import Guide, Item, Target
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
@@ -18,6 +22,9 @@ IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art"
 FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
 PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
+GUIDE = "guide"
+log = logging.getLogger(__name__)
+XMLTV_TIME = "%Y%m%d%H%M%S %z"
 
 
 def _timestamp(value: Any) -> int | None:
@@ -318,6 +325,102 @@ class Jellyfin:
 
     def delete_collection(self, rating_key: str) -> None:
         self._send("DELETE", f"/Items/{self._id(rating_key)}")
+
+    def guides(self) -> list[Guide]:
+        task = next((t for t in self._get("/ScheduledTasks") or [] if t.get("Key") == "RefreshGuide"), None)
+        finished = _timestamp(((task or {}).get("LastExecutionResult") or {}).get("EndTimeUtc"))
+        return [Guide(GUIDE, finished or 0)]
+
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
+        """Every airing is its own item. Airings of one title on one channel share a show key."""
+        pictures = self._guide_pictures(start, end)
+        channels = self._get("/LiveTv/Channels", userId=self.user(), EnableImages="true").get("Items") or []
+        logos = {str(c.get("Id")) for c in channels if (c.get("ImageTags") or {}).get("Primary")}
+        airings: list[Item] = []
+        while True:
+            page = self._get(
+                "/LiveTv/Programs", userId=self.user(), MinEndDate=_iso(start), MaxStartDate=_iso(end),
+                StartIndex=len(airings), Limit=PAGE, EnableImages="false", Fields="ChannelInfo",
+            )  # fmt: skip
+            raw = page.get("Items") or []
+            airings += [self._airing(p, pictures, logos) for p in raw]
+            if not raw or len(airings) >= int(page.get("TotalRecordCount") or len(airings)):
+                return airings
+
+    def _airing(self, raw: Mapping[str, Any], pictures: Mapping[tuple[str, int], str], logos: set[str]) -> Item:
+        channel, title = str(raw.get("ChannelName") or ""), str(raw.get("Name") or "")
+        begins, ends = _timestamp(raw.get("StartDate")) or 0, _timestamp(raw.get("EndDate")) or 0
+        show = f"{raw.get('ChannelId')}/{title.casefold()}"
+        picture = pictures.get((channel.casefold(), begins), "")
+        channel_id = self._id(str(raw.get("ChannelId")))
+        logo = self._url(f"/Items/{channel_id}/Images/Primary") if channel_id in logos else ""
+        media = {"channelCallSign": channel, "beginsAt": begins, "endsAt": ends, "channelThumb": logo}
+        if raw.get("IsMovie"):
+            airing = {"type": "movie", "ratingKey": show, "title": title, "thumb": picture, "guid": show}
+        else:
+            airing = {"type": "episode", "grandparentRatingKey": show, "grandparentTitle": title,
+                      "grandparentThumb": picture, "grandparentGuid": show}  # fmt: skip
+        return {**airing, "targetKey": self._id(str(raw.get("Id"))), "Media": [media]}  # type: ignore[typeddict-item]
+
+    def _guide_pictures(self, start: int, end: int) -> dict[tuple[str, int], str]:
+        """Jellyfin keeps its copy of a guide picture, not the address. The XMLTV guides it reads still have it.
+
+        Guide pictures are optional: a guide Posteryard cannot read gives none, and posters go on without them.
+        """
+        pictures: dict[tuple[str, int], str] = {}
+        for listing in (self._get("/System/Configuration/livetv") or {}).get("ListingProviders") or []:
+            path = str(listing.get("Path") or "")
+            if listing.get("Type") != "xmltv" or not path.startswith(("http://", "https://")):
+                continue
+            try:
+                data = http.request("GET", path, timeout=120)
+                pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
+            except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError) as exc:
+                reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__
+                log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": reason})
+        return pictures
+
+    def guide_is(self, provider: str, key: str, guid: str) -> bool:
+        return True
+
+    def guide_images(self, provider: str, key: str) -> list[Item]:
+        tag = self.selected(key, "poster")
+        return [{"ratingKey": tag, "selected": True}] if tag else []  # type: ignore[typeddict-unknown-key]
+
+    def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
+        return self.upload(key, "poster", jpeg)
+
+    def guide_select(self, provider: str, key: str, image_key: str) -> None:
+        raise ValueError(f"{self.name} keeps no earlier upload to select")
+
+
+def _unzip(data: bytes) -> bytes:
+    with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+        out = stream.read(http.MAX_RESPONSE + 1)
+    if len(out) > http.MAX_RESPONSE:
+        raise ValueError("the XMLTV guide is larger than 64 MB unpacked")
+    return out
+
+
+def _xmltv_pictures(data: bytes, start: int, end: int) -> dict[tuple[str, int], str]:
+    names: dict[str, str] = {}
+    pictures: dict[tuple[str, int], str] = {}
+    for _, element in ET.iterparse(io.BytesIO(data)):
+        if element.tag == "channel":
+            name = element.findtext("display-name") or ""
+            names[element.get("id", "")] = name.casefold()
+        elif element.tag == "programme":
+            icon = element.find("icon")
+            src = icon.get("src", "") if icon is not None else ""
+            channel = names.get(element.get("channel", ""))
+            try:
+                begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
+            except ValueError:
+                begins = 0
+            if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
+                pictures[(channel, begins)] = src
+            element.clear()
+    return pictures
 
 
 class Emby(Jellyfin):

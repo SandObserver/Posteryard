@@ -317,11 +317,14 @@ def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Im
     return canvas.convert("RGB")
 
 
-def text_logo(title: str, ink: RGB = WHITE, prefer: str = "") -> Image.Image:
+def text_logo(title: str, ink: RGB = WHITE, prefer: str = "", rows: int = 2) -> Image.Image:
     words = title.split() or [title]
     options = [[" ".join(words)]]
     for cut in range(1, len(words)):
         options.append([" ".join(words[:cut]), " ".join(words[cut:])])
+        if rows >= 3:
+            options += [[" ".join(words[:cut]), " ".join(words[cut:end]), " ".join(words[end:])]
+                        for end in range(cut + 1, len(words))]  # fmt: skip
     face = font_for(title, "Bold", 200, prefer)
     box = (LOGO_BOX[0] * POSTER[0], LOGO_BOX[1] * POSTER[1])
 
@@ -329,12 +332,12 @@ def text_logo(title: str, ink: RGB = WHITE, prefer: str = "") -> Image.Image:
         width = max(face.getlength(row) for row in rows)
         return min(box[0] / width, box[1] / (len(rows) * face.size * 1.1))
 
-    rows = max(options, key=scale)
-    width = round(max(face.getlength(row) for row in rows)) + 20
-    height = round(len(rows) * face.size * 1.1) + 20
+    lines = max(options, key=scale)
+    width = round(max(face.getlength(row) for row in lines)) + 20
+    height = round(len(lines) * face.size * 1.1) + 20
     layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     pen = ImageDraw.Draw(layer)
-    for i, row in enumerate(rows):
+    for i, row in enumerate(lines):
         pen.text((width / 2, 10 + (i + 0.5) * face.size * 1.1), row, font=face, fill=(*ink, 255), anchor="mm")
     return trim(layer)
 

@@ -684,3 +684,76 @@ def test_a_new_data_folder_sweeps_from_now(tmp_path: Path, monkeypatch: pytest.M
 def test_a_retried_title_counts_as_new(tmp_path: Path) -> None:
     assert {"webhook", "changed", "retry"} <= NEW_REASONS
     assert not {"daily", "unlisted", "unignored", "label"} & NEW_REASONS
+
+
+class StubLiveTv:
+    def __init__(self, due: bool, error: Exception | None = None) -> None:
+        self.is_due, self.error, self.runs = due, error, 0
+
+    def due(self) -> bool:
+        return self.is_due
+
+    def run(self, tick: Any) -> None:
+        self.runs += 1
+        assert tick()
+        if self.error:
+            raise self.error
+
+
+@pytest.mark.parametrize("error", [None, posteryard_http.RequestError("refused", "http://plex.example")])
+def test_live_tv_is_queued_when_due_and_run_by_the_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception | None
+) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    live = StubLiveTv(due=True, error=error)
+    service.live_tv = live  # type: ignore[assignment]
+    service.check_live_tv()
+    assert queued(service) == ["live-tv"]
+    monkeypatch.setattr(service.worker, "process", lambda *_a, **_k: pytest.fail("not a library item"))
+    monkeypatch.setattr(service.worker, "rest", lambda: None)
+    service.server_checked.set()
+    thread = threading.Thread(target=service._work, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5
+    while not live.runs and time.monotonic() < deadline:
+        time.sleep(0.01)
+    service._stop.set()
+    thread.join(timeout=5)
+    assert live.runs == 1
+    assert "Live TV posters" in service.banner()
+
+
+def test_live_tv_is_not_queued_when_not_due(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.live_tv = StubLiveTv(due=False)  # type: ignore[assignment]
+    service.check_live_tv()
+    assert queued(service) == []
+
+
+def test_a_waiting_webhook_pauses_live_tv_and_it_goes_on_after(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    stops: list[bool] = []
+
+    class Paused(StubLiveTv):
+        def run(self, tick: Any) -> None:
+            self.runs += 1
+            service.enqueue(["7"], "webhook")
+            stops.append(tick())
+
+    service.live_tv = Paused(due=True)  # type: ignore[assignment]
+    service._live_tv()
+    assert stops == [False]
+    assert queued(service) == ["7", "live-tv"]
+
+
+def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    class Broken(StubLiveTv):
+        def due(self) -> bool:
+            raise posteryard_http.RequestError("refused", "http://plex.example")
+
+    service = make_service(tmp_path)
+    service.live_tv = Broken(due=True)  # type: ignore[assignment]
+    service.check_live_tv()
+    assert queued(service) == []
+    assert "live TV guide not checked" in caplog.text

@@ -43,6 +43,7 @@ class Title:
     all_titles: list[str]
     service: str | None
     font: str = ""
+    logo_languages: tuple[str, ...] | None = None
 
 
 @dataclass
@@ -172,7 +173,17 @@ class Sources:
     def logo(self, title: Title, *, dark: bool = False) -> str | None:
         base = f"{title.kind}:{title.tmdb_id}"
         languages, wordmark = self.settings.logo_languages, self.settings.prefer_wordmark
-        path = self.picker.logo(base, self.images(title.kind, title.tmdb_id), languages, wordmark, dark=dark)
+        images = self.images(title.kind, title.tmdb_id)
+        if title.logo_languages is not None:
+            languages = title.logo_languages
+            key = ("logos", title.kind, str(title.tmdb_id), *languages)
+            logos = (
+                self.remember(key, lambda: self.tmdb.language_logos(title.kind, title.tmdb_id, languages))
+                if languages
+                else []
+            )
+            images = Images([], [], logos)
+        path = self.picker.logo(base, images, languages, wordmark, dark=dark)
         if path is None and self.fanart is not None:
             extra = self.fanart_images(title.kind, title.tmdb_id).images
             path = self.picker.logo(f"{base}:fanart", extra, languages, wordmark, dark=dark)
@@ -218,7 +229,8 @@ class Sources:
             return self.marks.get(offer, self.tmdb) if self.marks is not None else None
         return None
 
-    def title(self, kind: Kind, tid: int, name: str) -> Title:
+    def title(self, kind: Kind, tid: int, name: str, *, remember: bool = True) -> Title:
+        """`remember=False` for a name that is not the library's: a cached title is reused by library items."""
         with self._lock:
             hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
@@ -228,8 +240,9 @@ class Sources:
         details = self.tmdb.details(kind, tid)
         font = preferred_family(str(details.get("original_language") or ""), details.get("origin_country") or [])
         title = Title(kind, tid, name, every, service, font)
-        with self._lock:
-            self.titles[(kind, tid)] = (time.monotonic(), title)
+        if remember:
+            with self._lock:
+                self.titles[(kind, tid)] = (time.monotonic(), title)
         return title
 
 

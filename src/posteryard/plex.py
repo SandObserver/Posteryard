@@ -1,11 +1,12 @@
 import hashlib
 import json
+import re
 import urllib.parse
 from collections.abc import Iterator, Mapping
 from typing import Any
 
 from posteryard import http
-from posteryard.server import Item, Target
+from posteryard.server import Guide, Item, Target
 
 ENDPOINTS: dict[Target, tuple[str, str, str]] = {
     "poster": ("posters", "poster", "thumb"),
@@ -15,6 +16,9 @@ ENDPOINTS: dict[Target, tuple[str, str, str]] = {
 TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4, "collection": 18}
 PAGE = 200
 JSON = {"Accept": "application/json"}
+GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
+GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
+GUIDE_PAGE = 2000
 
 
 class Plex:
@@ -224,6 +228,68 @@ class Plex:
             f"/library/sections/{_key(str(item['librarySectionID']))}/all",
             {"type": TYPE_IDS[str(item["type"])], "id": item["ratingKey"], f"{field}.locked": 1},
         )
+
+    def guides(self) -> list[Guide]:
+        found = []
+        for dvr in self._get("/livetv/dvrs").get("Dvr") or []:
+            provider = str(dvr.get("epgIdentifier") or "")
+            if GUIDE_PROVIDER.match(provider):
+                found.append(Guide(provider, int(dvr.get("refreshedAt") or 0)))
+        return found
+
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
+        """Every airing that ends after `start` and begins before `end`, on all channels."""
+        airings: list[Item] = []
+        while True:
+            page = self._get(
+                f"/{_provider(provider)}/grid",
+                type="1,4",
+                **{"endsAt>": start, "beginsAt<": end},
+                **{"X-Plex-Container-Start": len(airings), "X-Plex-Container-Size": GUIDE_PAGE},
+            )
+            items = page.get("Metadata") or []
+            airings += items
+            if not items or len(airings) >= int(page.get("totalSize", len(airings))):
+                return airings
+
+    def guide_item(self, provider: str, key: str) -> Item | None:
+        meta = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}").get("Metadata") or []
+        return meta[0] if meta else None
+
+    def guide_is(self, provider: str, key: str, guid: str) -> bool:
+        """Plex finds a guide entry by a case-insensitive prefix of its name: "atv" can return "ATV Ana Haber"."""
+        item = self.guide_item(provider, key)
+        return item is not None and str(item.get("guid") or "") == guid
+
+    def guide_images(self, provider: str, key: str) -> list[Item]:
+        images: list[Item] = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters").get("Metadata", [])
+        return images
+
+    def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
+        """Plex selects and locks the upload. A guide refresh drops the selection but keeps the image."""
+        path = f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters"
+        self._send("POST", path, data=jpeg, headers={"Content-Type": "image/jpeg"}, timeout=120)
+        digest = hashlib.sha1(jpeg, usedforsecurity=False).hexdigest()
+        image_key = f"upload://posters/{digest}"
+        if image_key not in {str(i.get("ratingKey")) for i in self.guide_images(provider, key)}:
+            raise http.RequestError("upload left no poster to select", self._url(path))
+        self.guide_select(provider, key, image_key)
+        return image_key
+
+    def guide_select(self, provider: str, key: str, image_key: str) -> None:
+        self._send("PUT", f"/{_provider(provider)}/metadata/{_guide_key(key)}/poster", {"url": image_key})
+
+
+def _provider(provider: str) -> str:
+    if not GUIDE_PROVIDER.match(provider):
+        raise ValueError(f"not a Plex guide: {provider!r}")
+    return provider
+
+
+def _guide_key(key: str) -> str:
+    if not GUIDE_KEY.match(key):
+        raise ValueError(f"not a Plex guide item: {key!r}")
+    return key
 
 
 def is_rating_key(text: str) -> bool:

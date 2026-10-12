@@ -43,6 +43,7 @@ A title goes through these modules in order:
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
 | `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
 | `cli.py`, `config.py` | Commands and settings. |
+| `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the channel and title cards. |
 | `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
 | `logfmt.py` | The log format and the startup block. |
 

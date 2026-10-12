@@ -34,8 +34,18 @@ CREATE TABLE IF NOT EXISTS overrides (
 CREATE TABLE IF NOT EXISTS choices (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 """
+GUIDE_TABLE = """
+CREATE TABLE IF NOT EXISTS guide (
+    key         TEXT PRIMARY KEY,
+    title       TEXT NOT NULL DEFAULT '',
+    fingerprint TEXT NOT NULL DEFAULT '',
+    image_key   TEXT NOT NULL DEFAULT '',
+    picture     TEXT NOT NULL DEFAULT '',
+    seen_at     INTEGER NOT NULL DEFAULT 0
+);
+"""
 # Append only. Entry N brings the database from version N to N + 1. Never edit a released entry.
-MIGRATIONS = (SCHEMA_1,)
+MIGRATIONS = (SCHEMA_1, GUIDE_TABLE)
 COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at"
 RETRY_FIRST = 900
 RETRY_MAX = 12 * 3600
@@ -51,6 +61,16 @@ class Status(StrEnum):
     PREVIEW = "preview"
     MANUAL = "manual"
     FAILED = "failed"
+
+
+@dataclass(frozen=True)
+class GuideRecord:
+    key: str
+    title: str
+    fingerprint: str
+    image_key: str
+    picture: str
+    seen_at: int
 
 
 @dataclass(frozen=True)
@@ -222,6 +242,31 @@ class Store:
                 f"DELETE FROM choices WHERE substr(key, 1, ?) = ? {kept}", (len(family), family, *values)
             )
         return cursor.rowcount
+
+    def guide(self, key: str) -> GuideRecord | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT key, title, fingerprint, image_key, picture, seen_at FROM guide WHERE key=?", (key,)
+            ).fetchone()
+        return GuideRecord(*row) if row else None
+
+    def guide_uploaded(self, key: str, title: str, fingerprint: str, image_key: str, picture: str) -> None:
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO guide(key, title, fingerprint, image_key, picture, seen_at) VALUES(?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET title=excluded.title, fingerprint=excluded.fingerprint, "
+                "image_key=excluded.image_key, picture=excluded.picture, seen_at=excluded.seen_at",
+                (key, title, fingerprint, image_key, picture, int(time.time())),
+            )
+
+    def guide_seen(self, keys: list[str], now: float | None = None) -> None:
+        stamp = int(time.time() if now is None else now)
+        with self._lock:
+            self._db.executemany("UPDATE guide SET seen_at=? WHERE key=?", [(stamp, key) for key in keys])
+
+    def guide_drop_unseen(self, before: float) -> int:
+        with self._lock:
+            return self._db.execute("DELETE FROM guide WHERE seen_at < ?", (int(before),)).rowcount
 
     def meta(self, key: str, default: str = "") -> str:
         with self._lock:

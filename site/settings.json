@@ -32,7 +32,8 @@
       "settings": [
         { "key": "EPISODE_THUMBNAILS", "label": "Episode thumbnails", "type": "menu", "default": "plain", "options": [["plain", "Plain", "still and shade"], ["titled", "Titled", "EPISODE N and title"], ["off", "Off", "server's own"]] },
         { "key": "COLLECTION_POSTERS", "label": "Posters for collections", "type": "switch", "default": "false" },
-        { "key": "SERVICE_COLLECTIONS", "label": "A collection per streaming service", "type": "switch", "default": "false" }
+        { "key": "SERVICE_COLLECTIONS", "label": "A collection per streaming service", "type": "switch", "default": "false" },
+        { "key": "LIVE_TV", "label": "Posters for the Live TV guide", "type": "switch", "default": "false" }
       ]
     },
     {

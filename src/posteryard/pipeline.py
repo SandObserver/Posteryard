@@ -2,7 +2,7 @@ import hashlib
 import json
 import logging
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -540,6 +540,37 @@ def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> lis
             for episode_item in ctx.server.children(str(season_item["ratingKey"]))[:episodes]:
                 plans += plan_item(ctx, episode_item)
     return plans
+
+
+def live_poster(ctx: Context, kind: Kind, tid: int, key: str, name: str) -> Plan:
+    """A guide entry's poster: the guide's own name, and no service mark or label.
+
+    The title logo must read like the guide: a logo in the original language when the guide uses the original
+    title, and the guide's name as text when TMDB has no logo in that language.
+    """
+    details = ctx.sources.tmdb.details(kind, tid)
+    wanted = _plain(name)
+    languages: tuple[str, ...] | None = None
+    if wanted != _plain(str(details.get("title") or details.get("name") or "")):
+        same = wanted == _plain(str(details.get("original_title") or details.get("original_name") or ""))
+        original = str(details.get("original_language") or "")
+        languages = (original,) if same and original else ()
+    title = replace(
+        ctx.sources.title(kind, tid, name, remember=False), name=name, service=None, logo_languages=languages
+    )
+    picked = ctx.sources.art(title)
+    if picked is not None:
+        art = ctx.sources.load(picked.path)
+        if art.width >= art.height:
+            raise NotFoundError(f"TMDB has only wide art for {name}, which a poster would crop")
+    plan = _poster(ctx, title, key, name, season=None, badges=[], label=None)
+    if languages is not None:
+        plan.inputs["logo_languages"] = list(languages)
+    return plan
+
+
+def _plain(text: str) -> str:
+    return "".join(ch for ch in text.casefold() if ch.isalnum())
 
 
 def plan_tmdb(ctx: Context, kind: Kind, tid: int, seasons: Sequence[int] = ()) -> list[Plan]:

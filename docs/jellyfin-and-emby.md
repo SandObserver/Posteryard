@@ -18,6 +18,7 @@ Differences from Plex:
 
 - The [labels](commands.md#plex-labels) are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
+- Live TV posters (`LIVE_TV`) go on every airing. See [Live TV](how-it-works.md#live-tv).
 - Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps them for the first TV library in `LIBRARIES` only.
 
 ## Emby
@@ -35,6 +36,7 @@ Differences from Plex:
 - The [labels](commands.md#plex-labels) are Emby **tags**. Add them in **Edit metadata > Tags**.
 - Emby keeps an uploaded image unless you refresh with **Replace existing images**. Posteryard does not lock items, because a locked item gets no metadata updates.
 - A refresh with **Replace all metadata** removes tags, including Posteryard's labels.
+- Live TV posters (`LIVE_TV`) are not supported on Emby. Emby Live TV needs Emby Premiere.
 
 To move from Plex or Jellyfin to Emby, start with a new data folder. The data folder belongs to one server, and Posteryard refuses to start with a data folder from another server.
 

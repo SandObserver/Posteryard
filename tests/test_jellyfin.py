@@ -1,4 +1,5 @@
 import base64
+import gzip
 import json
 import urllib.parse
 from collections.abc import Callable
@@ -237,3 +238,90 @@ def test_a_season_of_a_missing_show_has_no_library(serve: Any) -> None:
     item = jellyfin.item(SEASON)
     assert item is not None
     assert "librarySectionTitle" not in item
+
+
+CHANNEL = "1" * 32
+PROGRAMME = "2" * 32
+XMLTV = b"""<?xml version="1.0"?><tv>
+<channel id="news.1"><display-name>News 24</display-name><display-name>101</display-name></channel>
+<programme start="20261012170000 +0000" stop="20261012180000 +0000" channel="news.1">
+<title>Evening</title><icon src="https://img.example/evening.jpg"/></programme>
+<programme start="20261012180000 +0000" stop="20261012190000 +0000" channel="other"><title>Lost</title></programme>
+</tv>"""
+
+
+def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        calls.append(url)
+        path = urllib.parse.urlsplit(url).path
+        if url.startswith("https://guide.example/"):
+            assert "headers" not in kwargs
+            return XMLTV
+        answers: dict[str, Any] = {
+            "/Users": [{"Id": USER, "Policy": {"IsAdministrator": True}}],
+            "/System/Configuration/livetv": {"ListingProviders": [
+                {"Type": "xmltv", "Path": "https://guide.example/guide.xml"},
+                {"Type": "xmltv", "Path": "/config/local.xml"},
+                {"Type": "SchedulesDirect"},
+            ]},
+            "/LiveTv/Programs": {"TotalRecordCount": 2, "Items": [{
+                "Id": PROGRAMME, "Name": "Evening", "ChannelId": CHANNEL, "ChannelName": "News 24",
+                "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
+            }, {
+                "Id": "4" * 32, "Name": "Quiet", "ChannelId": "3" * 32, "ChannelName": "No Logo",
+                "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
+            }]},
+            "/ScheduledTasks": [{"Key": "RefreshGuide", "LastExecutionResult": {"EndTimeUtc": "2026-10-12T03:00:00Z"}}],
+            "/LiveTv/Channels": {"Items": [{"Id": CHANNEL, "ImageTags": {"Primary": "c1"}}, {"Id": "3" * 32}]},
+        }  # fmt: skip
+        return json.dumps(answers[path]).encode()
+
+    monkeypatch.setattr(http, "request", request)
+    jellyfin = Jellyfin(BASE, "example-key")
+    assert [(g.provider, g.refreshed_at) for g in jellyfin.guides()] == [("guide", 1791774000)]
+    found, quiet = jellyfin.guide_airings("guide", 1791780000, 1791900000)
+    airing: dict[str, Any] = dict(found)
+    assert quiet["Media"][0]["channelThumb"] == ""
+    assert airing["grandparentTitle"] == "Evening"
+    assert airing["grandparentThumb"] == "https://img.example/evening.jpg"
+    assert airing["targetKey"] == PROGRAMME
+    assert airing["Media"][0]["channelCallSign"] == "News 24"
+    assert airing["Media"][0]["channelThumb"] == f"{BASE}/Items/{CHANNEL}/Images/Primary"
+    programmes = next(u for u in calls if "/LiveTv/Programs" in u)
+    assert "Fields=ChannelInfo" in programmes
+    assert "MinEndDate=2026-10-12" in programmes
+
+
+def test_guide_uploads_go_to_each_airing_and_cannot_be_selected_again(serve: Any) -> None:
+    jellyfin, server = serve(
+        {
+            "/Users": [{"Id": USER, "Policy": {"IsAdministrator": True}}],
+            f"/Items/{PROGRAMME}": {"Id": PROGRAMME, "ImageTags": {"Primary": "new"}},
+            f"POST /Items/{PROGRAMME}/Images/Primary": b"",
+        }
+    )
+    assert jellyfin.guide_is("guide", PROGRAMME, "anything")
+    assert jellyfin.guide_images("guide", PROGRAMME) == [{"ratingKey": "new", "selected": True}]
+    assert jellyfin.guide_upload("guide", PROGRAMME, b"jpeg") == "new"
+    assert base64.b64decode(next(c[3] for c in server.calls if c[0] == "POST") or b"") == b"jpeg"
+    with pytest.raises(ValueError, match="no earlier upload"):
+        jellyfin.guide_select("guide", PROGRAMME, "new")
+
+
+@pytest.mark.parametrize("body", [b"<tv><programme", gzip.compress(b" " * (http.MAX_RESPONSE + 10))])
+def test_an_unreadable_xmltv_guide_gives_no_pictures(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
+) -> None:
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        if url.startswith("https://"):
+            return body
+        guide = "https://me:hunter2@guide.example/g.xml?password=hunter2"
+        return json.dumps({"ListingProviders": [{"Type": "xmltv", "Path": guide}]}).encode()
+
+    monkeypatch.setattr(http, "request", request)
+    assert Jellyfin(BASE, "example-key")._guide_pictures(0, 2**31) == {}
+    assert "guide pictures skipped" in caplog.text
+    assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
+    assert any("***@guide.example" in str(record.__dict__) for record in caplog.records)

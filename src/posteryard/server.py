@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict
 
 
@@ -63,6 +64,25 @@ class MediaServer(Protocol):
     def remove_from_collection(self, rating_key: str, member: str) -> None: ...
     def delete_collection(self, rating_key: str) -> None: ...
     def set_label(self, section_key: str, kind: str, rating_key: str, label: str) -> None: ...
+
+
+@dataclass(frozen=True)
+class Guide:
+    provider: str
+    refreshed_at: int
+
+
+class GuideServer(Protocol):
+    """A server with a Live TV guide Posteryard can put posters on. Airings come back Plex-shaped."""
+
+    name: str
+
+    def guides(self) -> list[Guide]: ...
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]: ...
+    def guide_is(self, provider: str, key: str, guid: str) -> bool: ...
+    def guide_images(self, provider: str, key: str) -> list[Item]: ...
+    def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str: ...
+    def guide_select(self, provider: str, key: str, image_key: str) -> None: ...
 
 
 def labels(item: Item) -> set[str]:

@@ -2,12 +2,14 @@ import argparse
 import logging
 import re
 import shlex
+import tempfile
 import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
+from typing import TypeGuard
 
-from posteryard import __version__, config, http, logfmt, lookup, memory, overrides, pipeline, why
+from posteryard import __version__, config, http, livetv, logfmt, lookup, memory, overrides, pipeline, why
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks
 from posteryard.fanart import Fanart
@@ -112,6 +114,9 @@ def _parser() -> argparse.ArgumentParser:
         "--episodes", type=int, default=0, metavar="N",
         help="episodes to render per season of a show or season on the server; -1 for all (default 0)",
     )  # fmt: skip
+    preview.add_argument(
+        "--live-tv", action="store_true", help="render a poster for every show and movie in the Live TV guide"
+    )
     preview.add_argument("--out", type=Path, help="output folder (default DATA_DIR/previews)")
     return parser
 
@@ -137,7 +142,41 @@ def _resolve(plex: MediaServer, cfg: config.Config, args: argparse.Namespace) ->
     return lookup.season(plex, match, args.season) if args.season is not None else match
 
 
+def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
+    try:
+        config.require_server(cfg)
+    except config.ConfigError as exc:
+        print(exc)
+        return 2
+    server = _server(cfg)
+    if not _has_guide(server):
+        print(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
+        return 2
+    sources = Sources(
+        Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
+        Settings.from_config(cfg, {}, date.today()),
+        fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
+        text_check=cfg.text_check,
+    )
+    with tempfile.TemporaryDirectory(prefix="posteryard-live-tv-") as scratch:
+        store = Store(Path(scratch) / "state.db")
+        try:
+            guide = livetv.LiveTv(
+                server, store, pipeline.Context(sources.settings, sources, server), dry_run=True, preview_dir=out_dir
+            )
+            tally = guide.run()
+        except (http.RequestError, ValueError) as exc:
+            print(exc)
+            return 1
+        finally:
+            store.close()
+    print(f"{tally['preview']} posters saved in {out_dir}, {tally['failed']} failed")
+    return 1 if tally["failed"] else 0
+
+
 def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901, PLR0912
+    if args.live_tv:
+        return _preview_live_tv(cfg, args.out or cfg.preview_dir)
     if not args.title and not args.tmdb:
         print("Give a title or --tmdb KIND:ID.")
         return 2
@@ -218,6 +257,22 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
     return 0
 
 
+def _live_tv(cfg: config.Config, server: MediaServer, store: Store, worker: Worker) -> livetv.LiveTv | None:
+    if not cfg.live_tv:
+        return None
+    if not _has_guide(server):
+        log.warning(
+            "LIVE_TV is on, but Live TV posters work with Plex and Jellyfin only", extra={"server": server.name}
+        )
+        return None
+    return livetv.LiveTv(server, store, worker.ctx, dry_run=cfg.dry_run, preview_dir=cfg.preview_dir)
+
+
+def _has_guide(server: MediaServer) -> TypeGuard[Plex | Jellyfin]:
+    """Emby Live TV needs Emby Premiere. Emby is not supported."""
+    return isinstance(server, Plex) or (isinstance(server, Jellyfin) and not isinstance(server, Emby))
+
+
 def _server(cfg: config.Config) -> MediaServer:
     if cfg.jellyfin_url:
         return Jellyfin(cfg.jellyfin_url, cfg.jellyfin_api_key)
@@ -287,7 +342,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
         state = store if args.command == "serve" else None
         worker = Worker(cfg, plex, store, Notifier(cfg.notify_urls, cfg.notify_events, state))
         if args.command == "serve":
-            return Service(cfg, plex, store, worker).run()
+            return Service(cfg, plex, store, worker, _live_tv(cfg, plex, store, worker)).run()
         if args.command == "restore":
             return _restore(worker)
         if args.command == "why":

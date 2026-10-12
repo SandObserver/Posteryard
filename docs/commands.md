@@ -28,6 +28,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
 | `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. |
+| `preview --live-tv` | Preview a poster for every show and movie in the Live TV guide. |
 
 Examples:
 

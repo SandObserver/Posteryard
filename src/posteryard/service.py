@@ -17,6 +17,7 @@ from typing import Any
 
 from posteryard import __version__, http, logfmt, memory, overrides, pipeline, service_collections
 from posteryard.config import Config
+from posteryard.livetv import LiveTv
 from posteryard.notify import Event
 from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.store import Store
@@ -40,6 +41,7 @@ NEW_REASONS = frozenset({"webhook", "changed", "retry"})
 NEW_BATCH_SECONDS = 900
 NEW_WAIT_SECONDS = 300
 RESUMED = "resumed after a restart"
+LIVE_TV = "live-tv"
 EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
 
 
@@ -95,8 +97,10 @@ def related_keys(item: object) -> list[str]:
 
 
 class Service:
-    def __init__(self, cfg: Config, server: MediaServer, store: Store, worker: Worker) -> None:
-        self.cfg, self.server, self.store, self.worker = cfg, server, store, worker
+    def __init__(
+        self, cfg: Config, server: MediaServer, store: Store, worker: Worker, live_tv: LiveTv | None = None
+    ) -> None:
+        self.cfg, self.server, self.store, self.worker, self.live_tv = cfg, server, store, worker, live_tv
         self.queue: queue.PriorityQueue[tuple[int, int, str, str]] = queue.PriorityQueue()
         self._queued: dict[str, int] = {}
         self._order = itertools.count()
@@ -167,6 +171,9 @@ class Service:
                 self.announce_new(idle=True)
                 self.worker.rest()
                 continue
+            if key == LIVE_TV:
+                self._live_tv()
+                continue
             started = time.monotonic()
             try:
                 outcome = self.worker.process(key)
@@ -182,6 +189,42 @@ class Service:
             self.announce_new(idle=False)
             memory.release()
             self.worker_beat = time.monotonic()
+
+    def check_live_tv(self) -> None:
+        if self.live_tv is None:
+            return
+        try:
+            due = self.live_tv.due()
+        except (http.RequestError, OSError, ValueError) as exc:
+            log.warning("live TV guide not checked, trying again at the next sweep", extra={"reason": str(exc)})
+            return
+        if due:
+            self.enqueue([LIVE_TV], "live tv")
+
+    def _urgent_waiting(self) -> bool:
+        with self._lock:
+            return any(priority == 0 for priority in self._queued.values())
+
+    def _live_tv(self) -> None:
+        """A webhook or label change waiting pauses the run. It starts again after them; done shows stay unchanged."""
+        if self.live_tv is None:
+            return
+        paused = False
+
+        def tick() -> bool:
+            nonlocal paused
+            self.worker_beat = time.monotonic()
+            paused = self._urgent_waiting()
+            return not (self._stop.is_set() or paused)
+
+        try:
+            self.live_tv.run(tick=tick)
+        except (http.RequestError, OSError, ValueError) as exc:
+            log.warning("live TV posters not checked, trying again later", extra={"reason": str(exc)})
+        if paused and not self._stop.is_set():
+            self.enqueue([LIVE_TV], "live tv")
+        memory.release()
+        self.worker_beat = time.monotonic()
 
     def collect_new(self, fresh: list[tuple[str, bytes]]) -> None:
         if not fresh:
@@ -397,6 +440,7 @@ class Service:
                     self.sweep(lookback)
                     lookback = SWEEP_LOOKBACK
                     next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
+                    self.check_live_tv()
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
                 log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})
@@ -533,6 +577,7 @@ class Service:
             *(["leaving labels from Maintainerr"] if cfg.maintainerr_url else []),
             *(["collection posters"] if cfg.collection_posters else []),
             *(["service collections"] if cfg.service_collections else []),
+            *(["Live TV posters"] if self.live_tv is not None else []),
         ]
         services = len(cfg.notify_urls)
         alerts = (

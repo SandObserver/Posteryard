@@ -70,6 +70,7 @@ class Config:
     fanart_api_key: str = ""
     apple_art: bool = False
     text_check: bool = True
+    live_tv: bool = False
 
     @property
     def preview_dir(self) -> Path:
@@ -212,6 +213,7 @@ def load(env: Mapping[str, str] = os.environ) -> Config:
         fanart_api_key=env.get("FANART_API_KEY", "").strip(),
         apple_art=_bool(env, "APPLE_ART", default=False),
         text_check=_bool(env, "TEXT_CHECK", default=True),
+        live_tv=_bool(env, "LIVE_TV", default=False),
     )
 
 

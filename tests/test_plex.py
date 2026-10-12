@@ -190,3 +190,60 @@ def test_collection_calls(serve: Any) -> None:
     plex.delete_collection("60")
     assert plex.server_id() == "plex:abc"
     assert [c[:2] for c in server.calls].count(("GET", "/identity")) == 1
+
+
+GUIDE = "tv.plex.providers.epg.xmltv:15"
+SHOW = "tv%2Eplex%2Exmltv%3A%2F%2Fshow%2FNews"
+
+
+def test_guides_keep_only_plex_guide_providers(serve: Any) -> None:
+    plex, _ = serve(
+        {
+            "/livetv/dvrs": {
+                "Dvr": [
+                    {"epgIdentifier": GUIDE, "refreshedAt": 1700000000},
+                    {"epgIdentifier": "../../library", "refreshedAt": 1},
+                ]
+            }
+        }
+    )
+    assert [(g.provider, g.refreshed_at) for g in plex.guides()] == [(GUIDE, 1700000000)]
+
+
+def test_guide_airings_read_every_page(serve: Any) -> None:
+    pages = iter(
+        [{"totalSize": 3, "Metadata": [{"ratingKey": "a"}, {"ratingKey": "b"}]}, {"Metadata": [{"ratingKey": "c"}]}]
+    )
+    plex, server = serve({f"/{GUIDE}/grid": lambda _q: next(pages)})
+    assert [a["ratingKey"] for a in plex.guide_airings(GUIDE, 100, 200)] == ["a", "b", "c"]
+    assert server.calls[1][2]["X-Plex-Container-Start"] == "2"
+    assert server.calls[0][2]["endsAt>"] == "100"
+
+
+def test_guide_upload_selects_the_upload_of_these_bytes(serve: Any) -> None:
+    digest = "upload://posters/" + hashlib.sha1(b"jpeg").hexdigest()
+    plex, server = serve(
+        {
+            f"GET /{GUIDE}/metadata/{SHOW}": {"Metadata": [{"guid": "g"}]},
+            f"GET /{GUIDE}/metadata/{SHOW}/posters": {"Metadata": [{"ratingKey": digest, "selected": True}]},
+            f"POST /{GUIDE}/metadata/{SHOW}/posters": b"",
+            f"PUT /{GUIDE}/metadata/{SHOW}/poster": b"",
+        }
+    )
+    assert plex.guide_item(GUIDE, SHOW) == {"guid": "g"}
+    assert plex.guide_upload(GUIDE, SHOW, b"jpeg") == digest
+    assert server.calls[-1] == ("PUT", f"/{GUIDE}/metadata/{SHOW}/poster", {"url": digest})
+
+
+def test_guide_upload_that_leaves_nothing_fails(serve: Any) -> None:
+    plex, _ = serve({f"GET /{GUIDE}/metadata/{SHOW}/posters": {}, f"POST /{GUIDE}/metadata/{SHOW}/posters": b""})
+    with pytest.raises(http.RequestError, match="no poster"):
+        plex.guide_upload(GUIDE, SHOW, b"jpeg")
+
+
+@pytest.mark.parametrize(("provider", "key"), [("library", SHOW), (GUIDE, "../x"), (GUIDE, "a/b")])
+def test_guide_calls_refuse_other_paths(serve: Any, provider: str, key: str) -> None:
+    plex, server = serve({})
+    with pytest.raises(ValueError, match="not a Plex guide"):
+        plex.guide_select(provider, key, "upload://posters/x")
+    assert server.calls == []
