@@ -1,4 +1,4 @@
-"""Live TV cards in the style of the service collection tile, and the channel logo in the streaming mark's corner."""
+"""Live TV cards, and the channel logo in the streaming mark's corner."""
 
 import math
 
@@ -6,12 +6,10 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from posteryard.render import designs
-from posteryard.render.layers import cover, trim, vertical_gradient
+from posteryard.render.layers import cover, trim
 
 W, H = designs.POSTER
 CORNER = 0.12
-CHANNEL_BOX, CHANNEL_CENTRE = (0.72, 0.2), 0.42
-BAND_LOGO_BOX = (0.6, 0.13)
 PICTURE_TOP = 0.18
 PICTURE_BLUR, PICTURE_DIM = 40, 0.7
 FROSTED_BOX, FROSTED_CENTRE = (0.62, 0.16), 0.36
@@ -55,23 +53,6 @@ def with_channel(poster: Image.Image, logo: Image.Image) -> Image.Image:
     canvas = poster.convert("RGBA")
     margin = round(designs.SERVICE_MARGIN * W)
     canvas.alpha_composite(mark, (margin, margin))
-    return canvas.convert("RGB")
-
-
-def channel_card(logo: Image.Image, art: Image.Image | None = None) -> Image.Image:
-    """With art from one of the channel's shows: the service collection tile. Without: the band alone."""
-    if art is None:
-        canvas = band(H).convert("RGBA")
-        mark = _fit(logo, CHANNEL_BOX)
-        canvas.alpha_composite(mark, ((W - mark.width) // 2, round(CHANNEL_CENTRE * H - mark.height / 2)))
-        return canvas.convert("RGB")
-    split = round(designs.CHANNEL_SEAM * H)
-    canvas = Image.new("RGBA", (W, H))
-    canvas.paste(cover(art, W, split, (0.5, 0.25)), (0, 0))
-    canvas.alpha_composite(vertical_gradient((W, split), designs.CHANNEL_TOP_SHADE), (0, 0))
-    canvas.paste(band(H - split), (0, split))
-    mark = _fit(logo, BAND_LOGO_BOX)
-    canvas.alpha_composite(mark, ((W - mark.width) // 2, round((split + H) / 2 - mark.height / 2)))
     return canvas.convert("RGB")
 
 

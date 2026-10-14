@@ -62,7 +62,6 @@ class GuideShow:
     logo: str
     picture: str
     guid: str = ""
-    airtime: int = 0
     targets: tuple[str, ...] = ()
     # The guide's picture before shared pictures are dropped. Stored, so a later run can count its users.
     guide_picture: str = ""
@@ -130,21 +129,17 @@ def guide_shows(
         if picture:
             # The same show on several channels has one key per channel on Jellyfin. Its title is the same.
             users.setdefault(picture, set()).add(norm(title) or key)
-        length = int(media.get("endsAt") or 0) - int(media.get("beginsAt") or 0)
         channels.setdefault(key, set()).add(str(media.get("channelCallSign") or media.get("channelTitle") or ""))
         if key not in shows:
             channel = str(media.get("channelCallSign") or media.get("channelTitle") or "")
             guid = str((airing.get("guid") if movie else airing.get("grandparentGuid")) or "")
             kind: Kind = "movie" if movie else "tv"
-            shows[key] = GuideShow(
-                provider, key, kind, title, channel, logo, picture, guid, max(length, 0), (target,), picture
-            )
+            shows[key] = GuideShow(provider, key, kind, title, channel, logo, picture, guid, (target,), picture)
         else:
             known = shows[key]
             targets = known.targets if target in known.targets else (*known.targets, target)
-            airtime = known.airtime + max(length, 0)
             picture = known.picture or picture
-            shows[key] = replace(known, picture=picture, airtime=airtime, targets=targets, guide_picture=picture)
+            shows[key] = replace(known, picture=picture, targets=targets, guide_picture=picture)
     return [
         replace(
             show,
@@ -175,8 +170,6 @@ class LiveTv:
         self.server, self.store, self.ctx = server, store, ctx
         self.dry_run, self.preview_dir = dry_run, preview_dir
         self._fetch = fetch
-        self._shows: list[GuideShow] = []
-        self._featured: dict[tuple[str, str], str | None] = {}
         self._unreadable: set[str] = set()
         self._confirmed: list[str] = []
 
@@ -227,7 +220,7 @@ class LiveTv:
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings, self._remembered_picture)
-            self._shows, self._featured, self._unreadable = shows, {}, set()
+            self._unreadable = set()
             for show in shows:
                 if not tick():
                     return tally
@@ -346,25 +339,6 @@ class LiveTv:
         self.store.put_choice(cache_key, {"id": found, "at": time.time()})
         return found or None
 
-    def featured_art(self, show: GuideShow) -> str | None:
-        """TMDB art of the show with the most airtime on this channel, for the channel's own blocks."""
-        channel = (show.provider, norm(show.channel))
-        if channel not in self._featured:
-            self._featured[channel] = None
-            siblings = [
-                s for s in self._shows if (s.provider, norm(s.channel)) == channel and norm(s.title) != norm(s.channel)
-            ]
-            for sibling in sorted(siblings, key=lambda s: (-s.airtime, s.title)):
-                tid = self.match(sibling)
-                picked = None
-                if tid is not None:
-                    title = self.ctx.sources.title(sibling.kind, tid, sibling.title, remember=False)
-                    picked = self.ctx.sources.art(title)
-                if picked is not None:
-                    self._featured[channel] = picked.path
-                    break
-        return self._featured[channel]
-
     def _image(self, fetch: Callable[[str], Image.Image], url: str, show: GuideShow, what: str) -> Image.Image | None:
         """An image the poster cannot use, such as an SVG logo or a broken link, is left out instead of failing."""
         if not url or url in self._unreadable:
@@ -382,7 +356,7 @@ class LiveTv:
             return None
 
     def plan(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> pipeline.Plan:
-        """A block named after its channel gets the channel card. Then TMDB art, the guide's picture, a title card.
+        """TMDB art, then the guide's picture, then a title card. A block named after its channel gets the title card.
 
         `fetch` is for channel logos, which repeat. Guide pictures are fetched once per show without the cache.
         """
@@ -392,13 +366,6 @@ class LiveTv:
         base = {"live": LIVE_VERSION, "title": show.title}
         own_art = show.provider.startswith(OWN_ART)
         placeholder = norm(show.title) == norm(show.channel)
-        if placeholder and mark is not None and not own_art:
-            art = self.featured_art(show)
-            return pipeline.Plan(
-                key, "poster", show.title, {**base, "design": "live-channel", "logo": logo, "art": art},
-                lambda: livetv.channel_card(mark, self.ctx.sources.load(art) if art else None),
-                [f"channel logo {http.redact(logo)}"] + ([f"art from {pipeline.art_source(art)}"] if art else []),
-            )  # fmt: skip
         tid = None if placeholder else self.match(show)
         plan: pipeline.Plan | None = None
         if tid is not None:
@@ -409,7 +376,8 @@ class LiveTv:
                 log.debug("live TV show has no TMDB art", extra={"title": show.title, "reason": str(exc)})
         if plan is None and own_art:
             raise LeftAloneError(show.title)
-        picture = self._image(self._fetch, show.picture, show, "guide picture") if plan is None else None
+        use_picture = plan is None and not placeholder
+        picture = self._image(self._fetch, show.picture, show, "guide picture") if use_picture else None
         if plan is None and picture is not None:
             plan = pipeline.Plan(
                 key, "poster", show.title, {**base, "design": "live-picture", "picture": show.picture},

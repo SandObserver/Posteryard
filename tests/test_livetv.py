@@ -23,10 +23,8 @@ GUIDE = "tv.plex.providers.epg.xmltv:15"
 LOGO = "https://logos.example/news.png"
 
 
-def airing(  # noqa: PLR0913
-    title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False, length: int = 0
-) -> Item:
-    media = {"channelCallSign": channel, "channelThumb": LOGO, "beginsAt": 1000, "endsAt": 1000 + length}
+def airing(title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False) -> Item:
+    media = {"channelCallSign": channel, "channelThumb": LOGO}
     if movie:
         return {"type": "movie", "ratingKey": key, "title": title, "thumb": thumb, "guid": f"g/{key}", "Media": [media]}
     return {  # type: ignore[typeddict-unknown-key]
@@ -210,33 +208,13 @@ def test_match_refuses_a_tie_but_takes_a_clear_favourite(tmp_path: Path) -> None
     assert live.match(guide_shows(GUIDE, [airing("Tuzak", "b")])[0]) == 3
 
 
-def test_a_block_named_after_its_channel_gets_the_channel_card(tmp_path: Path) -> None:
+def test_a_block_named_after_its_channel_gets_the_title_card(tmp_path: Path) -> None:
     live, _, tmdb = build(tmp_path, [])
     show = guide_shows(GUIDE, [airing("News 24", "a", thumb="https://img.example/own.jpg")])[0]
     plan = live.plan(show, fetch)
-    assert plan.inputs["design"] == "live-channel"
-    assert plan.inputs["art"] is None
+    assert plan.inputs["design"] == "live-frosted"
+    assert "picture" not in plan.inputs
     assert tmdb.searches == []
-    assert plan.draw().size == (1000, 1500)
-
-
-def test_a_channel_block_shows_art_of_the_channel_show_with_most_airtime(tmp_path: Path) -> None:
-    live, _, tmdb = build(tmp_path, [])
-    tmdb.results["Long"] = [{"id": 5, "name": "Long"}]
-    tmdb.results["Short"] = [{"id": 6, "name": "Short"}]
-    live._shows = guide_shows(
-        GUIDE,
-        [
-            airing("Short", "s", length=600),
-            airing("Long", "l", length=600),
-            airing("Long", "l", length=600),
-            airing("Other channel", "o", channel="Elsewhere", length=9000),
-            airing("News 24", "n", length=600),
-        ],
-    )
-    plan = live.plan(live._shows[-1], fetch)
-    assert plan.inputs["art"] == "/poster.jpg"
-    assert tmdb.searches == ["Long"]
     assert plan.draw().size == (1000, 1500)
 
 
@@ -493,16 +471,6 @@ def test_logo_mark_cuts_transparent_logos_and_rounds_opaque_ones() -> None:
     photo = cards.logo_mark(Image.new("RGB", (200, 200), (10, 120, 10)))
     assert photo.getchannel("A").getpixel((0, 0)) == 0
     assert photo.getchannel("A").getpixel((100, 100)) == 255
-
-
-def test_channel_cards_use_the_collection_band_with_or_without_art() -> None:
-    plain = cards.channel_card(logo())
-    assert plain.size == (1000, 1500)
-    assert plain.getpixel((10, 10)) == cards.band(1500).getpixel((10, 10))
-    with_art = cards.channel_card(logo(), Image.new("RGB", (600, 900), (200, 180, 40)))
-    assert with_art.getpixel((500, 600)) != plain.getpixel((500, 600))
-    split = round(designs.CHANNEL_SEAM * 1500)
-    assert with_art.getpixel((10, 1400)) == cards.band(1500 - split).getpixel((10, 1400 - split))
 
 
 def test_the_channel_logo_sits_where_a_streaming_mark_does() -> None:
