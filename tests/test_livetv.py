@@ -23,10 +23,8 @@ GUIDE = "tv.plex.providers.epg.xmltv:15"
 LOGO = "https://logos.example/news.png"
 
 
-def airing(  # noqa: PLR0913
-    title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False, length: int = 0
-) -> Item:
-    media = {"channelCallSign": channel, "channelThumb": LOGO, "beginsAt": 1000, "endsAt": 1000 + length}
+def airing(title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False) -> Item:
+    media = {"channelCallSign": channel, "channelThumb": LOGO}
     if movie:
         return {"type": "movie", "ratingKey": key, "title": title, "thumb": thumb, "guid": f"g/{key}", "Media": [media]}
     return {  # type: ignore[typeddict-unknown-key]
@@ -210,33 +208,13 @@ def test_match_refuses_a_tie_but_takes_a_clear_favourite(tmp_path: Path) -> None
     assert live.match(guide_shows(GUIDE, [airing("Tuzak", "b")])[0]) == 3
 
 
-def test_a_block_named_after_its_channel_gets_the_channel_card(tmp_path: Path) -> None:
+def test_a_block_named_after_its_channel_gets_the_title_card(tmp_path: Path) -> None:
     live, _, tmdb = build(tmp_path, [])
     show = guide_shows(GUIDE, [airing("News 24", "a", thumb="https://img.example/own.jpg")])[0]
     plan = live.plan(show, fetch)
-    assert plan.inputs["design"] == "live-channel"
-    assert plan.inputs["art"] is None
+    assert plan.inputs["design"] == "live-frosted"
+    assert "picture" not in plan.inputs
     assert tmdb.searches == []
-    assert plan.draw().size == (1000, 1500)
-
-
-def test_a_channel_block_shows_art_of_the_channel_show_with_most_airtime(tmp_path: Path) -> None:
-    live, _, tmdb = build(tmp_path, [])
-    tmdb.results["Long"] = [{"id": 5, "name": "Long"}]
-    tmdb.results["Short"] = [{"id": 6, "name": "Short"}]
-    live._shows = guide_shows(
-        GUIDE,
-        [
-            airing("Short", "s", length=600),
-            airing("Long", "l", length=600),
-            airing("Long", "l", length=600),
-            airing("Other channel", "o", channel="Elsewhere", length=9000),
-            airing("News 24", "n", length=600),
-        ],
-    )
-    plan = live.plan(live._shows[-1], fetch)
-    assert plan.inputs["art"] == "/poster.jpg"
-    assert tmdb.searches == ["Long"]
     assert plan.draw().size == (1000, 1500)
 
 
@@ -251,7 +229,7 @@ def test_plan_prefers_tmdb_then_the_guide_picture_then_a_title_card(tmp_path: Pa
     picture = live.plan(guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/talk.jpg")])[0], fetch)
     assert picture.inputs["design"] == "live-picture"
     titled = live.plan(guide_shows(GUIDE, [airing("Bulletin", "c")])[0], fetch)
-    assert titled.inputs["design"] == "live-title"
+    assert titled.inputs["design"] == "live-frosted"
     assert picture.draw().size == titled.draw().size == (1000, 1500)
 
 
@@ -495,16 +473,6 @@ def test_logo_mark_cuts_transparent_logos_and_rounds_opaque_ones() -> None:
     assert photo.getchannel("A").getpixel((100, 100)) == 255
 
 
-def test_channel_cards_use_the_collection_band_with_or_without_art() -> None:
-    plain = cards.channel_card(logo())
-    assert plain.size == (1000, 1500)
-    assert plain.getpixel((10, 10)) == cards.band(1500).getpixel((10, 10))
-    with_art = cards.channel_card(logo(), Image.new("RGB", (600, 900), (200, 180, 40)))
-    assert with_art.getpixel((500, 600)) != plain.getpixel((500, 600))
-    split = round(designs.CHANNEL_SEAM * 1500)
-    assert with_art.getpixel((10, 1400)) == cards.band(1500 - split).getpixel((10, 1400 - split))
-
-
 def test_the_channel_logo_sits_where_a_streaming_mark_does() -> None:
     poster = cards.with_channel(Image.new("RGB", (1000, 1500), (0, 0, 0)), logo())
     assert poster.getpixel((60, 60)) == (220, 40, 40)
@@ -517,7 +485,7 @@ def test_a_picture_too_thin_for_a_poster_gets_the_title_card(tmp_path: Path, cap
     show = guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/strip.jpg")])[0]
     live._fetch = lambda url: strip if url.endswith("strip.jpg") else fetch(url)
     plan = live.plan(show, fetch)
-    assert plan.inputs["design"] == "live-title"
+    assert plan.inputs["design"] == "live-frosted"
     assert any("too thin for a poster" in str(getattr(r, "reason", "")) for r in caplog.records)
     assert cards.guide_picture(Image.effect_noise((1920, 1080), 60)).size == (1920, 1080)
 
@@ -628,3 +596,22 @@ def test_a_tmdb_title_with_only_wide_art_is_treated_as_not_found(
     own = replace(show, provider="tv.plex.providers.epg.cloud:20")
     with pytest.raises(LeftAloneError):
         live.plan(own, fetch)
+
+
+def test_the_title_card_is_frosted_in_the_logo_colours_and_grey_without_a_logo() -> None:
+    title = designs.text_logo("Bulletin", rows=3)
+    away_from_the_corner = (cards.W - 60, round(cards.H * 0.6))
+    red, green, blue = cards.title_card(logo(), title).getpixel(away_from_the_corner)  # type: ignore[misc]
+    assert red > 2 * max(green, blue)
+    grey = cards.title_card(None, title).getpixel(away_from_the_corner)
+    assert max(grey) - min(grey) < 10  # type: ignore[arg-type]
+
+
+def test_a_dark_logo_is_frosted_over_white_and_a_see_through_logo_is_refused() -> None:
+    title = designs.text_logo("Bulletin", rows=3)
+    navy = cards.logo_mark(logo((20, 30, 90)))
+    assert cards.dark_logo(navy)
+    assert not cards.dark_logo(cards.logo_mark(logo()))
+    assert min(cards.title_card(navy, title).getpixel((60, 60))) > 120  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="transparent"):
+        cards.logo_mark(Image.new("RGBA", (300, 120), (0, 0, 0, 0)))
