@@ -260,6 +260,8 @@ def guide_by_id(present: dict[int, str]) -> tuple[Plex, list[str]]:
         if path.endswith(f"/{SHOW}"):
             guid = "g/news-at-ten"
         items = [{"guid": present[n]} for n in ids if n in present] if guid is None else [{"guid": guid}]
+        if not items:
+            raise http.HttpError(404, path)
         return {"Metadata": items}
 
     plex._get = get  # type: ignore[method-assign]
@@ -285,3 +287,9 @@ def test_guide_target_is_none_when_no_entry_has_the_guid() -> None:
     assert plex.guide_target(GUIDE, SHOW, "g/news") is None
     assert len(asked) == 4
     assert asked[-1].endswith(",900")
+
+
+def test_guide_target_is_none_for_an_entry_without_a_guid() -> None:
+    plex, asked = guide_by_id({1: ""})
+    assert plex.guide_target(GUIDE, SHOW, "") is None
+    assert asked == []

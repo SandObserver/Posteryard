@@ -550,6 +550,21 @@ def test_a_guide_entry_plex_mixes_up_with_another_gets_its_poster_by_numeric_id(
     assert sorted(key for key, _ in plex.selects) == ["7", "b"]
 
 
+def test_a_guide_entry_renumbered_before_the_upload_is_skipped(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, plex, _ = build(tmp_path, [airing("News", "a"), airing("News at Ten", "b")])
+    plex.mixed |= {"a": "b", "7": "a"}
+    images = plex.guide_images
+
+    def refresh(provider: str, key: str) -> list[Item]:
+        if key == "7":
+            plex.mixed |= {"7": "c", "8": "a"}
+        return images(provider, key)
+
+    monkeypatch.setattr(plex, "guide_images", refresh)
+    assert dict(live.run(now=1000)) == {"skipped": 1, "uploaded": 1}
+    assert plex.uploads == ["b"]
+
+
 def test_a_remembered_picture_is_used_only_while_plex_shows_the_upload(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Talk", "a", thumb="https://img.example/talk.jpg")])
     live.run(now=1000)

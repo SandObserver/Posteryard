@@ -297,6 +297,8 @@ class LiveTv:
             return "selected again"
         if not drawn:
             drawn.append(jpeg(plan.draw()))
+        if self.server.guide_target(show.provider, where, show.guid) != where:
+            return "skipped"
         image_key = self.server.guide_upload(show.provider, where, drawn[0])
         self.store.guide_uploaded(show.record_key(target), show.title, plan.fingerprint, image_key, show.guide_picture)
         return "uploaded"

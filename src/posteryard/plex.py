@@ -254,7 +254,12 @@ class Plex:
                 return airings
 
     def guide_item(self, provider: str, key: str) -> Item | None:
-        meta = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}").get("Metadata") or []
+        try:
+            meta = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}").get("Metadata") or []
+        except http.HttpError as exc:
+            if exc.status == 404:
+                return None
+            raise
         return meta[0] if meta else None
 
     def guide_target(self, provider: str, key: str, guid: str) -> str | None:
@@ -267,6 +272,8 @@ class Plex:
             item = self.guide_item(provider, target) if target else None
             return item is not None and str(item.get("guid") or "") == guid
 
+        if not guid:
+            return None
         if reaches(key):
             return key
         found = self._guide_id(provider, guid)
@@ -277,7 +284,12 @@ class Plex:
 
         def holds(start: int, end: int) -> bool | None:
             ids = ",".join(str(n) for n in range(start, end))
-            items = self._get(f"/{_provider(provider)}/metadata/{ids}").get("Metadata") or []
+            try:
+                items = self._get(f"/{_provider(provider)}/metadata/{ids}").get("Metadata") or []
+            except http.HttpError as exc:
+                if exc.status != 404:
+                    raise
+                items = []
             return any(str(i.get("guid") or "") == guid for i in items) if items else None
 
         start = 1
