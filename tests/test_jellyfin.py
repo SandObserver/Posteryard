@@ -302,7 +302,7 @@ def test_guide_uploads_go_to_each_airing_and_cannot_be_selected_again(serve: Any
             f"POST /Items/{PROGRAMME}/Images/Primary": b"",
         }
     )
-    assert jellyfin.guide_is("guide", PROGRAMME, "anything")
+    assert jellyfin.guide_target("guide", PROGRAMME, "anything") == PROGRAMME
     assert jellyfin.guide_images("guide", PROGRAMME) == [{"ratingKey": "new", "selected": True}]
     assert jellyfin.guide_upload("guide", PROGRAMME, b"jpeg") == "new"
     assert base64.b64decode(next(c[3] for c in server.calls if c[0] == "POST") or b"") == b"jpeg"

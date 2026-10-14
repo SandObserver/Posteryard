@@ -247,3 +247,49 @@ def test_guide_calls_refuse_other_paths(serve: Any, provider: str, key: str) -> 
     with pytest.raises(ValueError, match="not a Plex guide"):
         plex.guide_select(provider, key, "upload://posters/x")
     assert server.calls == []
+
+
+def guide_by_id(present: dict[int, str]) -> tuple[Plex, list[str]]:
+    plex, asked = Plex(BASE, "example-token"), []
+
+    def get(path: str, **_: Any) -> dict[str, Any]:
+        asked.append(path)
+        last = path.rsplit("/", 1)[1]
+        ids = [int(n) for n in last.split(",")] if last[0].isdigit() else []
+        guid = present.get(ids[0]) if len(ids) == 1 else None
+        if path.endswith(f"/{SHOW}"):
+            guid = "g/news-at-ten"
+        items = [{"guid": present[n]} for n in ids if n in present] if guid is None else [{"guid": guid}]
+        if not items:
+            raise http.HttpError(404, path)
+        return {"Metadata": items}
+
+    plex._get = get  # type: ignore[method-assign]
+    return plex, asked
+
+
+def test_guide_target_is_the_name_key_when_it_reaches_the_entry() -> None:
+    plex, asked = guide_by_id({})
+    assert plex.guide_target(GUIDE, SHOW, "g/news-at-ten") == SHOW
+    assert len(asked) == 1
+
+
+def test_guide_target_finds_the_numeric_id_when_the_name_key_reaches_another_entry() -> None:
+    present = {n: f"g/{n}" for n in range(1, 700) if n % 7}
+    present[452] = "g/news"
+    plex, asked = guide_by_id(present)
+    assert plex.guide_target(GUIDE, SHOW, "g/news") == "452"
+    assert len(asked) < 15
+
+
+def test_guide_target_is_none_when_no_entry_has_the_guid() -> None:
+    plex, asked = guide_by_id({n: f"g/{n}" for n in range(1, 400)})
+    assert plex.guide_target(GUIDE, SHOW, "g/news") is None
+    assert len(asked) == 4
+    assert asked[-1].endswith(",900")
+
+
+def test_guide_target_is_none_for_an_entry_without_a_guid() -> None:
+    plex, asked = guide_by_id({1: ""})
+    assert plex.guide_target(GUIDE, SHOW, "") is None
+    assert asked == []

@@ -261,25 +261,30 @@ class LiveTv:
         drawn: list[bytes] = []
         for target in show.targets:
             try:
-                outcome = self._apply_target(show, target, plan, drawn)
+                outcome, direct = self._apply_target(show, target, plan, drawn)
             except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
                 log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
                 tally["failed"] += 1
                 continue
             tally[outcome] += 1
             record = self.store.guide(show.record_key(target))
-            if outcome in CONFIRMED and record and record.image_key.startswith("upload://"):
+            if outcome in CONFIRMED and direct and record and record.image_key.startswith("upload://"):
                 self._confirmed.append(record.key)
         if tally["uploaded"]:
             log.info("live TV poster uploaded", extra={"title": show.title, "using": "; ".join(plan.notes)})
         return tally
 
-    def _apply_target(self, show: GuideShow, target: str, plan: pipeline.Plan, drawn: list[bytes]) -> str:
-        if not self.server.guide_is(show.provider, target, show.guid):
+    def _apply_target(self, show: GuideShow, target: str, plan: pipeline.Plan, drawn: list[bytes]) -> tuple[str, bool]:
+        """The outcome, and whether the target itself reaches the entry. The record stays under the target."""
+        where = self.server.guide_target(show.provider, target, show.guid)
+        if where is None:
             log.info("the server returns another guide entry for this title, skipped", extra={"title": show.title})
-            return "skipped"
+            return "skipped", False
+        return self._apply_at(show, target, where, plan, drawn), where == target
+
+    def _apply_at(self, show: GuideShow, target: str, where: str, plan: pipeline.Plan, drawn: list[bytes]) -> str:
         record = self.store.guide(show.record_key(target))
-        images = self.server.guide_images(show.provider, target)
+        images = self.server.guide_images(show.provider, where)
         selected = next((str(i.get("ratingKey")) for i in images if i.get("selected")), "")
         ours = record.image_key if record else ""
         if selected.startswith("upload://") and selected != ours:
@@ -288,11 +293,13 @@ class LiveTv:
         if record and ours in stored and record.fingerprint == plan.fingerprint:
             if selected == ours:
                 return "unchanged"
-            self.server.guide_select(show.provider, target, ours)
+            self.server.guide_select(show.provider, where, ours)
             return "selected again"
         if not drawn:
             drawn.append(jpeg(plan.draw()))
-        image_key = self.server.guide_upload(show.provider, target, drawn[0])
+        if self.server.guide_target(show.provider, where, show.guid) != where:
+            return "skipped"
+        image_key = self.server.guide_upload(show.provider, where, drawn[0])
         self.store.guide_uploaded(show.record_key(target), show.title, plan.fingerprint, image_key, show.guide_picture)
         return "uploaded"
 

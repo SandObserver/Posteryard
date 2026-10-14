@@ -381,8 +381,8 @@ class Jellyfin:
                 log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": reason})
         return pictures
 
-    def guide_is(self, provider: str, key: str, guid: str) -> bool:
-        return True
+    def guide_target(self, provider: str, key: str, guid: str) -> str | None:
+        return key
 
     def guide_images(self, provider: str, key: str) -> list[Item]:
         tag = self.selected(key, "poster")
