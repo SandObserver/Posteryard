@@ -66,6 +66,9 @@ class GuidePlex(Plex):
     def guide_item(self, provider: str, key: str) -> Item | None:
         return {"guid": f"g/{self.mixed.get(key, key)}", "title": key}
 
+    def _guide_id(self, provider: str, guid: str) -> str | None:
+        return next((k for k, v in self.mixed.items() if f"g/{v}" == guid and k.isdigit()), None)
+
     def guides(self) -> list[Guide]:
         return [Guide(GUIDE, self.refreshed)]
 
@@ -392,7 +395,7 @@ def test_a_deleted_poster_the_run_cannot_restore_stops_making_the_guide_due(
     elif outcome == "failed":
         monkeypatch.setattr(live, "plan", lambda show, fetch: (_ for _ in ()).throw(ValueError("unreadable")))
     elif outcome == "skipped":
-        monkeypatch.setattr(plex, "guide_is", lambda provider, key, guid: False)
+        monkeypatch.setattr(plex, "guide_target", lambda provider, key, guid: None)
     else:
         plex.posters["a"] = [{"ratingKey": "upload://posters/by-hand", "selected": True}]
     assert live.due(now=2000)
@@ -526,11 +529,25 @@ def test_trim_bars_cuts_flat_padding_only() -> None:
     assert cards.trim_bars(Image.new("RGB", (40, 40), (5, 5, 5))).size == (40, 40)
 
 
-def test_a_guide_entry_plex_mixes_up_with_another_is_left_alone(tmp_path: Path) -> None:
+def test_a_guide_entry_plex_mixes_up_with_another_and_no_id_reaches_is_left_alone(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("atv", "a", channel="atv"), airing("ATV Ana Haber", "b", channel="atv")])
     plex.mixed["a"] = "b"
     assert dict(live.run()) == {"skipped": 1, "uploaded": 1}
     assert plex.uploads == ["b"]
+
+
+def test_a_guide_entry_plex_mixes_up_with_another_gets_its_poster_by_numeric_id(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("News", "a"), airing("News at Ten", "b")])
+    plex.mixed |= {"a": "b", "7": "a"}
+    assert dict(live.run(now=1000)) == {"uploaded": 2}
+    assert sorted(plex.uploads) == ["7", "b"]
+    assert live.store.guide(f"{GUIDE}/a").image_key == plex.posters["7"][1]["ratingKey"]  # type: ignore[union-attr]
+    assert live.store.meta("livetv_confirmed") == f'["{GUIDE}/b"]'
+    plex.refreshed = 2
+    for images in plex.posters.values():
+        images[0]["selected"], images[1]["selected"] = True, False
+    assert dict(live.run(now=2000)) == {"selected again": 2}
+    assert sorted(key for key, _ in plex.selects) == ["7", "b"]
 
 
 def test_a_remembered_picture_is_used_only_while_plex_shows_the_upload(tmp_path: Path) -> None:

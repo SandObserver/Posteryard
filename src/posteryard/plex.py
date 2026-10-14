@@ -19,6 +19,7 @@ JSON = {"Accept": "application/json"}
 GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
 GUIDE_PAGE = 2000
+GUIDE_IDS = 300
 
 
 class Plex:
@@ -256,10 +257,39 @@ class Plex:
         meta = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}").get("Metadata") or []
         return meta[0] if meta else None
 
-    def guide_is(self, provider: str, key: str, guid: str) -> bool:
-        """Plex finds a guide entry by a case-insensitive prefix of its name: "atv" can return "ATV Ana Haber"."""
-        item = self.guide_item(provider, key)
-        return item is not None and str(item.get("guid") or "") == guid
+    def guide_target(self, provider: str, key: str, guid: str) -> str | None:
+        """The key that reaches the entry with this guid, or None.
+
+        Plex finds an entry by its name key loosely: "News" can return "News at Ten". The entry's numeric id is exact.
+        """
+
+        def reaches(target: str | None) -> bool:
+            item = self.guide_item(provider, target) if target else None
+            return item is not None and str(item.get("guid") or "") == guid
+
+        if reaches(key):
+            return key
+        found = self._guide_id(provider, guid)
+        return found if reaches(found) else None
+
+    def _guide_id(self, provider: str, guid: str) -> str | None:
+        """Plex lists no numeric ids. It returns a list of ids in order and leaves out ids it does not have."""
+
+        def holds(start: int, end: int) -> bool | None:
+            ids = ",".join(str(n) for n in range(start, end))
+            items = self._get(f"/{_provider(provider)}/metadata/{ids}").get("Metadata") or []
+            return any(str(i.get("guid") or "") == guid for i in items) if items else None
+
+        start = 1
+        while (found := holds(start, start + GUIDE_IDS)) is not True:
+            if found is None:
+                return None
+            start += GUIDE_IDS
+        end = start + GUIDE_IDS
+        while end - start > 1:
+            middle = (start + end) // 2
+            start, end = (start, middle) if holds(start, middle) else (middle, end)
+        return str(start)
 
     def guide_images(self, provider: str, key: str) -> list[Item]:
         images: list[Item] = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters").get("Metadata", [])
