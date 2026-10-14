@@ -600,7 +600,18 @@ def test_a_tmdb_title_with_only_wide_art_is_treated_as_not_found(
 
 def test_the_title_card_is_frosted_in_the_logo_colours_and_grey_without_a_logo() -> None:
     title = designs.text_logo("Bulletin", rows=3)
-    red, green, blue = cards.title_card(logo(), title).getpixel((60, 60))  # type: ignore[misc]
+    away_from_the_corner = (cards.W - 60, round(cards.H * 0.6))
+    red, green, blue = cards.title_card(logo(), title).getpixel(away_from_the_corner)  # type: ignore[misc]
     assert red > 2 * max(green, blue)
-    grey = cards.title_card(None, title).getpixel((60, 60))
+    grey = cards.title_card(None, title).getpixel(away_from_the_corner)
     assert max(grey) - min(grey) < 10  # type: ignore[arg-type]
+
+
+def test_a_dark_logo_is_frosted_over_white_and_a_see_through_logo_is_refused() -> None:
+    title = designs.text_logo("Bulletin", rows=3)
+    navy = cards.logo_mark(logo((20, 30, 90)))
+    assert cards.dark_logo(navy)
+    assert not cards.dark_logo(cards.logo_mark(logo()))
+    assert min(cards.title_card(navy, title).getpixel((60, 60))) > 120  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="transparent"):
+        cards.logo_mark(Image.new("RGBA", (300, 120), (0, 0, 0, 0)))

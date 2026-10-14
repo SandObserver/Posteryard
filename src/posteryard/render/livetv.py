@@ -14,6 +14,7 @@ PICTURE_TOP = 0.18
 PICTURE_BLUR, PICTURE_DIM = 40, 0.7
 FROSTED_BOX, FROSTED_CENTRE = (0.62, 0.16), 0.36
 FROSTED_GRID, FROSTED_BLUR, FROSTED_DIM, FROSTED_SHADE = (6, 9), 80, 0.5, 0.45
+FROSTED_LIGHT_DIM, FROSTED_LIGHT_TINT, DARK_LOGO = 0.85, 0.35, 0.25
 BAR_SPREAD = 6.0
 # Covering the poster scales a thin picture by its aspect. A 1920x10 picture needs 1.7 GB.
 PICTURE_MAX_ASPECT = 4.0
@@ -22,7 +23,10 @@ PICTURE_MAX_ASPECT = 4.0
 def logo_mark(image: Image.Image) -> Image.Image:
     """A transparent logo is cut to its shape. An opaque logo, such as a photo, gets rounded corners."""
     image = image.convert("RGBA")
-    if int(np.asarray(image.getchannel("A")).min()) < 255:
+    alpha = np.asarray(image.getchannel("A"))
+    if int(alpha.max()) <= 8:
+        raise ValueError("the logo is fully transparent")
+    if int(alpha.min()) < 255:
         return trim(image)
     mask = Image.new("L", image.size, 0)
     radius = round(min(image.size) * CORNER)
@@ -56,17 +60,34 @@ def with_channel(poster: Image.Image, logo: Image.Image) -> Image.Image:
     return canvas.convert("RGB")
 
 
+def dark_logo(logo: Image.Image) -> bool:
+    """A logo whose visible pixels are dark on average."""
+    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32) / 255
+    alpha = rgba[..., 3]
+    luminance = rgba[..., :3] @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+    return float((luminance * alpha).sum() / alpha.sum()) < DARK_LOGO
+
+
 def title_card(logo: Image.Image | None, title: Image.Image) -> Image.Image:
-    """The channel's logo large over its own colours, frosted. Without a logo: the title on dark grey."""
+    """The channel's logo large over its own colours, frosted. Without a logo: the title on dark grey.
+
+    A dark logo is frosted over white, so it stays visible.
+    """
     if logo is None:
         return designs.tile_poster(band(H), title, lines_below=[], fade=0)
-    flat = Image.new("RGBA", logo.size, (0, 0, 0, 255))
-    flat.alpha_composite(logo)
+    light = dark_logo(logo)
+    flat = Image.new("RGBA", logo.size, (255, 255, 255, 255) if light else (0, 0, 0, 255))
+    tint = logo.copy()
+    if light:
+        tint.putalpha(logo.getchannel("A").point(lambda v: round(v * FROSTED_LIGHT_TINT)))
+    flat.alpha_composite(tint)
     tiny = cover(flat, *FROSTED_GRID).resize((W, H), Image.Resampling.BICUBIC)
-    frosted = np.asarray(tiny.filter(ImageFilter.GaussianBlur(FROSTED_BLUR)), dtype=np.float32) * FROSTED_DIM
-    ys, xs = np.ogrid[:H, :W]
-    distance = np.hypot((xs - W / 2) / (0.55 * W), (ys - FROSTED_CENTRE * H) / (0.18 * H))
-    frosted *= (1 - FROSTED_SHADE * np.clip(1 - distance, 0, 1) ** 2)[..., None]
+    dim = FROSTED_LIGHT_DIM if light else FROSTED_DIM
+    frosted = np.asarray(tiny.filter(ImageFilter.GaussianBlur(FROSTED_BLUR)), dtype=np.float32) * dim
+    if not light:
+        ys, xs = np.ogrid[:H, :W]
+        distance = np.hypot((xs - W / 2) / (0.55 * W), (ys - FROSTED_CENTRE * H) / (0.18 * H))
+        frosted *= (1 - FROSTED_SHADE * np.clip(1 - distance, 0, 1) ** 2)[..., None]
     canvas = Image.fromarray(frosted.astype(np.uint8), "RGB").convert("RGBA")
     mark = _fit(logo, FROSTED_BOX)
     canvas.alpha_composite(mark, ((W - mark.width) // 2, round(FROSTED_CENTRE * H - mark.height / 2)))
