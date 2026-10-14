@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.
+
 ### Fixed
 
 - Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.

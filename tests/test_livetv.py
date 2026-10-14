@@ -251,7 +251,7 @@ def test_plan_prefers_tmdb_then_the_guide_picture_then_a_title_card(tmp_path: Pa
     picture = live.plan(guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/talk.jpg")])[0], fetch)
     assert picture.inputs["design"] == "live-picture"
     titled = live.plan(guide_shows(GUIDE, [airing("Bulletin", "c")])[0], fetch)
-    assert titled.inputs["design"] == "live-title"
+    assert titled.inputs["design"] == "live-frosted"
     assert picture.draw().size == titled.draw().size == (1000, 1500)
 
 
@@ -517,7 +517,7 @@ def test_a_picture_too_thin_for_a_poster_gets_the_title_card(tmp_path: Path, cap
     show = guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/strip.jpg")])[0]
     live._fetch = lambda url: strip if url.endswith("strip.jpg") else fetch(url)
     plan = live.plan(show, fetch)
-    assert plan.inputs["design"] == "live-title"
+    assert plan.inputs["design"] == "live-frosted"
     assert any("too thin for a poster" in str(getattr(r, "reason", "")) for r in caplog.records)
     assert cards.guide_picture(Image.effect_noise((1920, 1080), 60)).size == (1920, 1080)
 
@@ -628,3 +628,11 @@ def test_a_tmdb_title_with_only_wide_art_is_treated_as_not_found(
     own = replace(show, provider="tv.plex.providers.epg.cloud:20")
     with pytest.raises(LeftAloneError):
         live.plan(own, fetch)
+
+
+def test_the_title_card_is_frosted_in_the_logo_colours_and_grey_without_a_logo() -> None:
+    title = designs.text_logo("Bulletin", rows=3)
+    red, green, blue = cards.title_card(logo(), title).getpixel((60, 60))  # type: ignore[misc]
+    assert red > 2 * max(green, blue)
+    grey = cards.title_card(None, title).getpixel((60, 60))
+    assert max(grey) - min(grey) < 10  # type: ignore[arg-type]

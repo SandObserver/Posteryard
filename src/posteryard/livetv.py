@@ -418,7 +418,7 @@ class LiveTv:
             )  # fmt: skip
         if plan is None:
             return pipeline.Plan(
-                key, "poster", show.title, {**base, "design": "live-title", "logo": logo},
+                key, "poster", show.title, {**base, "design": "live-frosted" if logo else "live-title", "logo": logo},
                 lambda: livetv.title_card(mark, designs.text_logo(shown(show.title), rows=3)),
                 [f"channel logo {http.redact(logo)}" if logo else "no channel logo"],
             )  # fmt: skip

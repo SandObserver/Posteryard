@@ -14,6 +14,8 @@ CHANNEL_BOX, CHANNEL_CENTRE = (0.72, 0.2), 0.42
 BAND_LOGO_BOX = (0.6, 0.13)
 PICTURE_TOP = 0.18
 PICTURE_BLUR, PICTURE_DIM = 40, 0.7
+FROSTED_BOX, FROSTED_CENTRE = (0.62, 0.16), 0.36
+FROSTED_GRID, FROSTED_BLUR, FROSTED_DIM, FROSTED_SHADE = (6, 9), 80, 0.5, 0.45
 BAR_SPREAD = 6.0
 # Covering the poster scales a thin picture by its aspect. A 1920x10 picture needs 1.7 GB.
 PICTURE_MAX_ASPECT = 4.0
@@ -74,8 +76,20 @@ def channel_card(logo: Image.Image, art: Image.Image | None = None) -> Image.Ima
 
 
 def title_card(logo: Image.Image | None, title: Image.Image) -> Image.Image:
-    card = designs.tile_poster(band(H), title, lines_below=[], fade=0)
-    return with_channel(card, logo) if logo is not None else card
+    """The channel's logo large over its own colours, frosted. Without a logo: the title on dark grey."""
+    if logo is None:
+        return designs.tile_poster(band(H), title, lines_below=[], fade=0)
+    flat = Image.new("RGBA", logo.size, (0, 0, 0, 255))
+    flat.alpha_composite(logo)
+    tiny = cover(flat, *FROSTED_GRID).resize((W, H), Image.Resampling.BICUBIC)
+    frosted = np.asarray(tiny.filter(ImageFilter.GaussianBlur(FROSTED_BLUR)), dtype=np.float32) * FROSTED_DIM
+    ys, xs = np.ogrid[:H, :W]
+    distance = np.hypot((xs - W / 2) / (0.55 * W), (ys - FROSTED_CENTRE * H) / (0.18 * H))
+    frosted *= (1 - FROSTED_SHADE * np.clip(1 - distance, 0, 1) ** 2)[..., None]
+    canvas = Image.fromarray(frosted.astype(np.uint8), "RGB").convert("RGBA")
+    mark = _fit(logo, FROSTED_BOX)
+    canvas.alpha_composite(mark, ((W - mark.width) // 2, round(FROSTED_CENTRE * H - mark.height / 2)))
+    return designs.tile_poster(canvas.convert("RGB"), title, lines_below=[])
 
 
 def trim_bars(image: Image.Image) -> Image.Image:
