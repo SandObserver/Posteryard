@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.
 - Give a Live TV block named after its channel the same card, in place of art from the channel's show with the most airtime.
+- List what Posteryard needs and its Live TV posters in the Unraid template.
 
 ### Fixed
 
