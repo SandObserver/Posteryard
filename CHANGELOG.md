@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Install Posteryard on Unraid from the Apps tab, listed in Community Applications.
 - Default the Unraid webhook port to 8098, as many Unraid apps already use 8000.
 - Restart the Unraid container after a crash.
+- Show the latest release notes in the Unraid template, and take its settings help from the README.
 - Show the settings panel's lines for the install method picked on the landing page.
 - Name Posteryard's version and project page in every web request, as Wikimedia asks of programs that download its logos.
 
