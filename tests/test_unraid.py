@@ -75,12 +75,23 @@ def test_the_template_images_are_in_the_repository() -> None:
     assert (TEMPLATE.findtext("Icon") or "").endswith(".png")
 
 
-def test_the_template_matches_the_readme_settings_and_the_newest_release() -> None:
+def test_the_template_matches_the_readme_settings() -> None:
     template = (ROOT / "templates" / "posteryard.xml").read_text()
     readme = (ROOT / "README.md").read_text()
-    changelog = (ROOT / "CHANGELOG.md").read_text()
-    assert TOOL.render(template, readme, changelog) == template, "Run: uv run python tools/unraid_template.py"
+    assert TOOL.render(template, readme, None) == template, "Run: uv run python tools/unraid_template.py"
     assert TOOL.main(["--check"]) == 0
+
+
+def test_the_template_changes_are_a_released_version() -> None:
+    changes = (TEMPLATE.findtext("Changes") or "").strip()
+    heading = re.match(r"### (\S+) - (\d{4}-\d{2}-\d{2})\n", changes)
+    assert heading
+    assert f"## [{heading.group(1)}] - {heading.group(2)}" in (ROOT / "CHANGELOG.md").read_text()
+
+
+def test_settings_only_keeps_the_changes() -> None:
+    template = "<Container><Changes>kept</Changes></Container>"
+    assert TOOL.render(template, "\n## Settings\n\n## Next\n", None) == template
 
 
 def test_a_readme_line_becomes_plain_text_without_links_to_other_pages() -> None:
