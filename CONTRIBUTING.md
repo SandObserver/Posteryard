@@ -57,6 +57,8 @@ Log a short fixed message and put the values in `extra`: `log.info("poster uploa
 | `build_fonts.py` | Fetches the fallback fonts for scripts Inter lacks. | Internet |
 | `build_networks.py` | Rebuilds `assets/networks.json` and `assets/provider_networks.json` from TMDB. | `TMDB_API_KEY` |
 | `ocr_readings.py` | Adds real OCR readings to `tests/ocr_readings.json`. | `TMDB_API_KEY` |
+| `unraid_template.py` | Writes the settings help and `<Changes>` in `templates/posteryard.xml` from `README.md` and `CHANGELOG.md`. `--check` exits 1 when the settings are out of date. | |
+| `dockerhub_description.py` | Prints `README.md` as the Docker Hub overview. | |
 
 Run each with `uv run python tools/<script>`.
 
