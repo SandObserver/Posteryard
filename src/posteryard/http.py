@@ -7,6 +7,8 @@ from typing import Any
 
 import urllib3
 
+from posteryard import __version__
+
 log = logging.getLogger(__name__)
 
 RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
@@ -15,7 +17,7 @@ SECRET_PARAMS = frozenset(
 )
 NAMES = frozenset({"username", "user"})
 SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
-USER_AGENT = "Posteryard"
+USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
 POOL = urllib3.PoolManager(

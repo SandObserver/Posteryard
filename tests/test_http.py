@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from posteryard import http
+from posteryard import __version__, http
 from posteryard.plex import Plex
 
 SECRET = "example-secret-value"
@@ -101,6 +101,13 @@ def test_connections_are_reused(server: Server) -> None:
     assert http.request("GET", f"{server.url}/a") == b"one"
     assert http.request("GET", f"{server.url}/b") == b"two"
     assert len(server.connections) == 1
+
+
+def test_requests_name_posteryard_its_version_and_its_home(server: Server) -> None:
+    server.answers = [(200, {}, b"ok")]
+    http.request("GET", f"{server.url}/a")
+    [(_, headers)] = server.requests
+    assert headers["User-Agent"] == f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 
 
 def test_redirects_are_followed(server: Server) -> None:
