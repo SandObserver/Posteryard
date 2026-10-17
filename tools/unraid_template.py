@@ -3,8 +3,8 @@
 Each Unraid variable gets its description and default from its row in the README Settings table.
 The Changes element gets the newest dated CHANGELOG section, never Unreleased.
 
-Run after a README settings change and in every release PR: uv run python tools/unraid_template.py
---check exits 1 when the template is out of date.
+Run after a README settings change: uv run python tools/unraid_template.py
+The Unraid changes workflow runs it after each release. --check exits 1 when the settings are out of date.
 """
 
 import re
@@ -52,7 +52,7 @@ def newest_release(changelog: str) -> str:
     return f"### {heading.group(1)} - {heading.group(2)}\n\n" + "\n".join(lines).strip()
 
 
-def render(template: str, readme: str, changelog: str) -> str:
+def render(template: str, readme: str, changelog: str | None) -> str:
     settings = readme_settings(readme)
 
     def config(match: re.Match[str]) -> str:
@@ -65,19 +65,21 @@ def render(template: str, readme: str, changelog: str) -> str:
         return re.sub(r">[^<]*</Config>$", lambda _: f">{escape(default)}</Config>", line)
 
     template = VARIABLE.sub(config, template)
+    if changelog is None:
+        return template
     changes = f"<Changes>\n{escape(newest_release(changelog))}\n  </Changes>"
     return re.sub(r"<Changes>.*?</Changes>", lambda _: changes, template, count=1, flags=re.S)
 
 
 def main(argv: list[str]) -> int:
     current = TEMPLATE.read_text()
-    wanted = render(current, (ROOT / "README.md").read_text(), (ROOT / "CHANGELOG.md").read_text())
+    readme = (ROOT / "README.md").read_text()
     if "--check" in argv:
-        if current != wanted:
+        if render(current, readme, None) != current:
             print("templates/posteryard.xml is out of date. Run: uv run python tools/unraid_template.py")
             return 1
         return 0
-    TEMPLATE.write_text(wanted)
+    TEMPLATE.write_text(render(current, readme, (ROOT / "CHANGELOG.md").read_text()))
     return 0
 
 

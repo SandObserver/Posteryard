@@ -1,0 +1,65 @@
+name: Unraid changes
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      RELEASE_APP_CLIENT_ID:
+        required: true
+      RELEASE_APP_PRIVATE_KEY:
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-24.04
+    steps:
+      # A pull request opened with GITHUB_TOKEN starts no checks, and main requires them.
+      - id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - run: python3 tools/unraid_template.py
+      - name: Open a pull request that merges when its checks pass
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "The Unraid template already has the newest release notes."
+            exit 0
+          fi
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml)
+          branch="docs/unraid-changes-$version"
+          title="Docs: $version release notes in the Unraid template"
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
+            echo "A pull request for $branch is already open."
+            exit 0
+          fi
+          git config user.name SandObserver
+          git config user.email 260779319+SandObserver@users.noreply.github.com
+          git switch -c "$branch"
+          git commit -qam "$title"
+          git push --force "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:$branch"
+          body=$(printf '%s\n' \
+            '**Summary**' '' \
+            "- Copy the $version section of CHANGELOG.md into \`<Changes>\` in \`templates/posteryard.xml\`." '' \
+            '**Testing**' '' \
+            'Written by `tools/unraid_template.py`. CI runs the full checks.' '' \
+            '**Checklist**' \
+            '- [x] Format, lint, type checks and tests pass.' \
+            '- [ ] `DESIGN_VERSION` bumped and `tests/golden` written again if rendered images change.' \
+            '- [ ] `CHANGELOG.md` updated under `Unreleased` for user-visible changes.')
+          url=$(gh pr create --base main --head "$branch" --title "$title" --label documentation --body "$body")
+          number=${url##*/}
+          gh pr merge "$url" --auto --squash --delete-branch --subject "$title (#$number)" \
+            || echo "::notice::Auto-merge is off for this repository. Merge $url by hand."
