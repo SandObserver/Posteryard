@@ -439,7 +439,7 @@
               <div role="tabpanel" id="s9-panel" aria-labelledby="s9-tab-0" tabindex="-1"><ul class="ilist" id="s9">{{s9_rows}}</ul></div>
               <div class="s9-side">
                 <p class="list-head" id="s9-head">Add these lines under <code>environment:</code> in <code>compose.yml</code></p>
-                <div class="code" id="s9-out"><div class="code-bar"><span>compose.yml</span><span class="bar-btns"><button class="ghost" type="button" id="s9-reset"{{s9_reset_hidden}}>Reset</button><button type="button" class="copy" aria-label="Copy the setting lines"{{s9_copy_hidden}}>Copy</button></span></div><pre tabindex="0" role="region" aria-labelledby="s9-head"><code class="out">{{s9_lines}}</code></pre></div>
+                <div class="code" id="s9-out"><div class="code-bar"><span class="fname">compose.yml</span><span class="bar-btns"><button class="ghost" type="button" id="s9-reset"{{s9_reset_hidden}}>Reset</button><button type="button" class="copy" aria-label="Copy the setting lines"{{s9_copy_hidden}}>Copy</button></span></div><pre tabindex="0" role="region" aria-labelledby="s9-head"><code class="out">{{s9_lines}}</code></pre></div>
                 <p class="list-foot" id="s9-foot">{{s9_foot}}</p>
               </div>
             </div>
@@ -694,12 +694,14 @@
         const view = install(g.server, g.method);
         const code = $("#g-code .out"), oldText = code.textContent, sameFile = $("#g-code .fname").textContent === view.fname;
         morph($("#gs"), () => {
+          $("#g-code").hidden = !view.code;
           $("#g-code .fname").textContent = view.fname;
           code.innerHTML = animate && sameFile ? highlight(oldText, view.code) : view.code;
           $("#g-start").hidden = !view.start;
           $("#g-start .out").innerHTML = view.start;
           $("#g-fill").innerHTML = view.fill;
           $("#g-next").innerHTML = view.next;
+          drawOut(false);
           for (const b of $$("#gs .pop")) {
             const k = b.dataset.k, name = pickers[k].options[g[k]].label;
             $("span", b).textContent = name;
@@ -731,10 +733,12 @@
       let tab = 0;
       const byKey = (k) => settings.find((s) => s.key === k);
       function drawOut(animate) {
-        const out = lines(data, vals), pre = $("#s9-out pre");
+        const out = lines(data, vals, g.method), pre = $("#s9-out pre");
         morph(pre, () => { $(".out", pre).innerHTML = out.html; }, animate);
+        $("#s9-head").innerHTML = out.head;
+        $("#s9-out .fname").textContent = out.fname;
         $("#s9-reset").hidden = !out.changed;
-        $("#s9-out .copy").hidden = !out.count;
+        $("#s9-out .copy").hidden = !out.count || !out.copy;
         $("#s9-foot").innerHTML = out.foot;
         $$("#s9-tabs [role=tab]").forEach((b, i) => {
           const has = groups[i].settings.some((s) => isChanged(s, vals)), dot = $(".dot", b);

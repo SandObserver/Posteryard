@@ -54,8 +54,6 @@ docker run -d --name posteryard --restart unless-stopped \\
   -v ${V(DATA)}:/data -p 8000:8000 \\
   ghcr.io/sandobserver/posteryard:latest`;
 }
-const unraid = () => `curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-Posteryard.xml \\
-  https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml`;
 
 export function install(server, method) {
   const x = servers[server], m = method;
@@ -66,11 +64,11 @@ export function install(server, method) {
     : 'open the container\'s <b>Edit</b> screen, set <b>Dry Run</b> to <code>false</code> and choose <b>Apply</b>';
   const logs = m === 'unraid' ? 'The container\'s <b>Logs</b> show progress.' : '<code>docker logs -f posteryard</code> shows progress.';
   return {
-    fname: { compose: 'compose.yml', run: 'Terminal', unraid: 'Unraid terminal' }[m],
-    code: m === 'compose' ? compose(x) : m === 'run' ? run(x) : unraid(),
+    fname: { compose: 'compose.yml', run: 'Terminal', unraid: '' }[m],
+    code: m === 'compose' ? compose(x) : m === 'run' ? run(x) : '',
     start: m === 'compose' ? `mkdir -p ${V(DATA)} &amp;&amp; sudo chown 1000:1000 ${V(DATA)}\ndocker compose up -d` : '',
     fill: m === 'unraid'
-      ? `Then <b>Docker › Add Container › Template › Posteryard</b> and fill in the TMDB API key, the ${x.label} address and key, and a webhook secret. <b>Data</b> is the share where Posteryard keeps its files. Need the keys? ${keys}`
+      ? `In Unraid, open <b>Apps</b>, search for <b>Posteryard</b> and choose <b>Install</b>. Fill in the TMDB API key, the ${x.label} address and key, and a webhook secret. <b>Data</b> is the share where Posteryard keeps its files. Need the keys? ${keys}`
       : `Replace the yellow values. ${V(DATA)} is the folder on your server where Posteryard keeps its files; any path works. Need the keys? ${keys}`,
     next: `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-pre"/></svg><span class="imain"><span class="iname">First, a preview. ${x.label} is not changed.</span><span class="itext">Posteryard saves each poster to ${where}. Open a few to check them. ${logs}</span></span></div></li>`
       + `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-live"/></svg><span class="imain"><span class="iname">Then go live.</span><span class="itext">When you like them, ${goLive}. Posteryard ${x.live}</span></span></div></li>`,
@@ -123,19 +121,43 @@ export function rows(data, active, vals, server) {
   }).join('');
 }
 
-export function lines(data, vals) {
-  const all = flatten(data);
+const outputs = {
+  compose: {
+    head: 'Add these lines under <code>environment:</code> in <code>compose.yml</code>',
+    fname: 'compose.yml',
+    line: (s, v) => `- ${s.key}=${v}`,
+    apply: 'run <code>docker compose up -d</code>',
+  },
+  run: {
+    head: 'Add these to the <code>docker run</code> command',
+    fname: 'Terminal',
+    line: (s, v) => `-e ${s.key}=${v}`,
+    apply: 'remove the container with <code>docker rm -f posteryard</code> and run the command again',
+  },
+  unraid: {
+    head: 'Change these fields on the container\'s <b>Edit</b> screen. Most are under <b>Show more settings</b>.',
+    fname: 'Edit screen',
+    line: (s, v) => `${esc(s.unraid)}: ${v}`,
+    apply: 'choose <b>Apply</b>',
+  },
+};
+
+export function lines(data, vals, method = 'compose') {
+  const all = flatten(data), o = outputs[method];
   const changed = all.filter((s) => isChanged(s, vals));
-  const out = changed.map((s) => `- ${s.key}=${esc(vals[s.key].trim())}`);
+  const out = changed.map((s) => o.line(s, esc(vals[s.key].trim())));
   const events = all.find((s) => s.key === 'NOTIFY_EVENTS');
   const placeholder = isChanged(events, vals) && vals.NOTIFY_EVENTS !== '' && !vals.NOTIFY_URLS.trim();
-  if (placeholder) out.push(`- NOTIFY_URLS=${V('your-alert-address')}`);
+  if (placeholder) out.push(o.line(all.find((s) => s.key === 'NOTIFY_URLS'), V('your-alert-address')));
   return {
+    head: o.head,
+    fname: o.fname,
+    copy: method !== 'unraid',
     html: out.length ? out.join('\n') : '<span class="c"># Everything is on its default.\n# Change a setting and its line appears here.</span>',
     count: out.length,
     changed: changed.length,
-    foot: placeholder ? 'Replace the yellow value, then run <code>docker compose up -d</code>.'
-      : out.length ? 'Then run <code>docker compose up -d</code>.'
+    foot: placeholder ? `Replace the yellow value, then ${o.apply}.`
+      : out.length ? `Then ${o.apply}.`
       : `Server, keys and <code>DRY_RUN</code> are in the install block above. ${link(`${REPO}#settings`, 'Every setting, explained')}.`,
   };
 }
