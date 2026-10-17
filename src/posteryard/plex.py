@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import re
 import urllib.parse
 from collections.abc import Iterator, Mapping
@@ -7,6 +8,8 @@ from typing import Any
 
 from posteryard import http
 from posteryard.server import Guide, Item, Target
+
+log = logging.getLogger(__name__)
 
 ENDPOINTS: dict[Target, tuple[str, str, str]] = {
     "poster": ("posters", "poster", "thumb"),
@@ -20,6 +23,7 @@ GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
 GUIDE_PAGE = 2000
 GUIDE_IDS = 300
+GUIDE_ID_BATCHES = 100
 
 
 class Plex:
@@ -30,6 +34,7 @@ class Plex:
         self.url = url
         self.token = token
         self._machine_id: str | None = None
+        self._guide_batches: dict[str, list[set[str]]] = {}
 
     def _url(self, path: str, **params: Any) -> str:
         return f"{self.url}{path}{'?' + urllib.parse.urlencode(params) if params else ''}"
@@ -240,6 +245,7 @@ class Plex:
 
     def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
         """Every airing that ends after `start` and begins before `end`, on all channels."""
+        self._guide_batches.pop(provider, None)
         airings: list[Item] = []
         while True:
             page = self._get(
@@ -278,27 +284,41 @@ class Plex:
 
     def _guide_id(self, provider: str, guid: str) -> str | None:
         """Plex lists no numeric ids. It returns a list of ids in order and leaves out ids it does not have."""
-
-        def holds(start: int, end: int) -> bool | None:
-            ids = ",".join(str(n) for n in range(start, end))
-            try:
-                items = self._get(f"/{_provider(provider)}/metadata/{ids}").get("Metadata") or []
-            except http.HttpError as exc:
-                if exc.status != 404:
-                    raise
-                items = []
-            return any(str(i.get("guid") or "") == guid for i in items) if items else None
-
-        start = 1
-        while (found := holds(start, start + GUIDE_IDS)) is not True:
-            if found is None:
-                return None
-            start += GUIDE_IDS
+        if provider not in self._guide_batches:
+            self._guide_batches[provider] = self._guide_walk(provider)
+        batch = next((n for n, guids in enumerate(self._guide_batches[provider]) if guid in guids), None)
+        if batch is None:
+            return None
+        start = 1 + batch * GUIDE_IDS
         end = start + GUIDE_IDS
         while end - start > 1:
             middle = (start + end) // 2
-            start, end = (start, middle) if holds(start, middle) else (middle, end)
+            start, end = (start, middle) if guid in self._guide_guids(provider, start, middle) else (middle, end)
         return str(start)
+
+    def _guide_walk(self, provider: str) -> list[set[str]]:
+        batches: list[set[str]] = []
+        while len(batches) < GUIDE_ID_BATCHES:
+            start = 1 + len(batches) * GUIDE_IDS
+            guids = self._guide_guids(provider, start, start + GUIDE_IDS)
+            if not guids:
+                return batches
+            batches.append(guids)
+        log.warning(
+            "the guide has more entries than are read, some titles may get no poster",
+            extra={"ids": GUIDE_ID_BATCHES * GUIDE_IDS},
+        )
+        return batches
+
+    def _guide_guids(self, provider: str, start: int, end: int) -> set[str]:
+        ids = ",".join(str(n) for n in range(start, end))
+        try:
+            items = self._get(f"/{_provider(provider)}/metadata/{ids}").get("Metadata") or []
+        except http.HttpError as exc:
+            if exc.status != 404:
+                raise
+            items = []
+        return {str(i.get("guid") or "") for i in items}
 
     def guide_images(self, provider: str, key: str) -> list[Item]:
         images: list[Item] = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters").get("Metadata", [])

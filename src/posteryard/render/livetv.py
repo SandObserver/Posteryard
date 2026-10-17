@@ -21,15 +21,15 @@ PICTURE_MAX_ASPECT = 4.0
 def logo_mark(image: Image.Image) -> Image.Image:
     """A transparent logo is cut to its shape. An opaque logo, such as a photo, gets rounded corners."""
     image = image.convert("RGBA")
-    alpha = np.asarray(image.getchannel("A"))
-    if int(alpha.max()) <= 8:
+    if int(np.asarray(image.getchannel("A")).min()) < 255:
+        image = trim(image)
+    else:
+        mask = Image.new("L", image.size, 0)
+        radius = round(min(image.size) * CORNER)
+        ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=radius, fill=255)
+        image.putalpha(mask)
+    if int(np.asarray(image.getchannel("A")).max()) <= 8:
         raise ValueError("the logo is fully transparent")
-    if int(alpha.min()) < 255:
-        return trim(image)
-    mask = Image.new("L", image.size, 0)
-    radius = round(min(image.size) * CORNER)
-    ImageDraw.Draw(mask).rounded_rectangle((0, 0, image.width - 1, image.height - 1), radius=radius, fill=255)
-    image.putalpha(mask)
     return image
 
 

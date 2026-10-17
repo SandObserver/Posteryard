@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from posteryard import http
+from posteryard import plex as plex_module
 from posteryard.plex import Plex
 from posteryard.server import external_ids, labels, tmdb_id
 
@@ -254,6 +255,8 @@ def guide_by_id(present: dict[int, str]) -> tuple[Plex, list[str]]:
 
     def get(path: str, **_: Any) -> dict[str, Any]:
         asked.append(path)
+        if path.endswith("/grid"):
+            return {"Metadata": []}
         last = path.rsplit("/", 1)[1]
         ids = [int(n) for n in last.split(",")] if last[0].isdigit() else []
         guid = present.get(ids[0]) if len(ids) == 1 else None
@@ -287,6 +290,29 @@ def test_guide_target_is_none_when_no_entry_has_the_guid() -> None:
     assert plex.guide_target(GUIDE, SHOW, "g/news") is None
     assert len(asked) == 4
     assert asked[-1].endswith(",900")
+
+
+def test_guide_ids_are_read_once_per_guide_read() -> None:
+    present = {n: f"g/{n}" for n in range(1, 700)}
+    plex, asked = guide_by_id(present)
+    assert plex.guide_target(GUIDE, SHOW, "g/450") == "450"
+    asked.clear()
+    assert plex.guide_target(GUIDE, SHOW, "g/100") == "100"
+    assert len(asked) == 10
+    plex.guide_airings(GUIDE, 0, 1)
+    asked.clear()
+    assert plex.guide_target(GUIDE, SHOW, "g/100") == "100"
+    assert len(asked) == 14
+
+
+def test_guide_ids_past_the_limit_are_not_read(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(plex_module, "GUIDE_ID_BATCHES", 2)
+    plex, asked = guide_by_id({n: f"g/{n}" for n in range(1, 1000)})
+    assert plex.guide_target(GUIDE, SHOW, "g/900") is None
+    assert len(asked) == 3
+    assert "more entries than are read" in caplog.text
 
 
 def test_guide_target_is_none_for_an_entry_without_a_guid() -> None:

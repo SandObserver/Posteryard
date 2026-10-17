@@ -615,3 +615,5 @@ def test_a_dark_logo_is_frosted_over_white_and_a_see_through_logo_is_refused() -
     assert min(cards.title_card(navy, title).getpixel((60, 60))) > 120  # type: ignore[arg-type]
     with pytest.raises(ValueError, match="transparent"):
         cards.logo_mark(Image.new("RGBA", (300, 120), (0, 0, 0, 0)))
+    with pytest.raises(ValueError, match="transparent"):
+        cards.logo_mark(Image.new("RGB", (1, 1), (200, 30, 30)))
