@@ -50,15 +50,21 @@ jobs:
           git switch -c "$branch"
           git commit -qam "$title"
           git push --force "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git" "HEAD:$branch"
-          body=$(printf '%s\n' \
-            '**Summary**' '' \
-            "- Copy the $version section of CHANGELOG.md into \`<Changes>\` in \`templates/posteryard.xml\`." '' \
-            '**Testing**' '' \
-            'Written by `tools/unraid_template.py`. CI runs the full checks.' '' \
-            '**Checklist**' \
-            '- [x] Format, lint, type checks and tests pass.' \
-            '- [ ] `DESIGN_VERSION` bumped and `tests/golden` written again if rendered images change.' \
-            '- [ ] `CHANGELOG.md` updated under `Unreleased` for user-visible changes.')
+          body=$(sed "s/VERSION/$version/" <<'BODY'
+          **Summary**
+
+          - Copy the VERSION section of CHANGELOG.md into `<Changes>` in `templates/posteryard.xml`.
+
+          **Testing**
+
+          Written by `tools/unraid_template.py`. CI runs the full checks.
+
+          **Checklist**
+          - [x] Format, lint, type checks and tests pass.
+          - [ ] `DESIGN_VERSION` bumped and `tests/golden` written again if rendered images change.
+          - [ ] `CHANGELOG.md` updated under `Unreleased` for user-visible changes.
+          BODY
+          )
           url=$(gh pr create --base main --head "$branch" --title "$title" --label documentation --body "$body")
           number=${url##*/}
           gh pr merge "$url" --auto --squash --delete-branch --subject "$title (#$number)" \
