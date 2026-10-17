@@ -125,15 +125,21 @@ curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-Posteryard.xml \
 
 ## Settings
 
-Every setting has a default. Add a line under `environment:` only to change one. The [landing page](https://posteryard.sandobserver.com/#settings) builds these lines for you.
+Every setting except the first four has a default. Add a line under `environment:` only to change one. The [landing page](https://posteryard.sandobserver.com/#settings) builds these lines for you.
 
 | Setting | What it does | Default |
 | --- | --- | --- |
+| `TMDB_API_KEY` | A free key from [TMDB](https://www.themoviedb.org/settings/api), under **Settings**, **API**. The API Read Access Token works too. | |
+| `PLEX_URL` | Your Plex server's address on the network, such as `http://192.168.1.10:32400`. Not `localhost`. Leave it empty for Jellyfin or Emby. | |
+| `PLEX_TOKEN` | Your [Plex token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). Leave it empty for Jellyfin or Emby. | |
+| `WEBHOOK_SECRET` | Any long random text, such as the output of `openssl rand -hex 16`. It is part of the webhook address. | |
 | `DRY_RUN` | `true` saves previews and changes nothing on your server. `false` uploads the images and locks them. | `true` |
 | `LIBRARIES` | Libraries to manage, separated by commas, named as your server shows them. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
 | `ONLY_RATING_KEYS` | Limit Posteryard to a few titles, for a first test. [Rating keys](docs/commands.md#rating-keys) separated by commas. A show includes its seasons and episodes. | |
-| `JELLYFIN_URL`, `JELLYFIN_API_KEY` | Use Jellyfin instead of Plex. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |
-| `EMBY_URL`, `EMBY_API_KEY` | Use Emby instead of Plex. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |
+| `JELLYFIN_URL` | Your Jellyfin server's address. Use it instead of `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |
+| `JELLYFIN_API_KEY` | A Jellyfin API key, from **API Keys** in the Jellyfin dashboard. | |
+| `EMBY_URL` | Your Emby server's address. Use it instead of `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |
+| `EMBY_API_KEY` | An Emby API key, from **API Keys** in the Emby dashboard. | |
 | `QUALITY_MIN_VIDEO` | Lowest resolution that gets a badge: `off`, `720`, `1080` or `2160`. | `2160` |
 | `QUALITY_MIN_HDR` | Lowest HDR format that gets a badge: `off`, `hdr10`, `hdr10plus` or `dolbyvision`. | `hdr10` |
 | `QUALITY_MIN_AUDIO` | Lowest audio that gets a badge: `off`, `5.1`, `7.1` or `atmos`. DTS:X counts as `atmos`. | `atmos` |

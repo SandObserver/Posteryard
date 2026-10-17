@@ -92,7 +92,7 @@ UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
 
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 
-A new setting also goes into the Unraid template, `templates/posteryard.xml`, with its default as the value, and into `site/settings.json`. `tests/test_unraid.py` fails when a template default does not load or a template setting is missing from `README.md`.
+A new setting also goes into the Unraid template, `templates/posteryard.xml`, and into `site/settings.json`. The template takes each setting's description and default from its row in the `README.md` Settings table, and its `Changes` from the newest dated `CHANGELOG.md` section. Add the field with its name, display and mask, then run `uv run python tools/unraid_template.py`. `tests/test_unraid.py` fails when the template is out of date, a template default does not load, or a template setting has no README row.
 
 ## Website
 
@@ -118,4 +118,4 @@ The Plex preview shows either 12 random movies or 12 random shows from `site/pos
 
 ## Releases
 
-Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, then pushes `ghcr.io/sandobserver/posteryard:X.Y.Z`, `:X.Y` and `:latest`, and publishes a GitHub release with the version's CHANGELOG section. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. The image carries an SBOM and build provenance. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.
+Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, run `uv run python tools/unraid_template.py` to copy the notes into the Unraid template, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, then pushes `ghcr.io/sandobserver/posteryard:X.Y.Z`, `:X.Y` and `:latest`, and publishes a GitHub release with the version's CHANGELOG section. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. The image carries an SBOM and build provenance. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.
