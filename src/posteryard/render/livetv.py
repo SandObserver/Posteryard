@@ -1,5 +1,3 @@
-"""Live TV cards, and the channel logo in the streaming mark's corner."""
-
 import math
 
 import numpy as np
@@ -61,7 +59,6 @@ def with_channel(poster: Image.Image, logo: Image.Image) -> Image.Image:
 
 
 def dark_logo(logo: Image.Image) -> bool:
-    """A logo whose visible pixels are dark on average."""
     rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32) / 255
     alpha = rgba[..., 3]
     luminance = rgba[..., :3] @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
@@ -69,10 +66,6 @@ def dark_logo(logo: Image.Image) -> bool:
 
 
 def title_card(logo: Image.Image | None, title: Image.Image) -> Image.Image:
-    """The channel's logo large over its own colours, frosted. Without a logo: the title on dark grey.
-
-    A dark logo is frosted over white, so it stays visible.
-    """
     if logo is None:
         return designs.tile_poster(band(H), title, lines_below=[], fade=0)
     light = dark_logo(logo)
