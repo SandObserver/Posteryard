@@ -43,7 +43,7 @@ A title goes through these modules in order:
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
 | `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
 | `cli.py`, `config.py` | Commands and settings. |
-| `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the channel and title cards. |
+| `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the title, frosted and guide picture cards, and puts the channel logo in the corner of TMDB posters. |
 | `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
 | `logfmt.py` | The log format and the startup block. |
 
@@ -98,7 +98,7 @@ A new setting also goes into the Unraid template, `templates/posteryard.xml`, wi
 
 `site/` builds the landing page at https://posteryard.sandobserver.com. The version comes from `CHANGELOG.md`. Cloudflare Pages rebuilds the site on every push to `main`.
 
-The install block comes from `site/public/setup.mjs`. The build fails when its compose file, `docker run` command or Unraid command differs from `README.md`, so change both together.
+The install block comes from `site/public/setup.mjs`. The build fails when its compose file or `docker run` command differs from `README.md`, so change both together.
 
 The settings section reads `site/settings.json`: each setting's label, control, default and choices. `tests/test_site_settings.py` fails when that file disagrees with `config.py` or the README, and names each setting that is missing. A setting the page leaves out goes under `elsewhere`, with the reason.
 
