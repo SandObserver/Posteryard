@@ -22,6 +22,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.
 - Give a Plex guide title a poster when Plex returns another entry for it, such as "News" for "News at Ten".
 
+### Security
+
+- Update Pillow to 13.0.0 for its JPEG decoder buffer overflow and other image decoding fixes.
+
 ## [0.9.0] - 2026-10-12
 
 ### Added
