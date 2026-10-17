@@ -73,7 +73,7 @@ Run each with `uv run python tools/<script>`.
 CI runs the same checks:
 
 ```sh
-uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest
+uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest -n auto
 ```
 
 The tests need no API keys and no internet connection. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with actionlint and zizmor, and scans the image with Grype; a fixable critical vulnerability fails the build.

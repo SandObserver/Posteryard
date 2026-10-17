@@ -26,6 +26,7 @@ dev = [
     "mypy>=1.18",
     "pytest>=8.4",
     "pytest-cov>=7",
+    "pytest-xdist>=3.8.0",
     "resvg-py>=0.2",
     "ruff>=0.14",
 ]
