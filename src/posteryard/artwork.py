@@ -164,11 +164,7 @@ class Pool:
         self._verdicts: dict[str, bool] = {}
         hit = picker.cache.get_choice(key)
         if hit is not None and hit.get("candidates") == candidates:
-            if "paths" in hit:
-                kept = set(hit["paths"])
-                self._verdicts = {path: path in kept for path in candidates}
-            else:
-                self._verdicts = {str(path): bool(ok) for path, ok in hit.get("verdicts", {}).items()}
+            self._verdicts = {str(path): bool(ok) for path, ok in hit.get("verdicts", {}).items()}
 
     def __iter__(self) -> Iterator[str]:
         for path in self._candidates:

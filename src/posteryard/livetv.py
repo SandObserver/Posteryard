@@ -174,7 +174,6 @@ class LiveTv:
         self._confirmed: list[str] = []
 
     def due(self, now: float | None = None) -> bool:
-        """After every guide refresh, once a day, when DRY_RUN is turned on or off, and when an upload is gone."""
         now = time.time() if now is None else now
         known = json.loads(self.store.meta("livetv_refreshed", "{}"))
         current = {g.provider: g.refreshed_at for g in self.server.guides()}
@@ -239,7 +238,6 @@ class LiveTv:
         return record.picture if record else ""
 
     def apply(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> Counter[str]:
-        """One poster per show, put on each of its targets: the show on Plex, every airing on Jellyfin."""
         first = self.store.guide(show.record_key(show.targets[0])) if show.targets else None
         try:
             plan = self.plan(show, fetch)
@@ -356,10 +354,7 @@ class LiveTv:
             return None
 
     def plan(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> pipeline.Plan:
-        """TMDB art, then the guide's picture, then a title card. A block named after its channel gets the title card.
-
-        `fetch` is for channel logos, which repeat. Guide pictures are fetched once per show without the cache.
-        """
+        """Use `fetch` for channel logos only. Its cache holds full images."""
         key = show.record_key(show.key)
         mark = self._image(fetch, show.logo, show, "logo")
         logo = show.logo if mark is not None else ""

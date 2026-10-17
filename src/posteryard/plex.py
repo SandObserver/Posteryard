@@ -263,10 +263,7 @@ class Plex:
         return meta[0] if meta else None
 
     def guide_target(self, provider: str, key: str, guid: str) -> str | None:
-        """The key that reaches the entry with this guid, or None.
-
-        Plex finds an entry by its name key loosely: "News" can return "News at Ten". The entry's numeric id is exact.
-        """
+        """Plex matches a name key loosely: "News" can return "News at Ten". The numeric id is exact."""
 
         def reaches(target: str | None) -> bool:
             item = self.guide_item(provider, target) if target else None
