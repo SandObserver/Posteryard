@@ -61,6 +61,9 @@ def test_a_stuck_read_stops_the_ocr_process(monkeypatch: pytest.MonkeyPatch) -> 
         ocr.read(Image.new("RGB", (480, 720)))
     assert ocr._process.pool is None
     assert time.monotonic() - started < 15
+    deadline = time.monotonic() + 5
+    while multiprocessing.active_children() and time.monotonic() < deadline:
+        time.sleep(0.1)
     assert not multiprocessing.active_children()
 
 
