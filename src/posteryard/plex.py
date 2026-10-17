@@ -300,7 +300,14 @@ class Plex:
         batches: list[set[str]] = []
         while len(batches) < GUIDE_ID_BATCHES:
             start = 1 + len(batches) * GUIDE_IDS
-            guids = self._guide_guids(provider, start, start + GUIDE_IDS)
+            try:
+                guids = self._guide_guids(provider, start, start + GUIDE_IDS)
+            except http.RequestError as exc:
+                log.warning(
+                    "the guide ids could not all be read, some titles may get no poster",
+                    extra={"ids": start - 1, "reason": str(exc)},
+                )
+                return batches
             if not guids:
                 return batches
             batches.append(guids)

@@ -315,6 +315,24 @@ def test_guide_ids_past_the_limit_are_not_read(
     assert "more entries than are read" in caplog.text
 
 
+def test_guide_ids_are_not_read_again_after_an_error(caplog: pytest.LogCaptureFixture) -> None:
+    plex, asked = guide_by_id({n: f"g/{n}" for n in range(1, 700)})
+    get = plex._get
+
+    def failing(path: str, **params: Any) -> Any:
+        if path.endswith(",600"):
+            asked.append(path)
+            raise http.HttpError(500, path)
+        return get(path, **params)
+
+    plex._get = failing  # type: ignore[method-assign]
+    assert plex.guide_target(GUIDE, SHOW, "g/100") == "100"
+    asked.clear()
+    assert plex.guide_target(GUIDE, SHOW, "g/450") is None
+    assert len(asked) == 1
+    assert "could not all be read" in caplog.text
+
+
 def test_guide_target_is_none_for_an_entry_without_a_guid() -> None:
     plex, asked = guide_by_id({1: ""})
     assert plex.guide_target(GUIDE, SHOW, "") is None
