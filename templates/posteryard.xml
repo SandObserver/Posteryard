@@ -5,22 +5,22 @@
   <Registry>https://github.com/SandObserver/Posteryard/pkgs/container/posteryard</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
-  <ExtraParams>--user=99:100 --init --read-only --tmpfs=/tmp --cap-drop=ALL --security-opt=no-new-privileges:true --memory=1536m</ExtraParams>
+  <ExtraParams>--user=99:100 --restart=unless-stopped --init --read-only --tmpfs=/tmp --cap-drop=ALL --security-opt=no-new-privileges:true --memory=1536m</ExtraParams>
   <Support>https://github.com/SandObserver/Posteryard/issues</Support>
   <Project>https://github.com/SandObserver/Posteryard</Project>
   <ReadMe>https://github.com/SandObserver/Posteryard/blob/main/README.md</ReadMe>
   <License>https://github.com/SandObserver/Posteryard/blob/main/LICENSE</License>
-  <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8000/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
+  <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
   <Requires>A free TMDB API key and a Plex, Jellyfin or Emby server.</Requires>
   <Changes>https://github.com/SandObserver/Posteryard/blob/main/CHANGELOG.md</Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>
   <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
-  <Icon>https://raw.githubusercontent.com/SandObserver/Posteryard/main/docs/logo.svg</Icon>
+  <Icon>https://raw.githubusercontent.com/SandObserver/Posteryard/main/site/public/icon-512.png</Icon>
   <Screenshot>https://raw.githubusercontent.com/SandObserver/Posteryard/main/docs/before-after.jpg</Screenshot>
   <ExtraSearchTerms>plex jellyfin emby posters artwork tmdb kometa textless</ExtraSearchTerms>
   <DonateText>If Posteryard is useful to you, you can buy me a coffee.</DonateText>
   <DonateLink>https://buymeacoffee.com/sandobserver</DonateLink>
-  <Config Name="Webhook Port" Target="8000" Default="8000" Mode="tcp" Description="Port for the Plex, Jellyfin or Emby webhook and the /healthz check." Type="Port" Display="always" Required="true" Mask="false">8000</Config>
+  <Config Name="Webhook Port" Target="8000" Default="8098" Mode="tcp" Description="Port for the Plex, Jellyfin or Emby webhook and the /healthz check." Type="Port" Display="always" Required="true" Mask="false">8098</Config>
   <Config Name="Data" Target="/data" Default="/mnt/user/appdata/posteryard" Mode="rw" Description="Database, previews and custom art. Keep this, or every image is rendered and uploaded again." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/posteryard</Config>
   <Config Name="TMDB API Key" Target="TMDB_API_KEY" Default="" Mode="" Description="A free key from themoviedb.org, under Settings, API." Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="Plex URL" Target="PLEX_URL" Default="" Mode="" Description="Address of your Plex server, such as http://192.168.1.10:32400. Leave empty for Jellyfin or Emby." Type="Variable" Display="always" Required="false" Mask="false"></Config>

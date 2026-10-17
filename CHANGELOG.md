@@ -11,9 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.
 - Give a Live TV block named after its channel the same card, in place of art from the channel's show with the most airtime.
 - List what Posteryard needs and its Live TV posters in the Unraid template.
+- Install Posteryard on Unraid from the Apps tab, listed in Community Applications.
+- Default the Unraid webhook port to 8098, as many Unraid apps already use 8000.
+- Restart the Unraid container after a crash.
+- Show the settings panel's lines for the install method picked on the landing page.
 
 ### Fixed
 
+- Show the Posteryard icon in the Unraid Docker tab, which cannot show SVG icons.
 - Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.
 - Give a Plex guide title a poster when Plex returns another entry for it, such as "News" for "News at Ten".
 

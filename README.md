@@ -112,16 +112,16 @@ Two more steps are worth it:
 
 ## Unraid
 
-Save the template to your flash drive from the Unraid terminal:
+Open **Apps**, search for **Posteryard** and choose **Install**. Fill in the TMDB API key, the Plex URL and token, and a webhook secret. Previews land in `/mnt/user/appdata/posteryard/previews`. The webhook port is `8098`. Use it in place of `8000` in every webhook address, such as `http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET` for Plex. The template runs as Unraid's `nobody` user (`--user=99:100`) with the same lockdown as the compose file, and restarts the container after a crash.
+
+To go live, open the container's **Edit** screen, set **Dry Run** to `false` and choose **Apply**. The container's **Logs** show progress.
+
+If **Apps** does not list Posteryard yet, save the template from the Unraid terminal, then pick **Posteryard** under **Docker**, **Add Container**, **Template**:
 
 ```sh
 curl -fsSL -o /boot/config/plugins/dockerMan/templates-user/my-Posteryard.xml \
   https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml
 ```
-
-Then pick **Posteryard** under **Docker**, **Add Container**, **Template**. Fill in the TMDB API key, the Plex URL and token, and a webhook secret. Previews land in `/mnt/user/appdata/posteryard/previews`. The template runs as Unraid's `nobody` user (`--user=99:100`) with the same lockdown as the compose file.
-
-To go live, open the container's **Edit** screen, set **Dry Run** to `false` and choose **Apply**. The container's **Logs** show progress.
 
 ## Settings
 

@@ -55,6 +55,12 @@ const version = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)?.[1] ?? fail('CHANGE
 
 checkInstall();
 const settingsData = JSON.parse(readFileSync(join(here, 'settings.json'), 'utf8'));
+const unraidNames = Object.fromEntries(
+  [...readFileSync(join(root, 'templates', 'posteryard.xml'), 'utf8').matchAll(/<Config Name="([^"]+)" Target="([^"]+)"/g)].map((m) => [m[2], m[1]]),
+);
+for (const setting of installer.flatten(settingsData)) {
+  setting.unraid = unraidNames[setting.key] ?? fail(`templates/posteryard.xml has no field for ${setting.key}`);
+}
 const firstView = installer.install('plex', 'compose');
 const firstVals = installer.defaults(settingsData);
 const firstLines = installer.lines(settingsData, firstVals);

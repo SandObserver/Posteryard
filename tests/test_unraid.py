@@ -35,3 +35,10 @@ def test_the_template_matches_the_image_and_the_readme() -> None:
     assert _configs("Port").keys() == set(re.findall(r"EXPOSE (\d+)", dockerfile))
     readme = (ROOT / "README.md").read_text()
     assert [name for name in _configs("Variable") if f"`{name}`" not in readme] == []
+
+
+def test_the_template_images_are_in_the_repository() -> None:
+    raw = "https://raw.githubusercontent.com/SandObserver/Posteryard/main/"
+    images = [TEMPLATE.findtext("Icon") or "", *(s.text or "" for s in TEMPLATE.iter("Screenshot"))]
+    assert [url for url in images if not url.startswith(raw) or not (ROOT / url.removeprefix(raw)).is_file()] == []
+    assert (TEMPLATE.findtext("Icon") or "").endswith(".png")
