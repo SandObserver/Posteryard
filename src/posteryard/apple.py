@@ -15,7 +15,6 @@ UMC = re.compile(r"^umc\.cmc\.[a-z0-9]+$")
 QID = re.compile(r"^Q\d+$")
 IMAGE_HOST = re.compile(r"^https://is\d-ssl\.mzstatic\.com/image/thumb/")
 TALL = "1680x3636"
-HEADERS = {"User-Agent": "Posteryard (https://github.com/SandObserver/Posteryard)"}
 
 
 def is_apple(path: str) -> bool:
@@ -27,7 +26,7 @@ def apple_id(kind: Kind, details: Details) -> str | None:
     if not QID.match(qid):
         return None
     try:
-        entity = http.get_json(WIKIDATA.format(qid=qid), HEADERS)
+        entity = http.get_json(WIKIDATA.format(qid=qid))
     except http.HttpError as exc:
         if exc.status == 404:
             return None
@@ -44,7 +43,7 @@ def apple_id(kind: Kind, details: Details) -> str | None:
 
 def tall_art(kind: Kind, umc: str, region: str) -> str | None:
     page = http.request(
-        "GET", PAGE.format(region=region.lower(), kind="show" if kind == "tv" else "movie", umc=umc), headers=HEADERS
+        "GET", PAGE.format(region=region.lower(), kind="show" if kind == "tv" else "movie", umc=umc)
     ).decode("utf-8", "replace")
     match = re.search(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', page, re.S)
     if match is None:
