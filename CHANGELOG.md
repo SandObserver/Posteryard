@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- Publish the image to Docker Hub as `sandobserver/posteryard` too, with the same tags as ghcr.io.
+
 ### Changed
 
 - Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.

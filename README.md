@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/SandObserver/Posteryard/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/SandObserver/Posteryard/pkgs/container/posteryard"><img alt="ghcr.io" src="https://img.shields.io/badge/ghcr.io-posteryard-2496ED?logo=github&logoColor=white"></a>
+  <a href="https://hub.docker.com/r/sandobserver/posteryard"><img alt="Docker Hub" src="https://img.shields.io/badge/docker%20hub-posteryard-2496ED?logo=docker&logoColor=white"></a>
 </p>
 
 <p align="center"><img src="docs/before-after.jpg" alt="Deadpool & Wolverine, Thunderbolts* and Lilo & Stitch, each as the official poster and as rendered by Posteryard with quality badges and a Maintainerr label"></p>
@@ -30,7 +31,7 @@ You need [Docker](https://docs.docker.com/get-started/get-docker/) on a 64-bit I
 
 ### 1. Create the compose file
 
-Save this as `compose.yml` and replace the example values.
+Save this as `compose.yml` and replace the example values. The same image is on Docker Hub as `sandobserver/posteryard`.
 
 ```yaml
 services:
