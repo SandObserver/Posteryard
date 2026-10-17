@@ -13,19 +13,33 @@
   <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
   <Requires>A free TMDB API key and a Plex, Jellyfin or Emby server.</Requires>
   <Changes>
-### 0.9.0 - 2026-10-12
+### 0.10.0 - 2026-10-17
 
 #### Added
 
-- Add posters for the Live TV guide on Plex and Jellyfin with `LIVE_TV`.
+- Publish the image to Docker Hub as `sandobserver/posteryard` too, with the same tags as ghcr.io.
 
 #### Changed
 
-- Try a request again at once, without a warning, when a server has dropped an idle connection.
+- Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.
+- Give a Live TV block named after its channel the same card, in place of art from the channel's show with the most airtime.
+- List what Posteryard needs and its Live TV posters in the Unraid template.
+- Install Posteryard on Unraid from the Apps tab, listed in Community Applications.
+- Default the Unraid webhook port to 8098, as many Unraid apps already use 8000.
+- Restart the Unraid container after a crash.
+- Show the latest release notes in the Unraid template, and take its settings help from the README.
+- Show the settings panel's lines for the install method picked on the landing page.
+- Name Posteryard's version and project page in every web request, as Wikimedia asks of programs that download its logos.
+
+#### Fixed
+
+- Show the Posteryard icon in the Unraid Docker tab, which cannot show SVG icons.
+- Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.
+- Give a Plex guide title a poster when Plex returns another entry for it, such as "News" for "News at Ten".
 
 #### Security
 
-- Update the Python base image to 3.13.16 for CVE-2026-19445.
+- Update Pillow to 13.0.0 for its JPEG decoder buffer overflow and other image decoding fixes.
   </Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>
   <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
