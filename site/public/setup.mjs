@@ -68,8 +68,8 @@ export function install(server, method) {
     code: m === 'compose' ? compose(x) : m === 'run' ? run(x) : '',
     start: m === 'compose' ? `mkdir -p ${V(DATA)} &amp;&amp; sudo chown 1000:1000 ${V(DATA)}\ndocker compose up -d` : '',
     fill: m === 'unraid'
-      ? `In Unraid, open <b>Apps</b>, search for <b>Posteryard</b> and choose <b>Install</b>. Fill in the TMDB API key, the ${x.label} address and key, and a webhook secret. <b>Data</b> is the share where Posteryard keeps its files. Need the keys? ${keys}`
-      : `Replace the yellow values. ${V(DATA)} is the folder on your server where Posteryard keeps its files; any path works. Need the keys? ${keys}`,
+      ? `In Unraid, open <b>Apps</b>, search for <b>Posteryard</b> and choose <b>Install</b>. It is the ${link('https://ca.unraid.net/apps/posteryard-1d8xxe40fyxl4o', 'Posteryard listing')} in Community Applications. Fill in the TMDB API key, the ${x.label} address and key, and a webhook secret. <b>Data</b> is the share where Posteryard keeps its files. Need the keys? ${keys}`
+      : `Replace the yellow values. ${V(DATA)} is the folder on your server where Posteryard keeps its files; any path works. The same image is on ${link('https://hub.docker.com/r/sandobserver/posteryard', 'Docker Hub')} as <code>sandobserver/posteryard</code>. Need the keys? ${keys}`,
     next: `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-pre"/></svg><span class="imain"><span class="iname">First, a preview. ${x.label} is not changed.</span><span class="itext">Posteryard saves each poster to ${where}. Open a few to check them. ${logs}</span></span></div></li>`
       + `<li><div class="irow top"><svg class="si" aria-hidden="true"><use href="#sy-solid-p1-live"/></svg><span class="imain"><span class="iname">Then go live.</span><span class="itext">When you like them, ${goLive}. Posteryard ${x.live}</span></span></div></li>`,
     summary: `${x.label} with ${methods[m].label}`,
