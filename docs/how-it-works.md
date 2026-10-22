@@ -47,7 +47,7 @@ Built-in marks: Netflix, Prime Video, Apple TV, Disney+, HBO Max, Hulu, Paramoun
 
 `COLLECTION_POSTERS=true` gives every collection a poster:
 
-- A collection named after a streaming service, such as `Netflix` or `Netflix Movies`, gets Apple TV's channel tile: its newest show's art and logo over a band in the service's colour with its mark. A service without a built-in mark gets a grey band.
+- A collection named after a streaming service, such as `Netflix` or `Netflix Movies`, gets Apple TV's channel tile: its newest show's art and logo over a band in the service's colour with its mark. Services Apple TV has no band for take the accent colour from their own site or app, darkened until the white mark reaches 7:1 contrast. A service without a known colour gets a grey band.
 - Other collections get Apple TV's category tile: the newest title's art recoloured in two colours from Apple TV's genre tiles, with the collection's name bottom left (bottom right for right-to-left scripts). Collections named like an Apple TV genre, such as `Comedy` or `Sci-Fi`, use that genre's colours. The name is always kept at 4.5:1 contrast.
 
 `SERVICE_COLLECTIONS=true` keeps a collection for each service with at least 3 shows in each TV library. Posteryard only changes collections it made; they carry the `posteryard-collection` label. A show the server has not matched, or TMDB no longer has, stays in the collections it is in. Nothing changes while `DRY_RUN` is on. Leave it off if another tool already makes these, and use `COLLECTION_POSTERS`.
