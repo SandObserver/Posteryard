@@ -1,7 +1,9 @@
+from collections.abc import Callable
+
 from PIL import Image
 
 from posteryard import http
-from posteryard.artwork import MemoryChoices, Picker
+from posteryard.artwork import TEXTLESS_RULE, MemoryChoices, Picker
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef, Images
 
@@ -114,3 +116,49 @@ def test_cached_only_downloads_nothing() -> None:
     assert reads == []
     picker.textless("tv:1", refs("/b.jpg"), ["Example"])
     assert picker.textless("tv:1", refs("/b.jpg"), ["Example"], cached_only=True) is not None
+
+
+def small_title(path: str) -> Image.Image:
+    image = Image.new("RGB", (10, 15))
+    image.info["path"] = path
+    return image
+
+
+def read_small(reads: list[str]) -> Callable[[Image.Image], list[TextLine]]:
+    def read(image: Image.Image) -> list[TextLine]:
+        path = str(image.info["path"])
+        reads.append(path)
+        return [TextLine("DIE SIMPSONS", 0.95, 0.02, 0.2)] if path == "/a.jpg" else []
+
+    return read
+
+
+def test_a_cached_choice_is_picked_again_when_it_shows_a_new_title() -> None:
+    reads: list[str] = []
+    picker = Picker(MemoryChoices(), small_title, read_small(reads))
+    first = picker.textless("tv:1", refs("/a.jpg", "/b.jpg"), ["The Simpsons"])
+    assert first is not None and first.path == "/a.jpg"
+    assert picker.textless("tv:1", refs("/a.jpg", "/b.jpg"), ["The Simpsons"]) == first
+    assert reads == ["/a.jpg"]
+    again = picker.textless("tv:1", refs("/a.jpg", "/b.jpg"), ["Die Simpsons", "The Simpsons"])
+    assert again is not None and again.path == "/b.jpg"
+
+
+def test_a_cached_pool_drops_art_that_shows_a_new_title() -> None:
+    reads: list[str] = []
+    picker = Picker(MemoryChoices(), small_title, read_small(reads))
+    assert list(picker.textless_pool("tv:1", refs("/a.jpg", "/b.jpg"), ["The Simpsons"])) == ["/a.jpg", "/b.jpg"]
+    pool = picker.textless_pool("tv:1", refs("/a.jpg", "/b.jpg"), ["Die Simpsons", "The Simpsons"])
+    assert list(pool) == ["/b.jpg"]
+    assert reads == ["/a.jpg", "/b.jpg"]
+
+
+def test_a_pool_cached_without_its_text_is_trusted() -> None:
+    reads: list[str] = []
+    cache = MemoryChoices()
+    picker = Picker(cache, small_title, read_small(reads))
+    key = f"textless-all{TEXTLESS_RULE}:tv:1"
+    cache.put_choice(key, {"candidates": ["/a.jpg", "/b.jpg"], "verdicts": {"/a.jpg": True, "/b.jpg": True}})
+    pool = picker.textless_pool("tv:1", refs("/a.jpg", "/b.jpg"), ["Die Simpsons"])
+    assert list(pool) == ["/a.jpg", "/b.jpg"]
+    assert reads == []
