@@ -4,7 +4,7 @@ from typing import Any, Protocol
 
 from PIL import Image
 
-from posteryard import ocr
+from posteryard import http, ocr
 from posteryard.render.layers import mean_luminance, trim
 from posteryard.tmdb import ImageRef, Images
 
@@ -21,6 +21,8 @@ DARK_LUMINANCE = 0.3
 # the old version are then made again. The old rows are deleted at start.
 TEXTLESS_RULE = 2
 LOGO_RULE = 3
+
+UNREADABLE = "could not be loaded"
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -50,6 +52,18 @@ def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, An
     return hit
 
 
+def load(fetch: Fetch, path: str) -> Image.Image | None:
+    """The image, or None when it is gone or not an image. A network failure still raises."""
+    try:
+        return fetch(path)
+    except http.HttpError as exc:
+        if http.gone(exc):
+            return None
+        raise
+    except (OSError, ValueError):
+        return None
+
+
 @dataclass(frozen=True)
 class Picked:
     path: str
@@ -64,16 +78,26 @@ class Picker:
     prefix: str = ""
 
     def _cached(
-        self, key: str, refs: Sequence[ImageRef], accept: Callable[[list[ocr.TextLine]], bool]
+        self,
+        key: str,
+        refs: Sequence[ImageRef],
+        accept: Callable[[list[ocr.TextLine]], bool],
+        *,
+        cached_only: bool = False,
     ) -> Picked | None:
         candidates = [r.path for r in refs[:MAX_CANDIDATES]]
         hit = self.cache.get_choice(key)
         if hit is not None and hit.get("candidates") == candidates:
             path = hit.get("path")
             return Picked(str(path), [ocr.TextLine(*line) for line in hit.get("lines", [])]) if path else None
+        if cached_only:
+            return None
         picked = None
         for path in candidates:
-            lines = self.read(self.fetch(path))
+            image = load(self.fetch, path)
+            if image is None:
+                continue
+            lines = self.read(image)
             if accept(lines):
                 picked = Picked(path, lines)
                 break
@@ -87,8 +111,18 @@ class Picker:
         )
         return picked
 
-    def textless(self, key: str, refs: Sequence[ImageRef], titles: Sequence[str]) -> Picked | None:
-        return self._cached(f"{self.prefix}textless{TEXTLESS_RULE}:{key}", refs, lambda lines: _textless(lines, titles))
+    def textless(
+        self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], *, cached_only: bool = False
+    ) -> Picked | None:
+        return self._cached(
+            f"{self.prefix}textless{TEXTLESS_RULE}:{key}",
+            refs,
+            lambda lines: _textless(lines, titles),
+            cached_only=cached_only,
+        )
+
+    def forget(self, key: str) -> None:
+        self.cache.put_choice(f"{self.prefix}textless{TEXTLESS_RULE}:{key}", {"candidates": []})
 
     def textless_pool(
         self, key: str, refs: Sequence[ImageRef], titles: Sequence[str], limit: int = POOL_SIZE
@@ -169,7 +203,8 @@ class Pool:
     def __iter__(self) -> Iterator[str]:
         for path in self._candidates:
             if path not in self._verdicts:
-                self._verdicts[path] = _textless(self._picker.read(self._picker.fetch(path)), self._titles)
+                image = load(self._picker.fetch, path)
+                self._verdicts[path] = image is not None and _textless(self._picker.read(image), self._titles)
                 self._picker.cache.put_choice(
                     self._key, {"candidates": self._candidates, "verdicts": dict(self._verdicts)}
                 )

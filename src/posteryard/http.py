@@ -50,6 +50,10 @@ class HttpError(RequestError):
         self.status = status
 
 
+def gone(exc: RequestError) -> bool:
+    return isinstance(exc, HttpError) and 400 <= exc.status < 500 and exc.status not in RETRY_STATUSES
+
+
 def redact(url: str) -> str:
     """Pass every URL through this before it reaches a log or an error. It hides credentials."""
     parts = urllib.parse.urlsplit(url)

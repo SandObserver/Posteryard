@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Pass over art that TMDB or fanart.tv lists but that is gone or not an image, in place of failing the title on every retry.
+- Keep Apple TV art already picked while Apple TV is paused after a failed download, in place of switching those posters to a backdrop for an hour and back.
+- Pause Apple TV art only for the title whose Apple TV image is gone, not for every title.
+
 ### Security
 
 - Update certifi to 2026.10.19 for GHSA-6q48-6c7w-9gw2.
