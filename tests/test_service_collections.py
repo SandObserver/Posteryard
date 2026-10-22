@@ -1,3 +1,4 @@
+import time
 from datetime import date
 from typing import Any
 
@@ -113,3 +114,43 @@ def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
     assert ("label", "60", service_collections.MANAGED_LABEL) in plex.calls
     assert ("delete", "51") in plex.calls
     assert ("delete", "52") in plex.calls
+
+
+class LostAnswer(FakePlex):
+    """The first create makes the collection on the server, then its answer is lost."""
+
+    def __init__(self, ours: list[Item], made: list[Item]) -> None:
+        super().__init__(ours)
+        self.made = made
+
+    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+        if kind == "collection" and not filters:
+            return self.ours + self.made
+        return super().section_items(section_key, kind, **filters)
+
+    def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
+        super().create_collection(section_key, kind, title, rating_keys)
+        if title == "Netflix" and not self.made:
+            self.made.append({"ratingKey": "70", "title": title, "addedAt": int(time.time())})
+            raise http.RequestError("TimeoutError", "http://plex.example:32400/library/collections")
+        return "71"
+
+
+def test_a_collection_whose_create_answer_was_lost_is_taken_over() -> None:
+    plex = LostAnswer([], [])
+    ctx = context()
+    with pytest.raises(http.RequestError):
+        service_collections.sync(plex, ctx, "4")
+    plex.calls.clear()
+    assert "70" in service_collections.sync(plex, ctx, "4")
+    assert ("label", "70", service_collections.MANAGED_LABEL) in plex.calls
+    assert not any(c[0] == "create" and c[1] == "Netflix" for c in plex.calls)
+
+
+def test_a_collection_made_by_hand_long_before_is_not_taken_over() -> None:
+    plex = LostAnswer([], [{"ratingKey": "70", "title": "Netflix", "addedAt": 1_000_000}])
+    ctx = context()
+    ctx.sources.choices.put_choice("collection-create:4:Netflix", {"at": int(time.time())})
+    service_collections.sync(plex, ctx, "4")
+    assert ("create", "Netflix", "1", "2", "3") in plex.calls
+    assert ("label", "70", service_collections.MANAGED_LABEL) not in plex.calls

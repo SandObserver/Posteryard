@@ -357,7 +357,7 @@ class Service:
         for section in shows:
             try:
                 service_collections.sync(self.server, self.worker.ctx, str(section["key"]))
-            except (http.RequestError, ValueError) as exc:
+            except (http.RequestError, OSError, ValueError) as exc:
                 failed = True
                 log.warning("service collections failed", extra={"library": section.get("title"), "reason": str(exc)})
                 self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")

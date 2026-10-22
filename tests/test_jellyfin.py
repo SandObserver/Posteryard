@@ -335,3 +335,15 @@ def test_an_unreadable_xmltv_guide_gives_no_pictures(
     assert "guide pictures skipped" in caplog.text
     assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
     assert any("***@guide.example" in str(record.__dict__) for record in caplog.records)
+
+
+def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, int]] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        sent.append((method, kwargs.get("retries", 3)))
+        return json.dumps({"Id": SERIES}).encode()
+
+    monkeypatch.setattr(http, "request", request)
+    assert Jellyfin(BASE, "example-key").create_collection(LIBRARY, "show", "Netflix", [MOVIE]) == SERIES
+    assert sent == [("POST", 1)]

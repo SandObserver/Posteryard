@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep `art next` on a show off the art its seasons already use.
 - Step `art next` through Apple TV and fanart.tv art too, in the same order as the automatic choice.
 - Show in `why` when a season's own art is skipped as the same picture as the show or another season, and list the show art a season falls back to.
+- Keep the daily pass and the sweep running when a streaming service's TMDB icon or logo is not an image, or the marks folder cannot be written. Such a service gets no mark.
+- Send a collection create once, and take over a collection the server made when its answer was lost, in place of leaving an unlabelled copy.
 
 ### Security
 

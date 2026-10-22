@@ -48,6 +48,7 @@ class Plex:
         data: bytes | None = None,
         headers: dict[str, str] | None = None,
         timeout: float = 30,
+        retries: int = 3,
     ) -> bytes:
         """Send the token as a header and refuse redirects. A redirect must never carry the token to another host."""
         return http.request(
@@ -56,6 +57,7 @@ class Plex:
             headers={"X-Plex-Token": self.token, **(headers or {})},
             data=data,
             timeout=timeout,
+            retries=retries,
             redirects=False,
         )
 
@@ -140,6 +142,7 @@ class Plex:
                 "uri": self._uri(rating_keys),
             },
             headers=JSON,
+            retries=1,
         )
         created = json.loads(answer)["MediaContainer"]["Metadata"][0]
         return str(created["ratingKey"])

@@ -243,7 +243,10 @@ class AutoMarks:
             hit = self.choices.get_choice(f"automark:{name}")
             if hit is not None and hit.get("logo") == source and (not hit.get("ok") or path.exists()):
                 return name if hit.get("ok") else None
-            mark = make()
+            try:
+                mark = make()
+            except (OSError, ValueError):
+                mark = None
             if mark is not None:
                 self.folder.mkdir(parents=True, exist_ok=True)
                 mark.save(path)

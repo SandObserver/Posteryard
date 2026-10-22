@@ -54,6 +54,20 @@ def test_marks_are_cut_once_and_drawn_by_name(tmp_path: Path, monkeypatch: pytes
     assert marks.get(Offer(0, "No id", "/flat.jpg")) is None
 
 
+def test_an_icon_that_does_not_decode_gives_no_mark_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched: list[str] = []
+
+    def image(path: str) -> Image.Image:
+        fetched.append(path)
+        raise OSError("cannot identify image file")
+
+    monkeypatch.setattr(Tmdb, "image", staticmethod(image))
+    marks = AutoMarks(tmp_path / "marks", MemoryChoices())
+    assert marks.get(Offer(224, "Broken", "/broken.jpg")) is None
+    assert marks.get(Offer(224, "Broken", "/broken.jpg")) is None
+    assert fetched == ["/broken.jpg"]
+
+
 def two_colour_logo() -> Image.Image:
     logo = Image.new("RGBA", (400, 120), (0, 0, 0, 0))
     draw = ImageDraw.Draw(logo)
