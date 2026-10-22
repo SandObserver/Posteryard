@@ -22,7 +22,9 @@ DARK_LUMINANCE = 0.3
 TEXTLESS_RULE = 2
 LOGO_RULE = 3
 
-UNREADABLE = "could not be loaded"
+UNREADABLE = "not a usable image"
+# Widest shape a candidate may have, either way. OCR scales a narrower image to a size that can exhaust memory.
+MAX_ASPECT = 4.0
 
 Fetch = Callable[[str], Image.Image]
 Read = Callable[[Image.Image], list[ocr.TextLine]]
@@ -53,15 +55,16 @@ def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, An
 
 
 def load(fetch: Fetch, path: str) -> Image.Image | None:
-    """The image, or None when it is gone or not an image. A network failure still raises."""
+    """The image, or None when it is gone, not an image or of an odd shape. A network failure still raises."""
     try:
-        return fetch(path)
+        image = fetch(path)
     except http.HttpError as exc:
         if http.gone(exc):
             return None
         raise
     except (OSError, ValueError):
         return None
+    return image if 1 / MAX_ASPECT <= image.width / image.height <= MAX_ASPECT else None
 
 
 @dataclass(frozen=True)

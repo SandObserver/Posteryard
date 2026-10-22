@@ -18,7 +18,7 @@ Studio posters come in every font, tagline and layout. Posteryard swaps them for
 
 ## What you get
 
-- **Clean art.** Textless art from TMDB, with the title logo in one spot at one size. Art with a printed title is skipped.
+- **Clean art.** Textless art from TMDB, Apple TV or fanart.tv, with the title logo in one spot at one size. Art with a printed title is skipped.
 - **Where it streams.** Shows get the mark of the service they stream on.
 - **Quality badges.** 4K, HDR, Dolby Vision and Atmos badges, read from your files.
 - **Status labels.** `JUST ADDED`, `NEW EPISODE` and `NEW SEASON`, plus a red countdown before [Maintainerr](https://github.com/Maintainerr/Maintainerr) deletes a title.

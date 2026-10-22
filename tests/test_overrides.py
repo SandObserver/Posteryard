@@ -32,8 +32,8 @@ def test_save_refuses_a_key_that_is_not_a_rating_key(tmp_path: Path) -> None:
         overrides.save(Image.new("RGB", (4, 4)), tmp_path, "../1")
 
 
-@pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "http://127.0.0.1/a.jpg", "nope"])
-def test_only_remote_http_addresses(url: str) -> None:
+@pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "nope"])
+def test_only_http_addresses(url: str) -> None:
     with pytest.raises(overrides.ArtError):
         overrides.from_url(url)
 
@@ -60,3 +60,12 @@ def test_store_keeps_one_override_per_title(tmp_path: Path) -> None:
     assert store.override("1") is not None
     store.reset_override("1")
     assert store.override("1") is None
+
+
+def test_a_file_over_the_limit_is_refused_before_it_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    big = tmp_path / "film.mkv"
+    with big.open("wb") as file:
+        file.truncate(overrides.MAX_DOWNLOAD + 1)
+    monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail("the file was read"))
+    with pytest.raises(overrides.ArtError, match="larger than 40 MB"):
+        overrides.from_file(big)

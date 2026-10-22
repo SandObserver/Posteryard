@@ -6,9 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Accept any http or https address for `art set --url`, a server on the same machine included.
+
 ### Fixed
 
 - Check art picked earlier again when the show or movie gains a title, such as a Live TV guide name, and pick new art when it prints that title.
+- Pass over art more than four times as tall as it is wide, or as wide as it is tall, as reading its text could run out of memory.
+- Refuse an `art set --file` over 40 MB before reading it.
 - Pass over art that TMDB or fanart.tv lists but that is gone or not an image, in place of failing the title on every retry.
 - Keep Apple TV art already picked while Apple TV is paused after a failed download, in place of switching those posters to a backdrop for an hour and back.
 - Pause Apple TV art only for the title whose Apple TV image is gone, not for every title.

@@ -1,6 +1,5 @@
 import hashlib
 import io
-import ipaddress
 import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,11 +44,6 @@ def from_url(url: str) -> Image.Image:
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ArtError("the address must start with http:// or https://")
     try:
-        if ipaddress.ip_address(parts.hostname).is_loopback:
-            raise ArtError("loopback addresses are not allowed")
-    except ValueError:
-        pass
-    try:
         return decode(http.request("GET", url, timeout=60, retries=2))
     except http.RequestError as exc:
         raise ArtError(f"could not download the image: {exc}") from None
@@ -58,6 +52,8 @@ def from_url(url: str) -> Image.Image:
 def from_file(path: Path) -> Image.Image:
     if not path.is_file():
         raise ArtError(f"no such file: {path}")
+    if path.stat().st_size > MAX_DOWNLOAD:
+        raise ArtError("the image is larger than 40 MB")
     return decode(path.read_bytes())
 
 

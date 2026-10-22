@@ -142,7 +142,7 @@ def test_an_image_that_does_not_load_is_named(store: Store) -> None:
     ctx.sources.fetch = fetch_some
     result = why.report(ctx, MOVIE, store)
     assert result.art == "/textless.jpg"
-    assert result.groups[0][1][0].reason == "could not be loaded"
+    assert result.groups[0][1][0].reason == "not a usable image"
 
 
 SHOW: Item = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
