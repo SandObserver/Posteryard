@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Update certifi to 2026.10.19 for GHSA-6q48-6c7w-9gw2.
+
 ## [0.10.0] - 2026-10-17
 
 ### Added
