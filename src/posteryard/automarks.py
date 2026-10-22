@@ -1,3 +1,4 @@
+import hashlib
 import json
 import threading
 from collections import deque
@@ -209,10 +210,17 @@ def network_for(offer: Offer) -> int | None:
     return network if network in {i for i, _ in rows} else None
 
 
+def _short(source: str) -> str:
+    return hashlib.sha256(source.encode()).hexdigest()[:8]
+
+
 class AutoMarks:
+    """A mark's name holds its TMDB logo, so a new logo gives a new name and the posters render again."""
+
     def __init__(self, folder: Path, choices: ChoiceCache) -> None:
         self.folder, self.choices = folder, choices
         self._lock = threading.Lock()
+        self._checked: set[str] = set()
         layers.add_mark_dir(folder)
 
     def get(self, offer: Offer, tmdb: Tmdb | None = None) -> str | None:
@@ -221,27 +229,32 @@ class AutoMarks:
             return name
         if offer.provider_id <= 0 or not offer.logo_path:
             return None
-        return self._made(
-            f"auto-{offer.provider_id}-v{VERSION}", offer.logo_path, lambda: cut(Tmdb.image(offer.logo_path))
-        )
+        name = f"auto-{offer.provider_id}-{_short(offer.logo_path)}-v{VERSION}"
+        return self._made(name, lambda: cut(Tmdb.image(offer.logo_path)))
 
     def _network(self, network: int, tmdb: Tmdb) -> str | None:
-        name = f"net-{network}-v{VERSION}"
-        hit = self.choices.get_choice(f"automark:{name}")
-        if hit is not None and (not hit.get("ok") or (self.folder / f"{name}.png").exists()):
-            return name if hit.get("ok") else None
         logo = tmdb.network_logo(network)
         if not logo:
-            self.choices.put_choice(f"automark:{name}", {"logo": "", "ok": False})
             return None
         png = logo.removesuffix(".svg").removesuffix(".png") + ".png"
-        return self._made(name, logo, lambda: one_colour(Tmdb.image(png, NETWORK_SIZE)))
+        return self._made(f"net-{network}-{_short(logo)}-v{VERSION}", lambda: one_colour(Tmdb.image(png, NETWORK_SIZE)))
 
-    def _made(self, name: str, source: str, make: Callable[[], Image.Image | None]) -> str | None:
+    def _readable(self, name: str, path: Path) -> bool:
+        if name in self._checked:
+            return True
+        try:
+            with Image.open(path) as image:
+                image.verify()
+        except (OSError, SyntaxError):
+            return False
+        self._checked.add(name)
+        return True
+
+    def _made(self, name: str, make: Callable[[], Image.Image | None]) -> str | None:
         path = self.folder / f"{name}.png"
         with self._lock:
-            hit = self.choices.get_choice(f"automark:{name}")
-            if hit is not None and hit.get("logo") == source and (not hit.get("ok") or path.exists()):
+            hit = self.choices.get_choice(f"mark:{name}")
+            if hit is not None and (not hit.get("ok") or self._readable(name, path)):
                 return name if hit.get("ok") else None
             try:
                 mark = make()
@@ -249,6 +262,8 @@ class AutoMarks:
                 mark = None
             if mark is not None:
                 self.folder.mkdir(parents=True, exist_ok=True)
-                mark.save(path)
-            self.choices.put_choice(f"automark:{name}", {"logo": source, "ok": mark is not None})
+                part = path.with_suffix(".part")
+                mark.save(part, format="PNG")
+                part.replace(path)
+            self.choices.put_choice(f"mark:{name}", {"ok": mark is not None})
             return name if mark is not None else None

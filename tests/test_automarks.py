@@ -45,7 +45,7 @@ def test_marks_are_cut_once_and_drawn_by_name(tmp_path: Path, monkeypatch: pytes
     monkeypatch.setattr(Tmdb, "image", staticmethod(image))
     marks = AutoMarks(tmp_path / "marks", MemoryChoices())
     name = marks.get(Offer(223, "Hayu", "/flat.jpg"))
-    assert name == f"auto-223-v{automarks.VERSION}"
+    assert name == f"auto-223-{automarks._short('/flat.jpg')}-v{automarks.VERSION}"
     assert marks.get(Offer(223, "Hayu", "/flat.jpg")) == name
     assert marks.get(Offer(9, "Gradient", "/gradient.jpg")) is None
     assert marks.get(Offer(9, "Gradient", "/gradient.jpg")) is None
@@ -143,19 +143,53 @@ def test_a_network_logo_is_preferred_over_the_provider_icon(
 
     def image(path: str, size: str = "original") -> Image.Image:
         fetched.append((path, size))
-        return two_colour_logo() if path == "/exxen.png" else flat_icon()
+        return two_colour_logo() if path.startswith("/exxen") else flat_icon()
 
     monkeypatch.setattr(Tmdb, "image", staticmethod(image))
     tmdb = NetworkTmdb(logo)
     marks = AutoMarks(tmp_path / "marks", MemoryChoices())
     offer = Offer(5, "Exxen", "/icon.jpg", "TR")
-    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"
-    assert marks.get(offer, tmdb) == f"net-4405-v{automarks.VERSION}"
+    network = f"net-4405-{automarks._short(logo)}-v{automarks.VERSION}"
+    assert marks.get(offer, tmdb) == network
+    assert marks.get(offer, tmdb) == network
     assert fetched == [("/exxen.png", "w500")]
-    assert tmdb.asked == [4405]
+    assert set(tmdb.asked) == {4405}
     hidive = Offer(6, "HIDIVE", "/icon.jpg", "US")
-    assert marks.get(hidive, tmdb) == f"auto-6-v{automarks.VERSION}"
-    assert marks.get(hidive) == f"auto-6-v{automarks.VERSION}"
+    icon = f"auto-6-{automarks._short('/icon.jpg')}-v{automarks.VERSION}"
+    assert marks.get(hidive, tmdb) == icon
+    assert marks.get(hidive) == icon
+    tmdb.logo = "/exxen-new.png"
+    assert marks.get(offer, tmdb) == f"net-4405-{automarks._short('/exxen-new.png')}-v{automarks.VERSION}"
+    assert fetched[-1] == ("/exxen-new.png", "w500")
+
+
+def test_a_new_icon_gives_a_new_mark(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Tmdb, "image", staticmethod(lambda path: flat_icon()))
+    marks = AutoMarks(tmp_path / "marks", MemoryChoices())
+    old = marks.get(Offer(223, "Hayu", "/old.jpg"))
+    new = marks.get(Offer(223, "Hayu", "/new.jpg"))
+    assert old and new and old != new
+    assert (tmp_path / "marks" / f"{new}.png").is_file()
+
+
+def test_a_broken_mark_file_is_made_again(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched: list[str] = []
+
+    def image(path: str) -> Image.Image:
+        fetched.append(path)
+        return flat_icon()
+
+    monkeypatch.setattr(Tmdb, "image", staticmethod(image))
+    name = AutoMarks(tmp_path / "marks", MemoryChoices()).get(Offer(223, "Hayu", "/flat.jpg"))
+    file = tmp_path / "marks" / f"{name}.png"
+    file.write_bytes(file.read_bytes()[:40])
+    choices = MemoryChoices()
+    choices.put_choice(f"mark:{name}", {"ok": True})
+    assert AutoMarks(tmp_path / "marks", choices).get(Offer(223, "Hayu", "/flat.jpg")) == name
+    assert fetched == ["/flat.jpg", "/flat.jpg"]
+    with Image.open(file) as made:
+        assert made.size == (181, 61)
+    assert not list((tmp_path / "marks").glob("*.part"))
 
 
 def test_only_parts_inside_other_ink_become_holes() -> None:
