@@ -1,5 +1,6 @@
 from PIL import Image
 
+from posteryard import http
 from posteryard.artwork import MemoryChoices, Picker
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef, Images
@@ -91,3 +92,25 @@ def test_a_white_wordmark_beats_a_coloured_one() -> None:
     red = ImageRef("/red-wide.png", "en", 1000, 300, 9, 9)
     white = ImageRef("/white-wide.png", "en", 1000, 300, 1, 1)
     assert picker.logo("movie:1", Images([], [], [red, white])) == "/white-wide.png"
+
+
+def test_the_pool_passes_over_a_missing_image() -> None:
+    picker, reads = make()
+    fetch = picker.fetch
+
+    def fetch_some(path: str) -> Image.Image:
+        if path == "/c.jpg":
+            raise http.HttpError(404, path)
+        return fetch(path)
+
+    pool = Picker(picker.cache, fetch_some, picker.read).textless_pool("tv:1", refs("/c.jpg", "/b.jpg"), ["Example"])
+    assert list(pool) == ["/b.jpg"]
+    assert reads == ["/b.jpg"]
+
+
+def test_cached_only_downloads_nothing() -> None:
+    picker, reads = make()
+    assert picker.textless("tv:1", refs("/b.jpg"), ["Example"], cached_only=True) is None
+    assert reads == []
+    picker.textless("tv:1", refs("/b.jpg"), ["Example"])
+    assert picker.textless("tv:1", refs("/b.jpg"), ["Example"], cached_only=True) is not None

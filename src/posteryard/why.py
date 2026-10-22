@@ -1,9 +1,9 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from posteryard import apple, overrides, pipeline
-from posteryard.artwork import MemoryChoices, rejection
+from posteryard.artwork import UNREADABLE, MemoryChoices, Read, load, rejection
 from posteryard.fanart import is_fanart
 from posteryard.server import Item, labels
 from posteryard.store import Status, Store
@@ -77,11 +77,16 @@ def _add_candidates(ctx: pipeline.Context, item: Item, result: Report) -> None:
             if fresh:
                 result.unchecked.append(name)
             continue
-        candidates = [Candidate(ref, rejection(read(ctx.sources.fetch(ref.path)), titles)) for ref in fresh]
+        candidates = [Candidate(ref, _reason(ctx, ref.path, read, titles)) for ref in fresh]
         checked.update(ref.path for ref in fresh)
         if candidates:
             result.groups.append((name, candidates))
         found = result.art in checked
+
+
+def _reason(ctx: pipeline.Context, path: str, read: Read, titles: Sequence[str]) -> str | None:
+    image = load(ctx.sources.fetch, path)
+    return UNREADABLE if image is None else rejection(read(image), titles)
 
 
 def _titles(ctx: pipeline.Context, item: Item) -> list[str]:

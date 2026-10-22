@@ -91,7 +91,7 @@ class Measures:
                 return True
             return redrawn and self._same_details(a, b)
         except http.HttpError as exc:
-            if 400 <= exc.status < 500 and exc.status not in http.RETRY_STATUSES:
+            if http.gone(exc):
                 return False
             raise
 

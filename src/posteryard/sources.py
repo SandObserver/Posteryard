@@ -59,6 +59,7 @@ class Sources:
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     apple_down_until: float = 0.0
     apple_dropped: bool = False
+    apple_failed: dict[str, tuple[float, bool]] = field(default_factory=dict)
     text_check: bool = True
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
@@ -90,17 +91,27 @@ class Sources:
         with self._lock:
             _drop_expired(self.lookups, now)
             _drop_expired(self.titles, now)
+        for url in [url for url, (until, _) in self.apple_failed.items() if until <= now]:
+            del self.apple_failed[url]
 
     def load(self, path: str) -> Image.Image:
         if path.startswith(overrides.FILE_PREFIX):
             return overrides.load(path)
+        if apple.is_apple(path) and time.monotonic() < self.apple_down_until:
+            self._drop_apple(path, gone=False)
+            raise http.RequestError("Apple TV art is paused", path)
         try:
             return self.fetch(path)
-        except http.RequestError:
+        except http.RequestError as exc:
             if apple.is_apple(path):
-                self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
-                self.apple_dropped = True
+                if not http.gone(exc):
+                    self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
+                self._drop_apple(path, gone=http.gone(exc))
             raise
+
+    def _drop_apple(self, url: str, *, gone: bool) -> None:
+        self.apple_failed[url] = (time.monotonic() + APPLE_RETRY_SECONDS, gone)
+        self.apple_dropped = True
 
     def retry_without_apple(self) -> bool:
         dropped, self.apple_dropped = self.apple_dropped, False
@@ -122,15 +133,17 @@ class Sources:
         images: FanartImages = self.remember(("fanart", kind, str(tid)), load)
         return images
 
-    def apple_art(self, title: Title) -> str | None:
+    def apple_art(self, title: Title, *, look_up: bool = True) -> str | None:
         region = self.settings.apple_region
         if region is None:
             return None
         key = f"apple:{title.kind}:{title.tmdb_id}:{region}"
         hit = self.choices.get_choice(key)
         today = self.settings.today
-        if hit is not None and (today - date.fromisoformat(str(hit["checked"]))).days < APPLE_ART_DAYS:
+        if hit is not None and (not look_up or (today - date.fromisoformat(str(hit["checked"]))).days < APPLE_ART_DAYS):
             return str(hit["url"]) or None
+        if not look_up:
+            return None
         details = self.tmdb.details(title.kind, title.tmdb_id)
         try:
             url = apple.find(title.kind, details, region)
@@ -144,12 +157,22 @@ class Sources:
         return url
 
     def _apple_picked(self, title: Title, base: str) -> Picked | None:
-        url = self.apple_art(title) if time.monotonic() >= self.apple_down_until else None
+        paused = time.monotonic() < self.apple_down_until
+        url = self.apple_art(title, look_up=not paused)
         if url is None:
             return None
+        key = f"{base}:apple"
+        if failed := self.apple_failed.get(url):
+            until, gone = failed
+            if gone:
+                self.picker.forget(key)
+                self.apple_failed[url] = (until, False)
+            if time.monotonic() < until:
+                return None
+            del self.apple_failed[url]
         ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
         try:
-            return self.picker.textless(f"{base}:apple", [ref], title.all_titles)
+            return self.picker.textless(key, [ref], title.all_titles, cached_only=paused)
         except http.RequestError as exc:
             log.warning(
                 "Apple TV art not loaded", extra={"title": title.name, "using": "other art", "reason": str(exc)}

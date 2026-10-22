@@ -552,26 +552,133 @@ def test_custom_art_needs_no_art_source(tmp_path: Path) -> None:
     assert plans[0].inputs["art"] == f"file:{custom}"
 
 
+class Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+
+def failing(*broken: str, status: int = 503) -> Any:
+    def fetch_or_fail(path: str) -> Image.Image:
+        if path in broken:
+            raise posteryard_http.HttpError(status, path)
+        return fetch(path)
+
+    return fetch_or_fail
+
+
 def test_apple_art_that_stops_loading_is_dropped_for_an_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = Clock()
+    monkeypatch.setattr(sources, "time", clock)
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
     ctx = context([ref("/english.jpg", "en")])
     ctx.settings.apple_region = "CA"
     plan = pipeline.movie(ctx, ITEM)[0]
     assert plan.inputs["art"] == APPLE_URL
-
-    def fetch_or_fail(path: str) -> Image.Image:
-        if path == APPLE_URL:
-            raise posteryard_http.HttpError(503, path)
-        return fetch(path)
-
-    ctx.sources.fetch = fetch_or_fail
+    ctx.sources.fetch = failing(APPLE_URL)
     with pytest.raises(posteryard_http.HttpError):
         plan.draw()
     assert ctx.sources.retry_without_apple()
     assert not ctx.sources.retry_without_apple()
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
-    ctx.sources.apple_down_until = 0.0
+    clock.now += sources.APPLE_RETRY_SECONDS
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+
+
+OTHER_APPLE_URL = APPLE_URL.replace("/ab/cd/", "/ef/gh/")
+OTHER: Item = {**ITEM, "ratingKey": "2", "Guid": [{"id": "tmdb://43"}]}
+
+
+def apple_per_title(monkeypatch: pytest.MonkeyPatch, ctx: pipeline.Context) -> None:
+    monkeypatch.setattr(
+        apple, "find", lambda kind, details, region: APPLE_URL if details.get("id") == 42 else OTHER_APPLE_URL
+    )
+    monkeypatch.setattr(type(tmdb_of(ctx)), "details", lambda self, kind, tid: {"id": tid, "title": "Example Movie"})
+    ctx.settings.apple_region = "CA"
+
+
+def test_an_apple_outage_keeps_apple_art_already_picked(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context([ref("/english.jpg", "en")])
+    apple_per_title(monkeypatch, ctx)
+    before = pipeline.movie(ctx, ITEM)[0]
+    ctx.sources.fetch = failing(OTHER_APPLE_URL)
+    assert pipeline.movie(ctx, OTHER)[0].inputs["art"] == "/backdrop.jpg"
+    assert ctx.sources.apple_down_until > 0
+    after = pipeline.movie(ctx, ITEM)[0]
+    assert after.inputs["art"] == APPLE_URL
+    assert after.fingerprint == before.fingerprint
+
+
+def test_a_paused_apple_fails_the_draw_at_once_and_the_retry_uses_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    def fetch_counted(path: str) -> Image.Image:
+        calls.append(path)
+        return fetch(path)
+
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/english.jpg", "en")])
+    ctx.settings.apple_region = "CA"
+    plan = pipeline.movie(ctx, ITEM)[0]
+    ctx.sources.fetch = fetch_counted
+    ctx.sources.apple_down_until = time.monotonic() + sources.APPLE_RETRY_SECONDS
+    with pytest.raises(posteryard_http.RequestError, match="paused"):
+        plan.draw()
+    assert APPLE_URL not in calls
+    assert ctx.sources.retry_without_apple()
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
+
+
+def test_apple_art_that_is_gone_does_not_pause_apple_for_other_titles(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = Clock()
+    monkeypatch.setattr(sources, "time", clock)
+    ctx = context([ref("/english.jpg", "en")])
+    apple_per_title(monkeypatch, ctx)
+    plan = pipeline.movie(ctx, ITEM)[0]
+    ctx.sources.fetch = failing(APPLE_URL, status=404)
+    with pytest.raises(posteryard_http.HttpError):
+        plan.draw()
+    assert ctx.sources.apple_down_until == 0
+    assert ctx.sources.retry_without_apple()
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
+    assert pipeline.movie(ctx, OTHER)[0].inputs["art"] == OTHER_APPLE_URL
+    clock.now += sources.APPLE_RETRY_SECONDS
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
+
+
+def test_failed_apple_images_are_forgotten_after_the_hour(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = Clock()
+    monkeypatch.setattr(sources, "time", clock)
+    ctx = context([])
+    ctx.sources.apple_failed = {APPLE_URL: (clock.now + 10, False)}
+    ctx.sources.forget()
+    assert APPLE_URL in ctx.sources.apple_failed
+    clock.now += 10
+    ctx.sources.forget()
+    assert ctx.sources.apple_failed == {}
+
+
+def test_a_missing_or_unreadable_candidate_is_passed_over() -> None:
+    ctx = context([ref("/gone.jpg", None), ref("/broken.jpg", None), ref("/textless.jpg", None)])
+
+    def fetch_some(path: str) -> Image.Image:
+        if path == "/gone.jpg":
+            raise posteryard_http.HttpError(404, path)
+        if path == "/broken.jpg":
+            raise OSError("cannot identify image file")
+        return fetch(path)
+
+    ctx.sources.fetch = fetch_some
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+
+
+def test_a_candidate_on_an_overloaded_server_fails_the_item() -> None:
+    ctx = context([ref("/busy.jpg", None), ref("/textless.jpg", None)])
+    ctx.sources.fetch = failing("/busy.jpg")
+    with pytest.raises(posteryard_http.HttpError):
+        pipeline.movie(ctx, ITEM)
 
 
 def test_titles_drawn_in_a_fallback_font_name_it(monkeypatch: pytest.MonkeyPatch) -> None:

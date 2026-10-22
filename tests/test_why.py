@@ -2,8 +2,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL import Image
 
-from posteryard import cli, overrides, pipeline, why
+from posteryard import cli, http, overrides, pipeline, why
 from posteryard.artwork import rejection
 from posteryard.ocr import TextLine
 from posteryard.server import Item
@@ -125,3 +126,18 @@ def test_without_the_text_check_the_first_candidate_is_used_and_kept_apart(store
     assert result.art == "/english.jpg"
     assert "TEXT_CHECK is off: art is not checked for printed titles." in result.notices
     assert why.report(checked, MOVIE, store).art == "/textless.jpg"
+
+
+def test_an_image_that_does_not_load_is_named(store: Store) -> None:
+    ctx = context([ref("/gone.jpg", None), ref("/textless.jpg", None)])
+    fetch = ctx.sources.fetch
+
+    def fetch_some(path: str) -> Image.Image:
+        if path == "/gone.jpg":
+            raise http.HttpError(404, path)
+        return fetch(path)
+
+    ctx.sources.fetch = fetch_some
+    result = why.report(ctx, MOVIE, store)
+    assert result.art == "/textless.jpg"
+    assert result.groups[0][1][0].reason == "could not be loaded"
