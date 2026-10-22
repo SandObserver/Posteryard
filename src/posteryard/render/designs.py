@@ -1,4 +1,7 @@
+import colorsys
 import math
+from collections.abc import Iterable
+from functools import cache
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -54,6 +57,25 @@ CHANNEL_BANDS: dict[str, tuple[tuple[int, int, int], tuple[int, int, int]]] = {
     "hulu": ((24, 120, 80), (20, 100, 68)),
     "peacock": ((40, 40, 44), (24, 24, 26)),
     "youtube": ((170, 24, 24), (142, 18, 18)),
+}
+CHANNEL_CONTRAST = 7.0
+CHANNEL_BAND_FALL = 0.85
+# The accent each service uses on its own site or app. Never a colour sampled from a logo.
+BRAND_COLOURS: dict[str, RGB] = {
+    "adn": (0, 150, 255),
+    "bbciplayer": (255, 76, 152),
+    "cbcgem": (230, 5, 5),
+    "channel4": (170, 255, 137),
+    "crunchyroll": (255, 94, 0),
+    "discovery+": (33, 117, 217),
+    "hayu": (255, 40, 90),
+    "jiohotstar": (20, 146, 255),
+    "movistar": (0, 102, 255),
+    "mubi": (0, 20, 137),
+    "stan": (0, 114, 251),
+    "starz": (26, 209, 211),
+    "tubi": (69, 0, 157),
+    "viaplay": (216, 12, 80),
 }
 PLAIN_STILL = ((0.0, 0.0), (0.65, 0.0), (1.0, 0.35))
 NUMBER_SHADE: tuple[tuple[float, float], ...] = ((0.0, 0.40), (0.5, 0.20), (1.0, 0.0))
@@ -291,7 +313,35 @@ def _fit(text: str, face: ImageFont.FreeTypeFont, max_width: int) -> str:
     return text + "…"
 
 
-def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Image.Image:
+def _hls(h: float, lightness: float, s: float) -> RGB:
+    r, g, b = colorsys.hls_to_rgb(h, lightness, s)
+    return round(r * 255), round(g * 255), round(b * 255)
+
+
+@cache
+def _deepened(colour: RGB) -> tuple[RGB, RGB]:
+    """The brand hue, darkened until a white mark on it reaches CHANNEL_CONTRAST."""
+    h, lightness, s = colorsys.rgb_to_hls(*(v / 255 for v in colour))
+    top = colour
+    while 1.05 / (float(luminance(np.array(top, float))) + 0.05) < CHANNEL_CONTRAST:
+        lightness -= 0.005
+        top = _hls(h, lightness, s)
+    return top, _hls(h, lightness * CHANNEL_BAND_FALL, s)
+
+
+def channel_band(keys: Iterable[str]) -> tuple[RGB, RGB]:
+    """The first key with an Apple TV band or a brand colour decides. Keys are service keys or service names."""
+    for key in keys:
+        if key in CHANNEL_BANDS:
+            return CHANNEL_BANDS[key]
+        if key in BRAND_COLOURS:
+            return _deepened(BRAND_COLOURS[key])
+    return CHANNEL_DEFAULT_BAND
+
+
+def channel_tile(
+    art: Image.Image, logo: Image.Image | None, service: str, band: tuple[RGB, RGB] | None = None
+) -> Image.Image:
     w, h = POSTER
     split = round(CHANNEL_SEAM * h)
     canvas = Image.new("RGBA", POSTER)
@@ -304,9 +354,9 @@ def channel_tile(art: Image.Image, logo: Image.Image | None, service: str) -> Im
             (max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.Resampling.LANCZOS
         )
         canvas.alpha_composite(logo, ((w - logo.width) // 2, round(CHANNEL_LOGO_TOP * h)))
-    top, bottom = CHANNEL_BANDS.get(service, CHANNEL_DEFAULT_BAND)
-    band = np.linspace(np.array(top, float), np.array(bottom, float), h - split)[:, None, :].repeat(w, axis=1)
-    canvas.paste(Image.fromarray(band.astype(np.uint8), "RGB"), (0, split))
+    top, bottom = band or channel_band([service])
+    fill = np.linspace(np.array(top, float), np.array(bottom, float), h - split)[:, None, :].repeat(w, axis=1)
+    canvas.paste(Image.fromarray(fill.astype(np.uint8), "RGB"), (0, split))
     src = mark(service, 400)
     aspect = src.width / src.height
     height = min(

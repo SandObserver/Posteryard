@@ -501,12 +501,16 @@ def collection(ctx: Context, item: Item) -> list[Plan]:
     service = services.service_named(name) or ctx.sources.service_mark(name)
     if service:
         logo = ctx.sources.logo(title)
+        names = [services.network_key(base) for base in sorted(services.collection_bases(name))]
+        band = designs.channel_band([service, *names])
 
         def channel() -> Image.Image:
             featured_logo = trim(ctx.sources.fetch(logo)) if logo else designs.text_logo(title.name, prefer=title.font)
-            return designs.channel_tile(ctx.sources.fetch(art_path), featured_logo, service)
+            return designs.channel_tile(ctx.sources.fetch(art_path), featured_logo, service, band)
 
         inputs = {"design": "channel", "art": art_path, "logo": logo, "featured": title.name, "service": service}
+        if band not in (designs.CHANNEL_DEFAULT_BAND, *designs.CHANNEL_BANDS.values()):
+            inputs["band"] = "#{:02x}{:02x}{:02x}".format(*band[0])
         if not logo and (family := family_for(title.name, title.font)) != "Inter":
             inputs["font"] = family
         return [Plan(key, "poster", name, inputs, channel, [f"art of {title.name} from {art_source(art_path)}"])]

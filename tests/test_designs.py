@@ -1,3 +1,4 @@
+import colorsys
 from typing import Any
 
 import numpy as np
@@ -310,3 +311,19 @@ def test_right_to_left_names_sit_bottom_right() -> None:
     right = [float(column[:, 700:].max()) for column in ink]
     assert left[0] > 200 and right[0] < 200
     assert right[1] > 200 and left[1] < 200
+
+
+def test_a_brand_colour_is_deepened_until_a_white_mark_reads_at_seven_to_one() -> None:
+    top, bottom = designs.channel_band(["crunchyroll"])
+    contrast = 1.05 / (float(luminance(np.array(top, float))) + 0.05)
+    assert designs.CHANNEL_CONTRAST <= contrast < designs.CHANNEL_CONTRAST + 0.3
+    assert colorsys.rgb_to_hls(*(v / 255 for v in top))[0] == pytest.approx(
+        colorsys.rgb_to_hls(*(v / 255 for v in designs.BRAND_COLOURS["crunchyroll"]))[0], abs=0.01
+    )
+    assert sum(bottom) < sum(top)
+
+
+def test_apple_bands_come_first_and_unknown_services_stay_grey() -> None:
+    assert designs.channel_band(["netflix", "crunchyroll"]) == designs.CHANNEL_BANDS["netflix"]
+    assert designs.channel_band(["net-1-abcd1234-v2", "hayu"]) == designs.channel_band(["hayu"])
+    assert designs.channel_band(["net-1-abcd1234-v2", "shudder"]) == designs.CHANNEL_DEFAULT_BAND

@@ -458,6 +458,11 @@ def test_a_collection_named_after_a_service_with_an_automatic_mark_gets_the_chan
     channel = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "BINGE"})[0]
     assert channel.inputs["design"] == "channel"
     assert channel.draw().size == (1000, 1500)
+    assert "band" not in channel.inputs
+    netflix = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "Netflix"})[0]
+    assert "band" not in netflix.inputs
+    crunchyroll = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "Crunchyroll"})[0]
+    assert crunchyroll.inputs["band"] == "#{:02x}{:02x}{:02x}".format(*designs.channel_band(["crunchyroll"])[0])
 
 
 def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
