@@ -4,13 +4,15 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import cli, http, overrides, pipeline, why
+from posteryard import apple, cli, http, overrides, pipeline, why
 from posteryard.artwork import rejection
 from posteryard.ocr import TextLine
 from posteryard.server import Item
 from posteryard.store import Store
-from tests.fakes import context, ref
+from posteryard.tmdb import Images
+from tests.fakes import FakeServer, context, ref, tmdb_of
 from tests.test_cli import run  # noqa: F401
+from tests.test_pipeline import APPLE_URL
 
 MOVIE: Item = {"ratingKey": "1", "type": "movie", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}]}
 
@@ -141,3 +143,40 @@ def test_an_image_that_does_not_load_is_named(store: Store) -> None:
     result = why.report(ctx, MOVIE, store)
     assert result.art == "/textless.jpg"
     assert result.groups[0][1][0].reason == "could not be loaded"
+
+
+SHOW: Item = {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
+SEASON: Item = {"ratingKey": "11", "type": "season", "title": "Season 1", "index": 1, "parentRatingKey": "1"}
+
+
+class ShowServer(FakeServer):
+    def item(self, rating_key: str) -> Item | None:
+        items: dict[str, Item] = {"1": SHOW, "11": SEASON, "12": {**SEASON, "ratingKey": "12", "index": 2}}
+        return items.get(rating_key)
+
+    def children(self, rating_key: str) -> list[Item]:
+        return [{"index": n} for n in (1, 2)] if rating_key == "1" else []
+
+
+def test_season_art_that_is_the_show_art_is_named(store: Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.server = ShowServer()
+    tmdb = tmdb_of(ctx)
+    monkeypatch.setattr(tmdb, "season_images", lambda show_id, season: Images([ref("/textless.jpg", None)], [], []))
+    result = why.report(ctx, SEASON, store)
+    assert result.art != "/textless.jpg"
+    text = "\n".join(why.lines("Example Show · Season 1", result))
+    assert "/textless.jpg  2000x3000  rated 5.0 (10 votes)  same picture as the show" in text
+
+
+def test_season_on_show_art_lists_the_show_art(store: Store, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/english.jpg", "en")])
+    ctx.server = ShowServer()
+    ctx.settings.apple_region = "CA"
+    tmdb_of(ctx).backdrops = []
+    result = why.report(ctx, {**SEASON, "ratingKey": "12", "index": 2}, store)
+    assert result.art == APPLE_URL
+    text = "\n".join(why.lines("Example Show · Season 2", result))
+    assert "Show art from Apple TV" in text
+    assert "1680x3636nr.jpg  200x300  Apple TV  used" in text

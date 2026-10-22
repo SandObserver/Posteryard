@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Pass over art that TMDB or fanart.tv lists but that is gone or not an image, in place of failing the title on every retry.
 - Keep Apple TV art already picked while Apple TV is paused after a failed download, in place of switching those posters to a backdrop for an hour and back.
 - Pause Apple TV art only for the title whose Apple TV image is gone, not for every title.
+- Give a season its own clean art when the show has none, in place of failing the season.
+- Keep `art next` on a show off the art its seasons already use.
+- Step `art next` through Apple TV and fanart.tv art too, in the same order as the automatic choice.
+- Show in `why` when a season's own art is skipped as the same picture as the show or another season, and list the show art a season falls back to.
 
 ### Security
 

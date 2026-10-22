@@ -156,7 +156,8 @@ class Sources:
         self.choices.put_choice(key, {"url": url or "", "checked": today.isoformat()})
         return url
 
-    def _apple_picked(self, title: Title, base: str) -> Picked | None:
+    def apple_picked(self, title: Title) -> Picked | None:
+        base = f"{title.kind}:{title.tmdb_id}"
         paused = time.monotonic() < self.apple_down_until
         url = self.apple_art(title, look_up=not paused)
         if url is None:
@@ -185,7 +186,7 @@ class Sources:
         images = self.images(title.kind, title.tmdb_id)
         picked = (
             self.picker.textless(f"{base}:posters", images.textless_posters(), title.all_titles)
-            or self._apple_picked(title, base)
+            or self.apple_picked(title)
             or self.picker.textless(f"{base}:backdrops", images.textless_backdrops(), title.all_titles)
         )
         if picked is None and self.fanart is not None:

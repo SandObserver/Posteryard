@@ -740,3 +740,57 @@ def test_start_up_cleaning_keeps_every_choice_in_use() -> None:
     families = pipeline.CHOICE_FAMILIES.items()
     dropped = [k for k in choices.keys for f, keep in families if k.startswith(f) and not k.startswith(keep)]
     assert choices.keys and dropped == []
+
+
+SHOW: Item = {"ratingKey": "1", "title": "Example Show", "Guid": [{"id": "tmdb://42"}], "type": "show"}
+
+
+def season_art(ctx: pipeline.Context, *numbers: int) -> dict[int, str]:
+    title = ctx.sources.title("tv", 42, "Example Show")
+    return {
+        n: pipeline.season(ctx, title, {"ratingKey": str(10 + n), "index": n, "parentRatingKey": "1"})[0].inputs["art"]
+        for n in numbers
+    }
+
+
+def test_a_season_with_its_own_art_needs_no_show_art() -> None:
+    ctx = context([ref("/english.jpg", "en")])
+    tmdb_of(ctx).backdrops = []
+    assert season_art(ctx, 1) == {1: "/season1.jpg"}
+    with pytest.raises(pipeline.NotFoundError):
+        season_art(ctx, 2)
+
+
+def test_art_next_on_a_show_avoids_the_art_of_its_seasons() -> None:
+    ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
+    seasons = season_art(ctx, 1, 2, 3, 4)
+    assert seasons[2] == "/textless2.jpg"
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"})) if key == "1" else None
+    after = pipeline.show(ctx, SHOW)[0].inputs["art"]
+    assert after not in {"/textless.jpg", *seasons.values()}
+
+
+def test_art_next_offers_apple_art_before_backdrops(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.settings.apple_region = "CA"
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/textless.jpg"
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == APPLE_URL
+
+
+FANART_POSTERS = [f"https://assets.fanart.tv/fanart/movies/42/movieposter/{name}.jpg" for name in ("a", "b")]
+
+
+class TwoPosterFanart(Fanart):
+    def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
+        return FanartImages(Images([ref(path, None) for path in FANART_POSTERS], [], []))
+
+
+def test_art_next_moves_on_through_fanart_art() -> None:
+    ctx = context([ref("/english.jpg", "en")])
+    tmdb_of(ctx).backdrops = []
+    ctx.sources.fanart = TwoPosterFanart("example")
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == FANART_POSTERS[0]
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({FANART_POSTERS[0]}))
+    assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == FANART_POSTERS[1]
