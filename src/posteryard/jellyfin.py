@@ -3,9 +3,11 @@
 import base64
 import gzip
 import io
+import ipaddress
 import json
 import logging
 import re
+import socket
 import urllib.parse
 import xml.etree.ElementTree as ET
 import zlib
@@ -26,6 +28,40 @@ PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 GUIDE = "guide"
 log = logging.getLogger(__name__)
 XMLTV_TIME = "%Y%m%d%H%M%S %z"
+
+
+def _content_url_ok(url: str) -> bool:
+    """True when a URL from guide content is safe to fetch.
+
+    XMLTV guide addresses and <icon src> values are content supplied by the
+    guide provider — an untrusted provider can point them at loopback
+    services, link-local metadata endpoints (169.254.169.254), or multicast
+    targets to turn Posteryard into an SSRF pivot. Private RFC1918 ranges stay
+    allowed because media servers legitimately live on LAN addresses.
+    """
+    host = (urllib.parse.urlparse(url).hostname or "").strip()
+    if not host:
+        return False
+    try:
+        addresses = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            addresses = [
+                ipaddress.ip_address(info[4][0])
+                for info in socket.getaddrinfo(host, None)
+            ]
+        except (OSError, ValueError):
+            return False
+    return all(
+        not (
+            ip.is_loopback
+            or ip.is_link_local
+            or ip.is_reserved
+            or ip.is_multicast
+            or ip.is_unspecified
+        )
+        for ip in addresses
+    )
 
 
 def _timestamp(value: Any) -> int | None:
@@ -371,7 +407,11 @@ class Jellyfin:
         pictures: dict[tuple[str, int], str] = {}
         for listing in (self._get("/System/Configuration/livetv") or {}).get("ListingProviders") or []:
             path = str(listing.get("Path") or "")
-            if listing.get("Type") != "xmltv" or not path.startswith(("http://", "https://")):
+            if (
+                listing.get("Type") != "xmltv"
+                or not path.startswith(("http://", "https://"))
+                or not _content_url_ok(path)
+            ):
                 continue
             try:
                 data = http.request("GET", path, timeout=120)
@@ -418,7 +458,12 @@ def _xmltv_pictures(data: bytes, start: int, end: int) -> dict[tuple[str, int], 
                 begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
             except ValueError:
                 begins = 0
-            if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
+            if (
+                src.startswith(("http://", "https://"))
+                and _content_url_ok(src)
+                and channel is not None
+                and start - 86400 < begins < end
+            ):
                 pictures[(channel, begins)] = src
             element.clear()
     return pictures
