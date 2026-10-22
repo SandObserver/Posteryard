@@ -14,10 +14,11 @@ import unicodedata
 from collections import Counter
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any
 
+import urllib3
 from PIL import Image
 
 from posteryard import http, pipeline
@@ -150,10 +151,17 @@ def guide_shows(
     ]
 
 
-def fetch_image(url: str) -> Image.Image:
+def _origin(url: str) -> tuple[str | None, str | None, int | None]:
+    parts = urllib3.util.parse_url(url)
+    return parts.scheme, parts.host, parts.port or {"http": 80, "https": 443}.get(parts.scheme or "")
+
+
+def fetch_image(url: str, server: str = "") -> Image.Image:
+    """Only the media server at `server` may be on this machine. Guide content names every other host."""
     if not _web(url):
         raise ValueError(f"not a web address: {url}")
-    return open_image(http.request("GET", url, timeout=60))
+    untrusted = not server or _origin(url) != _origin(server)
+    return open_image(http.request("GET", url, timeout=60, untrusted=untrusted))
 
 
 class LiveTv:
@@ -165,11 +173,11 @@ class LiveTv:
         *,
         dry_run: bool,
         preview_dir: Path,
-        fetch: Callable[[str], Image.Image] = fetch_image,
+        fetch: Callable[[str], Image.Image] | None = None,
     ) -> None:
         self.server, self.store, self.ctx = server, store, ctx
         self.dry_run, self.preview_dir = dry_run, preview_dir
-        self._fetch = fetch
+        self._fetch = fetch or partial(fetch_image, server=server.url)
         self._unreadable: set[str] = set()
         self._confirmed: list[str] = []
 

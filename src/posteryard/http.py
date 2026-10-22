@@ -1,5 +1,7 @@
+import ipaddress
 import json
 import logging
+import socket
 import time
 import urllib.parse
 from email.utils import parsedate_to_datetime
@@ -20,20 +22,85 @@ SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
-POOL = urllib3.PoolManager(
-    num_pools=16,
-    maxsize=4,
-    retries=urllib3.Retry(
-        total=None,
-        connect=0,
-        read=0,
-        status=0,
-        other=0,
-        redirect=5,
-        raise_on_status=False,
-        remove_headers_on_redirect=urllib3.Retry.DEFAULT_REMOVE_HEADERS_ON_REDIRECT | {"api-key"},
-    ),
-)
+METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
+
+
+class RefusedError(ValueError):
+    pass
+
+
+def refused(address: str) -> str:
+    """Why an address from guide content may not be fetched, or an empty string. LAN addresses are allowed."""
+    ip = ipaddress.ip_address(address)
+    checks = {
+        "loopback": ip.is_loopback,
+        "link-local": ip.is_link_local,
+        "multicast": ip.is_multicast,
+        "reserved": ip.is_reserved,
+        "unspecified": ip.is_unspecified,
+        "metadata service": ip in METADATA,
+    }
+    return next((f"a {name} address" for name, hit in checks.items() if hit), "")
+
+
+class _UntrustedConnection(urllib3.connection.HTTPConnection):
+    def _new_conn(self) -> socket.socket:
+        """Resolve once and connect to the checked address. A second lookup could answer differently."""
+        name = self._dns_host
+        try:
+            found = socket.getaddrinfo(name, self.port, type=socket.SOCK_STREAM)
+        except socket.gaierror as exc:
+            raise urllib3.exceptions.NameResolutionError(self.host, self, exc) from exc
+        addresses = list(dict.fromkeys(str(info[4][0]) for info in found))
+        for address in addresses:
+            if reason := refused(address):
+                raise RefusedError(f"refused {name} as {reason}")
+        failure: urllib3.exceptions.ConnectTimeoutError | None = None
+        try:
+            for address in addresses:
+                self._dns_host = address
+                try:
+                    return super()._new_conn()
+                except urllib3.exceptions.ConnectTimeoutError as exc:
+                    failure = exc
+        finally:
+            self._dns_host = name
+        assert failure is not None
+        raise failure
+
+
+class _UntrustedHTTPSConnection(_UntrustedConnection, urllib3.connection.HTTPSConnection):
+    pass
+
+
+class _UntrustedPool(urllib3.HTTPConnectionPool):
+    ConnectionCls = _UntrustedConnection
+
+
+class _UntrustedHTTPSPool(urllib3.HTTPSConnectionPool):
+    ConnectionCls = _UntrustedHTTPSConnection
+
+
+def _pool_manager() -> urllib3.PoolManager:
+    return urllib3.PoolManager(
+        num_pools=16,
+        maxsize=4,
+        retries=urllib3.Retry(
+            total=None,
+            connect=0,
+            read=0,
+            status=0,
+            other=0,
+            redirect=5,
+            raise_on_status=False,
+            remove_headers_on_redirect=urllib3.Retry.DEFAULT_REMOVE_HEADERS_ON_REDIRECT | {"api-key"},
+        ),
+    )
+
+
+POOL = _pool_manager()
+UNTRUSTED_POOL = _pool_manager()
+UNTRUSTED_POOL.pool_classes_by_scheme = {"http": _UntrustedPool, "https": _UntrustedHTTPSPool}
 
 
 class RequestError(Exception):
@@ -92,12 +159,14 @@ def request(  # noqa: PLR0913
     timeout: float = 30,
     retries: int = 3,
     redirects: bool = True,
+    untrusted: bool = False,
 ) -> bytes:
+    """Set `untrusted` for an address taken from guide content. Every redirect is then checked too."""
     delay = 2.0
     for attempt in range(1, retries + 1):
         wait = delay
         try:
-            response = POOL.request(
+            response = (UNTRUSTED_POOL if untrusted else POOL).request(
                 method,
                 url,
                 body=data,
@@ -129,7 +198,7 @@ def request(  # noqa: PLR0913
             if _network_failure(exc, method, url, last=attempt == retries, first=attempt == 1):
                 continue
         except ValueError as exc:
-            raise RequestError(type(exc).__name__, url) from None
+            raise RequestError(str(exc) if isinstance(exc, RefusedError) else type(exc).__name__, url) from None
         time.sleep(wait)
         delay *= 2
     raise AssertionError("unreachable")
