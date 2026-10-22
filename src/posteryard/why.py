@@ -63,7 +63,28 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
     if not ctx.sources.text_check:
         result.notices.append("TEXT_CHECK is off: art is not checked for printed titles.")
     _add_candidates(ctx, item, result)
+    if item.get("type") == "season":
+        _mark_season_art(ctx, item, result)
     return result
+
+
+def _mark_season_art(ctx: pipeline.Context, item: Item, result: Report) -> None:
+    if result.groups:
+        neighbours = pipeline.season_neighbours(ctx, item)
+        group, candidates = result.groups[0]
+        result.groups[0] = (group, [_marked(ctx, candidate, result.art, neighbours) for candidate in candidates])
+    if all(c.ref.path != result.art for _, candidates in result.groups for c in candidates):
+        width, height = ctx.sources.load(result.art).size
+        ref = ImageRef(result.art, None, width, height, 0.0, 0)
+        result.groups.append((f"Show art from {pipeline.art_source(result.art)}", [Candidate(ref, None)]))
+
+
+def _marked(ctx: pipeline.Context, candidate: Candidate, art: str, neighbours: Sequence[tuple[str, str]]) -> Candidate:
+    if candidate.reason is not None or candidate.ref.path == art:
+        return candidate
+    if name := pipeline.same_as(ctx, candidate.ref.path, neighbours):
+        return Candidate(candidate.ref, f"same picture as {name}")
+    return candidate
 
 
 def _add_candidates(ctx: pipeline.Context, item: Item, result: Report) -> None:

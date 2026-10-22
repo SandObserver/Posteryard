@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
@@ -117,30 +117,48 @@ def _season_label(number: int) -> str:
     return "Specials" if number == 0 else f"Season {number}"
 
 
-def _season_art(ctx: Context, title: Title, season: int, show_art: str, numbers: Sequence[int]) -> tuple[str, str]:
+def _assignment(ctx: Context, title: Title, show_art: str | None, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
     key = ("seasons", str(title.tmdb_id), *map(str, numbers))
     assignment: dict[int, tuple[str, str]] = ctx.sources.remember(
         key, lambda: _assign_seasons(ctx, title, show_art, numbers)
     )
-    return assignment.get(season, (show_art, f"show art from {art_source(show_art)}"))
+    return assignment
 
 
-def _season_assignment_paths(
-    ctx: Context, title: Title, show_art: str, siblings: Sequence[int], season: int | None
-) -> list[str]:
-    if season is None:
-        return []
-    key = ("seasons", str(title.tmdb_id), *map(str, siblings))
-    assignment: dict[int, tuple[str, str]] = ctx.sources.remember(
-        key, lambda: _assign_seasons(ctx, title, show_art, siblings)
-    )
-    return [show_art, *(path for number, (path, _) in assignment.items() if number != season)]
+def _season_art(
+    ctx: Context, title: Title, season: int, show_art: str | None, numbers: Sequence[int]
+) -> tuple[str, str] | None:
+    if found := _assignment(ctx, title, show_art, numbers).get(season):
+        return found
+    return (show_art, f"show art from {art_source(show_art)}") if show_art else None
 
 
-def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
+def _neighbours(
+    ctx: Context, title: Title, show_art: str | None, siblings: Sequence[int], season: int | None
+) -> list[tuple[str, str]]:
+    """The art of the show and of its other seasons, each with what uses it."""
+    assignment = _assignment(ctx, title, show_art, siblings)
+    shown = [(show_art, "the show")] if show_art and season is not None else []
+    return shown + [(path, _season_label(number)) for number, (path, _) in assignment.items() if number != season]
+
+
+def season_neighbours(ctx: Context, item: Item) -> list[tuple[str, str]]:
+    title = _show(ctx, item)[0]
+    show_art = ctx.sources.art(title)
+    siblings = _sibling_seasons(ctx, title, item)
+    return _neighbours(ctx, title, show_art.path if show_art else None, siblings, int(item.get("index", 0)))
+
+
+def same_as(ctx: Context, path: str, neighbours: Sequence[tuple[str, str]]) -> str | None:
+    return next((name for other, name in neighbours if _seen(ctx, path, [other])), None)
+
+
+def _assign_seasons(
+    ctx: Context, title: Title, show_art: str | None, numbers: Sequence[int]
+) -> dict[int, tuple[str, str]]:
     """TMDB stores one picture under several file names and crops, so "used" compares pictures, not names."""
     base = f"{title.kind}:{title.tmdb_id}"
-    used = [show_art]
+    used = [show_art] if show_art else []
     assignment: dict[int, tuple[str, str]] = {}
     own: dict[int, str] = {}
     for number in numbers:
@@ -179,12 +197,27 @@ def _assign_seasons(ctx: Context, title: Title, show_art: str, numbers: Sequence
 
 
 def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str]) -> str | None:
-    base = f"{title.kind}:{title.tmdb_id}"
-    pool = ctx.sources.picker.textless_pool(
-        f"{base}:pool", ctx.sources.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
-    )
     used = [*avoid, *skip]
-    return next((path for path in pool if not _seen(ctx, path, used)), None)
+    return next((path for path in _art_in_order(ctx, title) if not _seen(ctx, path, used)), None)
+
+
+def _art_in_order(ctx: Context, title: Title) -> Iterator[str]:
+    """Clean art in the order of the automatic choice. An image is read only when iteration reaches it."""
+    base = f"{title.kind}:{title.tmdb_id}"
+    images = ctx.sources.images(title.kind, title.tmdb_id)
+    posters = {r.path for r in images.textless_posters()}
+    apple_checked = False
+    for path in ctx.sources.picker.textless_pool(f"{base}:pool", images.textless_art(), title.all_titles):
+        if not apple_checked and path not in posters:
+            apple_checked = True
+            if apple_art := ctx.sources.apple_picked(title):
+                yield apple_art.path
+        yield path
+    if not apple_checked and (apple_art := ctx.sources.apple_picked(title)):
+        yield apple_art.path
+    if ctx.sources.fanart is not None:
+        extra = ctx.sources.fanart_images(title.kind, title.tmdb_id).images
+        yield from ctx.sources.picker.textless_pool(f"{base}:fanart:pool", extra.textless_art(), title.all_titles)
 
 
 def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True) -> bool:
@@ -240,6 +273,38 @@ def _lines_below(
     return below
 
 
+def _automatic_art(  # noqa: PLR0913
+    ctx: Context,
+    title: Title,
+    key: str,
+    name: str,
+    *,
+    season: int | None,
+    siblings: Sequence[int],
+    skip: frozenset[str],
+) -> tuple[str, str]:
+    show_art = ctx.sources.art(title)
+    show_path = show_art.path if show_art else None
+    if season is None:
+        if show_path is None:
+            raise _no_art(ctx, name)
+        art_path, note = show_path, f"art from {art_source(show_path)}"
+        if title.kind == "tv" and skip:
+            siblings = _sibling_seasons(ctx, title, {"parentRatingKey": key})
+    else:
+        found = _season_art(ctx, title, season, show_path, siblings)
+        if found is None:
+            raise _no_art(ctx, name)
+        art_path, note = found
+    if not skip:
+        return art_path, note
+    others = [path for path, _ in _neighbours(ctx, title, show_path, siblings, season)] if siblings else []
+    replacement = _next_unused(ctx, title, others, skip)
+    if replacement is None:
+        return art_path, note + ", no other art left to switch to"
+    return replacement, f"next art from {art_source(replacement)}"
+
+
 def _poster(  # noqa: PLR0913
     ctx: Context,
     title: Title,
@@ -253,27 +318,16 @@ def _poster(  # noqa: PLR0913
     access: list[quality.Badge] | None = None,
 ) -> Plan:
     override = ctx.sources.overrides(key)
-    show_art = None if override and override.custom else ctx.sources.art(title)
-    logo = ctx.sources.logo(title)
     extra: dict[str, Any] = {}
     if override and override.custom:
         art_path, note = overrides.FILE_PREFIX + override.custom, "custom art"
         extra["override"] = Path(override.custom).name
-    elif show_art is None:
-        raise _no_art(ctx, name)
     else:
-        if season is None:
-            art_path, note = show_art.path, f"art from {art_source(show_art.path)}"
-        else:
-            art_path, note = _season_art(ctx, title, season, show_art.path, siblings)
-        if override and override.skip:
-            others = _season_assignment_paths(ctx, title, show_art.path, siblings, season)
-            replacement = _next_unused(ctx, title, others, override.skip)
-            if replacement is not None:
-                art_path, note = replacement, f"next art from {art_source(replacement)}"
-            else:
-                note += ", no other art left to switch to"
-            extra["override"] = sorted(override.skip)
+        skip = override.skip if override else frozenset()
+        art_path, note = _automatic_art(ctx, title, key, name, season=season, siblings=siblings, skip=skip)
+        if skip:
+            extra["override"] = sorted(skip)
+    logo = ctx.sources.logo(title)
     below = _lines_below(season, badges, access)
     number = season or None
     service = title.service if season is None else None
