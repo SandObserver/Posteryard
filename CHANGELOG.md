@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Make an automatic mark again when its file is broken, and write mark files so a stop part way through leaves none.
 - Keep a service collection for every streaming service with `SERVICE_COLLECTIONS`, not only the ones with a built-in mark, and give its collection the channel tile with the service's automatic mark.
 - Keep one set of service collections for all Jellyfin TV libraries in `LIBRARIES`, in place of the first library the server lists.
+- Add shows to a Jellyfin or Emby collection 100 at a time, as Jellyfin refuses a request for about 234 shows or more.
 - Keep a show TMDB no longer has in the collections it is in, in place of keeping every service collection in that library from changing.
 
 ### Security

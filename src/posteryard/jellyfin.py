@@ -22,6 +22,8 @@ LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
 FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
+# Jellyfin answers HTTP 414 to a URL over 8 KB. 100 ids keep a collection request near 3.5 KB.
+IDS_PER_REQUEST = 100
 PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 GUIDE = "guide"
 log = logging.getLogger(__name__)
@@ -317,13 +319,17 @@ class Jellyfin:
         self._send("POST", f"/Items/{key}/Refresh", imageRefreshMode="FullRefresh", replaceAllImages="false")
 
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
-        answer = self._send(
-            "POST", "/Collections", retries=1, name=title, ids=",".join(self._id(k) for k in rating_keys)
-        )
-        return str(json.loads(answer)["Id"])
+        first, rest = rating_keys[:IDS_PER_REQUEST], rating_keys[IDS_PER_REQUEST:]
+        answer = self._send("POST", "/Collections", retries=1, name=title, ids=",".join(self._id(k) for k in first))
+        key = str(json.loads(answer)["Id"])
+        if rest:
+            self.add_to_collection(key, rest)
+        return key
 
     def add_to_collection(self, rating_key: str, members: list[str]) -> None:
-        self._send("POST", f"/Collections/{self._id(rating_key)}/Items", ids=",".join(self._id(k) for k in members))
+        for start in range(0, len(members), IDS_PER_REQUEST):
+            ids = ",".join(self._id(k) for k in members[start : start + IDS_PER_REQUEST])
+            self._send("POST", f"/Collections/{self._id(rating_key)}/Items", ids=ids)
 
     def remove_from_collection(self, rating_key: str, member: str) -> None:
         self._send("DELETE", f"/Collections/{self._id(rating_key)}/Items", ids=self._id(member))

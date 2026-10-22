@@ -347,3 +347,17 @@ def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(http, "request", request)
     assert Jellyfin(BASE, "example-key").create_collection(LIBRARY, "show", "Netflix", [MOVIE]) == SERIES
     assert sent == [("POST", 1)]
+
+
+def test_large_collections_are_sent_in_batches(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, int]] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        ids = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(url).query))["ids"].split(",")
+        sent.append((urllib.parse.urlsplit(url).path, len(ids)))
+        return json.dumps({"Id": SERIES}).encode()
+
+    monkeypatch.setattr(http, "request", request)
+    members = [f"{i:032x}" for i in range(234)]
+    assert Jellyfin(BASE, "example-key").create_collection(LIBRARY, "show", "Netflix", members) == SERIES
+    assert sent == [("/Collections", 100), (f"/Collections/{SERIES}/Items", 100), (f"/Collections/{SERIES}/Items", 34)]
