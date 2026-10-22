@@ -337,3 +337,17 @@ def test_guide_target_is_none_for_an_entry_without_a_guid() -> None:
     plex, asked = guide_by_id({1: ""})
     assert plex.guide_target(GUIDE, SHOW, "") is None
     assert asked == []
+
+
+def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, int]] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        sent.append((method, kwargs.get("retries", 3)))
+        return json.dumps({"MediaContainer": {"Metadata": [{"ratingKey": "60"}]}}).encode()
+
+    monkeypatch.setattr(http, "request", request)
+    plex = Plex(BASE, "example-token")
+    plex._machine_id = "abc"
+    assert plex.create_collection("4", "show", "Netflix", ["1"]) == "60"
+    assert sent == [("POST", 1)]

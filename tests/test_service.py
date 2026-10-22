@@ -501,9 +501,18 @@ def test_jellyfin_collections_use_one_library(tmp_path: Path, monkeypatch: pytes
     assert synced == ["4"]
 
 
-def test_a_failed_collection_sync_does_not_stop_the_full_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(
+    "error",
+    [
+        posteryard_http.RequestError("HTTP 404", "https://api.themoviedb.org/3/tv/1"),
+        PermissionError("cannot write the marks folder"),
+    ],
+)
+def test_a_failed_collection_sync_does_not_stop_the_full_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
     def fail(server: object, ctx: object, key: str) -> list[str]:
-        raise posteryard_http.RequestError("HTTP 404", "https://api.themoviedb.org/3/tv/1")
+        raise error
 
     monkeypatch.setattr(service_collections, "sync", fail)
     service, _, notifier = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")

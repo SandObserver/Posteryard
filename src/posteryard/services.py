@@ -109,11 +109,16 @@ class Offer:
     region: str = ""
 
 
+def _priority(provider: Mapping[str, object]) -> int:
+    value = provider.get("display_priority")
+    return value if isinstance(value, int) else 999
+
+
 def offers(providers_by_region: Mapping[str, RegionOffers], regions: Iterable[str]) -> Iterator[Offer]:
     for region in regions:
         by_type = providers_by_region.get(region) or {}
         for offer_type in OFFER_TYPES:
-            for provider in sorted(by_type.get(offer_type) or [], key=lambda p: p.get("display_priority", 999)):
+            for provider in sorted(by_type.get(offer_type) or [], key=_priority):
                 name = str(provider.get("provider_name", ""))
                 if any(word in name.lower() for word in EXCLUDED_WORDS):
                     continue

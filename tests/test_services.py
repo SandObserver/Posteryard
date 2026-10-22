@@ -103,3 +103,16 @@ def test_a_collection_that_only_starts_with_a_service_word_is_no_service() -> No
     assert service_named("Max Payne Collection") is None
     assert service_named("Starz Collection") is None
     assert service_named("Netflix Kids & Family Picks") is None
+
+
+def test_a_missing_or_null_priority_sorts_last() -> None:
+    providers: dict[str, RegionOffers] = {
+        "US": {
+            "flatrate": [
+                {"provider_name": "Null", "display_priority": None},  # type: ignore[typeddict-item]
+                {"provider_name": "Missing"},
+                {"provider_name": "First", "display_priority": 0},
+            ]
+        }
+    }
+    assert [o.name for o in offers(providers, ["US"])] == ["First", "Null", "Missing"]

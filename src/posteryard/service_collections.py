@@ -1,6 +1,7 @@
 """Only collections that carry MANAGED_LABEL are changed or deleted."""
 
 import logging
+import time
 
 from posteryard import http, pipeline, services
 from posteryard.pipeline import Context
@@ -9,6 +10,7 @@ from posteryard.server import MediaServer
 log = logging.getLogger(__name__)
 MANAGED_LABEL = "posteryard-collection"
 MIN_SHOWS = 3
+CLOCK_SLACK = 600
 
 
 def _groups(server: MediaServer, ctx: Context, section_key: str) -> tuple[dict[str, list[str]], set[str], set[str]]:
@@ -23,7 +25,7 @@ def _groups(server: MediaServer, ctx: Context, section_key: str) -> tuple[dict[s
                 unmatched.add(str(show["ratingKey"]))
                 continue
             service = ctx.sources.title("tv", tid, str(show.get("title", ""))).service
-        except (http.RequestError, ValueError) as exc:
+        except (http.RequestError, OSError, ValueError) as exc:
             log.warning(
                 "streaming service unknown, collections kept as they are",
                 extra={"title": show.get("title"), "reason": str(exc)},
@@ -39,6 +41,49 @@ def _children(server: MediaServer, key: str) -> set[str]:
     return {str(m["ratingKey"]) for m in server.collection_children(key)}
 
 
+def _pending(section_key: str, name: str) -> str:
+    return f"collection-create:{section_key}:{name}"
+
+
+def _create(server: MediaServer, ctx: Context, section_key: str, name: str, members: list[str]) -> str:
+    """Remember the attempt first. A create whose answer is lost still makes the collection on the server."""
+    pending = _pending(section_key, name)
+    ctx.sources.choices.put_choice(pending, {"at": int(time.time())})
+    key = server.create_collection(section_key, "show", name, members)
+    try:
+        server.set_label(section_key, "collection", key, MANAGED_LABEL)
+    except http.RequestError:
+        server.delete_collection(key)
+        raise
+    ctx.sources.choices.put_choice(pending, {})
+    log.info("collection created", extra={"collection": name, "shows": len(members)})
+    return key
+
+
+def _adopt(server: MediaServer, ctx: Context, section_key: str, name: str, labelled: set[str]) -> str | None:
+    """A collection left by a create whose answer was lost: same name, no label, made at the time of the attempt."""
+    pending = _pending(section_key, name)
+    hit = ctx.sources.choices.get_choice(pending)
+    if not hit:
+        return None
+    found = sorted(
+        (c for c in server.section_items(section_key, "collection")
+         if c.get("title") == name and str(c["ratingKey"]) not in labelled
+         and abs(int(c.get("addedAt") or 0) - int(hit["at"])) <= CLOCK_SLACK),
+        key=lambda c: int(c.get("addedAt") or 0),
+    )  # fmt: skip
+    if not found:
+        ctx.sources.choices.put_choice(pending, {})
+        return None
+    key = str(found[-1]["ratingKey"])
+    server.set_label(section_key, "collection", key, MANAGED_LABEL)
+    for extra in found[:-1]:
+        server.delete_collection(str(extra["ratingKey"]))
+    ctx.sources.choices.put_choice(pending, {})
+    log.info("collection taken over after a lost answer", extra={"collection": name})
+    return key
+
+
 def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # noqa: C901
     """Create, fill, empty and delete Posteryard's service collections in one TV library. Returns the kept keys.
 
@@ -47,10 +92,13 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # n
     """
     groups, unknown, unmatched = _groups(server, ctx, section_key)
     ours = {str(c.get("title")): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
+    labelled = {str(c["ratingKey"]) for c in ours.values()}
     kept: list[str] = []
     for service, matched in sorted(groups.items()):
         name = services.NAMES[service]
         existing = ours.pop(name, None)
+        if existing is None and (adopted := _adopt(server, ctx, section_key, name, labelled)):
+            existing = {"ratingKey": adopted, "title": name}
         current = _children(server, str(existing["ratingKey"])) if existing else set()
         members = matched + sorted(current & unmatched)
         if len(members) < MIN_SHOWS:
@@ -61,13 +109,7 @@ def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # n
                 log.info("collection removed", extra={"collection": name, "reason": f"fewer than {MIN_SHOWS} shows"})
             continue
         if existing is None:
-            key = server.create_collection(section_key, "show", name, members)
-            try:
-                server.set_label(section_key, "collection", key, MANAGED_LABEL)
-            except http.RequestError:
-                server.delete_collection(key)
-                raise
-            log.info("collection created", extra={"collection": name, "shows": len(members)})
+            key = _create(server, ctx, section_key, name, members)
         else:
             key = str(existing["ratingKey"])
             missing = [m for m in members if m not in current]

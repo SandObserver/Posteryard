@@ -111,9 +111,11 @@ class Jellyfin:
     def _get(self, path: str, **params: Any) -> Any:
         return json.loads(http.request("GET", self._url(path, **params), headers=self._auth) or b"null")
 
-    def _send(self, method: str, path: str, *, body: bytes | None = None, content: str = "", **params: Any) -> bytes:
+    def _send(
+        self, method: str, path: str, *, body: bytes | None = None, content: str = "", retries: int = 3, **params: Any
+    ) -> bytes:
         headers = {**self._auth, **({"Content-Type": content} if content else {})}
-        return http.request(method, self._url(path, **params), headers=headers, data=body, timeout=120)
+        return http.request(method, self._url(path, **params), headers=headers, data=body, timeout=120, retries=retries)
 
     def user(self) -> str:
         if self._user is None:
@@ -315,7 +317,9 @@ class Jellyfin:
         self._send("POST", f"/Items/{key}/Refresh", imageRefreshMode="FullRefresh", replaceAllImages="false")
 
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
-        answer = self._send("POST", "/Collections", name=title, ids=",".join(self._id(k) for k in rating_keys))
+        answer = self._send(
+            "POST", "/Collections", retries=1, name=title, ids=",".join(self._id(k) for k in rating_keys)
+        )
         return str(json.loads(answer)["Id"])
 
     def add_to_collection(self, rating_key: str, members: list[str]) -> None:
