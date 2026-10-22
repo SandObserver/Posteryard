@@ -471,10 +471,10 @@ def collections_service(tmp_path: Path, plex: FakePlex, **env: str) -> tuple[Ser
 
 
 def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    synced: list[str] = []
+    synced: list[list[str]] = []
 
-    def record(server: object, ctx: object, key: str) -> list[str]:
-        synced.append(key)
+    def record(server: object, ctx: object, keys: list[str]) -> list[str]:
+        synced.append(keys)
         return []
 
     monkeypatch.setattr(service_collections, "sync", record)
@@ -483,14 +483,14 @@ def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: p
     assert synced == []
     service, _, _ = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
     service._sync_collections()
-    assert synced == ["4", "5"]
+    assert synced == [["4"], ["5"]]
 
 
-def test_jellyfin_collections_use_one_library(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    synced: list[str] = []
+def test_jellyfin_collections_cover_every_tv_library_at_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    synced: list[list[str]] = []
 
-    def record(server: object, ctx: object, key: str) -> list[str]:
-        synced.append(key)
+    def record(server: object, ctx: object, keys: list[str]) -> list[str]:
+        synced.append(keys)
         return []
 
     monkeypatch.setattr(service_collections, "sync", record)
@@ -498,7 +498,7 @@ def test_jellyfin_collections_use_one_library(tmp_path: Path, monkeypatch: pytes
     plex.collections_per_library = False
     service, _, _ = collections_service(tmp_path, plex, DRY_RUN="false")
     service._sync_collections()
-    assert synced == ["4"]
+    assert synced == [["4", "5"]]
 
 
 @pytest.mark.parametrize(
@@ -511,7 +511,7 @@ def test_jellyfin_collections_use_one_library(tmp_path: Path, monkeypatch: pytes
 def test_a_failed_collection_sync_does_not_stop_the_full_pass(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, error: Exception
 ) -> None:
-    def fail(server: object, ctx: object, key: str) -> list[str]:
+    def fail(server: object, ctx: object, keys: list[str]) -> list[str]:
         raise error
 
     monkeypatch.setattr(service_collections, "sync", fail)
@@ -654,8 +654,8 @@ def test_the_startup_block_lists_the_settings(tmp_path: Path) -> None:
 
 
 def test_one_failed_library_keeps_the_collections_problem_open(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    def second_fails(server: object, ctx: object, key: str) -> list[str]:
-        if key == "4":
+    def second_fails(server: object, ctx: object, keys: list[str]) -> list[str]:
+        if keys == ["4"]:
             raise posteryard_http.RequestError("HTTP 500", "http://plex.example:32400/library/collections")
         return []
 

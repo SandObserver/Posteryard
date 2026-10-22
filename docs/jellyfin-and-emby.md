@@ -19,7 +19,7 @@ Differences from Plex:
 - The [labels](commands.md#plex-labels) are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
 - Live TV posters (`LIVE_TV`) go on every airing. See [Live TV](how-it-works.md#live-tv).
-- Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps them for the first TV library in `LIBRARIES` only.
+- Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps one set for all TV libraries in `LIBRARIES`.
 
 ## Emby
 

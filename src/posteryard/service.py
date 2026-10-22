@@ -347,19 +347,16 @@ class Service:
         if self.cfg.dry_run:
             log.info("service collections not changed while DRY_RUN is on")
             return
-        if not self.server.collections_per_library and len(shows) > 1:
-            log.warning("service collections use one library only", extra={
-                "server": self.server.name, "library": shows[0].get("title"),
-                "reason": f"{self.server.name} collections belong to no library",
-            })  # fmt: skip
-            shows = shows[:1]
+        keys = [str(s["key"]) for s in shows]
+        batches = [[key] for key in keys] if self.server.collections_per_library else [keys] if keys else []
         failed = False
-        for section in shows:
+        for batch in batches:
             try:
-                service_collections.sync(self.server, self.worker.ctx, str(section["key"]))
+                service_collections.sync(self.server, self.worker.ctx, batch)
             except (http.RequestError, OSError, ValueError) as exc:
                 failed = True
-                log.warning("service collections failed", extra={"library": section.get("title"), "reason": str(exc)})
+                titles = ", ".join(str(s.get("title")) for s in shows if str(s["key"]) in batch)
+                log.warning("service collections failed", extra={"library": titles, "reason": str(exc)})
                 self.worker.notifier.alert("collections", f"Service collections could not be updated: {exc}")
         if not failed:
             self.worker.notifier.resolve("collections", "Service collections update again.")

@@ -437,6 +437,27 @@ def test_a_left_out_mark_is_not_replaced_by_the_next_service(tmp_path: Path) -> 
         {"provider_id": 8, "provider_name": "Netflix", "logo_path": "/n.jpg", "display_priority": 2},
     ]}}  # fmt: skip
     assert ctx.sources.service(providers) is None
+    assert ctx.sources.service_name(providers) == "Discovery+"
+
+
+class NamedMarks(AutoMarks):
+    def get(self, offer: Offer, tmdb: Tmdb | None = None) -> str | None:
+        return "netflix"
+
+
+def test_a_collection_named_after_a_service_with_an_automatic_mark_gets_the_channel_tile(tmp_path: Path) -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.server = CollectionPlex()
+    ctx.sources.marks = NamedMarks(tmp_path, MemoryChoices())
+    providers: dict[str, RegionOffers] = {"CA": {"flatrate": [
+        {"provider_id": 385, "provider_name": "BINGE", "logo_path": "/b.jpg", "display_priority": 1},
+    ]}}  # fmt: skip
+    assert ctx.sources.service(providers) == "netflix"
+    assert ctx.sources.service_mark("BINGE Shows") == "netflix"
+    assert ctx.sources.service_mark("Shudder") is None
+    channel = pipeline.plan_item(ctx, {"ratingKey": "7", "type": "collection", "title": "BINGE"})[0]
+    assert channel.inputs["design"] == "channel"
+    assert channel.draw().size == (1000, 1500)
 
 
 def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,6 +2,8 @@
 
 import logging
 import time
+from collections import Counter
+from http import HTTPStatus
 
 from posteryard import http, pipeline, services
 from posteryard.pipeline import Context
@@ -13,28 +15,38 @@ MIN_SHOWS = 3
 CLOCK_SLACK = 600
 
 
-def _groups(server: MediaServer, ctx: Context, section_key: str) -> tuple[dict[str, list[str]], set[str], set[str]]:
-    """Shows by service, shows whose service lookup failed, and shows the server has not matched."""
-    groups: dict[str, list[str]] = {}
+def _groups(
+    server: MediaServer, ctx: Context, section_keys: list[str]
+) -> tuple[dict[str, list[str]], set[str], set[str]]:
+    """Shows by service name, shows whose service lookup failed, and shows the server or TMDB has not matched."""
+    spellings: dict[str, Counter[str]] = {}
+    members: dict[str, list[str]] = {}
     unknown: set[str] = set()
     unmatched: set[str] = set()
-    for show in server.section_items(section_key, "show"):
+    for show in (show for key in section_keys for show in server.section_items(key, "show")):
         try:
             tid = pipeline.resolve_tmdb(ctx, show, "tv")
             if tid is None:
                 unmatched.add(str(show["ratingKey"]))
                 continue
-            service = ctx.sources.title("tv", tid, str(show.get("title", ""))).service
+            name = ctx.sources.title("tv", tid, str(show.get("title", ""))).service_name
         except (http.RequestError, OSError, ValueError) as exc:
+            if isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND:
+                log.warning("show not on TMDB, collections kept as they are", extra={"title": show.get("title")})
+                unmatched.add(str(show["ratingKey"]))
+                continue
             log.warning(
                 "streaming service unknown, collections kept as they are",
                 extra={"title": show.get("title"), "reason": str(exc)},
             )
             unknown.add(str(show["ratingKey"]))
             continue
-        if service in services.NAMES:
-            groups.setdefault(service, []).append(str(show["ratingKey"]))
-    return groups, unknown, unmatched
+        if name:
+            group = services.network_key(name)
+            spellings.setdefault(group, Counter())[name] += 1
+            members.setdefault(group, []).append(str(show["ratingKey"]))
+    named = {min(spellings[g].items(), key=lambda item: (-item[1], item[0]))[0]: keys for g, keys in members.items()}
+    return named, unknown, unmatched
 
 
 def _children(server: MediaServer, key: str) -> set[str]:
@@ -84,18 +96,20 @@ def _adopt(server: MediaServer, ctx: Context, section_key: str, name: str, label
     return key
 
 
-def sync(server: MediaServer, ctx: Context, section_key: str) -> list[str]:  # noqa: C901
-    """Create, fill, empty and delete Posteryard's service collections in one TV library. Returns the kept keys.
+def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str]:  # noqa: C901
+    """Create, fill, empty and delete Posteryard's service collections for TV libraries. Returns the kept keys.
+
+    Several libraries share one set of collections: only for a server whose collections belong to no library.
 
     When a show's service cannot be looked up, nothing is removed or deleted in that pass.
     A show the server has not matched keeps the collections it is in.
     """
-    groups, unknown, unmatched = _groups(server, ctx, section_key)
+    groups, unknown, unmatched = _groups(server, ctx, section_keys)
+    section_key = section_keys[0]
     ours = {str(c.get("title")): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
     labelled = {str(c["ratingKey"]) for c in ours.values()}
     kept: list[str] = []
-    for service, matched in sorted(groups.items()):
-        name = services.NAMES[service]
+    for name, matched in sorted(groups.items()):
         existing = ours.pop(name, None)
         if existing is None and (adopted := _adopt(server, ctx, section_key, name, labelled)):
             existing = {"ratingKey": adopted, "title": name}
