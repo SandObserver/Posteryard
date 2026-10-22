@@ -24,6 +24,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Show in `why` when a season's own art is skipped as the same picture as the show or another season, and list the show art a season falls back to.
 - Keep the daily pass and the sweep running when a streaming service's TMDB icon or logo is not an image, or the marks folder cannot be written. Such a service gets no mark.
 - Send a collection create once, and take over a collection the server made when its answer was lost, in place of leaving an unlabelled copy.
+- Make a streaming service's automatic mark again, and the posters that carry it, when TMDB changes the service's icon or network logo.
+- Make an automatic mark again when its file is broken, and write mark files so a stop part way through leaves none.
 
 ### Security
 

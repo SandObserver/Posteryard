@@ -41,6 +41,7 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
     UNCHECKED: (f"{UNCHECKED}textless{TEXTLESS_RULE}:", f"{UNCHECKED}textless-all{TEXTLESS_RULE}:"),
     "titled:": (),
+    "automark:": (),
 }
 
 
