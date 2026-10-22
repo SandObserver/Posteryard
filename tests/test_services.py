@@ -1,5 +1,5 @@
 from posteryard.render import layers
-from posteryard.services import NAMES, offers, service_for, service_named
+from posteryard.services import NAMES, display_name, offers, service_for, service_named
 from posteryard.tmdb import RegionOffers
 
 
@@ -116,3 +116,9 @@ def test_a_missing_or_null_priority_sorts_last() -> None:
         }
     }
     assert [o.name for o in offers(providers, ["US"])] == ["First", "Null", "Missing"]
+
+
+def test_display_names_drop_the_ad_tier() -> None:
+    assert display_name(" Shudder ") == "Shudder"
+    assert display_name("Paramount+ Basic with Ads") == "Paramount+"
+    assert display_name("BINGE") == "BINGE"

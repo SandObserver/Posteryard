@@ -44,6 +44,7 @@ class Title:
     service: str | None
     font: str = ""
     logo_languages: tuple[str, ...] | None = None
+    service_name: str = ""
 
 
 @dataclass
@@ -250,7 +251,32 @@ class Sources:
         for offer in services.offers(providers, self.settings.regions):
             if key := services.service_for(offer.name):
                 return key
-            return self.marks.get(offer, self.tmdb) if self.marks is not None else None
+            mark = self.marks.get(offer, self.tmdb) if self.marks is not None else None
+            if mark:
+                self._remember_mark(offer.name, mark)
+            return mark
+        return None
+
+    def service_name(self, providers: Mapping[str, RegionOffers]) -> str:
+        """The first offer's name, which its service collection takes. Empty without an offer."""
+        offer = next(services.offers(providers, self.settings.regions), None)
+        if offer is None:
+            return ""
+        key = services.service_for(offer.name)
+        return services.NAMES[key] if key else services.display_name(offer.name)
+
+    def _remember_mark(self, provider_name: str, mark: str) -> None:
+        key = f"service-mark:{services.network_key(provider_name)}"
+        hit = self.choices.get_choice(key)
+        if not hit or hit.get("mark") != mark:
+            self.choices.put_choice(key, {"mark": mark})
+
+    def service_mark(self, collection_name: str) -> str | None:
+        """The automatic mark of the service a collection is named after."""
+        for base in sorted(services.collection_bases(collection_name)):
+            hit = self.choices.get_choice(f"service-mark:{services.network_key(base)}")
+            if hit and hit.get("mark"):
+                return str(hit["mark"])
         return None
 
     def title(self, kind: Kind, tid: int, name: str, *, remember: bool = True) -> Title:
@@ -260,10 +286,11 @@ class Sources:
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             return hit[1]
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
-        service = self.service(self.tmdb.watch_providers(kind, tid)) if kind == "tv" else None
+        providers = self.tmdb.watch_providers(kind, tid) if kind == "tv" else {}
+        service = self.service(providers) if kind == "tv" else None
         details = self.tmdb.details(kind, tid)
         font = preferred_family(str(details.get("original_language") or ""), details.get("origin_country") or [])
-        title = Title(kind, tid, name, every, service, font)
+        title = Title(kind, tid, name, every, service, font, service_name=self.service_name(providers))
         if remember:
             with self._lock:
                 self.titles[(kind, tid)] = (time.monotonic(), title)

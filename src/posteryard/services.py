@@ -86,12 +86,25 @@ def service_for(provider_name: str) -> str | None:
     return None
 
 
+def collection_bases(name: str) -> set[str]:
+    """The service names a collection name can stand for, such as `netflix` for `Netflix Movies`."""
+    name = name.strip().lower()
+    return {name.removesuffix(suffix) for suffix in COLLECTION_SUFFIXES if name.endswith(suffix)}
+
+
 def service_named(name: str) -> str | None:
     if key := next((key for key, label in NAMES.items() if label == name), None):
         return key
-    name = name.strip().lower()
-    bases = {name.removesuffix(suffix) for suffix in COLLECTION_SUFFIXES if name.endswith(suffix)}
+    bases = collection_bases(name)
     return next((service for pattern, service in SERVICE_PATTERNS if pattern in bases), None)
+
+
+def display_name(provider_name: str) -> str:
+    name = provider_name.strip()
+    for suffix in AD_SUFFIXES:
+        if name.lower().endswith(suffix):
+            name = name[: -len(suffix)]
+    return name
 
 
 def network_key(name: str) -> str:
