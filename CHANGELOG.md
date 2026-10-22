@@ -35,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Security
 
 - Update certifi to 2026.10.19 for GHSA-6q48-6c7w-9gw2.
+- Refuse a Live TV guide picture or channel logo on the Posteryard machine, a link-local address or a cloud metadata service, also after a redirect. Reported by @VIMS-Coder in #190.
 
 ## [0.10.0] - 2026-10-17
 

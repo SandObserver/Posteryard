@@ -1,3 +1,4 @@
+import socket
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -199,3 +200,91 @@ def test_redact_hides_logins_in_guide_addresses() -> None:
     assert redacted.startswith("http://***@guide.example:8080/xmltv.php?")
     assert "type=xml" in redacted
     assert http.hide("echo hunter2 to me", http.secrets(url, {})) == "echo *** to me"
+
+
+@pytest.mark.parametrize(
+    ("address", "reason"),
+    [
+        ("127.0.0.1", "loopback"),
+        ("::1", "loopback"),
+        ("::ffff:127.0.0.1", "loopback"),
+        ("169.254.169.254", "link-local"),
+        ("fe80::1", "link-local"),
+        ("224.0.0.1", "multicast"),
+        ("240.0.0.1", "reserved"),
+        ("0.0.0.0", "unspecified"),
+        ("100.100.100.200", "metadata service"),
+        ("fd00:ec2::254", "metadata service"),
+        ("::ffff:100.100.100.200", "metadata service"),
+        ("192.168.1.20", ""),
+        ("10.0.0.5", ""),
+        ("100.64.0.7", ""),
+        ("93.184.215.14", ""),
+    ],
+)
+def test_guide_content_may_name_lan_and_public_hosts_only(address: str, reason: str) -> None:
+    assert reason in http.refused(address)
+    assert bool(http.refused(address)) == bool(reason)
+
+
+@pytest.mark.parametrize("path", ["/x", "\\@example.com/x"])
+def test_untrusted_addresses_never_reach_this_machine(
+    server: Server, monkeypatch: pytest.MonkeyPatch, path: str
+) -> None:
+    monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: pytest.fail("retried a refused address"))
+    with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
+        http.request("GET", f"{server.url}{path}", untrusted=True)
+    assert server.requests == []
+
+
+def test_untrusted_redirects_are_checked_too(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http, "refused", lambda address: "" if address == "127.0.0.1" else "a link-local address")
+    server.answers = [(302, {"Location": "http://169.254.169.254/latest/meta-data"}, b"")]
+    with pytest.raises(http.RequestError, match=r"refused 169\.254\.169\.254 as a link-local address"):
+        http.request("GET", f"{server.url}/a", untrusted=True)
+    assert [path for path, _ in server.requests] == ["/a"]
+
+
+def test_untrusted_hosts_are_looked_up_once_and_connected_to_as_checked(
+    server: Server, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = socket.getaddrinfo
+    port = int(server.url.rsplit(":", 1)[1])
+    answers = iter(["127.0.0.1", "169.254.169.254"])
+    lookups: list[str] = []
+
+    def lookup(host: str, *args: Any, **kwargs: Any) -> Any:
+        if host != "guide.example":
+            return real(host, *args, **kwargs)
+        lookups.append(host)
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (next(answers), port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", lookup)
+    monkeypatch.setattr(http, "refused", lambda address: "" if address == "127.0.0.1" else "a link-local address")
+    server.answers = [(200, {}, b"picture")]
+    assert http.request("GET", f"http://guide.example:{port}/a", untrusted=True) == b"picture"
+    assert lookups == ["guide.example"]
+    assert server.requests[0][1]["Host"] == f"guide.example:{port}"
+
+
+def test_untrusted_hosts_try_each_checked_address_in_turn(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    real = socket.getaddrinfo
+    port = int(server.url.rsplit(":", 1)[1])
+    answers = {
+        "both.example": [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", port, 0, 0)), *real("127.0.0.1", port)],
+        "closed.example": [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::1", port, 0, 0))],
+    }
+
+    def lookup(host: str, *args: Any, **kwargs: Any) -> Any:
+        if host == "missing.example":
+            raise socket.gaierror(socket.EAI_NONAME, "not known")
+        return answers.get(host) or real(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", lookup)
+    monkeypatch.setattr(http, "refused", lambda address: "")
+    server.answers = [(200, {}, b"picture")]
+    assert http.request("GET", f"http://both.example:{port}/a", untrusted=True) == b"picture"
+    with pytest.raises(http.RequestError, match="NewConnectionError"):
+        http.request("GET", f"http://closed.example:{port}/a", untrusted=True, retries=1)
+    with pytest.raises(http.RequestError, match="NameResolutionError"):
+        http.request("GET", f"http://missing.example:{port}/a", untrusted=True, retries=1)

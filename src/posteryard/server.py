@@ -76,6 +76,7 @@ class GuideServer(Protocol):
     """A server with a Live TV guide Posteryard can put posters on. Airings come back Plex-shaped."""
 
     name: str
+    url: str
 
     def guides(self) -> list[Guide]: ...
     def guide_airings(self, provider: str, start: int, end: int) -> list[Item]: ...

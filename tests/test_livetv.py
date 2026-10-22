@@ -1,4 +1,5 @@
 import hashlib
+import io
 import time
 from collections.abc import Sequence
 from dataclasses import replace
@@ -9,7 +10,16 @@ import pytest
 from PIL import Image, ImageDraw
 
 from posteryard import http, pipeline
-from posteryard.livetv import FORGET_SECONDS, LeftAloneError, LiveTv, guide_shows, norm, shown, without_notes
+from posteryard.livetv import (
+    FORGET_SECONDS,
+    LeftAloneError,
+    LiveTv,
+    fetch_image,
+    guide_shows,
+    norm,
+    shown,
+    without_notes,
+)
 from posteryard.plex import Plex
 from posteryard.render import designs
 from posteryard.render import livetv as cards
@@ -617,3 +627,28 @@ def test_a_dark_logo_is_frosted_over_white_and_a_see_through_logo_is_refused() -
         cards.logo_mark(Image.new("RGBA", (300, 120), (0, 0, 0, 0)))
     with pytest.raises(ValueError, match="transparent"):
         cards.logo_mark(Image.new("RGB", (1, 1), (200, 30, 30)))
+
+
+@pytest.mark.parametrize(
+    ("url", "untrusted"),
+    [
+        ("http://127.0.0.1:8096/Items/1/Images/Primary", False),
+        ("http://127.0.0.1:8097/logo.png", True),
+        ("https://127.0.0.1:8096/logo.png", True),
+        ("https://logos.example/news.png", True),
+    ],
+)
+def test_only_the_media_server_may_serve_guide_images_from_this_machine(
+    monkeypatch: pytest.MonkeyPatch, url: str, untrusted: bool
+) -> None:
+    seen: dict[str, Any] = {}
+
+    def request(method: str, address: str, **kwargs: Any) -> bytes:
+        seen.update(kwargs)
+        out = io.BytesIO()
+        Image.new("RGB", (4, 4)).save(out, "PNG")
+        return out.getvalue()
+
+    monkeypatch.setattr(http, "request", request)
+    fetch_image(url, server="http://127.0.0.1:8096")
+    assert seen["untrusted"] is untrusted
