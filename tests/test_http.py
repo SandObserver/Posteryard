@@ -215,6 +215,7 @@ def test_redact_hides_logins_in_guide_addresses() -> None:
         ("0.0.0.0", "unspecified"),
         ("100.100.100.200", "metadata service"),
         ("fd00:ec2::254", "metadata service"),
+        ("::ffff:100.100.100.200", "metadata service"),
         ("192.168.1.20", ""),
         ("10.0.0.5", ""),
         ("100.64.0.7", ""),

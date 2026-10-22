@@ -38,7 +38,7 @@ def refused(address: str) -> str:
         "multicast": ip.is_multicast,
         "reserved": ip.is_reserved,
         "unspecified": ip.is_unspecified,
-        "metadata service": ip in METADATA,
+        "metadata service": (getattr(ip, "ipv4_mapped", None) or ip) in METADATA,
     }
     return next((f"a {name} address" for name, hit in checks.items() if hit), "")
 
