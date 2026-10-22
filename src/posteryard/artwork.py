@@ -89,7 +89,11 @@ class Picker:
         hit = self.cache.get_choice(key)
         if hit is not None and hit.get("candidates") == candidates:
             path = hit.get("path")
-            return Picked(str(path), [ocr.TextLine(*line) for line in hit.get("lines", [])]) if path else None
+            if not path:
+                return None
+            cached = Picked(str(path), [ocr.TextLine(*line) for line in hit.get("lines", [])])
+            if accept(cached.lines):
+                return cached
         if cached_only:
             return None
         picked = None
@@ -106,7 +110,7 @@ class Picker:
             {
                 "candidates": candidates,
                 "path": picked.path if picked else None,
-                "lines": [[ln.text, ln.score, ln.height, ln.width] for ln in picked.lines] if picked else [],
+                "lines": _rows(picked.lines) if picked else [],
             },
         )
         return picked
@@ -182,6 +186,10 @@ def rejection(lines: Sequence[ocr.TextLine], titles: Sequence[str]) -> str | Non
     return None
 
 
+def _rows(lines: Sequence[ocr.TextLine]) -> list[list[Any]]:
+    return [[ln.text, ln.score, ln.height, ln.width] for ln in lines]
+
+
 def _short(text: str, limit: int = 40) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
@@ -196,17 +204,26 @@ class Pool:
     def __init__(self, picker: Picker, key: str, candidates: list[str], titles: Sequence[str]) -> None:
         self._picker, self._key, self._candidates, self._titles = picker, key, candidates, titles
         self._verdicts: dict[str, bool] = {}
+        self._lines: dict[str, list[list[Any]]] = {}
         hit = picker.cache.get_choice(key)
         if hit is not None and hit.get("candidates") == candidates:
             self._verdicts = {str(path): bool(ok) for path, ok in hit.get("verdicts", {}).items()}
+            self._lines = {str(path): list(lines) for path, lines in hit.get("lines", {}).items()}
+            for path, lines in self._lines.items():
+                if self._verdicts.get(path):
+                    self._verdicts[path] = _textless([ocr.TextLine(*line) for line in lines], titles)
 
     def __iter__(self) -> Iterator[str]:
         for path in self._candidates:
             if path not in self._verdicts:
                 image = load(self._picker.fetch, path)
-                self._verdicts[path] = image is not None and _textless(self._picker.read(image), self._titles)
+                lines = self._picker.read(image) if image is not None else []
+                self._verdicts[path] = image is not None and _textless(lines, self._titles)
+                if self._verdicts[path]:
+                    self._lines[path] = _rows(lines)
                 self._picker.cache.put_choice(
-                    self._key, {"candidates": self._candidates, "verdicts": dict(self._verdicts)}
+                    self._key,
+                    {"candidates": self._candidates, "verdicts": dict(self._verdicts), "lines": dict(self._lines)},
                 )
             if self._verdicts[path]:
                 yield path
