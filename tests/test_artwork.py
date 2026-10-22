@@ -162,3 +162,15 @@ def test_a_pool_cached_without_its_text_is_trusted() -> None:
     pool = picker.textless_pool("tv:1", refs("/a.jpg", "/b.jpg"), ["Die Simpsons"])
     assert list(pool) == ["/a.jpg", "/b.jpg"]
     assert reads == []
+
+
+def test_art_of_an_odd_shape_is_not_read() -> None:
+    picker, reads = make()
+    fetch = picker.fetch
+
+    def fetch_some(path: str) -> Image.Image:
+        return Image.new("RGB", (1, 2160)) if path == "/c.jpg" else fetch(path)
+
+    picked = Picker(picker.cache, fetch_some, picker.read).textless("tv:1", refs("/c.jpg", "/b.jpg"), ["Example"])
+    assert picked is not None and picked.path == "/b.jpg"
+    assert reads == ["/b.jpg"]
