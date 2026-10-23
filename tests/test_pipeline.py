@@ -1,7 +1,7 @@
 import threading
 import time
 from collections.abc import Mapping
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -108,6 +108,36 @@ def test_a_show_added_long_ago_with_a_new_episode_says_so() -> None:
     added = int(datetime(2025, 1, 1).timestamp())
     plan = pipeline.show(ctx, {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4})[0]
     assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
+
+
+class SpecialsPlex(DatedPlex):
+    def children(self, rating_key: str) -> list[Item]:
+        old, new = int(datetime(2025, 1, 1).timestamp()), int(datetime(2026, 9, 29).timestamp())
+        return [{"ratingKey": "50", "index": 0, "addedAt": new}, {"ratingKey": "51", "index": 1, "addedAt": old}]
+
+
+def test_a_first_special_is_a_new_episode_not_a_new_season() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.server = SpecialsPlex()
+    added = int(datetime(2025, 1, 1).timestamp())
+    show: Item = {**ITEM, "ratingKey": "5", "addedAt": added, "librarySectionID": 4}
+    assert pipeline.show(ctx, show)[0].inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
+    title = ctx.sources.title("tv", 42, "Example Show")
+    new = int(datetime(2026, 9, 29).timestamp())
+    specials: Item = {"ratingKey": "50", "index": 0, "parentRatingKey": "5", "librarySectionID": 4, "addedAt": new}
+    plan = pipeline.season(ctx, title, specials, date(2025, 1, 1))[0]
+    assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
+
+
+def test_a_season_shows_the_sooner_of_its_own_and_its_shows_leaving_date() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.settings.action_days = {"1": date(2026, 10, 4), "11": date(2026, 10, 11)}
+    title = ctx.sources.title("tv", 42, "Example Show")
+    plan = pipeline.season(ctx, title, {"ratingKey": "11", "index": 1, "parentRatingKey": "1"})[0]
+    assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
+    ctx.settings.action_days = {"1": date(2026, 10, 11), "11": date(2026, 10, 4)}
+    plan = pipeline.season(ctx, title, {"ratingKey": "11", "index": 1, "parentRatingKey": "1"})[0]
+    assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
 
 
 def test_labels_can_be_turned_off_but_leaving_stays() -> None:

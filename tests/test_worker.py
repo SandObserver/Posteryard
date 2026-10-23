@@ -1,5 +1,6 @@
 import io
 import logging
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
@@ -403,3 +404,17 @@ def test_an_item_is_planned_again_without_apple_art_that_failed_to_load(
     monkeypatch.setattr(pipeline, "plan_item", plan_item)
     assert worker.process("1") is not Outcome.FAILED
     assert len(calls) == 2
+
+
+def test_an_unreadable_maintainerr_answer_keeps_the_saved_schedule(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, _, store, alerts = make(tmp_path)
+    store.set_meta("leaving_days", '{"1": "2026-11-01"}')
+
+    def nested() -> dict[str, date]:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(worker.maintainerr, "action_days", nested)
+    assert worker.leaving_days() == {"1": date(2026, 11, 1)}
+    assert alerts.sent == ["Maintainerr"]

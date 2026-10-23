@@ -36,8 +36,7 @@ class Settings:
         )
 
     def leaving(self, *rating_keys: str) -> str | None:
-        for key in rating_keys:
-            days = maintainerr.days_left(self.action_days.get(key), self.today)
-            if days is not None:
-                return maintainerr.label(days)
-        return None
+        found = [
+            d for key in rating_keys if (d := maintainerr.days_left(self.action_days.get(key), self.today)) is not None
+        ]
+        return maintainerr.label(min(found)) if found else None

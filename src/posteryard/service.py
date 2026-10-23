@@ -12,6 +12,7 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from email import policy
 from email.parser import BytesParser
+from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
@@ -304,15 +305,28 @@ class Service:
         current = {key: day.isoformat() for key, day in self.worker.leaving_days().items()}
         today = date.today().isoformat()
         new_day = self.store.meta("leaving_checked") != today
-        leaving = previous.keys() | current.keys()
-        self.enqueue(
-            self._scoped(sorted(k for k in leaving if new_day or previous.get(k) != current.get(k))), "leaving"
+        leaving = self._scoped(
+            sorted(k for k in previous.keys() | current.keys() if new_day or previous.get(k) != current.get(k))
         )
+        self.enqueue(leaving, "leaving")
+        self.enqueue(self._seasons(leaving), "leaving")
         self.enqueue(self._scoped(self.store.retry_due()), "retry")
         self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
         self.store.set_meta("leaving_checked", today)
         self.store.set_meta("sweep_cursor", str(started))
         self.last_sweep_ok = time.monotonic()
+
+    def _seasons(self, keys: Iterable[str]) -> list[str]:
+        found: list[str] = []
+        for key in keys:
+            try:
+                children = self.server.children(key)
+            except http.RequestError as exc:
+                if not (isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND):
+                    log.warning("seasons of a leaving title not readable", extra={"key": key, "reason": str(exc)})
+                continue
+            found.extend(str(child["ratingKey"]) for child in children if child.get("type") == "season")
+        return found
 
     def idle(self) -> None:
         with self._lock:

@@ -56,6 +56,9 @@ def next_season(details: Details) -> date | None:
     upcoming = details.get("next_episode_to_air") or {}
     if not isinstance(upcoming, Mapping) or upcoming.get("episode_number") != 1:
         return None
+    season = upcoming.get("season_number")
+    if not isinstance(season, int) or season < 1:
+        return None
     try:
         return date.fromisoformat(str(upcoming.get("air_date")))
     except ValueError:

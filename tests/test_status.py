@@ -46,12 +46,16 @@ def test_an_upcoming_season_shows_its_date() -> None:
     assert text(status.Dates(next_season=ago(1))) is None
 
 
-def test_next_season_needs_a_first_episode() -> None:
-    assert status.next_season({"next_episode_to_air": {"episode_number": 1, "air_date": "2026-10-21"}}) == date(
-        2026, 10, 21
-    )
-    assert status.next_season({"next_episode_to_air": {"episode_number": 4, "air_date": "2026-10-21"}}) is None
-    assert status.next_season({"next_episode_to_air": {"episode_number": 1, "air_date": None}}) is None
+def test_next_season_needs_a_first_episode_of_a_real_season() -> None:
+    def upcoming(season: object, episode: int, air_date: str | None = "2026-10-21") -> date | None:
+        episode_to_air = {"season_number": season, "episode_number": episode, "air_date": air_date}
+        return status.next_season({"next_episode_to_air": episode_to_air})  # type: ignore[typeddict-item]
+
+    assert upcoming(2, 1) == date(2026, 10, 21)
+    assert upcoming(2, 4) is None
+    assert upcoming(2, 1, None) is None
+    assert upcoming(0, 1) is None
+    assert upcoming(None, 1) is None
     assert status.next_season({}) is None
 
 

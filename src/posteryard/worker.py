@@ -88,7 +88,7 @@ class Worker:
             days = self.maintainerr.action_days()
             self.store.set_meta("leaving_days", json.dumps({k: v.isoformat() for k, v in days.items()}))
             self.notifier.resolve("Maintainerr", "Maintainerr works again.")
-        except (http.RequestError, ValueError) as exc:
+        except (http.RequestError, ValueError, RecursionError) as exc:
             log.warning("Maintainerr unavailable, using its last known schedule", extra={"reason": str(exc)})
             self.notifier.alert("Maintainerr", f"Maintainerr is unavailable: {exc}")
             saved = json.loads(self.store.meta("leaving_days", "{}"))
