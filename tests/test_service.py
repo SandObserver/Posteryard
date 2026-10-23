@@ -147,6 +147,19 @@ def test_only_rating_keys_limits_leaving_retried_and_unignored_titles(
     assert "2" in queued(service)
 
 
+def test_a_season_released_from_ignore_is_queued_when_only_rating_keys_names_its_show(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "10"})
+    service = start(cfg, FakePlex())
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.store.set_meta("ignored_keys", '["11", "12"]')
+    service.store.uploaded("11", "poster", "Example Show · Season 1", "abc", "upload-1")
+    service.sweep(lookback=0)
+    assert "11" in queued(service) and "12" not in queued(service)
+    assert service.store.get("11", "poster") is None
+
+
 def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     service = make_service(tmp_path)
     monkeypatch.setattr(service.worker, "leaving_days", dict)

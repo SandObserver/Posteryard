@@ -297,9 +297,10 @@ class Service:
         # A removed label leaves updatedAt untouched too, so items that lost the ignore label are found here.
         # Their old records are dropped: a poster chosen while ignored must not count as a manual change.
         released = sorted(set(json.loads(self.store.meta("ignored_keys", "[]"))) - ignored)
+        scoped = self._scoped(released)
         for key in released:
             self.store.forget(key)
-        self.enqueue(self._scoped(released), "unignored")
+        self.enqueue(scoped, "unignored")
         self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
         previous: dict[str, str] = json.loads(self.store.meta("leaving_dates", "{}"))
         current = {key: day.isoformat() for key, day in self.worker.leaving_days().items()}
@@ -382,9 +383,11 @@ class Service:
             self._sync_collections()
         for section in self._sections():
             for kind in self._kinds(section):
-                items = list(self.server.section_items(str(section["key"]), kind))
-                listed.update(str(i["ratingKey"]) for i in items)
-                seen.update(self._keys(items))
+                for item in self.server.section_items(str(section["key"]), kind):
+                    key = str(item["ratingKey"])
+                    listed.add(key)
+                    if self.worker.in_scope(item):
+                        seen.add(key)
         unlisted = sorted(self.store.keys() - listed)
         self.enqueue(sorted(seen), "daily")
         self.enqueue(unlisted, "unlisted")
