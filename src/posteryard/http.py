@@ -22,6 +22,8 @@ SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
+DEADLINE_FACTOR = 4
+READ_CHUNK = 256 * 1024
 METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
 
 
@@ -117,6 +119,12 @@ class HttpError(RequestError):
         self.status = status
 
 
+class RedirectError(RequestError):
+    def __init__(self, status: int, url: str, location: str) -> None:
+        super().__init__(f"refused a redirect (HTTP {status})", url)
+        self.location = urllib.parse.urljoin(url, location) if location else ""
+
+
 def gone(exc: RequestError) -> bool:
     return isinstance(exc, HttpError) and 400 <= exc.status < 500 and exc.status not in RETRY_STATUSES
 
@@ -165,6 +173,7 @@ def request(  # noqa: PLR0913
     delay = 2.0
     for attempt in range(1, retries + 1):
         wait = delay
+        deadline = time.monotonic() + timeout * DEADLINE_FACTOR
         try:
             response = (UNTRUSTED_POOL if untrusted else POOL).request(
                 method,
@@ -176,13 +185,14 @@ def request(  # noqa: PLR0913
                 redirect=redirects,
             )
             try:
-                body: bytes = response.read(MAX_RESPONSE + 1)
+                body = _read_body(response, url, deadline)
+            except RequestError:
+                response.close()
+                raise
             finally:
                 response.release_conn()
-            if len(body) > MAX_RESPONSE:
-                raise RequestError("response larger than 64 MB", url)
             if not redirects and 300 <= response.status < 400:
-                raise RequestError(f"refused a redirect (HTTP {response.status})", url)
+                raise RedirectError(response.status, url, response.headers.get("Location") or "")
             if response.status < 400:
                 return body
             if response.status not in RETRY_STATUSES or attempt == retries:
@@ -202,6 +212,30 @@ def request(  # noqa: PLR0913
         time.sleep(wait)
         delay *= 2
     raise AssertionError("unreachable")
+
+
+def get_checked_redirects(url: str, *, timeout: float) -> bytes:
+    """For a trusted address on a host the operator does not run. A redirect from it is checked as guide content."""
+    try:
+        return request("GET", url, timeout=timeout, redirects=False)
+    except RedirectError as exc:
+        if not exc.location:
+            raise
+        return request("GET", exc.location, timeout=timeout, untrusted=True)
+
+
+def _read_body(response: urllib3.BaseHTTPResponse, url: str, deadline: float) -> bytes:
+    """Read one network chunk at a time. The read timeout only limits the wait for each chunk, not the whole body."""
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := response.read1(READ_CHUNK):
+        chunks.append(chunk)
+        size += len(chunk)
+        if size > MAX_RESPONSE:
+            raise RequestError("response larger than 64 MB", url)
+        if time.monotonic() > deadline:
+            raise RequestError("response too slow", url)
+    return b"".join(chunks)
 
 
 def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *, last: bool, first: bool) -> bool:

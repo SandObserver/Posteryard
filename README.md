@@ -47,6 +47,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 1536m
+    pids_limit: 512
     environment:
       # TMDB API Key or API Read Access Token
       - TMDB_API_KEY=your-tmdb-api-key
@@ -84,7 +86,7 @@ Posteryard runs as user 1000 and writes only to `./data` and `/tmp`.
 mkdir -p ./data && sudo chown 1000:1000 ./data
 docker run -d --name posteryard --restart unless-stopped \
   --init --read-only --tmpfs /tmp --cap-drop ALL \
-  --security-opt no-new-privileges:true \
+  --security-opt no-new-privileges:true --memory 1536m --pids-limit 512 \
   -e TMDB_API_KEY=your-tmdb-api-key \
   -e PLEX_URL=http://192.168.1.10:32400 \
   -e PLEX_TOKEN=your-plex-token \

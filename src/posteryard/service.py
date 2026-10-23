@@ -1,3 +1,4 @@
+import contextlib
 import hmac
 import itertools
 import json
@@ -5,6 +6,7 @@ import logging
 import platform
 import queue
 import signal
+import socket
 import threading
 import time
 from collections import Counter
@@ -26,12 +28,15 @@ from posteryard.worker import Outcome, Worker
 
 log = logging.getLogger(__name__)
 MAX_BODY = 2 * 1024 * 1024
+MAX_CONNECTIONS = 16
+REQUEST_SECONDS = 15
 NEW_EVENTS = frozenset({"library.new"})
 JELLYFIN_EVENTS = frozenset({"ItemAdded"})
 KINDS = {"movie": ("movie",), "show": ("show", "season", "episode")}
 RESTART_LOOKBACK = 6 * 3600
 SWEEP_LOOKBACK = 60
 WORKER_STALL = 600
+WORKER_RESTART = 3 * WORKER_STALL
 TICK = 30
 STOP = "stop"
 HEARTBEAT_SECONDS = 60
@@ -95,6 +100,41 @@ def related_keys(item: object) -> list[str]:
         return []
     keys = [item.get("ratingKey"), item.get("parentRatingKey"), item.get("grandparentRatingKey")]
     return [str(k) for k in keys if k and is_item_key(str(k))]
+
+
+def _hang_up(request: socket.socket) -> None:
+    with contextlib.suppress(OSError):
+        request.shutdown(socket.SHUT_RDWR)
+
+
+class WebhookServer(ThreadingHTTPServer):
+    """Refuses connections over the limit and hangs up after the time limit. Slow clients must not pile up threads."""
+
+    daemon_threads = True
+
+    def __init__(self, address: tuple[str, int], handler: type[BaseHTTPRequestHandler]) -> None:
+        super().__init__(address, handler)
+        self._slots = threading.BoundedSemaphore(MAX_CONNECTIONS)
+
+    def process_request(self, request: Any, client_address: Any) -> None:
+        if not self._slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._slots.release()
+            raise
+
+    def process_request_thread(self, request: Any, client_address: Any) -> None:
+        timer = threading.Timer(REQUEST_SECONDS, _hang_up, (request,))
+        timer.daemon = True
+        timer.start()
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            timer.cancel()
+            self._slots.release()
 
 
 class Service:
@@ -518,11 +558,11 @@ class Service:
     def _watch(self, server: ThreadingHTTPServer) -> None:
         while not self._stop.wait(TICK):
             dead = [thread.name for thread in self.threads if not thread.is_alive()]
-            if dead:
-                log.error(
-                    "service thread stopped, exiting so the container restarts", extra={"threads": ", ".join(dead)}
-                )
-                self.worker.notifier.alert("restart", f"Posteryard restarts because {', '.join(dead)} stopped.")
+            stuck = time.monotonic() - self.worker_beat >= WORKER_RESTART
+            if dead or stuck:
+                reason = f"{', '.join(dead)} stopped" if dead else f"one title took over {WORKER_RESTART // 60} minutes"
+                log.error("exiting so the container restarts", extra={"reason": reason})
+                self.worker.notifier.alert("restart", f"Posteryard restarts because {reason}.")
                 self.exit_code = 1
                 self.stop()
         server.shutdown()
@@ -643,8 +683,7 @@ class Service:
         ]
         for thread in self.threads:
             thread.start()
-        server = ThreadingHTTPServer(("0.0.0.0", self.cfg.listen_port), self.handler())
-        server.daemon_threads = True
+        server = WebhookServer(("0.0.0.0", self.cfg.listen_port), self.handler())
 
         def stop(signum: int, _frame: object) -> None:
             log.info("shutting down", extra={"signal": signal.Signals(signum).name})

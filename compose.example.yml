@@ -11,6 +11,8 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 1536m
+    pids_limit: 512
     environment:
       - TMDB_API_KEY=your-tmdb-api-key
       - PLEX_URL=http://192.168.1.10:32400

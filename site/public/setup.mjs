@@ -29,6 +29,8 @@ function compose(x) {
       - ALL
     security_opt:
       - no-new-privileges:true
+    mem_limit: 1536m
+    pids_limit: 512
     environment:
       - TMDB_API_KEY=${V('your-tmdb-api-key')}
       - ${x.url[0]}=${V(x.url[1])}
@@ -45,7 +47,7 @@ function run(x) {
   return `mkdir -p ${V(DATA)} &amp;&amp; sudo chown 1000:1000 ${V(DATA)}
 docker run -d --name posteryard --restart unless-stopped \\
   --init --read-only --tmpfs /tmp --cap-drop ALL \\
-  --security-opt no-new-privileges:true \\
+  --security-opt no-new-privileges:true --memory 1536m --pids-limit 512 \\
   -e TMDB_API_KEY=${V('your-tmdb-api-key')} \\
   -e ${x.url[0]}=${V(x.url[1])} \\
   -e ${x.key[0]}=${V(x.key[1])} \\

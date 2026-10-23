@@ -6,18 +6,33 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
+from posteryard.http import redact
+
 LEVELS = {logging.DEBUG: "DBG", logging.INFO: "INF", logging.WARNING: "WRN", logging.ERROR: "ERR"}
 RECORD_FIELDS = frozenset(vars(logging.makeLogRecord({}))) | {"message", "asctime", "taskName"}
 NEEDS_QUOTES = re.compile(r'^"|[\s="\\]|[\x00-\x1f\x7f]')
 ESCAPES = {'"': '\\"', "\\": "\\\\", "\n": "\\n", "\r": "\\r", "\t": "\\t"}
 LABEL_WIDTH = 11
+ADDRESS = re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.IGNORECASE)
+
+
+def _redacted(match: re.Match[str]) -> str:
+    try:
+        return redact(match.group())
+    except ValueError:
+        return "***"
+
+
+def masked(text: str) -> str:
+    """Hide credentials in every address in a log line. Libraries log addresses without `redact`."""
+    return ADDRESS.sub(_redacted, text)
 
 
 def value(raw: object) -> str:
     """Quote and escape every value that needs it. A raw newline in an error message would forge a whole record."""
     if raw is None:
         return ""
-    text = ("true" if raw else "false") if isinstance(raw, bool) else str(raw)
+    text = masked(("true" if raw else "false") if isinstance(raw, bool) else str(raw))
     if not text:
         return '""'
     if not NEEDS_QUOTES.search(text):

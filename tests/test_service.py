@@ -1,6 +1,7 @@
 import http.client
 import json
 import logging
+import socket
 import threading
 import time
 from collections.abc import Sequence
@@ -15,7 +16,15 @@ from posteryard import config, service_collections
 from posteryard import http as posteryard_http
 from posteryard.notify import Notifier
 from posteryard.server import Item
-from posteryard.service import NEW_REASONS, Service, other_server, parse_webhook, related_keys
+from posteryard.service import (
+    NEW_REASONS,
+    WORKER_RESTART,
+    Service,
+    WebhookServer,
+    other_server,
+    parse_webhook,
+    related_keys,
+)
 from posteryard.store import Store
 from posteryard.worker import Outcome
 from tests import fakes
@@ -303,6 +312,41 @@ def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path
     assert service.store.get("5", "poster") is not None
 
 
+def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.MAX_CONNECTIONS", 2)
+    monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 0.5)
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
+    server = WebhookServer(("127.0.0.1", 0), start(cfg, FakePlex()).handler())
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    address = ("127.0.0.1", int(server.server_address[1]))
+    slow = [socket.create_connection(address, timeout=5) for _ in range(2)]
+    try:
+        for connection in slow:
+            connection.sendall(b"GET /healthz HTTP/1.1\r\n")
+        time.sleep(0.1)
+        with socket.create_connection(address, timeout=5) as refused:
+            assert refused.recv(1) == b""
+        for connection in slow:
+            assert connection.recv(1) == b""
+        for _ in range(50):
+            healthz = http.client.HTTPConnection(*address, timeout=5)
+            try:
+                healthz.request("GET", "/healthz")
+                assert healthz.getresponse().status in (200, 503)
+                break
+            except ConnectionError:
+                time.sleep(0.05)
+            finally:
+                healthz.close()
+        else:
+            pytest.fail("the server never freed its connection slots")
+    finally:
+        for connection in slow:
+            connection.close()
+        server.shutdown()
+        server.server_close()
+
+
 def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
     service = start(cfg, FakePlex())
@@ -402,6 +446,19 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
     assert stopped == [True]
     assert service.exit_code == 1
     assert alerts.sent and "worker" in alerts.sent[0]
+
+
+def test_the_watchdog_restarts_when_the_worker_is_stuck(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    alerts = Alerts()
+    service.worker.notifier = alerts
+    service.worker_beat = time.monotonic() - WORKER_RESTART - 1
+    stopped: list[bool] = []
+    service._watch(type("S", (), {"shutdown": lambda self: stopped.append(True)})())
+    assert stopped == [True]
+    assert service.exit_code == 1
+    assert alerts.sent and "30 minutes" in alerts.sent[0]
 
 
 def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
