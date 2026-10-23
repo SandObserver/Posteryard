@@ -399,7 +399,7 @@ def show(ctx: Context, item: Item) -> list[Plan]:
     title = ctx.sources.title("tv", _require_tmdb(ctx, item, "tv"), str(item.get("title", "")))
     dates = status.Dates(
         added=status.from_timestamp(item.get("addedAt")),
-        newest_season=_newest(ctx, item, "season", "show.id", key),
+        newest_season=_newest_season(ctx, key),
         newest_episode=_newest(ctx, item, "episode", "show.id", key),
         next_season=status.next_season(ctx.sources.details("tv", title.tmdb_id)) if ctx.settings.labels else None,
     )
@@ -414,7 +414,7 @@ def season(ctx: Context, title: Title, item: Item, show_added: date | None = Non
     leaving = ctx.settings.leaving(key, str(item.get("parentRatingKey", "")))
     dates = status.Dates(
         added=show_added,
-        newest_season=status.from_timestamp(item.get("addedAt")),
+        newest_season=status.from_timestamp(item.get("addedAt")) if number else None,
         newest_episode=_newest(ctx, item, "episode", "season.id", key),
     )
     name = f"{title.name} · {_season_label(number)}"
@@ -436,6 +436,15 @@ def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date |
         ("newest", kind, field, key), lambda: server.newest_added(section, kind, **{field: key})
     )
     return status.from_timestamp(found)
+
+
+def _newest_season(ctx: Context, key: str) -> date | None:
+    if not ctx.settings.labels or ctx.server is None:
+        return None
+    server = ctx.server
+    seasons = ctx.sources.remember(("children", key), lambda: server.children(key))
+    added = [day for s in seasons if int(s.get("index", 0)) and (day := status.from_timestamp(s.get("addedAt")))]
+    return max(added, default=None)
 
 
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:

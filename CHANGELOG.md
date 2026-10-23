@@ -33,6 +33,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep one set of service collections for all Jellyfin TV libraries in `LIBRARIES`, in place of the first library the server lists.
 - Add shows to a Jellyfin or Emby collection 100 at a time, as Jellyfin refuses a request for about 234 shows or more.
 - Keep a show TMDB no longer has in the collections it is in, in place of keeping every service collection in that library from changing.
+- Update the Maintainerr countdown on a leaving show's seasons at the same sweep as the show, in place of at the next daily pass.
+- Show a season the sooner of its own and its show's Maintainerr date.
+- Skip only the Maintainerr collection or title whose delete days or add date cannot be read, in place of the whole answer and a false outage alert.
+- Label an upcoming special no longer as a `NEW SEASON` premiere, and a newly added special `NEW EPISODE` in place of `NEW SEASON`.
 
 ### Security
 

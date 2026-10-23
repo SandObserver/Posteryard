@@ -177,6 +177,25 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     assert swept() == ["21", "22"]
 
 
+class ShowPlex(FakePlex):
+    def children(self, rating_key: str) -> list[Item]:
+        if rating_key == "20":
+            return [{"ratingKey": "201", "type": "season"}, {"ratingKey": "202", "type": "season"}]
+        if rating_key == "21":
+            raise posteryard_http.HttpError(404, "http://plex.example:32400/library/metadata/21/children")
+        return [{"ratingKey": f"{rating_key}1", "type": "episode"}]
+
+
+def test_the_sweep_queues_the_seasons_of_a_leaving_show(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    service = make_service(tmp_path, ShowPlex())
+    monkeypatch.setattr(service.worker, "leaving_days", lambda: {"20": date(2026, 11, 1), "21": date(2026, 11, 1)})
+    service.sweep()
+    assert [key for key in queued(service) if key != "9"] == ["20", "21", "201", "202"]
+    assert "not readable" not in caplog.text
+
+
 def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     plex = FakePlex()
     service = make_service(tmp_path, plex)

@@ -43,3 +43,22 @@ def test_add_date_counts_in_the_local_time_zone() -> None:
     collections = [{"isActive": True, "deleteAfterDays": 7, "media": media}]
     assert action_days(collections, timezone(timedelta(hours=-4))) == {"10": date(2026, 9, 8)}
     assert action_days(collections, UTC) == {"10": date(2026, 9, 9)}
+
+
+def test_a_bad_collection_or_title_is_skipped_and_the_rest_kept(caplog: pytest.LogCaptureFixture) -> None:
+    good = {"mediaServerId": "10", "addDate": "2026-09-01"}
+    collections = [
+        {"isActive": True, "deleteAfterDays": 3, "media": [good, {"mediaServerId": "11", "addDate": "not a date"}]},
+        *(
+            {
+                "isActive": True,
+                "title": "Odd",
+                "deleteAfterDays": days,
+                "media": [{"mediaServerId": "12", "addDate": "2026-09-01"}],
+            }
+            for days in ("abc", {"value": 30}, [30], float("nan"))
+        ),
+    ]
+    assert action_days(collections) == {"10": date(2026, 9, 4)}
+    assert sum("delete days are not a number" in r.message for r in caplog.records) == 4
+    assert sum("add date is not a date" in r.message for r in caplog.records) == 1

@@ -1,8 +1,11 @@
+import logging
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
 
 from posteryard import http
+
+log = logging.getLogger(__name__)
 
 
 def action_days(collections: Any, zone: tzinfo | None = None) -> dict[str, date]:
@@ -12,24 +15,42 @@ def action_days(collections: Any, zone: tzinfo | None = None) -> dict[str, date]
     for collection in collections:
         if not isinstance(collection, Mapping):
             continue
-        days = collection.get("deleteAfterDays")
-        media_list = collection.get("media")
-        if not collection.get("isActive") or not days or not isinstance(media_list, list):
-            continue
-        for media in media_list:
-            if not isinstance(media, Mapping):
-                continue
-            key = str(media.get("mediaServerId") or media.get("plexId") or "")
-            added = media.get("addDate")
-            if not key or not added:
-                continue
-            try:
-                added_at = datetime.fromisoformat(str(added).replace("Z", "+00:00")).astimezone(zone)
-                day = added_at.date() + timedelta(days=int(days))
-            except OverflowError:
-                continue
+        for key, day in _collection_days(collection, zone):
             out[key] = min(day, out.get(key, day))
     return out
+
+
+def _collection_days(collection: Mapping[str, Any], zone: tzinfo | None) -> list[tuple[str, date]]:
+    days = collection.get("deleteAfterDays")
+    media_list = collection.get("media")
+    if not collection.get("isActive") or not days or not isinstance(media_list, list):
+        return []
+    name = str(collection.get("title", ""))
+    try:
+        after = timedelta(days=int(days))
+    except (TypeError, ValueError, OverflowError):
+        log.warning("Maintainerr collection skipped, its delete days are not a number", extra={"collection": name})
+        return []
+    found: list[tuple[str, date]] = []
+    skipped = 0
+    for media in media_list:
+        if not isinstance(media, Mapping):
+            continue
+        key = str(media.get("mediaServerId") or media.get("plexId") or "")
+        added = media.get("addDate")
+        if not key or not added:
+            continue
+        try:
+            found.append(
+                (key, datetime.fromisoformat(str(added).replace("Z", "+00:00")).astimezone(zone).date() + after)
+            )
+        except (ValueError, OverflowError):
+            skipped += 1
+    if skipped:
+        log.warning(
+            "Maintainerr titles skipped, their add date is not a date", extra={"collection": name, "count": skipped}
+        )
+    return found
 
 
 def days_left(action_day: date | None, today: date) -> int | None:
