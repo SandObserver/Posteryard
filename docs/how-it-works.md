@@ -6,7 +6,7 @@
 
 | Image | Design |
 | --- | --- |
-| Movie and show poster | Textless art and the title logo, laid out like an Apple TV tile, with a soft black fade where the logo needs it. One status or Maintainerr label sits above the logo. Under it: quality badges, then accessibility badges (movies); the logo moves up only as far as those lines need. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
+| Movie and show poster | Textless art and the title logo, laid out like an Apple TV tile, with a soft black fade where the logo needs it. One status or Maintainerr label sits above the logo. Under it, on movies only: quality badges, then accessibility badges; the logo moves up only as far as those lines need. A movie with more than one version gets the quality badges of its best version, judged only on the badge kinds that are on. Shows get their streaming service mark top left, clear of the unwatched count Plex draws top right. A title without a TMDB logo gets its name set in white. |
 | Season poster | The same, with the season number large in the top left corner, and no service mark. Specials say `Specials` under the logo. Uses the season's own art, or a show image no other season uses. Crops and other versions of a picture count as the same picture. |
 | Episode thumbnail | The episode still with a light bottom shade. With `EPISODE_THUMBNAILS=titled`, the bottom is blurred and faded, with `EPISODE N` and the title. |
 | Background | Textless art, no title. |

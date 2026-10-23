@@ -86,6 +86,12 @@ def _streams(raw: list[Mapping[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def _media(streams: list[Mapping[str, Any]]) -> dict[str, Any]:
+    video: Mapping[str, Any] = next((s for s in streams if s.get("Type") == "Video"), {})
+    resolution = _resolution(int(video.get("Width") or 0), int(video.get("Height") or 0))
+    return {"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}
+
+
 class Jellyfin:
     name = "Jellyfin"
     collections_per_library = False
@@ -180,11 +186,10 @@ class Jellyfin:
         if library is not None:
             item["librarySectionID"] = library["key"]
             item["librarySectionTitle"] = library["title"]
-        streams = raw.get("MediaStreams")
-        if streams:
-            video: Mapping[str, Any] = next((s for s in streams if s.get("Type") == "Video"), {})
-            resolution = _resolution(int(video.get("Width") or 0), int(video.get("Height") or 0))
-            item["Media"] = [{"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}]
+        versions = [s.get("MediaStreams") for s in raw.get("MediaSources") or []] or [raw.get("MediaStreams")]
+        media = [_media(streams) for streams in versions if streams]
+        if media:
+            item["Media"] = media
         return item
 
     def _path(self, raw: Mapping[str, Any]) -> str:
