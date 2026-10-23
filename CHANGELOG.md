@@ -40,6 +40,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep a background changed by hand when `art next`, `art set` or `art reset` changes the poster.
 - Give back an episode thumbnail whose upload stopped halfway when `EPISODE_THUMBNAILS=off`, as `restore --all` does.
 - Remove `posteryard-next` from an episode, in place of failing the episode at every sweep.
+- Render a season or episode again at the next sweep when it loses `posteryard-ignore` and `ONLY_RATING_KEYS` names its show, in place of at the daily pass.
+- Read a library one page at a time in the daily pass, so a large TV library no longer holds every episode in memory at once.
 
 ### Security
 
