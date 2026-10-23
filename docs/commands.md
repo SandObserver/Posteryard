@@ -64,7 +64,7 @@ Add these labels to a title in Plex instead of running a command. In Plex Web, o
 
 | Label | What it does |
 | --- | --- |
-| `posteryard-next` | Switch to the next best art. The label is removed when done. With `DRY_RUN=true`, the label stays and nothing changes. |
+| `posteryard-next` | Switch to the next best art. The label is removed when done. An episode has one still, so on an episode the label is only removed. With `DRY_RUN=true`, the label stays and nothing changes. |
 | `posteryard-custom` | Keep the poster you uploaded in Plex as the art, with the title and badges drawn on top. Remove the label to go back to automatic art. |
 | `posteryard-ignore` | Leave this title alone. On a show it covers the show only; label seasons separately. Remove the label and it is rendered fresh. |
 

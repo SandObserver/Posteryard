@@ -37,6 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Show a season the sooner of its own and its show's Maintainerr date.
 - Skip only the Maintainerr collection or title whose delete days or add date cannot be read, in place of the whole answer and a false outage alert.
 - Label an upcoming special no longer as a `NEW SEASON` premiere, and a newly added special `NEW EPISODE` in place of `NEW SEASON`.
+- Keep a background changed by hand when `art next`, `art set` or `art reset` changes the poster.
+- Give back an episode thumbnail whose upload stopped halfway when `EPISODE_THUMBNAILS=off`, as `restore --all` does.
+- Remove `posteryard-next` from an episode, in place of failing the episode at every sweep.
 
 ### Security
 

@@ -85,7 +85,7 @@ Posteryard changes images, removes the `posteryard-next` label, and keeps the co
 | --- | --- | --- |
 | Posters, backgrounds and episode thumbnails | For every title in `LIBRARIES`. Plex images are locked, so a refresh keeps them. | `restore --all` gives every image back and unlocks it. `EPISODE_THUMBNAILS=off` gives back episode thumbnails only. `posteryard-ignore` stops changes to one title. |
 | Collection posters | With `COLLECTION_POSTERS` or `SERVICE_COLLECTIONS`. | `restore --all`. |
-| The `posteryard-next` label | Removed after the art is switched. No other label on a title is added or removed. | Nothing to undo. |
+| The `posteryard-next` label | Removed after the art is switched, and from an episode right away. No other label on a title is added or removed. | Nothing to undo. |
 | Live TV guide posters | With `LIVE_TV`, on Plex and Jellyfin. | Set `LIVE_TV=false`. On Plex, the next guide refresh brings back the guide's own images. On Jellyfin, airings keep the poster until they end. |
 | Collections | With `SERVICE_COLLECTIONS`: created per service, shows added and removed, and deleted below 3 shows. Only collections with the `posteryard-collection` label. | Delete the collections with the `posteryard-collection` label. |
 
