@@ -5,7 +5,7 @@ import pytest
 
 from posteryard import http
 from posteryard.jellyfin import Emby
-from posteryard.quality import AudioLevel, HdrLevel, VideoLevel, best
+from posteryard.quality import AudioLevel, HdrLevel, QualityMinimums, VideoLevel, best
 from tests.test_jellyfin import Server
 
 BASE = "http://emby.example:8096"
@@ -57,7 +57,7 @@ def test_items_use_numeric_ids_and_the_user_route(served: tuple[Emby, Server]) -
     assert (movie["ratingKey"], movie["title"], movie["librarySectionTitle"]) == ("12", "Upgrade", "Movies")
     assert {label["tag"] for label in movie["Label"]} == {"racing", "Posteryard-Ignore"}
     assert ("GET", f"/Users/{USER}/Items/12") in [(c[0], c[1]) for c in fake.calls]
-    quality = best(movie["Media"])
+    quality = best(movie["Media"], QualityMinimums())
     assert (quality.video, quality.hdr, quality.audio) == (VideoLevel.UHD, HdrLevel.HDR10, AudioLevel.ATMOS)
     show = emby.item("13")
     assert show is not None and show["Guid"] == [
@@ -92,7 +92,7 @@ def test_dolby_vision_and_hdr10_plus(served: tuple[Emby, Server]) -> None:
         video: dict[str, Any] = {"Type": "Video", "Width": 3840, "Height": 2160, "ExtendedVideoType": kind}
         fake.routes[f"GET /Users/{USER}/Items/12"] = {**UPGRADE, "MediaStreams": [video]}
         movie = emby.item("12")
-        assert movie is not None and best(movie["Media"]).hdr == level
+        assert movie is not None and best(movie["Media"], QualityMinimums()).hdr == level
 
 
 def test_the_server_id_names_emby(served: tuple[Emby, Server]) -> None:

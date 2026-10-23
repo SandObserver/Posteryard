@@ -118,9 +118,17 @@ def analyse(media: Mapping[str, Any]) -> MediaQuality:  # noqa: C901
     return MediaQuality(video, hdr, audio, dts_x and audio == AudioLevel.ATMOS)
 
 
-def best(media_list: Sequence[Mapping[str, Any]]) -> MediaQuality:
+def best(media_list: Sequence[Mapping[str, Any]], minimums: QualityMinimums) -> MediaQuality:
     qualities = [analyse(m) for m in media_list] or [MediaQuality(VideoLevel.OFF, HdrLevel.OFF, AudioLevel.OFF, False)]
-    return max(qualities, key=lambda q: (VIDEO_RANK[q.video], HDR_RANK[q.hdr], AUDIO_RANK[q.audio]))
+
+    def rank(q: MediaQuality) -> tuple[int, int, int]:
+        return (
+            VIDEO_RANK[q.video] if minimums.video != VideoLevel.OFF else 0,
+            HDR_RANK[q.hdr] if minimums.hdr != HdrLevel.OFF else 0,
+            AUDIO_RANK[q.audio] if minimums.audio != AudioLevel.OFF else 0,
+        )
+
+    return max(qualities, key=rank)
 
 
 def badges(quality: MediaQuality, minimums: QualityMinimums) -> list[Badge]:

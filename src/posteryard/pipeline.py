@@ -387,7 +387,7 @@ def _background(ctx: Context, title: Title, key: str) -> list[Plan]:
 def movie(ctx: Context, item: Item) -> list[Plan]:
     key = str(item["ratingKey"])
     title = ctx.sources.title("movie", _require_tmdb(ctx, item, "movie"), str(item.get("title", "")))
-    badges = quality.badges(quality.best(item.get("Media") or []), ctx.settings.minimums)
+    badges = quality.badges(quality.best(item.get("Media") or [], ctx.settings.minimums), ctx.settings.minimums)
     access = quality.accessibility(item.get("Media") or [], ctx.settings.accessibility)
     label = _label(ctx, status.Dates(added=status.from_timestamp(item.get("addedAt"))), ctx.settings.leaving(key))
     poster = _poster(ctx, title, key, title.name, season=None, badges=badges, label=label, access=access)

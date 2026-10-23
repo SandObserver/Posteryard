@@ -53,8 +53,16 @@ def test_off_hides_an_axis() -> None:
 
 
 def test_best_picks_the_highest_version() -> None:
-    assert best([media("1080"), media("4k")]).video == VideoLevel.UHD
-    assert best([]).video == VideoLevel.OFF
+    assert best([media("1080"), media("4k")], QualityMinimums()).video == VideoLevel.UHD
+    assert best([], QualityMinimums()).video == VideoLevel.OFF
+
+
+def test_best_ignores_an_axis_that_is_off() -> None:
+    sdr_4k = media("4k", {}, {"channels": 2})
+    vision_1080 = media("1080", {"DOVIPresent": True}, {"channels": 8, "displayTitle": "English (TrueHD 7.1 Atmos)"})
+    assert badges(best([sdr_4k, vision_1080], QualityMinimums()), QualityMinimums()) == [Badge.UHD]
+    no_video = QualityMinimums(VideoLevel.OFF)
+    assert badges(best([sdr_4k, vision_1080], no_video), no_video) == [Badge.DOLBY_VISION, Badge.DOLBY_ATMOS]
 
 
 def test_accessibility_from_flags_and_titles() -> None:

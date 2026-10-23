@@ -9,7 +9,7 @@ import pytest
 
 from posteryard import http
 from posteryard.jellyfin import Jellyfin
-from posteryard.quality import AudioLevel, Badge, HdrLevel, VideoLevel, accessibility, best
+from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
 
 BASE = "http://jellyfin.example:8096"
 MOVIE = "a" * 32
@@ -95,7 +95,7 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
     assert movie["year"] == 2019
     assert {label["tag"] for label in movie["Label"]} == {"racing", "Posteryard-Ignore"}
     assert next(c for c in server.calls if c[1] == f"/Items/{MOVIE}")[2] == {"userId": USER}
-    quality = best(movie["Media"])
+    quality = best(movie["Media"], QualityMinimums())
     assert (quality.video, quality.hdr, quality.audio) == (VideoLevel.UHD, HdrLevel.DOLBY_VISION, AudioLevel.ATMOS)
     episode = jellyfin.item(EPISODE)
     assert episode is not None
@@ -208,6 +208,20 @@ def test_accessibility_from_jellyfin_streams(serve: Any) -> None:
     movie = jellyfin.item(MOVIE)
     assert movie is not None
     assert accessibility(movie["Media"], frozenset({Badge.SDH})) == [Badge.SDH]
+
+
+def test_every_version_is_read(serve: Any) -> None:
+    sdr = [{"Type": "Video", "Width": 3840, "Height": 2160}, {"Type": "Audio", "Channels": 2}]
+    versions = {
+        **FORD,
+        "MediaStreams": sdr,
+        "MediaSources": [{"MediaStreams": sdr}, {"MediaStreams": FORD["MediaStreams"]}],
+    }
+    jellyfin, _ = serve({f"/Items/{MOVIE}": versions})
+    movie = jellyfin.item(MOVIE)
+    assert movie is not None and len(movie["Media"]) == 2
+    quality = best(movie["Media"], QualityMinimums(VideoLevel.OFF))
+    assert (quality.hdr, quality.audio) == (HdrLevel.DOLBY_VISION, AudioLevel.ATMOS)
 
 
 def test_missing_numbers_are_left_out(serve: Any) -> None:

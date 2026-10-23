@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Pick the version of a movie that its quality badges describe only by the badge kinds that are on, so `QUALITY_MIN_VIDEO=off` no longer hides the Dolby Vision and Atmos badges of a 1080p version next to a 4K one.
+- Read every version of a movie on Jellyfin and Emby for its badges, as Plex does, in place of only the first.
 - Check art picked earlier again when the show or movie gains a title, such as a Live TV guide name, and pick new art when it prints that title.
 - Pass over art more than four times as tall as it is wide, or as wide as it is tall, as reading its text could run out of memory.
 - Refuse an `art set --file` over 40 MB before reading it.
