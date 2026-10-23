@@ -826,6 +826,66 @@ def test_art_next_on_a_show_avoids_the_art_of_its_seasons() -> None:
     assert after not in {"/textless.jpg", *seasons.values()}
 
 
+class SeasonsPlex(FakeServer):
+    def __init__(self, numbers: list[int]) -> None:
+        self.numbers = numbers
+
+    def item(self, rating_key: str) -> Item | None:
+        if rating_key == "1":
+            return {"ratingKey": "1", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}]}
+        return {"ratingKey": rating_key, "type": "season", "index": int(rating_key) - 10, "parentRatingKey": "1"}
+
+    def children(self, rating_key: str) -> list[Item]:
+        return [{"ratingKey": str(10 + n), "type": "season", "index": n, "parentRatingKey": "1"} for n in self.numbers]
+
+
+def test_a_season_or_episode_without_a_number_is_left_alone() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    ctx.server = SeasonsPlex([1, 2])
+    assert pipeline.plan_item(ctx, {"ratingKey": "19", "type": "season", "parentRatingKey": "1"}) == []
+    episode: Item = {"ratingKey": "30", "type": "episode", "index": 4, "grandparentRatingKey": "1"}
+    assert pipeline.plan_item(ctx, episode) == []
+    assert pipeline.plan_item(ctx, {**episode, "parentIndex": 1}) != []
+
+
+def test_a_new_season_missing_from_the_remembered_list_gets_its_own_art() -> None:
+    ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
+    server = SeasonsPlex([1, 2])
+    ctx.server = server
+    item = server.item("11")
+    assert item is not None and pipeline.plan_item(ctx, item)[0].inputs["art"] == "/season1.jpg"
+    server.numbers = [1, 2, 3]
+    item = server.item("13")
+    assert item is not None and pipeline.plan_item(ctx, item)[0].inputs["art"] == "/season3.jpg"
+
+
+def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
+    ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
+    season_posters = Images([ref("/season1-a.jpg", None), ref("/season1-b.jpg", None)], [], [])
+    tmdb_of(ctx).season_images = lambda show_id, season: season_posters  # type: ignore[method-assign]
+    assert season_art(ctx, 1) == {1: "/season1-a.jpg"}
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/season1-a.jpg"})) if key == "11" else None
+    assert season_art(ctx, 1) == {1: "/season1-b.jpg"}
+
+
+def test_seasons_keep_their_art_when_a_season_is_added_or_removed() -> None:
+    ctx = context([ref(f"/textless{n}.jpg", None) for n in range(6)])
+    title = ctx.sources.title("tv", 42, "Example Show")
+    show_art = ctx.sources.art(title)
+    assert show_art is not None
+
+    def assign(numbers: list[int]) -> dict[int, str]:
+        found = pipeline._assign_seasons(ctx, title, show_art.path, numbers)
+        return {n: path for n, (path, _) in found.items()}
+
+    before = assign([1, 2, 3, 4, 5])
+    with_specials = assign([0, 1, 2, 3, 4, 5])
+    without_two = assign([0, 1, 3, 4, 5])
+    assert {n: with_specials[n] for n in before} == before
+    assert {n: without_two[n] for n in (0, 1, 3, 4, 5)} == {n: with_specials[n] for n in (0, 1, 3, 4, 5)}
+    assert len(set(with_specials.values())) == len(with_specials)
+
+
 def test_art_next_offers_apple_art_before_backdrops(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(apple, "find", lambda kind, details, region: APPLE_URL)
     ctx = context([ref("/textless.jpg", None)])

@@ -1,7 +1,7 @@
 import hashlib
 import json
 import logging
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
@@ -43,6 +43,8 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "titled:": (),
     "automark:": (),
 }
+SEASON_ART = "season-art:"
+NUMBER_FIELDS = {"season": ("index",), "episode": ("index", "parentIndex")}
 
 
 class NotFoundError(Exception):
@@ -163,12 +165,7 @@ def _assign_seasons(
     assignment: dict[int, tuple[str, str]] = {}
     own: dict[int, str] = {}
     for number in numbers:
-        refs = ctx.sources.season_images(title.tmdb_id, number).textless_posters() or [
-            r
-            for r in ctx.sources.fanart_images(title.kind, title.tmdb_id).seasons.get(number, [])
-            if r.language is None
-        ]
-        picked = ctx.sources.picker.textless(f"{base}:s{number}", refs, title.all_titles)
+        picked = ctx.sources.picker.textless(f"{base}:s{number}", _season_refs(ctx, title, number), title.all_titles)
         if picked is None:
             continue
         own[number] = picked.path
@@ -179,32 +176,65 @@ def _assign_seasons(
         f"{base}:pool", ctx.sources.images(title.kind, title.tmdb_id).textless_art(), title.all_titles
     )
     reserved = [path for number, path in own.items() if number not in assignment]
+    earlier = ctx.sources.choices.get_choice(f"{SEASON_ART}{base}") or {}
+    kept = {
+        number: path
+        for number in numbers
+        if number not in assignment and (path := earlier.get(str(number))) and path in pool
+    }
     for number in numbers:
-        if number in assignment:
-            continue
-        others = [path for other, path in own.items() if other != number and path not in used]
-        choice = next((p for p in pool if not _seen(ctx, p, [*used, *others])), None)
-        if choice is None and number in own and not _seen(ctx, own[number], used, redrawn=False):
-            choice = own[number]
-        if choice is None:
-            choice = next((p for p in pool if not _seen(ctx, p, [*used, *reserved], redrawn=False)), None)
-        if choice is not None:
+        if number not in assignment and (
+            choice := _shared_art(ctx, pool, number, own=own, used=used, reserved=reserved, kept=kept)
+        ):
             used.append(choice)
             assignment[number] = (
                 choice,
                 f"{'season' if choice == own.get(number) else 'series'} art from {art_source(choice)}",
             )
+    ctx.sources.choices.put_choice(f"{SEASON_ART}{base}", {str(n): path for n, (path, _) in assignment.items()})
     return assignment
 
 
-def _next_unused(ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str]) -> str | None:
+def _shared_art(  # noqa: PLR0913
+    ctx: Context,
+    pool: Iterable[str],
+    number: int,
+    *,
+    own: Mapping[int, str],
+    used: Sequence[str],
+    reserved: Sequence[str],
+    kept: Mapping[int, str],
+) -> str | None:
+    held = [path for other, path in kept.items() if other != number]
+    if (choice := kept.get(number)) is not None and not _seen(ctx, choice, [*used, *held]):
+        return choice
+    others = [path for other, path in own.items() if other != number and path not in used]
+    if (choice := next((p for p in pool if not _seen(ctx, p, [*used, *others, *held])), None)) is not None:
+        return choice
+    if number in own and not _seen(ctx, own[number], used, redrawn=False):
+        return own[number]
+    return next((p for p in pool if not _seen(ctx, p, [*used, *reserved, *held], redrawn=False)), None)
+
+
+def _season_refs(ctx: Context, title: Title, number: int) -> list[ImageRef]:
+    return ctx.sources.season_images(title.tmdb_id, number).textless_posters() or [
+        r for r in ctx.sources.fanart_images(title.kind, title.tmdb_id).seasons.get(number, []) if r.language is None
+    ]
+
+
+def _next_unused(
+    ctx: Context, title: Title, avoid: Sequence[str], skip: frozenset[str], season: int | None
+) -> str | None:
     used = [*avoid, *skip]
-    return next((path for path in _art_in_order(ctx, title) if not _seen(ctx, path, used)), None)
+    return next((path for path in _art_in_order(ctx, title, season) if not _seen(ctx, path, used)), None)
 
 
-def _art_in_order(ctx: Context, title: Title) -> Iterator[str]:
+def _art_in_order(ctx: Context, title: Title, season: int | None = None) -> Iterator[str]:
     """Clean art in the order of the automatic choice. An image is read only when iteration reaches it."""
     base = f"{title.kind}:{title.tmdb_id}"
+    if season is not None:
+        refs = _season_refs(ctx, title, season)
+        yield from ctx.sources.picker.textless_pool(f"{base}:s{season}:pool", refs, title.all_titles)
     images = ctx.sources.images(title.kind, title.tmdb_id)
     posters = {r.path for r in images.textless_posters()}
     apple_checked = False
@@ -300,7 +330,7 @@ def _automatic_art(  # noqa: PLR0913
     if not skip:
         return art_path, note
     others = [path for path, _ in _neighbours(ctx, title, show_path, siblings, season)] if siblings else []
-    replacement = _next_unused(ctx, title, others, skip)
+    replacement = _next_unused(ctx, title, others, skip, season)
     if replacement is None:
         return art_path, note + ", no other art left to switch to"
     return replacement, f"next art from {art_source(replacement)}"
@@ -450,8 +480,13 @@ def _newest_season(ctx: Context, key: str) -> date | None:
 def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
     parent = str(item.get("parentRatingKey", ""))
     if ctx.server is not None and parent:
-        children = ctx.sources.remember(("children", parent), lambda: ctx.server.children(parent) if ctx.server else [])
-        return sorted(int(child.get("index", 0)) for child in children)
+        server = ctx.server
+        children = ctx.sources.remember(("children", parent), lambda: server.children(parent))
+        numbers = sorted(int(child["index"]) for child in children if child.get("index") is not None)
+        if item.get("index") is not None and int(item["index"]) not in numbers:
+            children = ctx.sources.remember(("children", parent), lambda: server.children(parent), fresh=True)
+            numbers = sorted(int(child["index"]) for child in children if child.get("index") is not None)
+        return numbers
     return sorted(int(s["season_number"]) for s in ctx.sources.details("tv", title.tmdb_id).get("seasons") or [])
 
 
@@ -547,6 +582,12 @@ def plan_item(ctx: Context, item: Item) -> list[Plan]:
         return movie(ctx, item)
     if kind == "show":
         return show(ctx, item)
+    if kind in ("season", "episode") and any(item.get(f) is None for f in NUMBER_FIELDS[kind]):
+        log.info(
+            "left alone, it has no season or episode number",
+            extra={"title": item.get("title"), "key": item.get("ratingKey")},
+        )
+        return []
     if kind == "season":
         title, show_item = _show(ctx, item)
         return season(ctx, title, item, status.from_timestamp(show_item.get("addedAt")))

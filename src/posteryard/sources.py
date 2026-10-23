@@ -71,10 +71,10 @@ class Sources:
             return Picker(self.choices, self.fetch, lambda _image: [], UNCHECKED)
         return Picker(self.choices, self.fetch, self.read)
 
-    def remember(self, key: tuple[str, ...], load: Callable[[], Any]) -> Any:
+    def remember(self, key: tuple[str, ...], load: Callable[[], Any], *, fresh: bool = False) -> Any:
         with self._lock:
             hit = self.lookups.get(key)
-            if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
+            if hit and not fresh and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
                 self.lookups.move_to_end(key)
                 return hit[1]
         value = load()

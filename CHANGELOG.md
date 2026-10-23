@@ -42,6 +42,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Remove `posteryard-next` from an episode, in place of failing the episode at every sweep.
 - Render a season or episode again at the next sweep when it loses `posteryard-ignore` and `ONLY_RATING_KEYS` names its show, in place of at the daily pass.
 - Read a library one page at a time in the daily pass, so a large TV library no longer holds every episode in memory at once.
+- Leave a season without a season number, such as Jellyfin's Season Unknown, and its episodes alone, in place of drawing it as Specials with Specials art and stills.
+- Give a new season its own art when the show was read in the 10 minutes before it arrived, in place of the show's art.
+- Step `art next` on a season through the season's other clean posters first.
+- Keep the show image a season uses when a Specials season appears or another season is removed, in place of moving later seasons to other images.
 
 ### Security
 
