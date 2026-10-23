@@ -47,7 +47,8 @@ class FakePlex(FakeServer):
         self.restored.append((str(item["ratingKey"]), target))
 
     def remove_label(self, item: Item, label: str) -> None:
-        self.items["1"]["Label"] = [t for t in self.items["1"].get("Label", []) if t["tag"] != label]
+        key = str(item["ratingKey"])
+        self.items[key]["Label"] = [t for t in self.items[key].get("Label", []) if t["tag"] != label]
 
     def poster_bytes(self, item: Item) -> bytes:
         buffer = io.BytesIO()
@@ -259,6 +260,32 @@ def test_next_label_keeps_its_text_and_skips_once_when_removal_fails(
     assert plex.items["1"]["Label"] == []
 
 
+def test_next_label_on_an_episode_is_removed_and_the_thumbnail_still_updates(tmp_path: Path) -> None:
+    worker, plex, store, alerts = make(tmp_path, DRY_RUN="false")
+    plex.items["3"] = {"ratingKey": "3", "type": "show", "title": "Example Show", "Guid": [{"id": "tmdb://42"}],
+                       "librarySectionTitle": "TV Shows"}  # fmt: skip
+    plex.items["5"] = {"ratingKey": "5", "type": "episode", "title": "Pilot", "index": 1, "parentIndex": 1,
+                       "grandparentRatingKey": "3", "librarySectionTitle": "TV Shows",
+                       "Label": [{"tag": "posteryard-next"}]}  # fmt: skip
+    assert worker.process("5") == Outcome.UPLOADED
+    assert plex.items["5"]["Label"] == []
+    assert store.override("5") is None
+    assert alerts.sent == []
+
+
+def test_art_commands_leave_a_background_changed_by_hand(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.selected_keys[("1", "art")] = "chosen-by-hand"
+    for command in (worker.next_art, worker.reset_art):
+        plex.uploads.clear()
+        assert command("1") == Outcome.UPLOADED
+        assert plex.uploads == [("1", "poster")]
+    assert plex.selected_keys[("1", "art")] == "chosen-by-hand"
+    record = store.get("1", "art")
+    assert record is not None and record.status == Status.MANUAL
+
+
 def test_next_label_changes_nothing_in_a_dry_run(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path)
     plex.items["1"]["Label"] = [{"tag": "posteryard-next"}]
@@ -315,6 +342,16 @@ def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
     worker.process("6")
     assert plex.restored == [("5", "thumb")]
     assert store.get("6", "thumb") is None
+
+
+def test_episodes_off_gives_back_a_thumbnail_whose_upload_stopped_halfway(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false", EPISODE_THUMBNAILS="off")
+    plex.items["5"] = {"ratingKey": "5", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+                       "librarySectionTitle": "TV Shows"}  # fmt: skip
+    store.uploading("5", "thumb", "Pilot")
+    worker.process("5")
+    assert plex.restored == [("5", "thumb")]
+    assert store.get("5", "thumb") is None
 
 
 def test_a_dry_run_keeps_the_record_of_a_thumbnail_it_does_not_give_back(tmp_path: Path) -> None:

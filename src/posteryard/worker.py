@@ -171,7 +171,7 @@ class Worker:
 
     def _apply_all(self, item: Item, force: bool, redo_poster: bool) -> list[Outcome]:
         return [
-            self._apply(plan, item, force or (redo_poster and plan.target == "poster"))
+            self._apply(plan, item, (force or redo_poster) and plan.target == "poster")
             for plan in pipeline.plan_item(self.ctx, item)
         ]
 
@@ -236,10 +236,10 @@ class Worker:
         record = self.store.get(key, target)
         if record is None:
             return
-        if record.status == Status.UPLOADED:
+        if record.status in (Status.UPLOADED, Status.UPLOADING):
             if self.cfg.dry_run:
                 return
-            if self.server.selected(key, target) != record.image_key:
+            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
                 log.info(f"{NOUNS[target]} changed by hand, left alone", extra={"title": item.get("title")})
             else:
                 self.server.restore(item, target)
@@ -253,6 +253,9 @@ class Worker:
             return redo
         if (next_tag := label_tag(item, overrides.NEXT_LABEL)) and self.cfg.dry_run:
             log.info("next art label left alone while DRY_RUN is on", extra={"title": item.get("title")})
+        elif next_tag and item.get("type") == "episode":
+            self.server.remove_label(item, next_tag)
+            log.info("next art label removed, an episode has one still", extra={"title": item.get("title")})
         elif next_tag:
             art = self._current_art(item)
             # Remove the label before saving the skip. A retry after a failed removal must not skip twice.
