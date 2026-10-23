@@ -5,7 +5,7 @@
   <Registry>https://github.com/SandObserver/Posteryard/pkgs/container/posteryard</Registry>
   <Network>bridge</Network>
   <Privileged>false</Privileged>
-  <ExtraParams>--user=99:100 --restart=unless-stopped --init --read-only --tmpfs=/tmp --cap-drop=ALL --security-opt=no-new-privileges:true --memory=1536m</ExtraParams>
+  <ExtraParams>--user=99:100 --restart=unless-stopped --init --read-only --tmpfs=/tmp --cap-drop=ALL --security-opt=no-new-privileges:true --memory=1536m --pids-limit=512</ExtraParams>
   <Support>https://github.com/SandObserver/Posteryard/issues</Support>
   <Project>https://github.com/SandObserver/Posteryard</Project>
   <ReadMe>https://github.com/SandObserver/Posteryard/blob/main/README.md</ReadMe>

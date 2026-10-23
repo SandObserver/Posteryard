@@ -35,7 +35,7 @@ Check the setup with `docker exec posteryard posteryard test-alert`. Posteryard 
 
 ## Monitoring
 
-The image has a Docker health check that calls `/healthz` on `LISTEN_PORT`. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, it sends an alert and exits, and `restart: unless-stopped` starts it again.
+The image has a Docker health check that calls `/healthz` on `LISTEN_PORT`. `docker ps` shows `healthy` or `unhealthy` within a few minutes of start. If one of Posteryard's internal threads stops, or one title has been processing for 30 minutes, it sends an alert and exits, and `restart: unless-stopped` starts it again.
 
 `GET /healthz` answers `200` when healthy and `503` when not:
 

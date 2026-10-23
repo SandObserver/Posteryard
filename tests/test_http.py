@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -168,6 +169,29 @@ def test_oversized_responses_are_refused(server: Server, monkeypatch: pytest.Mon
         http.request("GET", f"{server.url}/a")
 
 
+def test_a_response_sent_one_byte_at_a_time_is_cut_off() -> None:
+    listener = socket.create_server(("127.0.0.1", 0))
+    stop = threading.Event()
+
+    def drip() -> None:
+        conn, _ = listener.accept()
+        with conn:
+            conn.recv(65536)
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: 1000\r\n\r\n")
+            while not stop.wait(0.05):
+                conn.sendall(b"x")
+
+    threading.Thread(target=drip, daemon=True).start()
+    started = time.monotonic()
+    try:
+        with pytest.raises(http.RequestError, match="too slow"):
+            http.request("GET", f"http://127.0.0.1:{listener.getsockname()[1]}/a", timeout=0.2, retries=1)
+    finally:
+        stop.set()
+        listener.close()
+    assert time.monotonic() - started < 3
+
+
 def test_retry_after_is_read_as_seconds_or_a_date() -> None:
     assert http.retry_after(None) == 0
     assert http.retry_after("5") == 5
@@ -243,6 +267,24 @@ def test_untrusted_redirects_are_checked_too(server: Server, monkeypatch: pytest
     with pytest.raises(http.RequestError, match=r"refused 169\.254\.169\.254 as a link-local address"):
         http.request("GET", f"{server.url}/a", untrusted=True)
     assert [path for path, _ in server.requests] == ["/a"]
+
+
+def test_a_trusted_address_on_this_machine_still_has_its_redirects_checked(server: Server) -> None:
+    server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"unused")]
+    with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
+        http.get_checked_redirects(f"{server.url}/a", timeout=5)
+    assert [path for path, _ in server.requests] == ["/a"]
+
+
+def test_a_redirect_without_an_address_is_refused(server: Server) -> None:
+    server.answers = [(302, {}, b"")]
+    with pytest.raises(http.RedirectError, match="refused a redirect"):
+        http.get_checked_redirects(f"{server.url}/a", timeout=5)
+
+
+def test_a_trusted_address_without_a_redirect_is_read_as_usual(server: Server) -> None:
+    server.answers = [(200, {}, b"guide")]
+    assert http.get_checked_redirects(f"{server.url}/a", timeout=5) == b"guide"
 
 
 def test_untrusted_hosts_are_looked_up_once_and_connected_to_as_checked(

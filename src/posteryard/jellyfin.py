@@ -28,6 +28,8 @@ PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 GUIDE = "guide"
 log = logging.getLogger(__name__)
 XMLTV_TIME = "%Y%m%d%H%M%S %z"
+XMLTV_MAX_EVENTS = 8_000_000
+XMLTV_MAX_DEPTH = 16
 
 
 def _timestamp(value: Any) -> int | None:
@@ -389,7 +391,7 @@ class Jellyfin:
             if listing.get("Type") != "xmltv" or not path.startswith(("http://", "https://")):
                 continue
             try:
-                data = http.request("GET", path, timeout=120)
+                data = http.get_checked_redirects(path, timeout=120)
                 pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
             except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError, zlib.error) as exc:
                 reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__
@@ -419,24 +421,45 @@ def _unzip(data: bytes) -> bytes:
 
 
 def _xmltv_pictures(data: bytes, start: int, end: int) -> dict[tuple[str, int], str]:
+    """Each element leaves the tree when it ends. A guide that keeps them all can fill the container memory."""
     names: dict[str, str] = {}
     pictures: dict[tuple[str, int], str] = {}
-    for _, element in ET.iterparse(io.BytesIO(data)):
-        if element.tag == "channel":
-            name = element.findtext("display-name") or ""
-            names[element.get("id", "")] = name.casefold()
-        elif element.tag == "programme":
-            icon = element.find("icon")
-            src = icon.get("src", "") if icon is not None else ""
-            channel = names.get(element.get("channel", ""))
-            try:
-                begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
-            except ValueError:
-                begins = 0
-            if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
-                pictures[(channel, begins)] = src
-            element.clear()
+    open_elements: list[ET.Element] = []
+    found: dict[str, str] = {}
+    for count, (event, element) in enumerate(ET.iterparse(io.BytesIO(data), events=("start", "end"))):
+        if count > XMLTV_MAX_EVENTS or len(open_elements) > XMLTV_MAX_DEPTH:
+            raise ValueError("the XMLTV guide has too many elements")
+        if event == "start":
+            open_elements.append(element)
+            if element.tag in ("channel", "programme"):
+                found = {}
+            continue
+        open_elements.pop()
+        if element.tag == "display-name":
+            found.setdefault("name", element.text or "")
+        elif element.tag == "icon":
+            found.setdefault("icon", element.get("src", ""))
+        elif element.tag == "channel":
+            names[element.get("id", "")] = found.get("name", "").casefold()
+        elif element.tag == "programme" and (picture := _programme_picture(element, found, names, start, end)):
+            pictures[picture[0]] = picture[1]
+        if open_elements:
+            open_elements[-1].remove(element)
     return pictures
+
+
+def _programme_picture(
+    element: ET.Element, found: dict[str, str], names: dict[str, str], start: int, end: int
+) -> tuple[tuple[str, int], str] | None:
+    src = found.get("icon", "")
+    channel = names.get(element.get("channel", ""))
+    try:
+        begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
+    except ValueError:
+        begins = 0
+    if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
+        return (channel, begins), src
+    return None
 
 
 class Emby(Jellyfin):

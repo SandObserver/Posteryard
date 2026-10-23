@@ -57,3 +57,24 @@ def test_the_banner_aligns_labels() -> None:
         "  Server     Plex",
         "  Schedule   daily",
     ]
+
+
+def test_addresses_in_any_record_have_their_credentials_hidden() -> None:
+    line = logfmt.Formatter().format(
+        logging.makeLogRecord(
+            {
+                "msg": "Failed to parse headers (url=%s): %s",
+                "args": ("https://api.example/3/movie/1?api_key=hunter2", "bad header"),
+                "levelno": logging.WARNING,
+                "guide": "http://me:hunter2@guide.example/g.xml?password=hunter2",
+                "picture": "https://img.example/a.jpg",
+            }
+        )
+    )
+    assert "hunter2" not in line
+    assert "api_key=%2A%2A%2A" in line
+    assert "picture=https://img.example/a.jpg" in line
+
+
+def test_an_address_that_cannot_be_read_is_hidden_whole() -> None:
+    assert logfmt.masked("see http://[broken/x?password=hunter2") == "see ***"

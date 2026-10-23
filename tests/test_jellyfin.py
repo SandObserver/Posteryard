@@ -1,14 +1,15 @@
 import base64
 import gzip
 import json
+import tracemalloc
 import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
 import pytest
 
-from posteryard import http
-from posteryard.jellyfin import Jellyfin
+from posteryard import http, jellyfin
+from posteryard.jellyfin import Jellyfin, _xmltv_pictures
 from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
 
 BASE = "http://jellyfin.example:8096"
@@ -272,6 +273,7 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
         path = urllib.parse.urlsplit(url).path
         if url.startswith("https://guide.example/"):
             assert "headers" not in kwargs
+            assert not kwargs["redirects"]
             return XMLTV
         answers: dict[str, Any] = {
             "/Users": [{"Id": USER, "Policy": {"IsAdministrator": True}}],
@@ -349,6 +351,29 @@ def test_an_unreadable_xmltv_guide_gives_no_pictures(
     assert "guide pictures skipped" in caplog.text
     assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
     assert any("***@guide.example" in str(record.__dict__) for record in caplog.records)
+
+
+def test_an_xmltv_guide_is_read_without_keeping_its_elements() -> None:
+    guide = XMLTV.replace(b"</tv>", b"<a/>" * 300_000 + b"</tv>")
+    tracemalloc.start()
+    try:
+        pictures = _xmltv_pictures(guide, 0, 2**31)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert pictures == {("news 24", 1791824400): "https://img.example/evening.jpg"}
+    assert peak < 5 * 1024 * 1024
+
+
+@pytest.mark.parametrize(
+    "guide",
+    [b"<tv>" + b"<a/>" * 50 + b"</tv>", b"<tv>" + b"<a>" * 20 + b"</a>" * 20 + b"</tv>"],
+    ids=["too-many", "too-deep"],
+)
+def test_an_oversized_xmltv_guide_is_refused(monkeypatch: pytest.MonkeyPatch, guide: bytes) -> None:
+    monkeypatch.setattr(jellyfin, "XMLTV_MAX_EVENTS", 40)
+    with pytest.raises(ValueError, match="too many elements"):
+        _xmltv_pictures(guide, 0, 2**31)
 
 
 def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
