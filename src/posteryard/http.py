@@ -117,7 +117,8 @@ class RequestError(Exception):
 
 class HttpError(RequestError):
     def __init__(self, status: int, url: str, body: str = "") -> None:
-        super().__init__(f"HTTP {status}: {body[:200]}", url)
+        detail = "" if body.lstrip().startswith("<") else " ".join(body.split())[:200]
+        super().__init__(f"HTTP {status}: {detail}" if detail else f"HTTP {status}", url)
         self.status = status
 
 

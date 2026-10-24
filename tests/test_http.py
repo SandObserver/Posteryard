@@ -150,6 +150,19 @@ def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:
     assert SECRET not in str(caught.value)
 
 
+def test_an_html_error_page_is_left_out_of_the_reason(server: Server) -> None:
+    server.answers = [(404, {}, b"<!DOCTYPE html>\n<html>\n<title>File Not Found</title>\n</html>")]
+    with pytest.raises(http.HttpError) as caught:
+        http.request("GET", f"{server.url}/t/p/original/gone.jpg")
+    assert str(caught.value) == f"HTTP 404 for {server.url}/t/p/original/gone.jpg"
+
+
+def test_a_text_error_answer_is_kept_on_one_line(server: Server) -> None:
+    server.answers = [(400, {}, b'{\n  "status_message": "Invalid id"\n}')]
+    with pytest.raises(http.HttpError, match=r'HTTP 400: \{ "status_message": "Invalid id" \} for '):
+        http.request("GET", f"{server.url}/a")
+
+
 @pytest.mark.parametrize(
     ("query", "headers"),
     [
