@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Leave an HTML error page out of a failed request's log line and alert, so the line shows the status and the address.
 - Stop reading a compressed server answer at the 64 MB and time limits even when it unpacks to nothing, and refuse a compression Posteryard did not ask for.
 - Pick the version of a movie that its quality badges describe only by the badge kinds that are on, so `QUALITY_MIN_VIDEO=off` no longer hides the Dolby Vision and Atmos badges of a 1080p version next to a 4K one.
 - Read every version of a movie on Jellyfin and Emby for its badges, as Plex does, in place of only the first.
