@@ -87,7 +87,6 @@ def service_for(provider_name: str) -> str | None:
 
 
 def collection_bases(name: str) -> set[str]:
-    """The service names a collection name can stand for, such as `netflix` for `Netflix Movies`."""
     name = name.strip().lower()
     return {name.removesuffix(suffix) for suffix in COLLECTION_SUFFIXES if name.endswith(suffix)}
 

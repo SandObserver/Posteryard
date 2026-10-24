@@ -119,8 +119,6 @@ def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
 
 
 class LostAnswer(FakePlex):
-    """The first create makes the collection on the server, then its answer is lost."""
-
     def __init__(self, ours: list[Item], made: list[Item]) -> None:
         super().__init__(ours)
         self.made = made

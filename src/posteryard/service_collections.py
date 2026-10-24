@@ -97,7 +97,7 @@ def _adopt(server: MediaServer, ctx: Context, section_key: str, name: str, label
 
 
 def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str]:  # noqa: C901
-    """Create, fill, empty and delete Posteryard's service collections for TV libraries. Returns the kept keys.
+    """Returns the kept keys.
 
     Several libraries share one set of collections: only for a server whose collections belong to no library.
 

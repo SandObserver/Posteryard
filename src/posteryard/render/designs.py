@@ -320,7 +320,6 @@ def _hls(h: float, lightness: float, s: float) -> RGB:
 
 @cache
 def _deepened(colour: RGB) -> tuple[RGB, RGB]:
-    """The brand hue, darkened until a white mark on it reaches CHANNEL_CONTRAST."""
     h, lightness, s = colorsys.rgb_to_hls(*(v / 255 for v in colour))
     top = colour
     while 1.05 / (float(luminance(np.array(top, float))) + 0.05) < CHANNEL_CONTRAST:
@@ -330,7 +329,6 @@ def _deepened(colour: RGB) -> tuple[RGB, RGB]:
 
 
 def channel_band(keys: Iterable[str]) -> tuple[RGB, RGB]:
-    """The first key with an Apple TV band or a brand colour decides. Keys are service keys or service names."""
     for key in keys:
         if key in CHANNEL_BANDS:
             return CHANNEL_BANDS[key]
