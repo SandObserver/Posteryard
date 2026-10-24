@@ -7,11 +7,11 @@ import json
 import logging
 import re
 import urllib.parse
-import xml.etree.ElementTree as ET
 import zlib
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
+from xml.parsers import expat
 
 from posteryard import http
 from posteryard.server import Guide, Item, Target
@@ -393,7 +393,7 @@ class Jellyfin:
             try:
                 data = http.get_checked_redirects(path, timeout=120)
                 pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
-            except (http.RequestError, ET.ParseError, OSError, EOFError, ValueError, zlib.error) as exc:
+            except (http.RequestError, expat.ExpatError, OSError, EOFError, ValueError, zlib.error) as exc:
                 reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__
                 log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": reason})
         return pictures
@@ -421,45 +421,70 @@ def _unzip(data: bytes) -> bytes:
 
 
 def _xmltv_pictures(data: bytes, start: int, end: int) -> dict[tuple[str, int], str]:
-    """Each element leaves the tree when it ends. A guide that keeps them all can fill the container memory."""
-    names: dict[str, str] = {}
-    pictures: dict[tuple[str, int], str] = {}
-    open_elements: list[ET.Element] = []
-    found: dict[str, str] = {}
-    for count, (event, element) in enumerate(ET.iterparse(io.BytesIO(data), events=("start", "end"))):
-        if count > XMLTV_MAX_EVENTS or len(open_elements) > XMLTV_MAX_DEPTH:
+    reader = _XmltvReader(start, end)
+    parser = expat.ParserCreate()
+    parser.EntityDeclHandler = reader.entity
+    parser.StartElementHandler = reader.open
+    parser.EndElementHandler = reader.close
+    parser.CharacterDataHandler = reader.text
+    parser.Parse(data, True)
+    return reader.pictures
+
+
+class _XmltvReader:
+    """Keeps only the channel names and programme pictures. A guide that is kept whole can fill the container memory.
+
+    Refuse every entity declaration. Expat lets entities expand to 100 times the guide.
+    """
+
+    def __init__(self, start: int, end: int) -> None:
+        self.start, self.end = start, end
+        self.names: dict[str, str] = {}
+        self.pictures: dict[tuple[str, int], str] = {}
+        self.found: dict[str, str] = {}
+        self.programme: dict[str, str] = {}
+        self.tags: list[str] = []
+        self.events = 0
+        self.name: list[str] = []
+
+    def entity(self, name: str, *_: object) -> None:
+        raise ValueError("the XMLTV guide declares entities")
+
+    def open(self, tag: str, attrs: dict[str, str]) -> None:
+        self.events += 1
+        self.tags.append(tag)
+        if self.events > XMLTV_MAX_EVENTS or len(self.tags) > XMLTV_MAX_DEPTH:
             raise ValueError("the XMLTV guide has too many elements")
-        if event == "start":
-            open_elements.append(element)
-            if element.tag in ("channel", "programme"):
-                found = {}
-            continue
-        open_elements.pop()
-        if element.tag == "display-name":
-            found.setdefault("name", element.text or "")
-        elif element.tag == "icon":
-            found.setdefault("icon", element.get("src", ""))
-        elif element.tag == "channel":
-            names[element.get("id", "")] = found.get("name", "").casefold()
-        elif element.tag == "programme" and (picture := _programme_picture(element, found, names, start, end)):
-            pictures[picture[0]] = picture[1]
-        if open_elements:
-            open_elements[-1].remove(element)
-    return pictures
+        if tag in ("channel", "programme"):
+            self.found, self.programme = {}, attrs
+        elif tag == "display-name":
+            self.name = []
+        elif tag == "icon":
+            self.found.setdefault("icon", attrs.get("src", ""))
 
+    def text(self, data: str) -> None:
+        if self.tags[-1] == "display-name" and "name" not in self.found:
+            self.name.append(data)
 
-def _programme_picture(
-    element: ET.Element, found: dict[str, str], names: dict[str, str], start: int, end: int
-) -> tuple[tuple[str, int], str] | None:
-    src = found.get("icon", "")
-    channel = names.get(element.get("channel", ""))
-    try:
-        begins = int(datetime.strptime(element.get("start", ""), XMLTV_TIME).timestamp())
-    except ValueError:
-        begins = 0
-    if src.startswith(("http://", "https://")) and channel is not None and start - 86400 < begins < end:
-        return (channel, begins), src
-    return None
+    def close(self, tag: str) -> None:
+        self.tags.pop()
+        if tag == "display-name":
+            self.found.setdefault("name", "".join(self.name))
+        elif tag == "channel":
+            self.names[self.programme.get("id", "")] = self.found.get("name", "").casefold()
+        elif tag == "programme" and (picture := self._picture()):
+            self.pictures[picture[0]] = picture[1]
+
+    def _picture(self) -> tuple[tuple[str, int], str] | None:
+        src = self.found.get("icon", "")
+        channel = self.names.get(self.programme.get("channel", ""))
+        try:
+            begins = int(datetime.strptime(self.programme.get("start", ""), XMLTV_TIME).timestamp())
+        except ValueError:
+            begins = 0
+        if src.startswith(("http://", "https://")) and channel is not None and self.start - 86400 < begins < self.end:
+            return (channel, begins), src
+        return None
 
 
 class Emby(Jellyfin):

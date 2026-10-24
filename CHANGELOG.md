@@ -57,6 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Update the Python base image to 3.13.17 with ca-certificates 20250419+deb13u1, which stops trusting the compromised emSign ECC Root CA - G3 (DSA-6572-1).
 - Refuse a Live TV guide picture or channel logo on the Posteryard machine, a link-local address or a cloud metadata service, also after a redirect. Reported by @VIMS-Coder in #190.
 - Read a Jellyfin or Emby XMLTV guide without keeping it in memory, and skip a guide with more than about 4 million entries, so a hostile guide cannot crash the container.
+- Skip a Jellyfin or Emby XMLTV guide that declares its own entities, which could expand it to 100 times its size.
 - Check where a Jellyfin or Emby XMLTV guide redirects to, as for a guide picture.
 - Stop a request that takes more than 4 times its timeout, with its retries and redirects, so a slow server cannot stall the worker. Read only the start of an error answer, and never the body of a redirect.
 - Restart when one title has been processing for 30 minutes.
