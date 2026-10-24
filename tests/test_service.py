@@ -427,6 +427,19 @@ def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
         receiver.server_close()
 
 
+def test_an_unexpected_heartbeat_error_leaves_the_schedule_running(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def broken(*args: Any, **kwargs: Any) -> bytes:
+        raise ValueError("Port could not be cast to integer value")
+
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": "http://kuma.example/x"})
+    service = start(cfg, FakePlex())
+    monkeypatch.setattr(posteryard_http, "request", broken)
+    service.heartbeat()
+    assert "HEARTBEAT_URL not reachable" in caplog.text
+
+
 def test_a_bad_heartbeat_url_is_rejected() -> None:
     with pytest.raises(config.ConfigError, match="HEARTBEAT_URL"):
         config.load({"TMDB_API_KEY": "example", "HEARTBEAT_URL": "kuma.example/api/push/x"})

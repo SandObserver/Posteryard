@@ -391,6 +391,63 @@ def test_bad_redirects_are_refused(server: Server, location: str, error: str) ->
         http.request("GET", f"{server.url}/a")
 
 
+def test_a_redirect_python_reads_as_another_host_is_refused(server: Server) -> None:
+    other = Server()
+    try:
+        port = server.url.rsplit(":", 1)[1]
+        server.answers = [(302, {"Location": f"{other.url}\\@127.0.0.1:{port}/b"}, b"")]
+        with pytest.raises(http.RedirectError, match="refused a redirect"):
+            http.request("GET", f"{server.url}/a", headers={"Authorization": f"Bearer {SECRET}"})
+        assert other.requests == []
+    finally:
+        other.close()
+
+
+@pytest.mark.parametrize(
+    ("one", "other"),
+    [
+        ("http://host/a", "http://host:80/b"),
+        ("https://HOST/a", "https://host:443/b"),
+        ("http://bücher.example/a", "http://xn--bcher-kva.example/b"),
+        ("http://[::1]:8096/a", "http://[::1]:8096/b"),
+    ],
+    ids=["http port", "https port", "idn", "ipv6"],
+)
+def test_one_origin_written_two_ways_is_the_same_host(one: str, other: str) -> None:
+    assert http._origin(one) is not None
+    assert http._origin(one) == http._origin(other)
+
+
+@pytest.mark.parametrize("location", ["http://example.test:abc/", "http://[::1/x"], ids=["port", "ipv6"])
+def test_an_unreadable_redirect_is_refused(server: Server, location: str) -> None:
+    server.answers = [(302, {"Location": location}, b"")]
+    with pytest.raises(http.RedirectError, match="refused a redirect"):
+        http.request("GET", f"{server.url}/a")
+
+
+@pytest.mark.parametrize("untrusted", [True, False], ids=["guide", "server"])
+def test_connecting_to_many_silent_addresses_stops_at_the_deadline(
+    monkeypatch: pytest.MonkeyPatch, untrusted: bool
+) -> None:
+    waits: list[float] = []
+
+    def lookup(host: str, port: int, *args: Any, **kwargs: Any) -> Any:
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (f"192.0.2.{n}", port)) for n in range(1, 21)]
+
+    def silent(address: tuple[str, int], timeout: float, *args: Any, **kwargs: Any) -> socket.socket:
+        waits.append(timeout)
+        time.sleep(timeout)
+        raise TimeoutError
+
+    monkeypatch.setattr(socket, "getaddrinfo", lookup)
+    monkeypatch.setattr("urllib3.util.connection.create_connection", silent)
+    started = time.monotonic()
+    with pytest.raises(http.RequestError):
+        http.request("GET", "http://silent.example/a", timeout=0.25, untrusted=untrusted)
+    assert time.monotonic() - started < 2
+    assert sum(waits) <= 0.25 * http.DEADLINE_FACTOR + 0.1
+
+
 def test_retries_stop_at_the_deadline(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     sleeps: list[float] = []
     monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)

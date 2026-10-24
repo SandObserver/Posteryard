@@ -62,7 +62,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Read a Jellyfin or Emby XMLTV guide without keeping it in memory, and skip a guide with more than about 4 million entries, so a hostile guide cannot crash the container.
 - Skip a Jellyfin or Emby XMLTV guide that declares its own entities, which could expand it to 100 times its size.
 - Check where a Jellyfin or Emby XMLTV guide redirects to, as for a guide picture.
-- Stop a request that takes more than 4 times its timeout, with its retries and redirects, so a slow server cannot stall the worker. Read only the start of an error answer, and never the body of a redirect.
+- Stop a request that takes more than 4 times its timeout, with its connection, retries and redirects, so a slow server cannot stall the worker. Read only the start of an error answer, and never the body of a redirect. Refuse a redirect to an address that can be read as two different hosts.
 - Restart when one title has been processing for 30 minutes.
 - Handle at most 16 webhook connections at once and close each after 15 seconds.
 - Hide passwords and keys in every address in the log, also in messages from libraries.
