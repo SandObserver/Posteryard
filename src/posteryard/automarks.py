@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageFilter
 
+from posteryard import http
 from posteryard.artwork import ChoiceCache
 from posteryard.render import layers
 from posteryard.services import Offer, network_key
@@ -258,6 +259,10 @@ class AutoMarks:
                 return name if hit.get("ok") else None
             try:
                 mark = make()
+            except http.HttpError as exc:
+                if not http.gone(exc):
+                    raise
+                mark = None
             except (OSError, ValueError):
                 mark = None
             if mark is not None:

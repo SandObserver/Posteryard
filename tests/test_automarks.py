@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
-from posteryard import automarks
+from posteryard import automarks, http
 from posteryard.artwork import MemoryChoices
 from posteryard.automarks import AutoMarks, cut, network_for, one_colour
 from posteryard.render import layers
@@ -66,6 +66,30 @@ def test_an_icon_that_does_not_decode_gives_no_mark_once(tmp_path: Path, monkeyp
     assert marks.get(Offer(224, "Broken", "/broken.jpg")) is None
     assert marks.get(Offer(224, "Broken", "/broken.jpg")) is None
     assert fetched == ["/broken.jpg"]
+
+
+def test_an_icon_that_is_gone_gives_no_mark_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched: list[str] = []
+
+    def image(path: str) -> Image.Image:
+        fetched.append(path)
+        raise http.HttpError(404, f"https://image.tmdb.org/t/p/original{path}")
+
+    monkeypatch.setattr(Tmdb, "image", staticmethod(image))
+    marks = AutoMarks(tmp_path / "marks", MemoryChoices())
+    assert marks.get(Offer(225, "Gone", "/gone.jpg")) is None
+    assert marks.get(Offer(225, "Gone", "/gone.jpg")) is None
+    assert fetched == ["/gone.jpg"]
+
+
+def test_a_network_failure_on_an_icon_still_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def image(path: str) -> Image.Image:
+        raise http.HttpError(503, f"https://image.tmdb.org/t/p/original{path}")
+
+    monkeypatch.setattr(Tmdb, "image", staticmethod(image))
+    marks = AutoMarks(tmp_path / "marks", MemoryChoices())
+    with pytest.raises(http.HttpError):
+        marks.get(Offer(226, "Down", "/down.jpg"))
 
 
 def two_colour_logo() -> Image.Image:
