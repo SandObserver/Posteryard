@@ -44,6 +44,7 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "automark:": (),
 }
 SEASON_ART = "season-art:"
+SHOW_PICK = "show-pick:"
 NUMBER_FIELDS = {"season": ("index",), "episode": ("index", "parentIndex")}
 
 
@@ -121,11 +122,24 @@ def _season_label(number: int) -> str:
 
 
 def _assignment(ctx: Context, title: Title, show_art: str | None, numbers: Sequence[int]) -> dict[int, tuple[str, str]]:
-    key = ("seasons", str(title.tmdb_id), *map(str, numbers))
+    shown = [path for path in (show_art, _show_pick(ctx, title)) if path]
+    key = ("seasons", str(title.tmdb_id), *map(str, numbers), *shown)
     assignment: dict[int, tuple[str, str]] = ctx.sources.remember(
-        key, lambda: _assign_seasons(ctx, title, show_art, numbers)
+        key, lambda: _assign_seasons(ctx, title, shown, numbers)
     )
     return assignment
+
+
+def _show_pick(ctx: Context, title: Title) -> str | None:
+    """The art `art next` gave the show. A season without art of its own must not take it."""
+    path = (ctx.sources.choices.get_choice(f"{SHOW_PICK}{title.kind}:{title.tmdb_id}") or {}).get("path")
+    return str(path) if path else None
+
+
+def _keep_show_pick(ctx: Context, title: Title, path: str | None) -> None:
+    key = f"{SHOW_PICK}{title.kind}:{title.tmdb_id}"
+    if (ctx.sources.choices.get_choice(key) or {}).get("path") != path:
+        ctx.sources.choices.put_choice(key, {"path": path} if path else {})
 
 
 def _season_art(
@@ -140,7 +154,7 @@ def _neighbours(
     ctx: Context, title: Title, show_art: str | None, siblings: Sequence[int], season: int | None
 ) -> list[tuple[str, str]]:
     assignment = _assignment(ctx, title, show_art, siblings)
-    shown = [(show_art, "the show")] if show_art and season is not None else []
+    shown = [(path, "the show") for path in (show_art, _show_pick(ctx, title)) if path] if season is not None else []
     return shown + [(path, _season_label(number)) for number, (path, _) in assignment.items() if number != season]
 
 
@@ -156,11 +170,11 @@ def same_as(ctx: Context, path: str, neighbours: Sequence[tuple[str, str]]) -> s
 
 
 def _assign_seasons(
-    ctx: Context, title: Title, show_art: str | None, numbers: Sequence[int]
+    ctx: Context, title: Title, shown: Sequence[str], numbers: Sequence[int]
 ) -> dict[int, tuple[str, str]]:
     """TMDB stores one picture under several file names and crops, so "used" compares pictures, not names."""
     base = f"{title.kind}:{title.tmdb_id}"
-    used = [show_art] if show_art else []
+    used = list(shown)
     assignment: dict[int, tuple[str, str]] = {}
     own: dict[int, str] = {}
     for number in numbers:
@@ -435,6 +449,8 @@ def show(ctx: Context, item: Item) -> list[Plan]:
     poster = _poster(
         ctx, title, key, title.name, season=None, badges=[], label=_label(ctx, dates, ctx.settings.leaving(key))
     )
+    override = ctx.sources.overrides(key)
+    _keep_show_pick(ctx, title, poster.inputs["art"] if override and override.skip and not override.custom else None)
     return [poster, *_background(ctx, title, key)]
 
 
