@@ -58,7 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Refuse a Live TV guide picture or channel logo on the Posteryard machine, a link-local address or a cloud metadata service, also after a redirect. Reported by @VIMS-Coder in #190.
 - Read a Jellyfin or Emby XMLTV guide without keeping it in memory, and skip a guide with more than about 4 million entries, so a hostile guide cannot crash the container.
 - Check where a Jellyfin or Emby XMLTV guide redirects to, as for a guide picture.
-- Stop a download that takes more than 4 times its timeout, so a slow server cannot stall the worker.
+- Stop a request that takes more than 4 times its timeout, with its retries and redirects, so a slow server cannot stall the worker. Read only the start of an error answer, and never the body of a redirect.
 - Restart when one title has been processing for 30 minutes.
 - Handle at most 16 webhook connections at once and close each after 15 seconds.
 - Hide passwords and keys in every address in the log, also in messages from libraries.

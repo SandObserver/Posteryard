@@ -1,7 +1,9 @@
+import contextlib
 import gzip
 import socket
 import threading
 import time
+import tracemalloc
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -65,6 +67,7 @@ class Server:
                 self.wfile.write(body)
 
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
         self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 
@@ -213,6 +216,57 @@ def test_a_response_sent_one_byte_at_a_time_is_cut_off() -> None:
     assert time.monotonic() - started < 3
 
 
+@contextlib.contextmanager
+def dripping_server(head: bytes, drip: bytes, *, moved: bytes = b"") -> Iterator[str]:
+    """Answers `head`, then `drip` every 50 ms. A request for /moved gets `moved` at once."""
+    listener = socket.create_server(("127.0.0.1", 0))
+    stop = threading.Event()
+
+    def answer(conn: socket.socket) -> None:
+        with conn, contextlib.suppress(OSError):
+            if conn.recv(65536).startswith(b"GET /moved"):
+                conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Length: %d\r\n\r\n%s" % (len(moved), moved))
+                return
+            conn.sendall(head)
+            while not stop.wait(0.05):
+                conn.sendall(drip)
+
+    def accept() -> None:
+        with contextlib.suppress(OSError):
+            while True:
+                threading.Thread(target=answer, args=(listener.accept()[0],), daemon=True).start()
+
+    threading.Thread(target=accept, daemon=True).start()
+    try:
+        yield f"http://127.0.0.1:{listener.getsockname()[1]}"
+    finally:
+        stop.set()
+        listener.close()
+
+
+@pytest.mark.parametrize(
+    ("head", "drip"),
+    [
+        (b"HTTP/1.1 200 OK\r\nX-Slow: ", b"a"),
+        (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n", b"0"),
+    ],
+    ids=["headers", "chunk size"],
+)
+def test_a_server_that_never_finishes_a_line_is_cut_off(head: bytes, drip: bytes) -> None:
+    started = time.monotonic()
+    with dripping_server(head, drip) as url, pytest.raises(http.RequestError, match="too slow"):
+        http.request("GET", f"{url}/a", timeout=0.2, retries=1)
+    assert time.monotonic() - started < 3
+
+
+def test_the_body_of_a_redirect_is_never_read() -> None:
+    head = b"HTTP/1.1 302 Found\r\nLocation: /moved\r\nTransfer-Encoding: chunked\r\n\r\n"
+    started = time.monotonic()
+    with dripping_server(head, b"1\r\nx\r\n", moved=b"here") as url:
+        assert http.request("GET", f"{url}/a", timeout=0.2) == b"here"
+    assert time.monotonic() - started < 3
+
+
 EMPTY_BLOCK = b"\x00\x00\x00\xff\xff"
 GZIP_HEADER = gzip.compress(b"")[:10]
 
@@ -311,8 +365,61 @@ def test_redirects_can_be_refused(server: Server) -> None:
         http.request("GET", f"{server.url}/a", redirects=False)
 
 
-def test_cross_host_redirects_drop_the_api_key_header() -> None:
-    assert "api-key" in {h.lower() for h in http.POOL.connection_pool_kw["retries"].remove_headers_on_redirect}
+def test_cross_host_redirects_drop_credentials(server: Server) -> None:
+    other = Server()
+    try:
+        credentials = {"api-key": SECRET, "Authorization": f"Bearer {SECRET}", "X-Plex-Token": SECRET}
+        server.answers = [(302, {"Location": "/b"}, b""), (302, {"Location": f"{other.url}/c"}, b"")]
+        other.answers = [(200, {}, b"moved")]
+        assert http.request("GET", f"{server.url}/a", headers={**credentials, "Accept": "image/*"}) == b"moved"
+        assert all(SECRET in str(headers) for _, headers in server.requests)
+        [(_, headers)] = other.requests
+        assert SECRET not in str(headers)
+        assert headers["Accept"] == "image/*"
+    finally:
+        other.close()
+
+
+@pytest.mark.parametrize(
+    ("location", "error"),
+    [("file:///etc/passwd", "refused a redirect"), ("/a", "too many redirects")],
+    ids=["scheme", "loop"],
+)
+def test_bad_redirects_are_refused(server: Server, location: str, error: str) -> None:
+    server.answers = [(302, {"Location": location}, b"")] * (http.MAX_REDIRECTS + 1)
+    with pytest.raises(http.RequestError, match=error):
+        http.request("GET", f"{server.url}/a")
+
+
+def test_retries_stop_at_the_deadline(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    sleeps: list[float] = []
+    monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
+    server.answers = [(503, {"Retry-After": "60"}, b"busy")]
+    with pytest.raises(http.HttpError, match="HTTP 503"):
+        http.request("GET", f"{server.url}/a", timeout=1)
+    assert sleeps == []
+
+
+def test_a_large_error_answer_is_read_only_in_part(server: Server) -> None:
+    server.answers = [(404, {}, b"ab " * 1_000_000), (200, {}, b"ok")]
+    tracemalloc.start()
+    try:
+        with pytest.raises(http.HttpError, match=r"HTTP 404: ab ab ab") as caught:
+            http.request("GET", f"{server.url}/a")
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    assert peak < 2 * 1024 * 1024
+    assert len(str(caught.value)) < 300
+    assert http.request("GET", f"{server.url}/b") == b"ok"
+
+
+def test_a_credential_cut_by_the_error_excerpt_never_shows(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http, "ERROR_EXCERPT", 12)
+    server.answers = [(401, {}, f"denied for {SECRET}".encode())]
+    with pytest.raises(http.HttpError) as caught:
+        http.request("GET", f"{server.url}/a", headers={"api-key": SECRET})
+    assert str(caught.value) == f"HTTP 401: denied for for {server.url}/a"
 
 
 def test_redact_hides_logins_in_guide_addresses() -> None:

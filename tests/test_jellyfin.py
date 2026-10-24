@@ -268,13 +268,13 @@ XMLTV = b"""<?xml version="1.0"?><tv>
 def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
+    def guide(url: str, *, timeout: float) -> bytes:
+        calls.append(url)
+        return XMLTV
+
     def request(method: str, url: str, **kwargs: Any) -> bytes:
         calls.append(url)
         path = urllib.parse.urlsplit(url).path
-        if url.startswith("https://guide.example/"):
-            assert "headers" not in kwargs
-            assert not kwargs["redirects"]
-            return XMLTV
         answers: dict[str, Any] = {
             "/Users": [{"Id": USER, "Policy": {"IsAdministrator": True}}],
             "/System/Configuration/livetv": {"ListingProviders": [
@@ -295,6 +295,7 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
         return json.dumps(answers[path]).encode()
 
     monkeypatch.setattr(http, "request", request)
+    monkeypatch.setattr(http, "get_checked_redirects", guide)
     jellyfin = Jellyfin(BASE, "example-key")
     assert [(g.provider, g.refreshed_at) for g in jellyfin.guides()] == [("guide", 1791774000)]
     found, quiet = jellyfin.guide_airings("guide", 1791780000, 1791900000)
@@ -308,6 +309,7 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
     programmes = next(u for u in calls if "/LiveTv/Programs" in u)
     assert "Fields=ChannelInfo" in programmes
     assert "MinEndDate=2026-10-12" in programmes
+    assert "https://guide.example/guide.xml" in calls
 
 
 def test_guide_uploads_go_to_each_airing_and_cannot_be_selected_again(serve: Any) -> None:
@@ -341,12 +343,11 @@ def test_an_unreadable_xmltv_guide_gives_no_pictures(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
 ) -> None:
     def request(method: str, url: str, **kwargs: Any) -> bytes:
-        if url.startswith("https://"):
-            return body
         guide = "https://me:hunter2@guide.example/g.xml?password=hunter2"
         return json.dumps({"ListingProviders": [{"Type": "xmltv", "Path": guide}]}).encode()
 
     monkeypatch.setattr(http, "request", request)
+    monkeypatch.setattr(http, "get_checked_redirects", lambda url, *, timeout: body)
     assert Jellyfin(BASE, "example-key")._guide_pictures(0, 2**31) == {}
     assert "guide pictures skipped" in caplog.text
     assert all("hunter2" not in str(record.__dict__) for record in caplog.records)
