@@ -13,33 +13,69 @@
   <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
   <Requires>A free TMDB API key and a Plex, Jellyfin or Emby server.</Requires>
   <Changes>
-### 0.10.0 - 2026-10-17
-
-#### Added
-
-- Publish the image to Docker Hub as `sandobserver/posteryard` too, with the same tags as ghcr.io.
+### 0.10.1 - 2026-10-24
 
 #### Changed
 
-- Give a Live TV title without art its channel's logo large over the logo's blurred colours, in place of the title on dark grey.
-- Give a Live TV block named after its channel the same card, in place of art from the channel's show with the most airtime.
-- List what Posteryard needs and its Live TV posters in the Unraid template.
-- Install Posteryard on Unraid from the Apps tab, listed in Community Applications.
-- Default the Unraid webhook port to 8098, as many Unraid apps already use 8000.
-- Restart the Unraid container after a crash.
-- Show the latest release notes in the Unraid template, and take its settings help from the README.
-- Show the settings panel's lines for the install method picked on the landing page.
-- Name Posteryard's version and project page in every web request, as Wikimedia asks of programs that download its logos.
+- Give the channel tile of Crunchyroll, Tubi, MUBI, Viaplay, Movistar Plus+, ADN, Starz, Channel 4, Hayu, discovery+, Stan, BBC iPlayer, JioHotstar and CBC Gem a band in the service's own colour, darkened for a white mark, in place of grey.
+- Accept any http or https address for `art set --url`, a server on the same machine included.
+- Ask servers for compressed answers. A daily check of a 2,500-title Plex library downloads about 45% less.
+- Use the jemalloc memory allocator in the image. Peak memory while new titles are processed is 12 to 25% lower.
 
 #### Fixed
 
-- Show the Posteryard icon in the Unraid Docker tab, which cannot show SVG icons.
-- Upload Live TV posters again at the next sweep when Plex deletes them while cleaning bundles.
-- Give a Plex guide title a poster when Plex returns another entry for it, such as "News" for "News at Ten".
+- Leave an HTML error page out of a failed request's log line and alert, so the line shows the status and the address.
+- Stop reading a compressed server answer at the 64 MB and time limits even when it unpacks to nothing, and refuse a compression Posteryard did not ask for.
+- Pick the version of a movie that its quality badges describe only by the badge kinds that are on, so `QUALITY_MIN_VIDEO=off` no longer hides the Dolby Vision and Atmos badges of a 1080p version next to a 4K one.
+- Read every version of a movie on Jellyfin and Emby for its badges, as Plex does, in place of only the first.
+- Check art picked earlier again when the show or movie gains a title, such as a Live TV guide name, and pick new art when it prints that title.
+- Check the art against a Live TV guide name also when the library looked the title up in the 10 minutes before.
+- Pass over art more than four times as tall as it is wide, or as wide as it is tall, as reading its text could run out of memory.
+- Refuse an `art set --file` over 40 MB before reading it.
+- Pass over art that TMDB or fanart.tv lists but that is gone or not an image, in place of failing the title on every retry.
+- Keep Apple TV art already picked while Apple TV is paused after a failed download, in place of switching those posters to a backdrop for an hour and back.
+- Pause Apple TV art only for the title whose Apple TV image is gone, not for every title.
+- Give a season its own clean art when the show has none, in place of failing the season.
+- Keep `art next` on a show off the art its seasons already use.
+- Keep a season that arrives after `art next` on its show off the show's new art.
+- Step `art next` through Apple TV and fanart.tv art too, in the same order as the automatic choice.
+- Show in `why` when a season's own art is skipped as the same picture as the show or another season, and list the show art a season falls back to.
+- Keep the daily pass and the sweep running when a streaming service's TMDB icon or logo is gone or not an image, or the marks folder cannot be written. Such a service gets no mark.
+- Send a collection create once, and take over a collection the server made when its answer was lost, in place of leaving an unlabelled copy.
+- Make a streaming service's automatic mark again, and the posters that carry it, when TMDB changes the service's icon or network logo.
+- Make an automatic mark again when its file is broken, and write mark files so a stop part way through leaves none.
+- Keep a service collection for every streaming service with `SERVICE_COLLECTIONS`, not only the ones with a built-in mark, and give its collection the channel tile with the service's automatic mark.
+- Keep one set of service collections for all Jellyfin TV libraries in `LIBRARIES`, in place of the first library the server lists.
+- Add shows to a Jellyfin or Emby collection 100 at a time, as Jellyfin refuses a request for about 234 shows or more.
+- Keep a show TMDB no longer has in the collections it is in, in place of keeping every service collection in that library from changing.
+- Update the Maintainerr countdown on a leaving show's seasons at the same sweep as the show, in place of at the next daily pass.
+- Show a season the sooner of its own and its show's Maintainerr date.
+- Skip only the Maintainerr collection or title whose delete days or add date cannot be read, in place of the whole answer and a false outage alert.
+- Label an upcoming special no longer as a `NEW SEASON` premiere, and a newly added special `NEW EPISODE` in place of `NEW SEASON`.
+- Keep a background changed by hand when `art next`, `art set` or `art reset` changes the poster.
+- Give back an episode thumbnail whose upload stopped halfway when `EPISODE_THUMBNAILS=off`, as `restore --all` does.
+- Remove `posteryard-next` from an episode, in place of failing the episode at every sweep.
+- Render a season or episode again at the next sweep when it loses `posteryard-ignore` and `ONLY_RATING_KEYS` names its show, in place of at the daily pass.
+- Read a library one page at a time in the daily pass, so a large TV library no longer holds every episode in memory at once.
+- Leave a season without a season number, such as Jellyfin's Season Unknown, and its episodes alone, in place of drawing it as Specials with Specials art and stills.
+- Give a new season its own art when the show was read in the 10 minutes before it arrived, in place of the show's art.
+- Step `art next` on a season through the season's other clean posters first.
+- Keep the show image a season uses when a Specials season appears or another season is removed, in place of moving later seasons to other images.
+- Lay out a Live TV title of hundreds of words in about a second, in place of tens of minutes.
 
 #### Security
 
-- Update Pillow to 13.0.0 for its JPEG decoder buffer overflow and other image decoding fixes.
+- Update certifi to 2026.10.19 for GHSA-6q48-6c7w-9gw2.
+- Update the Python base image to 3.13.17 with ca-certificates 20250419+deb13u1, which stops trusting the compromised emSign ECC Root CA - G3 (DSA-6572-1).
+- Refuse a Live TV guide picture or channel logo on the Posteryard machine, a link-local address or a cloud metadata service, also after a redirect. Reported by @VIMS-Coder in #190.
+- Read a Jellyfin or Emby XMLTV guide without keeping it in memory, and skip a guide with more than about 4 million entries, so a hostile guide cannot crash the container.
+- Skip a Jellyfin or Emby XMLTV guide that declares its own entities, which could expand it to 100 times its size.
+- Check where a Jellyfin or Emby XMLTV guide redirects to, as for a guide picture.
+- Stop a request that takes more than 4 times its timeout, with its connection, retries and redirects, so a slow server cannot stall the worker. Read only the start of an error answer, and never the body of a redirect. Refuse a redirect to an address that can be read as two different hosts.
+- Restart when one title has been processing for 30 minutes.
+- Handle at most 16 webhook connections at once and close each after 15 seconds.
+- Hide passwords and keys in every address in the log, also in messages from libraries.
+- Limit memory to 1536 MB and processes to 512 in the compose example and the `docker run` command, and processes in the Unraid template.
   </Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>
   <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
