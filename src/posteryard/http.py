@@ -29,6 +29,7 @@ USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Poster
 MAX_RESPONSE = 64 * 1024 * 1024
 ERROR_EXCERPT = 4096
 MAX_REDIRECTS = 5
+DEFAULT_PORTS = {"http": 80, "https": 443}
 RETRY_AFTER_MAX = 60.0
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
@@ -108,6 +109,36 @@ class _Connection(urllib3.connection.HTTPConnection):
         _watch(self.sock)
         return super().getresponse()
 
+    def _new_conn(self) -> socket.socket:
+        """Resolve once, then try each address in the time left. A host can list many addresses that never answer."""
+        name, timeout = self._dns_host, self.timeout
+        try:
+            found = socket.getaddrinfo(
+                name, self.port, urllib3.util.connection.allowed_gai_family(), socket.SOCK_STREAM
+            )
+        except socket.gaierror as exc:
+            raise urllib3.exceptions.NameResolutionError(self.host, self, exc) from exc
+        addresses = self._checked(list(dict.fromkeys(str(info[4][0]) for info in found)))
+        deadline: _Deadline | None = getattr(_calls, "deadline", None)
+        failure = urllib3.exceptions.ConnectTimeoutError(self, f"connection to {name} timed out")
+        try:
+            for address in addresses:
+                left = deadline.left() if deadline else float("inf")
+                if left <= 0:
+                    break
+                self._dns_host = address
+                self.timeout = min(timeout, left) if isinstance(timeout, (int, float)) else left
+                try:
+                    return super()._new_conn()
+                except urllib3.exceptions.ConnectTimeoutError as exc:
+                    failure = exc
+        finally:
+            self._dns_host, self.timeout = name, timeout
+        raise failure
+
+    def _checked(self, addresses: list[str]) -> list[str]:
+        return addresses
+
 
 def _watch(sock: socket.socket | None) -> None:
     if (deadline := getattr(_calls, "deadline", None)) is not None:
@@ -127,29 +158,12 @@ class _HTTPSPool(urllib3.HTTPSConnectionPool):
 
 
 class _UntrustedConnection(_Connection):
-    def _new_conn(self) -> socket.socket:
-        """Resolve once and connect to the checked address. A second lookup could answer differently."""
-        name = self._dns_host
-        try:
-            found = socket.getaddrinfo(name, self.port, type=socket.SOCK_STREAM)
-        except socket.gaierror as exc:
-            raise urllib3.exceptions.NameResolutionError(self.host, self, exc) from exc
-        addresses = list(dict.fromkeys(str(info[4][0]) for info in found))
+    def _checked(self, addresses: list[str]) -> list[str]:
+        """Connect only to the checked addresses. A second lookup could answer differently."""
         for address in addresses:
             if reason := refused(address):
-                raise RefusedError(f"refused {name} as {reason}")
-        failure: urllib3.exceptions.ConnectTimeoutError | None = None
-        try:
-            for address in addresses:
-                self._dns_host = address
-                try:
-                    return super()._new_conn()
-                except urllib3.exceptions.ConnectTimeoutError as exc:
-                    failure = exc
-        finally:
-            self._dns_host = name
-        assert failure is not None
-        raise failure
+                raise RefusedError(f"refused {self._dns_host} as {reason}")
+        return addresses
 
 
 class _UntrustedHTTPSConnection(_UntrustedConnection, _HTTPSConnection):
@@ -200,7 +214,7 @@ class HttpError(RequestError):
 class RedirectError(RequestError):
     def __init__(self, status: int, url: str, location: str) -> None:
         super().__init__(f"refused a redirect (HTTP {status})", url)
-        self.location = urllib.parse.urljoin(url, location) if location else ""
+        self.location = _target(url, location)
 
 
 def gone(exc: RequestError) -> bool:
@@ -279,11 +293,12 @@ def _call(hop: _Hop, timeout: float, retries: int, *, redirects: bool, check_red
             status, body, location = _attempts(hop, timeout, retries, deadline)
             if not 300 <= status < 400:
                 return body
-            target = urllib.parse.urljoin(hop.url, location) if location else ""
-            if not redirects or urllib.parse.urlsplit(target).scheme not in ("http", "https"):
+            target = _target(hop.url, location)
+            origin = _origin(target)
+            if not redirects or origin is None or origin[0] not in ("http", "https"):
                 raise RedirectError(status, hop.url, location)
             headers = hop.headers
-            if _origin(target) != _origin(hop.url):
+            if origin != _origin(hop.url):
                 headers = {k: v for k, v in headers.items() if k.lower() not in CROSS_HOST_DROPPED}
             method, data = ("GET", None) if status == HTTPStatus.SEE_OTHER else (hop.method, hop.data)
             hop = _Hop(method, target, headers, data, hop.untrusted or check_redirects)
@@ -293,9 +308,28 @@ def _call(hop: _Hop, timeout: float, retries: int, *, redirects: bool, check_red
         _calls.deadline = None
 
 
-def _origin(url: str) -> tuple[str, str, int | None]:
-    parts = urllib.parse.urlsplit(url)
-    return parts.scheme, (parts.hostname or "").lower(), parts.port
+def _target(base: str, location: str) -> str:
+    try:
+        return urllib.parse.urljoin(base, location) if location else ""
+    except ValueError:
+        return ""
+
+
+def _origin(url: str) -> tuple[str, str, int] | None:
+    """The scheme, host and port urllib3 connects to, or None when Python reads the address differently.
+
+    A redirect to an address the two read differently is refused. Its credentials could reach another host.
+    """
+    try:
+        ours, theirs = urllib.parse.urlsplit(url), urllib3.util.parse_url(url)
+        host = ours.hostname or ""
+        python_host = urllib3.util.parse_url(f"//[{host}]" if ":" in host else f"//{host}").host or ""
+        scheme = (theirs.scheme or "").lower()
+        origin = (scheme, (theirs.host or "").lower(), theirs.port or DEFAULT_PORTS.get(scheme, 0))
+        python = ((ours.scheme or "").lower(), python_host.lower(), ours.port or DEFAULT_PORTS.get(scheme, 0))
+    except ValueError:
+        return None
+    return origin if origin == python else None
 
 
 def _attempts(hop: _Hop, timeout: float, retries: int, deadline: _Deadline) -> tuple[int, bytes, str]:

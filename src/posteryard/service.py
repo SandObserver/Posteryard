@@ -531,6 +531,8 @@ class Service:
             log.warning("HEARTBEAT_URL refused the call", extra={"reason": f"HTTP {exc.status}"})
         except http.RequestError:
             log.warning("HEARTBEAT_URL not reachable")
+        except Exception as exc:  # The schedule thread calls this outside its own error handling.
+            log.warning("HEARTBEAT_URL not reachable", extra={"reason": type(exc).__name__})
 
     def status(self) -> dict[str, Any]:
         now = time.monotonic()
