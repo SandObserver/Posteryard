@@ -179,7 +179,7 @@ def request(  # noqa: PLR0913
                 method,
                 url,
                 body=data,
-                headers={"User-Agent": USER_AGENT, **(headers or {})},
+                headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})},
                 timeout=urllib3.Timeout(connect=timeout, read=timeout),
                 preload_content=False,
                 redirect=redirects,
