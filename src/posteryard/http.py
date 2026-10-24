@@ -4,6 +4,7 @@ import logging
 import socket
 import time
 import urllib.parse
+import zlib
 from email.utils import parsedate_to_datetime
 from typing import Any
 
@@ -24,6 +25,7 @@ MAX_RESPONSE = 64 * 1024 * 1024
 RETRY_AFTER_MAX = 60.0
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
+GZIP = frozenset({"gzip", "x-gzip"})
 METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
 
 
@@ -182,6 +184,7 @@ def request(  # noqa: PLR0913
                 headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})},
                 timeout=urllib3.Timeout(connect=timeout, read=timeout),
                 preload_content=False,
+                decode_content=False,
                 redirect=redirects,
             )
             try:
@@ -224,17 +227,59 @@ def get_checked_redirects(url: str, *, timeout: float) -> bytes:
         return request("GET", exc.location, timeout=timeout, untrusted=True)
 
 
+class _Gunzip:
+    """Never return more than `limit` bytes. Data after a whole member that is not gzip is ignored."""
+
+    def __init__(self) -> None:
+        self._obj: zlib._Decompress | None = zlib.decompressobj(16 + zlib.MAX_WBITS)
+        self._first = True
+
+    @property
+    def complete(self) -> bool:
+        return self._obj is None or self._obj.eof
+
+    def feed(self, data: bytes, limit: int) -> bytes:
+        out = bytearray()
+        while data and self._obj and len(out) < limit:
+            if self._obj.eof:
+                self._obj, self._first = zlib.decompressobj(16 + zlib.MAX_WBITS), False
+            try:
+                out += self._obj.decompress(data, limit - len(out))
+            except zlib.error:
+                if self._first:
+                    raise
+                self._obj = None
+                break
+            data = self._obj.unconsumed_tail or self._obj.unused_data
+        return bytes(out)
+
+
 def _read_body(response: urllib3.BaseHTTPResponse, url: str, deadline: float) -> bytes:
-    """Read one network chunk at a time. The read timeout only limits the wait for each chunk, not the whole body."""
+    """The read timeout only limits the wait for each chunk, not the whole body.
+
+    Check both limits after every network chunk. A chunk can unpack to nothing.
+    """
+    encoding = response.headers.get("Content-Encoding", "").strip().lower()
+    if encoding not in GZIP | {"", "identity"}:
+        raise RequestError(f"unsupported compression {encoding[:20]!r}", url)
+    gunzip = _Gunzip() if encoding in GZIP else None
     chunks: list[bytes] = []
-    size = 0
-    while chunk := response.read1(READ_CHUNK):
-        chunks.append(chunk)
-        size += len(chunk)
-        if size > MAX_RESPONSE:
+    raw = size = 0
+    while data := response.read1(READ_CHUNK, decode_content=False):
+        raw += len(data)
+        if gunzip:
+            try:
+                data = gunzip.feed(data, MAX_RESPONSE + 1 - size)
+            except zlib.error:
+                raise RequestError("broken compressed response", url) from None
+        chunks.append(data)
+        size += len(data)
+        if max(raw, size) > MAX_RESPONSE:
             raise RequestError("response larger than 64 MB", url)
         if time.monotonic() > deadline:
             raise RequestError("response too slow", url)
+    if gunzip and raw and not gunzip.complete:
+        raise RequestError("compressed response cut off", url)
     return b"".join(chunks)
 
 

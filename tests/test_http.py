@@ -120,13 +120,6 @@ def test_responses_are_asked_for_gzip_and_read_unpacked(server: Server) -> None:
     assert headers["Accept-Encoding"] == "gzip"
 
 
-def test_the_size_limit_counts_unpacked_bytes(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(http, "MAX_RESPONSE", 1000)
-    server.answers = [(200, {"Content-Encoding": "gzip"}, gzip.compress(b"0" * 1_000_000))]
-    with pytest.raises(http.RequestError, match="larger than"):
-        http.request("GET", f"{server.url}/a")
-
-
 def test_redirects_are_followed(server: Server) -> None:
     server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"moved")]
     assert http.request("GET", f"{server.url}/a") == b"moved"
@@ -200,6 +193,84 @@ def test_a_response_sent_one_byte_at_a_time_is_cut_off() -> None:
     started = time.monotonic()
     try:
         with pytest.raises(http.RequestError, match="too slow"):
+            http.request("GET", f"http://127.0.0.1:{listener.getsockname()[1]}/a", timeout=0.2, retries=1)
+    finally:
+        stop.set()
+        listener.close()
+    assert time.monotonic() - started < 3
+
+
+EMPTY_BLOCK = b"\x00\x00\x00\xff\xff"
+GZIP_HEADER = gzip.compress(b"")[:10]
+
+
+@pytest.mark.parametrize(
+    ("body", "unpacked"),
+    [
+        (gzip.compress(b"one") + gzip.compress(b"two"), b"onetwo"),
+        (gzip.compress(b"one") + b"\x00\x00 trailing junk", b"one"),
+        (b"", b""),
+    ],
+    ids=["members", "trailing junk", "empty"],
+)
+def test_gzip_responses_are_unpacked(server: Server, body: bytes, unpacked: bytes) -> None:
+    server.answers = [(200, {"Content-Encoding": "gzip"}, body)]
+    assert http.request("GET", f"{server.url}/a") == unpacked
+
+
+@pytest.mark.parametrize(
+    ("encoding", "body", "error"),
+    [
+        ("br", b"anything", "unsupported compression 'br'"),
+        ("gzip, gzip", gzip.compress(gzip.compress(b"x")), "unsupported compression"),
+        ("gzip", gzip.compress(b"0" * 1000)[:-12], "cut off"),
+        ("gzip", GZIP_HEADER + b"not deflate data", "broken compressed response"),
+    ],
+    ids=["brotli", "nested", "cut off", "broken"],
+)
+def test_bad_compressed_responses_are_refused(server: Server, encoding: str, body: bytes, error: str) -> None:
+    server.answers = [(200, {"Content-Encoding": encoding}, body)]
+    with pytest.raises(http.RequestError, match=error):
+        http.request("GET", f"{server.url}/a", retries=1)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [gzip.compress(b"0" * 1_000_000), GZIP_HEADER + EMPTY_BLOCK * 1000 + gzip.compress(b"")[10:]],
+    ids=["unpacked", "packed"],
+)
+def test_the_size_limit_counts_both_packed_and_unpacked_bytes(
+    server: Server, monkeypatch: pytest.MonkeyPatch, body: bytes
+) -> None:
+    monkeypatch.setattr(http, "MAX_RESPONSE", 1000)
+    server.answers = [(200, {"Content-Encoding": "gzip"}, body)]
+    with pytest.raises(http.RequestError, match="larger than"):
+        http.request("GET", f"{server.url}/a")
+
+
+def test_a_gzip_bomb_never_unpacks_past_the_limit() -> None:
+    assert len(http._Gunzip().feed(gzip.compress(b"0" * 10_000_000), 1000)) == 1000
+
+
+def test_a_compressed_response_that_never_unpacks_is_cut_off() -> None:
+    listener = socket.create_server(("127.0.0.1", 0))
+    stop = threading.Event()
+
+    def stream() -> None:
+        conn, _ = listener.accept()
+        with conn:
+            conn.recv(65536)
+            conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nConnection: close\r\n\r\n" + GZIP_HEADER)
+            try:
+                while not stop.is_set():
+                    conn.sendall(EMPTY_BLOCK * 100)
+            except OSError:
+                pass
+
+    threading.Thread(target=stream, daemon=True).start()
+    started = time.monotonic()
+    try:
+        with pytest.raises(http.RequestError, match=r"too slow|larger than"):
             http.request("GET", f"http://127.0.0.1:{listener.getsockname()[1]}/a", timeout=0.2, retries=1)
     finally:
         stop.set()
