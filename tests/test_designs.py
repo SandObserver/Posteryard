@@ -3,11 +3,11 @@ from typing import Any
 
 import numpy as np
 import pytest
-from PIL import Image, ImageChops
+from PIL import Image, ImageChops, ImageFont
 
 from posteryard.quality import Badge
 from posteryard.render import category, designs, lines
-from posteryard.render.layers import APPLE_GREEN, NEAR_BLACK, cover, family_for, luminance, preferred_family
+from posteryard.render.layers import APPLE_GREEN, NEAR_BLACK, cover, family_for, font_for, luminance, preferred_family
 
 
 def art(size: tuple[int, int] = (2000, 3000), colour: tuple[int, int, int] = (0, 0, 0)) -> Image.Image:
@@ -133,6 +133,46 @@ def test_text_logo_breaks_long_titles_into_two_lines() -> None:
     assert one.width / one.height > 1
     assert two.height > one.height
     assert designs.tile_poster(art(), two, lines_below=[]).size == designs.POSTER
+
+
+class CountingFace:
+    def __init__(self, face: Any) -> None:
+        self.face, self.size, self.calls = face, face.size, 0
+
+    def getlength(self, text: str) -> float:
+        self.calls += 1
+        return float(self.face.getlength(text))
+
+
+def every_split(words: list[str], face: ImageFont.FreeTypeFont, rows: int) -> list[str]:
+    box = (designs.LOGO_BOX[0] * designs.POSTER[0], designs.LOGO_BOX[1] * designs.POSTER[1])
+    options = [[" ".join(words)]]
+    for cut in range(1, len(words)):
+        options.append([" ".join(words[:cut]), " ".join(words[cut:])])
+        if rows >= 3:
+            options += [[" ".join(words[:cut]), " ".join(words[cut:end]), " ".join(words[end:])]
+                        for end in range(cut + 1, len(words))]  # fmt: skip
+
+    def scale(rows: list[str]) -> float:
+        return min(box[0] / max(face.getlength(r) for r in rows), box[1] / (len(rows) * face.size * 1.1))
+
+    return max(options, key=scale)
+
+
+@pytest.mark.parametrize("rows", [2, 3])
+@pytest.mark.parametrize(
+    "title",
+    ["Up", "The Very Long Example Title Of A Film", "Dr. Who's Night & Day: Part 2 (Tekrar)", "Haber Bülteni 24 Saat"],
+)
+def test_text_logo_rows_match_trying_every_split(title: str, rows: int) -> None:
+    face = font_for(title, "Bold", 200, "")
+    assert designs._rows(title.split(), face, rows) == every_split(title.split(), face, rows)
+
+
+def test_a_very_long_guide_title_measures_few_rows() -> None:
+    face = CountingFace(font_for("ab", "Bold", 200, ""))
+    designs._rows(["ab"] * 300, face, 3)  # type: ignore[arg-type]
+    assert face.calls <= 300 + 1 + 3 * designs.TEXT_LOGO_CANDIDATES
 
 
 @pytest.mark.parametrize("title", ["", "   ", "\u200b", "\u0301"])

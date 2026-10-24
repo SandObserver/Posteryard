@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Pick the version of a movie that its quality badges describe only by the badge kinds that are on, so `QUALITY_MIN_VIDEO=off` no longer hides the Dolby Vision and Atmos badges of a 1080p version next to a 4K one.
 - Read every version of a movie on Jellyfin and Emby for its badges, as Plex does, in place of only the first.
 - Check art picked earlier again when the show or movie gains a title, such as a Live TV guide name, and pick new art when it prints that title.
+- Check the art against a Live TV guide name also when the library looked the title up in the 10 minutes before.
 - Pass over art more than four times as tall as it is wide, or as wide as it is tall, as reading its text could run out of memory.
 - Refuse an `art set --file` over 40 MB before reading it.
 - Pass over art that TMDB or fanart.tv lists but that is gone or not an image, in place of failing the title on every retry.
@@ -27,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Pause Apple TV art only for the title whose Apple TV image is gone, not for every title.
 - Give a season its own clean art when the show has none, in place of failing the season.
 - Keep `art next` on a show off the art its seasons already use.
+- Keep a season that arrives after `art next` on its show off the show's new art.
 - Step `art next` through Apple TV and fanart.tv art too, in the same order as the automatic choice.
 - Show in `why` when a season's own art is skipped as the same picture as the show or another season, and list the show art a season falls back to.
 - Keep the daily pass and the sweep running when a streaming service's TMDB icon or logo is gone or not an image, or the marks folder cannot be written. Such a service gets no mark.
@@ -50,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Give a new season its own art when the show was read in the 10 minutes before it arrived, in place of the show's art.
 - Step `art next` on a season through the season's other clean posters first.
 - Keep the show image a season uses when a Specials season appears or another season is removed, in place of moving later seasons to other images.
+- Lay out a Live TV title of hundreds of words in about a second, in place of tens of minutes.
 
 ### Security
 

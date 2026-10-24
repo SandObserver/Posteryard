@@ -3,7 +3,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from functools import lru_cache
 from typing import Any, cast
@@ -282,7 +282,8 @@ class Sources:
         with self._lock:
             hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
-            return hit[1]
+            cached = hit[1]
+            return cached if name in cached.all_titles else replace(cached, all_titles=[name, *cached.all_titles])
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
         providers = self.tmdb.watch_providers(kind, tid) if kind == "tv" else {}
         service = self.service(providers) if kind == "tv" else None

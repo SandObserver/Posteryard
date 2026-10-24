@@ -826,6 +826,14 @@ def test_art_next_on_a_show_avoids_the_art_of_its_seasons() -> None:
     assert after not in {"/textless.jpg", *seasons.values()}
 
 
+def test_a_name_from_the_guide_joins_a_title_the_library_looked_up() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    library = ctx.sources.title("movie", 42, "Example Movie")
+    guide = ctx.sources.title("movie", 42, "Ein Beispielfilm", remember=False)
+    assert guide.all_titles == ["Ein Beispielfilm", *library.all_titles]
+    assert ctx.sources.title("movie", 42, "Example Movie") is library
+
+
 class SeasonsPlex(FakeServer):
     def __init__(self, numbers: list[int]) -> None:
         self.numbers = numbers
@@ -859,6 +867,24 @@ def test_a_new_season_missing_from_the_remembered_list_gets_its_own_art() -> Non
     assert item is not None and pipeline.plan_item(ctx, item)[0].inputs["art"] == "/season3.jpg"
 
 
+def test_a_new_season_steps_around_the_art_next_pick_of_its_show() -> None:
+    ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
+    server = SeasonsPlex([1, 2, 3, 4])
+    ctx.server = server
+
+    def art(key: str) -> str:
+        item = server.item(key)
+        assert item is not None
+        return str(pipeline.plan_item(ctx, item)[0].inputs["art"])
+
+    seasons = {n: art(str(10 + n)) for n in (1, 2, 3, 4)}
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"})) if key == "1" else None
+    picked = art("1")
+    server.numbers = [1, 2, 3, 4, 6]
+    assert {n: art(str(10 + n)) for n in (1, 2, 3, 4)} == seasons
+    assert art("16") not in {picked, *seasons.values()}
+
+
 def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     season_posters = Images([ref("/season1-a.jpg", None), ref("/season1-b.jpg", None)], [], [])
@@ -875,7 +901,7 @@ def test_seasons_keep_their_art_when_a_season_is_added_or_removed() -> None:
     assert show_art is not None
 
     def assign(numbers: list[int]) -> dict[int, str]:
-        found = pipeline._assign_seasons(ctx, title, show_art.path, numbers)
+        found = pipeline._assign_seasons(ctx, title, [show_art.path], numbers)
         return {n: path for n, (path, _) in found.items()}
 
     before = assign([1, 2, 3, 4, 5])
