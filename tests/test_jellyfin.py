@@ -377,6 +377,20 @@ def test_an_oversized_xmltv_guide_is_refused(monkeypatch: pytest.MonkeyPatch, gu
         _xmltv_pictures(guide, 0, 2**31)
 
 
+def test_an_xmltv_guide_that_declares_entities_is_refused() -> None:
+    entities = '<!ENTITY a "aaaaaaaaaa">' + "".join(
+        f'<!ENTITY {name} "{f"&{inner};" * 10}">' for inner, name in zip("abcd", "bcde", strict=True)
+    )
+    guide = f"<!DOCTYPE tv [{entities}]><tv><channel id='x'><display-name>&e;</display-name></channel></tv>"
+    with pytest.raises(ValueError, match="declares entities"):
+        _xmltv_pictures(guide.encode(), 0, 2**31)
+
+
+def test_an_xmltv_guide_with_the_usual_doctype_and_escapes_is_read() -> None:
+    guide = XMLTV.replace(b"<tv>", b'<!DOCTYPE tv SYSTEM "xmltv.dtd"><tv>').replace(b"News 24", b"News &amp; Sport")
+    assert _xmltv_pictures(guide, 0, 2**31) == {("news & sport", 1791824400): "https://img.example/evening.jpg"}
+
+
 def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[tuple[str, int]] = []
 
