@@ -139,7 +139,6 @@ def _season_art(
 def _neighbours(
     ctx: Context, title: Title, show_art: str | None, siblings: Sequence[int], season: int | None
 ) -> list[tuple[str, str]]:
-    """The art of the show and of its other seasons, each with what uses it."""
     assignment = _assignment(ctx, title, show_art, siblings)
     shown = [(show_art, "the show")] if show_art and season is not None else []
     return shown + [(path, _season_label(number)) for number, (path, _) in assignment.items() if number != season]
@@ -230,7 +229,7 @@ def _next_unused(
 
 
 def _art_in_order(ctx: Context, title: Title, season: int | None = None) -> Iterator[str]:
-    """Clean art in the order of the automatic choice. An image is read only when iteration reaches it."""
+    """An image is read only when iteration reaches it."""
     base = f"{title.kind}:{title.tmdb_id}"
     if season is not None:
         refs = _season_refs(ctx, title, season)

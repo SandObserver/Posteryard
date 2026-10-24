@@ -258,7 +258,6 @@ class Sources:
         return None
 
     def service_name(self, providers: Mapping[str, RegionOffers]) -> str:
-        """The first offer's name, which its service collection takes. Empty without an offer."""
         offer = next(services.offers(providers, self.settings.regions), None)
         if offer is None:
             return ""
@@ -272,7 +271,6 @@ class Sources:
             self.choices.put_choice(key, {"mark": mark})
 
     def service_mark(self, collection_name: str) -> str | None:
-        """The automatic mark of the service a collection is named after."""
         for base in sorted(services.collection_bases(collection_name)):
             hit = self.choices.get_choice(f"service-mark:{services.network_key(base)}")
             if hit and hit.get("mark"):
