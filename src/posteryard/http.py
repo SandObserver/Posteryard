@@ -1,11 +1,15 @@
+import contextlib
 import ipaddress
 import json
 import logging
 import socket
+import threading
 import time
 import urllib.parse
 import zlib
+from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
+from http import HTTPStatus
 from typing import Any
 
 import urllib3
@@ -20,8 +24,11 @@ SECRET_PARAMS = frozenset(
 )
 NAMES = frozenset({"username", "user"})
 SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
+CROSS_HOST_DROPPED = SECRET_HEADERS | {"cookie", "proxy-authorization"}
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
+ERROR_EXCERPT = 4096
+MAX_REDIRECTS = 5
 RETRY_AFTER_MAX = 60.0
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
@@ -47,7 +54,79 @@ def refused(address: str) -> str:
     return next((f"a {name} address" for name, hit in checks.items() if hit), "")
 
 
-class _UntrustedConnection(urllib3.connection.HTTPConnection):
+_calls = threading.local()
+
+
+def _hang_up(sock: socket.socket) -> None:
+    with contextlib.suppress(OSError):
+        socket.socket.shutdown(sock, socket.SHUT_RDWR)
+
+
+class _Deadline:
+    """Hangs up the connection in use when the time is up. A server can send one byte per read timeout forever."""
+
+    def __init__(self, seconds: float) -> None:
+        self.ends = time.monotonic() + seconds
+        self._lock = threading.Lock()
+        self._sock: socket.socket | None = None
+        self._expired = False
+        self._timer = threading.Timer(seconds, self._expire)
+        self._timer.daemon = True
+        self._timer.start()
+
+    def left(self) -> float:
+        return self.ends - time.monotonic()
+
+    @property
+    def expired(self) -> bool:
+        return self._expired or self.left() <= 0
+
+    def watch(self, sock: socket.socket | None) -> None:
+        with self._lock:
+            self._sock = sock
+            if self._expired and sock is not None:
+                _hang_up(sock)
+
+    def cancel(self) -> None:
+        self._timer.cancel()
+        with self._lock:
+            self._sock = None
+
+    def _expire(self) -> None:
+        with self._lock:
+            self._expired = True
+            if self._sock is not None:
+                _hang_up(self._sock)
+
+
+class _Connection(urllib3.connection.HTTPConnection):
+    def connect(self) -> None:
+        super().connect()
+        _watch(self.sock)
+
+    def getresponse(self) -> urllib3.response.HTTPResponse:  # type: ignore[override]
+        _watch(self.sock)
+        return super().getresponse()
+
+
+def _watch(sock: socket.socket | None) -> None:
+    if (deadline := getattr(_calls, "deadline", None)) is not None:
+        deadline.watch(sock)
+
+
+class _HTTPSConnection(_Connection, urllib3.connection.HTTPSConnection):
+    pass
+
+
+class _Pool(urllib3.HTTPConnectionPool):
+    ConnectionCls = _Connection
+
+
+class _HTTPSPool(urllib3.HTTPSConnectionPool):
+    ConnectionCls = _HTTPSConnection
+
+
+class _UntrustedConnection(_Connection):
     def _new_conn(self) -> socket.socket:
         """Resolve once and connect to the checked address. A second lookup could answer differently."""
         name = self._dns_host
@@ -73,7 +152,7 @@ class _UntrustedConnection(urllib3.connection.HTTPConnection):
         raise failure
 
 
-class _UntrustedHTTPSConnection(_UntrustedConnection, urllib3.connection.HTTPSConnection):
+class _UntrustedHTTPSConnection(_UntrustedConnection, _HTTPSConnection):
     pass
 
 
@@ -85,26 +164,22 @@ class _UntrustedHTTPSPool(urllib3.HTTPSConnectionPool):
     ConnectionCls = _UntrustedHTTPSConnection
 
 
-def _pool_manager() -> urllib3.PoolManager:
-    return urllib3.PoolManager(
+def _pool_manager(
+    http_pool: type[urllib3.HTTPConnectionPool], https_pool: type[urllib3.HTTPConnectionPool]
+) -> urllib3.PoolManager:
+    manager = urllib3.PoolManager(
         num_pools=16,
         maxsize=4,
         retries=urllib3.Retry(
-            total=None,
-            connect=0,
-            read=0,
-            status=0,
-            other=0,
-            redirect=5,
-            raise_on_status=False,
-            remove_headers_on_redirect=urllib3.Retry.DEFAULT_REMOVE_HEADERS_ON_REDIRECT | {"api-key"},
+            total=None, connect=0, read=0, status=0, other=0, redirect=0, raise_on_redirect=False, raise_on_status=False
         ),
     )
+    manager.pool_classes_by_scheme = {"http": http_pool, "https": https_pool}
+    return manager
 
 
-POOL = _pool_manager()
-UNTRUSTED_POOL = _pool_manager()
-UNTRUSTED_POOL.pool_classes_by_scheme = {"http": _UntrustedPool, "https": _UntrustedHTTPSPool}
+POOL = _pool_manager(_Pool, _HTTPSPool)
+UNTRUSTED_POOL = _pool_manager(_UntrustedPool, _UntrustedHTTPSPool)
 
 
 class RequestError(Exception):
@@ -172,60 +247,123 @@ def request(  # noqa: PLR0913
     redirects: bool = True,
     untrusted: bool = False,
 ) -> bytes:
-    """Set `untrusted` for an address taken from guide content. Every redirect is then checked too."""
+    """Set `untrusted` for an address taken from guide content. Every redirect is then checked too.
+
+    `timeout` limits each wait for the server. The whole call, retries and redirects included, stops after
+    DEADLINE_FACTOR times it.
+    """
+    hop = _Hop(method, url, headers or {}, data, untrusted)
+    return _call(hop, timeout, retries, redirects=redirects, check_redirects=untrusted)
+
+
+def get_checked_redirects(url: str, *, timeout: float) -> bytes:
+    """For a trusted address on a host the operator does not run. A redirect from it is checked as guide content."""
+    return _call(_Hop("GET", url, {}, None, untrusted=False), timeout, 3, redirects=True, check_redirects=True)
+
+
+@dataclass(frozen=True)
+class _Hop:
+    method: str
+    url: str
+    headers: dict[str, str]
+    data: bytes | None
+    untrusted: bool
+
+
+def _call(hop: _Hop, timeout: float, retries: int, *, redirects: bool, check_redirects: bool) -> bytes:
+    """Do not let urllib3 follow redirects. It reads a redirect's body with no time or size limit."""
+    deadline = _Deadline(timeout * DEADLINE_FACTOR)
+    _calls.deadline = deadline
+    try:
+        for _ in range(MAX_REDIRECTS + 1):
+            status, body, location = _attempts(hop, timeout, retries, deadline)
+            if not 300 <= status < 400:
+                return body
+            target = urllib.parse.urljoin(hop.url, location) if location else ""
+            if not redirects or urllib.parse.urlsplit(target).scheme not in ("http", "https"):
+                raise RedirectError(status, hop.url, location)
+            headers = hop.headers
+            if _origin(target) != _origin(hop.url):
+                headers = {k: v for k, v in headers.items() if k.lower() not in CROSS_HOST_DROPPED}
+            method, data = ("GET", None) if status == HTTPStatus.SEE_OTHER else (hop.method, hop.data)
+            hop = _Hop(method, target, headers, data, hop.untrusted or check_redirects)
+        raise RequestError("too many redirects", hop.url)
+    finally:
+        deadline.cancel()
+        _calls.deadline = None
+
+
+def _origin(url: str) -> tuple[str, str, int | None]:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme, (parts.hostname or "").lower(), parts.port
+
+
+def _attempts(hop: _Hop, timeout: float, retries: int, deadline: _Deadline) -> tuple[int, bytes, str]:
     delay = 2.0
     for attempt in range(1, retries + 1):
         wait = delay
-        deadline = time.monotonic() + timeout * DEADLINE_FACTOR
         try:
-            response = (UNTRUSTED_POOL if untrusted else POOL).request(
-                method,
-                url,
-                body=data,
-                headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **(headers or {})},
-                timeout=urllib3.Timeout(connect=timeout, read=timeout),
+            left = max(deadline.left(), 0.001)
+            response = (UNTRUSTED_POOL if hop.untrusted else POOL).request(
+                hop.method,
+                hop.url,
+                body=hop.data,
+                headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip", **hop.headers},
+                timeout=urllib3.Timeout(connect=min(timeout, left), read=min(timeout, left)),
                 preload_content=False,
                 decode_content=False,
-                redirect=redirects,
+                redirect=False,
             )
-            try:
-                body = _read_body(response, url, deadline)
-            except RequestError:
-                response.close()
-                raise
-            finally:
-                response.release_conn()
-            if not redirects and 300 <= response.status < 400:
-                raise RedirectError(response.status, url, response.headers.get("Location") or "")
-            if response.status < 400:
-                return body
-            if response.status not in RETRY_STATUSES or attempt == retries:
-                text = body.decode("utf-8", "replace")
-                raise HttpError(response.status, url, hide(text, secrets(url, headers or {})))
+            status, body, location = _answer(response, hop, deadline)
+            if status < 400:
+                return status, body, location
             wait = max(delay, retry_after(response.headers.get("Retry-After")))
+            if status not in RETRY_STATUSES or attempt == retries or wait >= deadline.left():
+                raise HttpError(status, hop.url, _error_text(body, hop))
             log.warning(
-                "retrying request", extra={"method": method, "url": redact(url), "reason": f"HTTP {response.status}"}
+                "retrying request", extra={"method": hop.method, "url": redact(hop.url), "reason": f"HTTP {status}"}
             )
         except urllib3.exceptions.LocationValueError as exc:
-            raise RequestError(type(exc).__name__, url) from None
+            raise RequestError(type(exc).__name__, hop.url) from None
         except urllib3.exceptions.HTTPError as exc:
-            if _network_failure(exc, method, url, last=attempt == retries, first=attempt == 1):
+            if deadline.expired:
+                raise RequestError("response too slow", hop.url) from None
+            last = attempt == retries or delay >= deadline.left()
+            if _network_failure(exc, hop.method, hop.url, last=last, first=attempt == 1):
                 continue
         except ValueError as exc:
-            raise RequestError(str(exc) if isinstance(exc, RefusedError) else type(exc).__name__, url) from None
+            reason = str(exc) if isinstance(exc, RefusedError) else type(exc).__name__
+            raise RequestError(reason, hop.url) from None
         time.sleep(wait)
         delay *= 2
     raise AssertionError("unreachable")
 
 
-def get_checked_redirects(url: str, *, timeout: float) -> bytes:
-    """For a trusted address on a host the operator does not run. A redirect from it is checked as guide content."""
+def _answer(response: urllib3.BaseHTTPResponse, hop: _Hop, deadline: _Deadline) -> tuple[int, bytes, str]:
     try:
-        return request("GET", url, timeout=timeout, redirects=False)
-    except RedirectError as exc:
-        if not exc.location:
-            raise
-        return request("GET", exc.location, timeout=timeout, untrusted=True)
+        if 300 <= response.status < 400:
+            response.close()
+            return response.status, b"", response.headers.get("Location") or ""
+        if response.status < 400:
+            return response.status, _read_body(response, hop.url, deadline, MAX_RESPONSE), ""
+        excerpt = _read_body(response, hop.url, deadline, ERROR_EXCERPT, cut=True)
+        if len(excerpt) >= ERROR_EXCERPT:
+            response.close()
+        return response.status, excerpt, ""
+    except RequestError:
+        response.close()
+        raise
+    finally:
+        response.release_conn()
+
+
+def _error_text(excerpt: bytes, hop: _Hop) -> str:
+    """An excerpt that was cut loses its last word. A credential cut in two must not show its first half."""
+    text = hide(excerpt.decode("utf-8", "replace"), secrets(hop.url, hop.headers))
+    if len(excerpt) >= ERROR_EXCERPT:
+        end = max(text.rfind(space) for space in " \t\r\n")
+        text = text[:end] if end > 0 else ""
+    return text
 
 
 class _Gunzip:
@@ -255,10 +393,12 @@ class _Gunzip:
         return bytes(out)
 
 
-def _read_body(response: urllib3.BaseHTTPResponse, url: str, deadline: float) -> bytes:
-    """The read timeout only limits the wait for each chunk, not the whole body.
+def _read_body(
+    response: urllib3.BaseHTTPResponse, url: str, deadline: _Deadline, limit: int, *, cut: bool = False
+) -> bytes:
+    """Check both limits after every network chunk. A chunk can unpack to nothing.
 
-    Check both limits after every network chunk. A chunk can unpack to nothing.
+    `cut` keeps the first `limit` bytes of a longer body in place of refusing it.
     """
     encoding = response.headers.get("Content-Encoding", "").strip().lower()
     if encoding not in GZIP | {"", "identity"}:
@@ -270,15 +410,20 @@ def _read_body(response: urllib3.BaseHTTPResponse, url: str, deadline: float) ->
         raw += len(data)
         if gunzip:
             try:
-                data = gunzip.feed(data, MAX_RESPONSE + 1 - size)
+                data = gunzip.feed(data, limit + 1 - size)
             except zlib.error:
                 raise RequestError("broken compressed response", url) from None
         chunks.append(data)
         size += len(data)
-        if max(raw, size) > MAX_RESPONSE:
-            raise RequestError("response larger than 64 MB", url)
-        if time.monotonic() > deadline:
+        if cut and max(raw, size) >= limit:
+            return b"".join(chunks)[:limit]
+        if max(raw, size) > limit:
+            raise RequestError(f"response larger than {limit // 1024 // 1024} MB", url)
+        if deadline.expired:
             raise RequestError("response too slow", url)
+    # A hang-up at the deadline ends a body without a length like its real end.
+    if deadline.expired:
+        raise RequestError("response too slow", url)
     if gunzip and raw and not gunzip.complete:
         raise RequestError("compressed response cut off", url)
     return b"".join(chunks)
