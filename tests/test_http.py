@@ -1,3 +1,4 @@
+import gzip
 import socket
 import threading
 import time
@@ -110,6 +111,20 @@ def test_requests_name_posteryard_its_version_and_its_home(server: Server) -> No
     http.request("GET", f"{server.url}/a")
     [(_, headers)] = server.requests
     assert headers["User-Agent"] == f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
+
+
+def test_responses_are_asked_for_gzip_and_read_unpacked(server: Server) -> None:
+    server.answers = [(200, {"Content-Encoding": "gzip"}, gzip.compress(b"{}" * 1000))]
+    assert http.request("GET", f"{server.url}/a") == b"{}" * 1000
+    [(_, headers)] = server.requests
+    assert headers["Accept-Encoding"] == "gzip"
+
+
+def test_the_size_limit_counts_unpacked_bytes(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http, "MAX_RESPONSE", 1000)
+    server.answers = [(200, {"Content-Encoding": "gzip"}, gzip.compress(b"0" * 1_000_000))]
+    with pytest.raises(http.RequestError, match="larger than"):
+        http.request("GET", f"{server.url}/a")
 
 
 def test_redirects_are_followed(server: Server) -> None:

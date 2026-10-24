@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Give the channel tile of Crunchyroll, Tubi, MUBI, Viaplay, Movistar Plus+, ADN, Starz, Channel 4, Hayu, discovery+, Stan, BBC iPlayer, JioHotstar and CBC Gem a band in the service's own colour, darkened for a white mark, in place of grey.
 - Accept any http or https address for `art set --url`, a server on the same machine included.
+- Ask servers for compressed answers. A daily check of a 2,500-title Plex library downloads about 45% less.
+- Use the jemalloc memory allocator in the image. Peak memory while new titles are processed is 12 to 25% lower.
 
 ### Fixed
 

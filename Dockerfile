@@ -11,9 +11,12 @@ RUN uv sync --locked --no-dev --no-editable
 
 FROM python:3.13-slim-trixie@sha256:70729b46c69b4f1e97c4822c1af3df53a1476cf5ddc6c087c0c10bc3a5678c2f
 ENV PATH=/app/.venv/bin:$PATH PYTHONUNBUFFERED=1 DATA_DIR=/data MALLOC_ARENA_MAX=2
-RUN apt-get update && apt-get install -y --no-install-recommends libfribidi0 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libfribidi0 libjemalloc2 && rm -rf /var/lib/apt/lists/* \
+  && ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so.2
+ENV LD_PRELOAD=/usr/local/lib/libjemalloc.so.2 MALLOC_CONF=narenas:2,background_thread:true
 COPY --from=build /app/.venv /app/.venv
 RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow cannot shape text without libfribidi'" \
+  && python -c "assert 'jemalloc' in open('/proc/self/maps').read(), 'jemalloc is not loaded'" \
   && mkdir /data && chown 1000:1000 /data
 USER 1000:1000
 VOLUME /data
