@@ -1,6 +1,6 @@
 [project]
 name = "posteryard"
-version = "0.10.0"
+version = "0.10.1"
 description = "Clean, consistent posters, backgrounds and episode stills for Plex, Jellyfin and Emby"
 readme = "README.md"
 license = "Apache-2.0"
