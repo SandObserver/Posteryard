@@ -108,3 +108,17 @@ def test_a_failed_media_read_fails_the_whole_schedule(monkeypatch: pytest.Monkey
     monkeypatch.setattr(http, "get_json", get_json)
     with pytest.raises(http.HttpError):
         Maintainerr("http://maintainerr:6246").action_days()
+
+
+@pytest.mark.parametrize("answer", [None, {}, {"error": "Forbidden"}, "x"])
+def test_a_media_answer_that_is_not_a_list_fails_the_whole_schedule(
+    monkeypatch: pytest.MonkeyPatch, answer: Any
+) -> None:
+    def get_json(url: str, **kwargs: Any) -> Any:
+        if url.endswith("/api/collections"):
+            return [{"id": 1, "isActive": True, "deleteAfterDays": 15, "media": []}]
+        return answer
+
+    monkeypatch.setattr(http, "get_json", get_json)
+    with pytest.raises(ValueError, match="list of titles"):
+        Maintainerr("http://maintainerr:6246").action_days()

@@ -89,4 +89,7 @@ class Maintainerr:
             return collection
         # The collection list holds only a preview of each collection's media.
         query = urllib.parse.urlencode({"collectionId": collection.get("id")})
-        return {**collection, "media": http.get_json(f"{self.url}/api/collections/media/?{query}")}
+        media = http.get_json(f"{self.url}/api/collections/media/?{query}")
+        if not isinstance(media, list):
+            raise ValueError("Maintainerr did not return a list of titles")
+        return {**collection, "media": media}
