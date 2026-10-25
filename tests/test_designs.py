@@ -269,7 +269,7 @@ def test_the_fade_stays_when_a_line_or_label_would_not_read() -> None:
     assert designs.fade_strength(grey, logo(), []) == 0.0
     assert designs.fade_strength(grey, logo(), caption) >= 1.0
     label = lines.Label("JUST ADDED", APPLE_GREEN)
-    assert designs.fade_strength(grey, logo(), [], label) >= 1.0
+    assert designs.fade_strength(grey, logo(), [], label) == 0.0
     assert designs.fade_strength(banded(0.79, 0.825), logo(), [], label) >= 1.0
     assert designs.fade_strength(banded(0.79, 0.825), logo(), []) == 0.0
 

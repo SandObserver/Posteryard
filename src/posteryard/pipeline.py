@@ -30,7 +30,7 @@ from posteryard.tmdb import ImageRef, Kind
 log = logging.getLogger(__name__)
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.4.0"
+DESIGN_VERSION = "0.4.1"
 MEASURED = f"measured:{DESIGN_VERSION}:"
 # Each cache key family, with the prefixes still in use. Rows of a family under any other prefix are deleted at start.
 CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {

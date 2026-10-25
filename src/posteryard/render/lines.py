@@ -19,7 +19,6 @@ LABEL_SIZE = 0.026
 LABEL_DOT = 0.015
 LABEL_GAP = 0.010
 LABEL_TRACKING = 0.08
-LABEL_ALPHA = 200
 LABEL_ABOVE = 0.032
 
 BADGE_ROW = 0.042
@@ -73,14 +72,14 @@ def draw_label_above(canvas: Image.Image, label: Label, logo_top: int, ink: RGB 
 
 def _label(canvas: Image.Image, text: str, colour: RGB, y: float, ink: RGB = WHITE) -> None:
     h = canvas.height
-    face = font("SemiBold", round(LABEL_SIZE * h))
+    face = font("Bold", round(LABEL_SIZE * h))
     dot, gap = round(LABEL_DOT * h), round(LABEL_GAP * h)
     width = dot + gap + tracked_width(text, face, LABEL_TRACKING)
     x = (canvas.width - width) / 2
     layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
     ImageDraw.Draw(layer).ellipse((x, y - dot / 2, x + dot, y + dot / 2), fill=(*colour, 255))
     canvas.alpha_composite(layer)
-    draw_tracked(canvas, (x + dot + gap, y), text, face, (*ink, LABEL_ALPHA), tracking=LABEL_TRACKING)
+    draw_tracked(canvas, (x + dot + gap, y), text, face, (*ink, 255), tracking=LABEL_TRACKING)
 
 
 def _row(kinds: Sequence[Badge], height: int, gap: int, ink: RGB) -> tuple[list[Image.Image], int]:
