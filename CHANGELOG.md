@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- Draw status labels such as `LEAVING IN 5 DAYS` and `JUST ADDED` in bold, solid white, so they read clearly on bright art.
+- Draw status labels such as `LEAVING IN 5 DAYS` and `JUST ADDED` in bold at full opacity, so they read clearly. Posters whose only reason for the fade was the label now have no fade.
 
 ### Fixed
 
