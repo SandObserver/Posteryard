@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Draw status labels such as `LEAVING IN 5 DAYS` and `JUST ADDED` in bold, solid white, so they read clearly on bright art.
+
 ### Fixed
 
 - Read every title in a Maintainerr collection. Newer Maintainerr versions list only a few titles per collection, so the other titles had no `LEAVING` label.

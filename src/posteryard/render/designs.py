@@ -228,7 +228,7 @@ def fade_strength(
 ) -> float:
     """No fade only when the logo, every line and the label read in white on the bare art.
 
-    Lines and the label are drawn translucent, so each one is scored at the alpha it is drawn with.
+    Captions are drawn translucent, so each line is scored at the alpha it is drawn with.
     """
     canvas = cover(art, *POSTER).convert("RGBA")
     logo, at, centres = _place_logo(canvas.size, logo, lines_below)
