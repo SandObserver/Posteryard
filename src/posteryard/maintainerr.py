@@ -1,4 +1,5 @@
 import logging
+import urllib.parse
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta, tzinfo
 from typing import Any
@@ -74,4 +75,21 @@ class Maintainerr:
     def action_days(self) -> dict[str, date]:
         if not self.url:
             return {}
-        return action_days(http.get_json(f"{self.url}/api/collections"))
+        collections = http.get_json(f"{self.url}/api/collections")
+        if isinstance(collections, list):
+            collections = [self._with_all_media(c) for c in collections]
+        return action_days(collections)
+
+    def _with_all_media(self, collection: Any) -> Any:
+        if (
+            not isinstance(collection, Mapping)
+            or not collection.get("isActive")
+            or not collection.get("deleteAfterDays")
+        ):
+            return collection
+        # The collection list holds only a preview of each collection's media.
+        query = urllib.parse.urlencode({"collectionId": collection.get("id")})
+        media = http.get_json(f"{self.url}/api/collections/media/?{query}")
+        if not isinstance(media, list):
+            raise ValueError("Maintainerr did not return a list of titles")
+        return {**collection, "media": media}
