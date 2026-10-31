@@ -218,7 +218,6 @@ def test_a_response_sent_one_byte_at_a_time_is_cut_off() -> None:
 
 @contextlib.contextmanager
 def dripping_server(head: bytes, drip: bytes, *, moved: bytes = b"") -> Iterator[str]:
-    """Answers `head`, then `drip` every 50 ms. A request for /moved gets `moved` at once."""
     listener = socket.create_server(("127.0.0.1", 0))
     stop = threading.Event()
 
