@@ -27,9 +27,11 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: daily
     cooldown:
       default-days: 7
+      # A base image fix must not wait. The image scan fails every PR until it lands.
+      exclude: [python]
     ignore:
       # onnxruntime has no Intel macOS wheel for Python 3.14. Stay on 3.13.
       - dependency-name: python
