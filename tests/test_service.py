@@ -200,7 +200,12 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
 
 
 class ShowPlex(FakePlex):
+    def item(self, rating_key: str) -> Item | None:
+        return {"ratingKey": rating_key, "type": "movie" if rating_key == "22" else "show"}
+
     def children(self, rating_key: str) -> list[Item]:
+        if rating_key == "22":
+            raise posteryard_http.HttpError(400, "http://plex.example:32400/library/metadata/22/children")
         if rating_key == "20":
             return [{"ratingKey": "201", "type": "season"}, {"ratingKey": "202", "type": "season"}]
         if rating_key == "21":
@@ -212,9 +217,10 @@ def test_the_sweep_queues_the_seasons_of_a_leaving_show(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     service = make_service(tmp_path, ShowPlex())
-    monkeypatch.setattr(service.worker, "leaving_days", lambda: {"20": date(2026, 11, 1), "21": date(2026, 11, 1)})
+    leaving = {"20": date(2026, 11, 1), "21": date(2026, 11, 1), "22": date(2026, 11, 1)}
+    monkeypatch.setattr(service.worker, "leaving_days", lambda: leaving)
     service.sweep()
-    assert [key for key in queued(service) if key != "9"] == ["20", "21", "201", "202"]
+    assert [key for key in queued(service) if key != "9"] == ["20", "21", "22", "201", "202"]
     assert "not readable" not in caplog.text
 
 
