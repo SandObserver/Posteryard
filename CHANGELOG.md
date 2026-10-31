@@ -14,6 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Read every title in a Maintainerr collection. Newer Maintainerr versions list only a few titles per collection, so the other titles had no `LEAVING` label.
 
+### Security
+
+- Update the Python base image to 3.13.18, which fixes CVE-2026-115557.
+
 ## [0.10.1] - 2026-10-24
 
 ### Changed
