@@ -77,7 +77,7 @@ mkdir -p ./data && sudo chown 1000:1000 ./data
 docker compose up -d
 ```
 
-Posteryard runs as user 1000 and writes only to `./data` and `/tmp`.
+Posteryard runs as user 1000 and writes only to `./data` and `/tmp`. To run it as another user, such as `568:568` on TrueNAS, add `user: "568:568"` under `posteryard:` in `compose.yml`, or `--user 568:568` to `docker run`, and give that user ownership of `./data`.
 
 <details>
 <summary>Without Compose</summary>
