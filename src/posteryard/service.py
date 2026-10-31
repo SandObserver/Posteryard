@@ -361,6 +361,9 @@ class Service:
         found: list[str] = []
         for key in keys:
             try:
+                item = self.server.item(key)
+                if item is None or item.get("type") != "show":
+                    continue
                 children = self.server.children(key)
             except http.RequestError as exc:
                 if not (isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND):
