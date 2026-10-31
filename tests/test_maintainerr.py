@@ -122,3 +122,35 @@ def test_a_media_answer_that_is_not_a_list_fails_the_whole_schedule(
     monkeypatch.setattr(http, "get_json", get_json)
     with pytest.raises(ValueError, match="list of titles"):
         Maintainerr("http://maintainerr:6246").action_days()
+
+
+def test_a_slow_maintainerr_stops_the_read_after_the_time_limit(monkeypatch: pytest.MonkeyPatch) -> None:
+    clock = [0.0]
+    seen: list[str] = []
+
+    def get_json(url: str, **kwargs: Any) -> Any:
+        seen.append(url)
+        clock[0] += 100
+        if url.endswith("/api/collections"):
+            return [{"id": n, "isActive": True, "deleteAfterDays": 15, "media": []} for n in range(20)]
+        return []
+
+    monkeypatch.setattr(http, "get_json", get_json)
+    monkeypatch.setattr("posteryard.maintainerr.time.monotonic", lambda: clock[0])
+    with pytest.raises(http.RequestError, match="took over 4 minutes"):
+        Maintainerr("http://maintainerr:6246").action_days()
+    assert len(seen) == 3
+
+
+def test_a_repeated_collection_is_read_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[str] = []
+
+    def get_json(url: str, **kwargs: Any) -> Any:
+        seen.append(url)
+        if url.endswith("/api/collections"):
+            return [{"id": 1, "isActive": True, "deleteAfterDays": 15, "media": []}] * 3
+        return [{"collectionId": 1, "mediaServerId": "10", "addDate": "2026-10-24", "isManual": False}]
+
+    monkeypatch.setattr(http, "get_json", get_json)
+    assert Maintainerr("http://maintainerr:6246").action_days() == {"10": date(2026, 11, 8)}
+    assert len(seen) == 2
