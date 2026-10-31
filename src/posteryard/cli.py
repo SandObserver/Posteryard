@@ -238,7 +238,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
                 plan.draw().convert("RGB").save(path, quality=92)
                 print(f"{path}  {plan.name}  ({'; '.join(plan.notes)})")
             memory.release()
-        except (pipeline.NotFoundError, http.RequestError, ValueError) as exc:
+        except (pipeline.NotFoundError, http.RequestError, ValueError, OSError) as exc:
             print(f"{label}: {exc}")
             failed += 1
     return 1 if failed else 0
@@ -383,7 +383,7 @@ def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store:
     worker.ctx.sources.marks = None
     try:
         result = why.report(worker.ctx, item, store)
-    except (pipeline.NotFoundError, overrides.ArtError) as exc:
+    except (pipeline.NotFoundError, overrides.ArtError, OSError) as exc:
         print(f"{match.label}: {exc}")
         return 1
     print("\n".join(why.lines(match.label, result)))
