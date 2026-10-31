@@ -224,6 +224,25 @@ def test_the_sweep_queues_the_seasons_of_a_leaving_show(
     assert "not readable" not in caplog.text
 
 
+class GarbledPlex(ShowPlex):
+    def item(self, rating_key: str) -> Item | None:
+        if rating_key == "23":
+            raise ValueError("invalid literal for int() with base 10: '2020a'")
+        return super().item(rating_key)
+
+
+def test_a_garbled_leaving_title_does_not_stop_the_sweep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    service = make_service(tmp_path, GarbledPlex())
+    leaving = {"20": date(2026, 11, 1), "23": date(2026, 11, 1)}
+    monkeypatch.setattr(service.worker, "leaving_days", lambda: leaving)
+    service.sweep()
+    assert [key for key in queued(service) if key != "9"] == ["20", "23", "201", "202"]
+    assert service.store.meta("sweep_cursor") is not None
+    assert [r.__dict__.get("reason") for r in caplog.records] == ["invalid literal for int() with base 10: '2020a'"]
+
+
 def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     plex = FakePlex()
     service = make_service(tmp_path, plex)

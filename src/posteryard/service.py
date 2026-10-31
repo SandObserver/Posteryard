@@ -369,6 +369,9 @@ class Service:
                 if not (isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND):
                     log.warning("seasons of a leaving title not readable", extra={"key": key, "reason": str(exc)})
                 continue
+            except (ValueError, KeyError, TypeError) as exc:
+                log.warning("seasons of a leaving title not readable", extra={"key": key, "reason": str(exc)})
+                continue
             found.extend(str(child["ratingKey"]) for child in children if child.get("type") == "season")
         return found
 

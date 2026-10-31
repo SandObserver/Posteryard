@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Read every title in a Maintainerr collection. Newer Maintainerr versions list only a few titles per collection, so the other titles had no `LEAVING` label.
 - Stop logging a `seasons of a leaving title not readable` warning for every leaving movie on Plex.
 - Print a message, not a traceback, when `why` or `preview` cannot read an image file, such as custom art removed from the data folder.
+- Keep the sweep running when the server's answer for one leaving title cannot be read. Posteryard logs that title and goes on.
 
 ### Security
 
