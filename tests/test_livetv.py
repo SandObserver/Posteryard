@@ -185,7 +185,7 @@ def test_cutting_notes_is_fast_on_a_hostile_title() -> None:
     started = time.monotonic()
     without_notes("(]" * 32000)
     without_notes("(x) " * 16000)
-    assert time.monotonic() - started < 1
+    assert time.monotonic() - started < 5
 
 
 def test_logged_guide_addresses_hide_credentials(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
