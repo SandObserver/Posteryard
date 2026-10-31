@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Read every title in a Maintainerr collection. Newer Maintainerr versions list only a few titles per collection, so the other titles had no `LEAVING` label.
+- Stop logging a `seasons of a leaving title not readable` warning for every leaving movie on Plex.
 
 ### Security
 
