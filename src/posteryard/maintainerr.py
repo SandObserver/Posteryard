@@ -1,4 +1,5 @@
 import logging
+import time
 import urllib.parse
 from collections.abc import Mapping
 from datetime import date, datetime, timedelta, tzinfo
@@ -7,6 +8,8 @@ from typing import Any
 from posteryard import http
 
 log = logging.getLogger(__name__)
+# Keep it under 480 s. The read can add one more request of 120 s, and the worker counts as stalled after 600 s.
+READ_SECONDS = 240
 
 
 def action_days(collections: Any, zone: tzinfo | None = None) -> dict[str, date]:
@@ -75,21 +78,28 @@ class Maintainerr:
     def action_days(self) -> dict[str, date]:
         if not self.url:
             return {}
+        started = time.monotonic()
         collections = http.get_json(f"{self.url}/api/collections")
         if isinstance(collections, list):
-            collections = [self._with_all_media(c) for c in collections]
+            media: dict[str, list[Any]] = {}
+            collections = [self._with_all_media(c, media, started) for c in collections]
         return action_days(collections)
 
-    def _with_all_media(self, collection: Any) -> Any:
+    def _with_all_media(self, collection: Any, media: dict[str, list[Any]], started: float) -> Any:
         if (
             not isinstance(collection, Mapping)
             or not collection.get("isActive")
             or not collection.get("deleteAfterDays")
         ):
             return collection
-        # The collection list holds only a preview of each collection's media.
-        query = urllib.parse.urlencode({"collectionId": collection.get("id")})
-        media = http.get_json(f"{self.url}/api/collections/media/?{query}")
-        if not isinstance(media, list):
-            raise ValueError("Maintainerr did not return a list of titles")
-        return {**collection, "media": media}
+        key = str(collection.get("id"))
+        if key not in media:
+            url = f"{self.url}/api/collections/media/"
+            if time.monotonic() - started > READ_SECONDS:
+                raise http.RequestError("Maintainerr took over 4 minutes to list its titles", url)
+            # The collection list holds only a preview of each collection's media.
+            titles = http.get_json(f"{url}?{urllib.parse.urlencode({'collectionId': collection.get('id')})}")
+            if not isinstance(titles, list):
+                raise ValueError("Maintainerr did not return a list of titles")
+            media[key] = titles
+        return {**collection, "media": media[key]}
