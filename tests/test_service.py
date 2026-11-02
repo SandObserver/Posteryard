@@ -29,6 +29,7 @@ from posteryard.store import Store
 from posteryard.worker import Outcome
 from tests import fakes
 from tests.fakes import FakeServer
+from tests.test_http import Server, open_idle
 
 
 def test_multipart_webhook_payload() -> None:
@@ -291,6 +292,33 @@ def test_a_failed_scheduled_run_waits_before_trying_again(tmp_path: Path, monkey
     service.stop()
     thread.join(timeout=5)
     assert plex.calls == 1
+
+
+class ReachablePlex(FakePlex):
+    def __init__(self, url: str) -> None:
+        super().__init__()
+        self.url = url
+
+    def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
+        posteryard_http.request("GET", f"{self.url}/library/sections/{section_key}/all")
+        return []
+
+
+def test_a_sweep_leaves_no_idle_pooled_connection_behind(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    plex = Server()
+    plex.answers = [(200, {}, b"{}")]
+    service = make_service(tmp_path, ReachablePlex(plex.url))
+    thread = threading.Thread(target=service._schedule, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5
+    while not plex.requests and time.monotonic() < deadline:
+        time.sleep(0.01)
+    service.stop()
+    thread.join(timeout=5)
+    plex.close()
+    assert plex.requests
+    assert open_idle() == 0
 
 
 def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:

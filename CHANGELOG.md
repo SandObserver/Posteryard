@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Close idle connections to the media server and other services within 30 seconds, so a firewall no longer logs blocked packets when Posteryard closes them late.
+
 ## [0.10.2] - 2026-10-31
 
 ### Changed
