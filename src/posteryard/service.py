@@ -476,8 +476,7 @@ class Service:
         self.worker.notifier.resolve("restart", "Posteryard is running again.")
         while not self._stop.is_set():
             if time.monotonic() < retry_at:
-                self.heartbeat()
-                self._stop.wait(TICK)
+                self._pause()
                 continue
             try:
                 if not self.server_checked.is_set():
@@ -516,8 +515,12 @@ class Service:
                 log.exception("scheduled run failed, trying again in 2 minutes")
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 retry_at = time.monotonic() + RETRY_SECONDS
-            self.heartbeat()
-            self._stop.wait(TICK)
+            self._pause()
+
+    def _pause(self) -> None:
+        self.heartbeat()
+        http.close_idle()
+        self._stop.wait(TICK)
 
     def connect(self) -> None:
         found = [str(s.get("title")) for s in self._sections()]

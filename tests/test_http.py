@@ -109,6 +109,37 @@ def test_connections_are_reused(server: Server) -> None:
     assert len(server.connections) == 1
 
 
+def open_idle() -> int:
+    count = 0
+    for manager in (http.POOL, http.UNTRUSTED_POOL):
+        keys = manager.pools.keys()
+        for key in keys:
+            pool = manager.pools.get(key)
+            idle = pool.pool if pool else None
+            count += sum(conn is not None and conn.sock is not None for conn in (idle.queue if idle else []))
+    return count
+
+
+def test_idle_connections_are_closed_and_reopened_on_use(server: Server) -> None:
+    server.answers = [(200, {}, b"one"), (200, {}, b"two")]
+    assert http.request("GET", f"{server.url}/a") == b"one"
+    assert open_idle() >= 1
+    http.close_idle()
+    assert open_idle() == 0
+    assert http.request("GET", f"{server.url}/b") == b"two"
+    assert len(server.connections) == 2
+
+
+def test_a_connection_in_use_is_left_open(server: Server) -> None:
+    http.close_idle()
+    server.answers = [(200, {}, b"body")]
+    response = http.POOL.request("GET", f"{server.url}/a", preload_content=False, timeout=5)
+    http.close_idle()
+    assert response.read() == b"body"
+    response.release_conn()
+    assert open_idle() == 1
+
+
 def test_requests_name_posteryard_its_version_and_its_home(server: Server) -> None:
     server.answers = [(200, {}, b"ok")]
     http.request("GET", f"{server.url}/a")

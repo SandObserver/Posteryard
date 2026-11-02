@@ -196,6 +196,22 @@ POOL = _pool_manager(_Pool, _HTTPSPool)
 UNTRUSTED_POOL = _pool_manager(_UntrustedPool, _UntrustedHTTPSPool)
 
 
+def close_idle() -> None:
+    """Close pooled connections that are not in use. A closed connection reconnects on its next use."""
+    for manager in (POOL, UNTRUSTED_POOL):
+        keys = manager.pools.keys()
+        for key in keys:
+            pool = manager.pools.get(key)
+            idle = pool.pool if pool else None
+            if idle is None:
+                continue
+            with idle.mutex:
+                for conn in idle.queue:
+                    if conn is not None:
+                        with contextlib.suppress(OSError):
+                            conn.close()
+
+
 class RequestError(Exception):
     """Raised for every failed request. The message never contains a credential."""
 
