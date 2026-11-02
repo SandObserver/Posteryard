@@ -294,31 +294,43 @@ def test_a_failed_scheduled_run_waits_before_trying_again(tmp_path: Path, monkey
     assert plex.calls == 1
 
 
-class ReachablePlex(FakePlex):
+class SlowPlex(FakePlex):
     def __init__(self, url: str) -> None:
         super().__init__()
         self.url = url
+        self.asked = threading.Event()
+        self.release = threading.Event()
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         posteryard_http.request("GET", f"{self.url}/library/sections/{section_key}/all")
+        self.asked.set()
+        self.release.wait(30)
         return []
 
 
-def test_a_sweep_leaves_no_idle_pooled_connection_behind(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_idle_connections_close_while_a_sweep_step_is_slow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     plex = Server()
     plex.answers = [(200, {}, b"{}")]
-    service = make_service(tmp_path, ReachablePlex(plex.url))
-    thread = threading.Thread(target=service._schedule, daemon=True)
-    thread.start()
-    deadline = time.monotonic() + 5
-    while not plex.requests and time.monotonic() < deadline:
-        time.sleep(0.01)
-    service.stop()
-    thread.join(timeout=5)
-    plex.close()
-    assert plex.requests
-    assert open_idle() == 0
+    slow = SlowPlex(plex.url)
+    service = make_service(tmp_path, slow)
+    schedule = threading.Thread(target=service._schedule, daemon=True)
+    stub = type("S", (), {"shutdown": lambda self: None})()
+    watch = threading.Thread(target=service._watch, args=(stub,), daemon=True)
+    schedule.start()
+    watch.start()
+    try:
+        assert slow.asked.wait(5)
+        deadline = time.monotonic() + 2
+        while open_idle() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert open_idle() == 0
+    finally:
+        slow.release.set()
+        service.stop()
+        schedule.join(timeout=5)
+        watch.join(timeout=5)
+        plex.close()
 
 
 def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:
