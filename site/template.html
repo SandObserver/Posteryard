@@ -38,6 +38,7 @@
         --fill: rgba(120, 120, 128, 0.32);
         --fill-hover: rgba(120, 120, 128, 0.42);
         --accent: #ffd60a;
+        --gut: 40px;
         --ease: cubic-bezier(0.32, 0.72, 0, 1);
         --accent-strong: #ffe14d;
         --on-accent: #000;
@@ -54,7 +55,7 @@
       a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
       .skip { position: absolute; left: -9999px; top: 0; z-index: 50; padding: 10px 16px; border-radius: 0 0 10px 0; background: var(--accent); color: var(--on-accent); font-weight: 600; }
       .skip:focus { left: 0; }
-      .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 40px; }
+      .wrap { width: 100%; max-width: 1160px; margin: 0 auto; padding: 0 var(--gut); }
 
       .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
       .brand { display: flex; align-items: center; min-height: 44px; gap: 12px; color: var(--label); font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
@@ -84,7 +85,7 @@
 
       /* Plex for Apple TV, TV Shows library grid. Sizes are fractions of a 2000 px wide capture. */
       .tv-band { padding: 8px 0 0; }
-      .tv { max-width: 1160px; margin: 0 auto; padding: 0 20px; }
+      .tv { max-width: 1160px; margin: 0 auto; padding: 0 var(--gut); }
       .bezel { background: #141416; border: 1px solid rgba(255, 255, 255, 0.1); border-bottom: 0; border-radius: 26px 26px 0 0; padding: 12px 12px 0; box-shadow: 0 -2px 60px rgba(0, 0, 0, 0.5); }
       .screen { container-type: inline-size; position: relative; aspect-ratio: 5 / 2; overflow: hidden; border-radius: 14px 14px 0 0;
         background: radial-gradient(90% 70% at 70% 0%, #26282a 0%, #141414 55%, #0b0b0b 100%); }
@@ -122,11 +123,19 @@
       .f-track { display: grid; grid-auto-flow: column; grid-auto-columns: calc((100% - 48px) / 2.8); gap: 24px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
       .f-track::-webkit-scrollbar { display: none; }
       @media (pointer: fine) { .f-track { scroll-snap-type: none; } }
+      @property --fade-l { syntax: "<length>"; inherits: true; initial-value: 0px; }
+      @property --fade-r { syntax: "<length>"; inherits: true; initial-value: 32px; }
+      @media (min-width: 601px) {
+        .f-track { --fade-l: 0px; --fade-r: 32px; transition: --fade-l 0.2s ease, --fade-r 0.2s ease; -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+        .f-track.fade-l { --fade-l: 32px; }
+        .f-track.at-end { --fade-r: 0px; }
+        .f-track:focus-visible { -webkit-mask-image: none; mask-image: none; }
+      }
       .f-card { scroll-snap-align: start; display: grid; align-content: start; gap: 18px; min-width: 0; }
       .f-media { padding: 22px 26px 26px; border-radius: 22px; background: var(--bg-3); }
       .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0; }
       .pair div { min-width: 0; }
-      .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
+      .pair img { display: block; width: 100%; height: auto; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 8px; background: var(--bg-2); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1); }
       .tag { display: block; margin: 0 0 7px 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); }
       .tag-py { color: var(--accent); }
       .f-text { padding: 0 6px; font-size: 16px; line-height: 1.5; color: var(--dim); text-wrap: pretty; }
@@ -138,7 +147,8 @@
       .band h2 { margin: 0 0 14px; font-size: 36px; font-weight: 700; letter-spacing: -0.025em; }
       .lede { margin: 0 0 28px; font-size: 17px; line-height: 1.55; color: var(--dim); max-width: 60ch; }
       .setup-grid { display: grid; grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: 40px; }
-      .setup-grid + .setup-grid { margin-top: 32px; padding-top: 56px; border-top: 1px solid var(--separator); }
+      .setup-grid + .setup-grid { margin-top: 32px; padding-top: 56px; }
+      .setup-grid + .setup-grid::before { content: ""; position: absolute; top: 0; left: var(--gut); right: var(--gut); height: 1px; background: var(--separator); }
       .setup-side { align-self: start; position: sticky; top: 24px; }
       .setup-side .lede { margin: 0; }
       .setup-side .lede p { margin: 0; }
@@ -148,9 +158,12 @@
       .doc code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-3); padding: 0.12em 0.4em; border-radius: 6px; color: var(--label); }
       .code { margin: 10px 0; border: 1px solid var(--separator); border-radius: 12px; background: #0d1117; overflow: hidden; }
       .code-bar { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px 4px 16px; border-bottom: 1px solid var(--separator); font-family: var(--mono); font-size: 12.5px; color: var(--dim); }
+      .code-bar > span:not([class]) { font-family: var(--font); font-size: 13px; }
       .copy { position: relative; height: 30px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--label); font: 600 13px var(--font); cursor: pointer; }
       .copy::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
       .copy:hover { background: var(--fill); }
+      .copy { min-width: 70px; }
+      .copy.done { color: var(--green); }
       .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
       .code pre { margin: 0; padding: 10px 14px; overflow-x: auto; }
       .code pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.4; color: #e6edf3; }
@@ -188,7 +201,7 @@
       .credit-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: rgba(255, 255, 255, 0.5); }
 
       @media (max-width: 1180px) {
-        .wrap { padding: 0 28px; }
+        :root { --gut: 28px; }
         .hero h1 { font-size: 54px; }
       }
       @media (max-width: 900px) {
@@ -207,8 +220,9 @@
         .f-title { font-size: 26px; margin-bottom: 20px; }
         .f-ctrl { display: none; }
         .f-media { padding: 16px 18px 20px; }
-        .f-track { grid-auto-columns: 84%; gap: 14px; margin-right: -16px; padding-right: 16px; }
-        .wrap { padding: 0 16px; }
+        .f-track { grid-auto-columns: 84%; gap: 14px; margin-inline: calc(-1 * var(--gut)); padding-inline: var(--gut); scroll-padding-inline: var(--gut); }
+        .f-track:focus-visible { outline-offset: -2px; }
+        :root { --gut: 16px; }
         .nav { padding: 18px 0; }
         .brand { font-size: 21px; gap: 10px; }
         .brand img, .brand .mark { width: 22px; height: 27px; }
@@ -218,7 +232,6 @@
         .hero h1 { font-size: 32px; line-height: 1.08; }
         .hero p { font-size: 15.5px; margin-top: 16px; }
         .btn { height: 46px; padding: 0 20px; font-size: 15px; }
-        .tv { padding: 0 16px; }
         .bezel { border-radius: 18px 18px 0 0; padding: 7px 7px 0; }
         .screen { aspect-ratio: 100 / 92; border-radius: 10px 10px 0 0; }
         .band h2 { font-size: 26px; }
@@ -231,7 +244,7 @@
       #getting-started { --fill-1: rgba(120, 120, 128, 0.36); --fill-3: rgba(118, 118, 128, 0.24); --seg-on: rgba(255, 255, 255, 0.36); --a11y-border: #838387; --row-sep: rgba(255, 255, 255, 0.17); --ov-strong: rgba(255, 255, 255, 0.1); --menu-bg: rgba(30, 30, 32, 0.72); --menu-rim: rgba(255, 255, 255, 0.12); --shadow-pop: 0 8px 48px rgba(0, 0, 0, 0.45); --pill-ease: cubic-bezier(0.22, 1, 0.36, 1); --green: #30d158; }
       .pop-root { position: relative; }
       .sy-i { fill: currentColor; } .sy-a { fill: var(--accent); } .sy-is { stroke: currentColor; } .sy-as { stroke: var(--accent); }
-      .gs { display: grid; gap: 16px; align-content: start; }
+      .gs { display: grid; align-content: start; }
       .gs .code, .s9 .code { margin: 0; }
       .sentence { margin: 0 0 4px; font-size: 22px; line-height: 2.1; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
       .pop { display: inline-flex; align-items: center; gap: 4px; vertical-align: baseline; min-height: 40px; border: 0; margin: 0 1px; padding: 0 10px 0 16px; border-radius: 20px; background: var(--fill-3); color: var(--accent); font: inherit; letter-spacing: inherit; cursor: pointer; transition: background 0.15s ease; }
@@ -282,7 +295,7 @@
       .tabs:not(.has-pill) .seg-pill { display: none; }
       .tabs.has-pill button[aria-selected="true"] { background: transparent; }
       .tabs button { position: relative; flex-shrink: 0; min-height: 28px; padding-inline: 14px; border: 0; border-radius: 14px; background: transparent; color: var(--label); font: 500 13px/1 var(--font); cursor: pointer; transition: background 0.15s ease; z-index: 1; }
-      .tabs button[aria-selected="true"] { background: var(--seg-on); font-weight: 600; }
+      .tabs button[aria-selected="true"] { background: var(--seg-on); }
       .tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
       .tabs .dot { position: absolute; top: 5px; right: 5px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
       .s9-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
@@ -329,13 +342,33 @@
       .tp-foot { margin: 4px 0 0; text-align: center; font-size: 11px; color: var(--dim); }
       .tp-foot code { font-size: 0.9em; }
       @media (max-width: 600px) { .sentence { font-size: 20px; } }
+      #gs > * + * { margin-top: 16px; }
+      #gs > #g-fill { margin-top: 12px; }
       @media (prefers-reduced-motion: reduce) { .menu, .menu.open, .tp, .tp.open { transform: none !important; } .tr, .tr::after, .menu .mp.on { transition-duration: 0.01ms !important; } }
 
       .pop, .val-btn, .ghost { position: relative; }
       .pop::after, .val-btn::after, .time-btn::after, .ghost::after, .tabs button::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
       .tog { min-height: 44px; align-items: center; }
-      .gs.morphing, .s9-side pre.morphing, #s9-panel.morphing { overflow: hidden; }
-      @media (prefers-reduced-motion: reduce) { .code .chg { animation: none; background: rgba(255, 214, 10, 0.16); } }
+      .gs > .morphing, .s9-side pre.morphing, #s9-panel.morphing, .sizing { overflow: hidden; }
+      .pop span, .val-btn span { white-space: nowrap; }
+      a, button, label { -webkit-tap-highlight-color: transparent; }
+      .pop, .val-btn, .time-btn, .ghost { transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease; }
+      .field { transition: color 0.15s ease; }
+      .pop:active, .val-btn:active, .time-btn:active, .ghost:active { transform: scale(0.97); }
+      .tabs .dot { animation: dot-in 0.2s var(--ease); }
+      @keyframes dot-in { from { opacity: 0; transform: scale(0.4); } }
+      .code pre.more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+      .code pre:focus-visible { -webkit-mask-image: none; mask-image: none; }
+      @media (hover: none) {
+        .pop:hover:not([aria-expanded="true"]) { background: var(--fill-3); }
+        .btn-accent:hover { background: var(--accent); }
+        .btn-quiet:hover, .pill-ghost:hover { background: var(--fill); }
+        .pill-solid:hover { background: var(--label); }
+        .copy:hover, .ghost:hover { background: transparent; }
+        .val-btn:hover { color: var(--dim); }
+        .time-btn:hover:not([aria-expanded="true"]) { background: var(--fill-3); color: var(--dim); }
+      }
+      @media (prefers-reduced-motion: reduce) { .code .chg { animation: none; background: rgba(255, 214, 10, 0.16); } .tabs .dot { animation: none; } }
     </style>
   </head>
   <body>
@@ -366,11 +399,57 @@
         <div class="tv">
           <div class="bezel">
             <div class="screen" role="img" aria-label="A Plex library on Apple TV with Posteryard posters">
-              <div class="grid" aria-hidden="true">{{tv_grid}}</div>
+              <div class="grid" aria-hidden="true"></div><noscript><div class="grid" aria-hidden="true">{{tv_grid}}</div></noscript>
             </div>
           </div>
         </div>
       </div>
+
+      <script>
+      {
+        const pool = {{poster_pool}};
+        const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
+        const sortKey = (title) => title.toLowerCase().replace(/^the /, "");
+        const kind = Math.random() < 0.5 ? "movie" : "tv";
+        const picks = pool
+          .filter((p) => p.kind === kind)
+          .map((p) => [Math.random(), p])
+          .sort((a, b) => a[0] - b[0])
+          .slice(0, 12)
+          .map(([, p]) => p)
+          .sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title)));
+        const grid = document.querySelector(".screen .grid");
+        grid.textContent = "";
+        picks.forEach((p, i) => {
+          const figure = document.createElement("figure");
+          figure.className = i === 0 ? "show focus" : "show";
+          const art = document.createElement("div");
+          art.className = "art";
+          const img = new Image(400, 600);
+          img.alt = "";
+          img.decoding = "async";
+          img.srcset = `/img/posters/${p.id}-240.webp 240w, /img/posters/${p.id}.webp 400w`;
+          img.sizes = "(max-width: 600px) 30vw, 145px";
+          img.src = `/img/posters/${p.id}.webp`;
+          art.append(img);
+          const roll = Math.random();
+          if (kind === "tv" || roll < 0.25) {
+            const count = document.createElement("span");
+            count.className = "count";
+            if (kind === "movie" || roll < 0.2) count.innerHTML = check;
+            else count.textContent = String(1 + Math.floor(Math.random() * 12));
+            art.append(count);
+          }
+          const caption = document.createElement("figcaption");
+          const sub = document.createElement("span");
+          caption.textContent = p.title;
+          sub.textContent = kind === "movie" ? String(p.year) : `${p.seasons} ${p.seasons === 1 ? "Season" : "Seasons"}`;
+          caption.append(sub);
+          figure.append(art, caption);
+          grid.append(figure);
+        });
+      }
+      </script>
 
       <section class="features" id="features">
         <div class="wrap">
@@ -482,72 +561,51 @@
     <p class="sr-only" id="live" aria-live="polite"></p>
     <script>
       {
-        const pool = {{poster_pool}};
-        const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>';
-        const sortKey = (title) => title.toLowerCase().replace(/^the /, "");
-        const kind = Math.random() < 0.5 ? "movie" : "tv";
-        const picks = pool
-          .filter((p) => p.kind === kind)
-          .map((p) => [Math.random(), p])
-          .sort((a, b) => a[0] - b[0])
-          .slice(0, 12)
-          .map(([, p]) => p)
-          .sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title)));
-        const grid = document.querySelector(".screen .grid");
-        grid.textContent = "";
-        picks.forEach((p, i) => {
-          const figure = document.createElement("figure");
-          figure.className = i === 0 ? "show focus" : "show";
-          const art = document.createElement("div");
-          art.className = "art";
-          const img = new Image(400, 600);
-          img.alt = "";
-          img.decoding = "async";
-          img.srcset = `/img/posters/${p.id}-240.webp 240w, /img/posters/${p.id}.webp 400w`;
-          img.sizes = "(max-width: 600px) 30vw, 145px";
-          img.src = `/img/posters/${p.id}.webp`;
-          art.append(img);
-          const roll = Math.random();
-          if (kind === "tv" || roll < 0.25) {
-            const count = document.createElement("span");
-            count.className = "count";
-            if (kind === "movie" || roll < 0.2) count.innerHTML = check;
-            else count.textContent = String(1 + Math.floor(Math.random() * 12));
-            art.append(count);
-          }
-          const caption = document.createElement("figcaption");
-          const sub = document.createElement("span");
-          caption.textContent = p.title;
-          sub.textContent = kind === "movie" ? String(p.year) : `${p.seasons} ${p.seasons === 1 ? "Season" : "Seasons"}`;
-          caption.append(sub);
-          figure.append(art, caption);
-          grid.append(figure);
-        });
-      }
-      {
         const track = document.getElementById("f-track");
         const prev = document.getElementById("f-prev");
         const next = document.getElementById("f-next");
         const cards = track.querySelectorAll(".f-card");
+        let aim = null, aimTimer;
         const go = (direction) => {
           const origin = track.getBoundingClientRect().left - track.scrollLeft;
           const edges = [...cards].map((card) => card.getBoundingClientRect().left - origin);
           const max = track.scrollWidth - track.clientWidth;
-          const here = track.scrollLeft;
+          const here = aim ?? track.scrollLeft;
           const target = direction > 0 ? edges.find((x) => x > here + 2) : edges.findLast((x) => x < here - 2);
           if (target === undefined) return;
-          track.scrollTo({ left: Math.min(target, max), behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+          aim = Math.min(target, max);
+          clearTimeout(aimTimer);
+          aimTimer = setTimeout(() => (aim = null), 700);
+          track.scrollTo({ left: aim, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
         };
         prev.addEventListener("click", () => go(-1));
         next.addEventListener("click", () => go(1));
         const ends = new Map([[cards[0], prev], [cards[cards.length - 1], next]]);
         const observer = new IntersectionObserver(
           (entries) => {
-            for (const entry of entries) ends.get(entry.target).disabled = entry.intersectionRatio > 0.95;
+            for (const entry of entries) {
+              const button = ends.get(entry.target), atEnd = entry.intersectionRatio > 0.95;
+              if (atEnd && document.activeElement === button) (button === prev ? next : prev).focus({ preventScroll: true });
+              button.disabled = atEnd;
+            }
           },
           { root: track, threshold: [0, 0.95, 1] },
         );
         for (const card of ends.keys()) observer.observe(card);
+        const edgeFades = () => {
+          const x = track.scrollLeft, origin = track.getBoundingClientRect().left - x;
+          track.classList.toggle("at-end", x >= track.scrollWidth - track.clientWidth - 2);
+          track.classList.toggle("fade-l", x > 2 && ![...cards].some((card) => Math.abs(card.getBoundingClientRect().left - origin - x) < 2));
+        };
+        track.addEventListener("scroll", edgeFades, { passive: true });
+        track.addEventListener("wheel", () => (aim = null), { passive: true });
+        addEventListener("resize", edgeFades);
+        edgeFades();
+        if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          for (const img of document.querySelectorAll(".art img, .pair img")) {
+            if (!img.complete) img.addEventListener("load", () => img.animate({ opacity: [0, 1] }, { duration: 240, easing: "ease-out" }), { once: true });
+          }
+        }
       }
       const live = document.getElementById("live");
       async function copyText(code) {
@@ -561,14 +619,19 @@
         }
       }
       for (const button of document.querySelectorAll(".copy")) {
+        let doneTimer;
         button.addEventListener("click", async () => {
           const code = button.closest(".code").querySelector("code");
           try {
             await copyText(code);
+            if (button.textContent !== "Copied") button.animate({ opacity: [0.3, 1] }, { duration: 160, easing: "ease-out" });
             button.textContent = "Copied";
+            button.classList.add("done");
             live.textContent = `Copied ${button.getAttribute("aria-label").replace(/^Copy /, "")}`;
-            setTimeout(() => {
+            clearTimeout(doneTimer);
+            doneTimer = setTimeout(() => {
               button.textContent = "Copy";
+              button.classList.remove("done");
               live.textContent = "";
             }, 1500);
           } catch {
@@ -588,7 +651,8 @@
       const $$ = (s, r = document) => [...r.querySelectorAll(s)];
       const reduce = matchMedia("(prefers-reduced-motion: reduce)");
       const live = $("#live");
-      const say = (text) => { live.textContent = ""; requestAnimationFrame(() => (live.textContent = text)); };
+      let sayTimer;
+      const say = (text) => { clearTimeout(sayTimer); sayTimer = setTimeout(() => { live.textContent = ""; requestAnimationFrame(() => (live.textContent = text)); }, 400); };
       const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 
       /* Animates an element from its current height to the height after mutate(). */
@@ -601,6 +665,59 @@
         el.classList.add("morphing");
         el.animate({ height: [`${from}px`, `${to}px`] }, { duration: Math.min(480, 260 + Math.abs(to - from) / 4), easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
           .finished.finally(() => el.classList.remove("morphing"));
+      }
+
+      function easeWidth(el, from) {
+        const to = el.offsetWidth;
+        if (from === to || reduce.matches) return;
+        el.classList.add("sizing");
+        el.animate({ width: [`${from}px`, `${to}px`] }, { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }).onfinish = () => el.classList.remove("sizing");
+        $("span", el).animate({ opacity: [0, 1] }, { duration: 180, easing: "ease-out" });
+      }
+      function codeFades() {
+        for (const pre of $$(".code pre")) pre.classList.toggle("more", pre.scrollLeft + pre.clientWidth < pre.scrollWidth - 2);
+      }
+
+      const moving = new Map();
+      function morphParts(els, mutate, animate = true) {
+        const was = els.map((el) => ({ hidden: el.hidden, height: el.hidden ? 0 : el.offsetHeight }));
+        mutate();
+        for (const el of els) if (moving.has(el)) {
+          moving.get(el).cancel();
+          moving.delete(el);
+          el.classList.remove("morphing");
+        }
+        if (!animate || reduce.matches) return;
+        const to = els.map((el) => (el.hidden ? 0 : el.offsetHeight));
+        const duration = Math.min(480, 260 + Math.max(...els.map((_, i) => Math.abs(to[i] - was[i].height))) / 4);
+        els.forEach((el, i) => {
+          if (was[i].height === to[i]) return;
+          const hiding = el.hidden, showing = was[i].hidden;
+          const frames = { height: [`${was[i].height}px`, `${to[i]}px`] };
+          el.hidden = false;
+          if (hiding || showing) {
+            const open = getComputedStyle(el);
+            const edge = (value) => (hiding ? [value, "0px"] : ["0px", value]);
+            frames.marginTop = edge(open.marginTop);
+            frames.borderTopWidth = edge(open.borderTopWidth);
+            frames.borderBottomWidth = edge(open.borderBottomWidth);
+            frames.opacity = hiding ? [1, 0] : [0, 1];
+          }
+          el.classList.add("morphing");
+          const run = el.animate(frames, { duration, easing: "cubic-bezier(0.32, 0.72, 0, 1)" });
+          moving.set(el, run);
+          run.onfinish = () => {
+            el.classList.remove("morphing");
+            moving.delete(el);
+            if (hiding) el.hidden = true;
+          };
+        });
+      }
+
+      function placePopup(pop, br, rr, originX) {
+        const h = pop.offsetHeight, above = br.bottom + 6 + h > innerHeight && br.top - 6 - h > 0;
+        pop.style.top = `${(above ? br.top - 6 - h : br.bottom + 6) - rr.top}px`;
+        pop.style.transformOrigin = `${originX}px ${above ? `${h + 6}px` : "-6px"}`;
       }
 
       let openMenu = null;
@@ -641,14 +758,20 @@
         let left = align === "end" ? br.right - rr.left - list.offsetWidth : br.left - rr.left;
         left = Math.min(Math.max(8, left), rr.width - list.offsetWidth - 8);
         list.style.left = `${left}px`;
-        list.style.top = `${br.bottom - rr.top + 6}px`;
-        list.style.transformOrigin = `${Math.max(16, Math.min(list.offsetWidth - 16, br.left - rr.left - left + br.width / 2))}px -6px`;
+        placePopup(list, br, rr, Math.max(16, Math.min(list.offsetWidth - 16, br.left - rr.left - left + br.width / 2)));
         btn.setAttribute("aria-expanded", "true");
         btn.setAttribute("aria-controls", list.id);
         requestAnimationFrame(() => list.classList.add("open"));
         openMenu = { list, btn };
         let active = Math.max(0, opts.findIndex((o) => selected.has(o.dataset.v)));
-        const setActive = (i) => { active = (i + opts.length) % opts.length; opts[active].focus({ preventScroll: true }); placePill(list, opts[active]); };
+        const setActive = (i) => {
+          active = (i + opts.length) % opts.length;
+          const o = opts[active];
+          o.focus({ preventScroll: true });
+          placePill(list, o);
+          if (o.offsetTop < list.scrollTop) list.scrollTop = o.offsetTop - 10;
+          else if (o.offsetTop + o.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = o.offsetTop + o.offsetHeight - list.clientHeight + 10;
+        };
         const choose = (o) => {
           if (multiple) {
             const on = o.getAttribute("aria-selected") !== "true";
@@ -695,12 +818,17 @@
       function drawInstall(animate) {
         const view = install(g.server, g.method);
         const code = $("#g-code .out"), oldText = code.textContent, sameFile = $("#g-code .fname").textContent === view.fname;
-        morph($("#gs"), () => {
+        const swapped = [$("#g-fill"), $("#g-next"), ...(sameFile ? [] : [code, $("#g-start .out")])];
+        const swappedText = swapped.map((el) => el.textContent);
+        const popWidths = $$("#gs .pop").map((b) => b.offsetWidth);
+        morphParts([...$("#gs").children], () => {
           $("#g-code").hidden = !view.code;
-          $("#g-code .fname").textContent = view.fname;
-          code.innerHTML = animate && sameFile ? highlight(oldText, view.code) : view.code;
+          if (view.code) {
+            $("#g-code .fname").textContent = view.fname;
+            code.innerHTML = animate && sameFile ? highlight(oldText, view.code) : view.code;
+          }
           $("#g-start").hidden = !view.start;
-          $("#g-start .out").innerHTML = view.start;
+          if (view.start) $("#g-start .out").innerHTML = view.start;
           $("#g-fill").innerHTML = view.fill;
           $("#g-next").innerHTML = view.next;
           drawOut(false);
@@ -710,6 +838,11 @@
             b.setAttribute("aria-label", `${pickers[k].name}: ${name}`);
           }
         }, animate);
+        if (animate) $$("#gs .pop").forEach((b, i) => easeWidth(b, popWidths[i]));
+        codeFades();
+        if (animate && !reduce.matches) swapped.forEach((el, i) => {
+          if (el.textContent !== swappedText[i]) el.animate({ opacity: [0, 1] }, { duration: 220, easing: "ease-out" });
+        });
         if (animate) say(`Install steps now show ${view.summary}.`);
       }
       $$("#gs .pop").forEach((b) => {
@@ -736,11 +869,15 @@
       const byKey = (k) => settings.find((s) => s.key === k);
       function drawOut(animate) {
         const out = lines(data, vals, g.method), pre = $("#s9-out pre");
-        morph(pre, () => { $(".out", pre).innerHTML = out.html; }, animate);
+        const oldLines = $(".out", pre).textContent;
+        morph(pre, () => { $(".out", pre).innerHTML = animate && out.count ? highlight(oldLines, out.html) : out.html; }, animate);
+        codeFades();
         $("#s9-head").innerHTML = out.head;
         $("#s9-out .fname").textContent = out.fname;
-        $("#s9-reset").hidden = !out.changed;
-        $("#s9-out .copy").hidden = !out.count || !out.copy;
+        for (const [el, show] of [[$("#s9-reset"), out.changed], [$("#s9-out .copy"), out.count && out.copy]]) {
+          if (animate && show && el.hidden && !reduce.matches) el.animate({ opacity: [0, 1] }, { duration: 180, easing: "ease-out" });
+          el.hidden = !show;
+        }
         $("#s9-foot").innerHTML = out.foot;
         $$("#s9-tabs [role=tab]").forEach((b, i) => {
           const has = groups[i].settings.some((s) => isChanged(s, vals)), dot = $(".dot", b);
@@ -814,8 +951,10 @@
                 }
                 next = s.options.map((o) => o[0]).filter((x) => set.has(x)).join(",");
               }
+              const width = b.offsetWidth;
               update(s.key, next);
               $("span", b).textContent = shown(s, vals);
+              easeWidth(b, width);
               b.setAttribute("aria-label", `${s.label}: ${shown(s, vals)}`);
             },
           });
@@ -836,6 +975,7 @@
       $("#s9-reset").addEventListener("click", () => {
         Object.assign(vals, defaults(data));
         drawPanel(false, false); drawOut(true);
+        if (!reduce.matches) $("#s9").animate({ opacity: [0, 1] }, { duration: 220, easing: "ease-out" });
         say("All settings are back to their defaults.");
         $("#s9-tabs [aria-selected=true]").focus();
       });
@@ -869,8 +1009,7 @@
         const rr = root.getBoundingClientRect(), br = btn.getBoundingClientRect();
         const left = Math.min(Math.max(8, br.right - rr.left - tp.offsetWidth), rr.width - tp.offsetWidth - 8);
         tp.style.left = `${left}px`;
-        tp.style.top = `${br.bottom - rr.top + 6}px`;
-        tp.style.transformOrigin = `${br.left - rr.left - left + br.width / 2}px -6px`;
+        placePopup(tp, br, rr, br.left - rr.left - left + br.width / 2);
         btn.setAttribute("aria-expanded", "true");
         openTimeFor = { tp, btn };
         const value = () => `${$('[data-col="Hour"] [aria-selected="true"]', tp).dataset.v}:${$('[data-col="Minute"] [aria-selected="true"]', tp).dataset.v}`;
@@ -905,7 +1044,9 @@
       if (g.server !== "plex" || g.method !== "compose") drawInstall(false);
       $("#s9-tabs").classList.add("has-pill");
       bindTabs(); bindRows(); placeTab(false); fades();
-      addEventListener("resize", () => placeTab(false));
+      addEventListener("resize", () => { placeTab(false); codeFades(); });
+      for (const pre of $$(".code pre")) pre.addEventListener("scroll", codeFades, { passive: true });
+      codeFades();
       document.fonts?.ready.then(() => placeTab(false));
     </script>
     <script>
