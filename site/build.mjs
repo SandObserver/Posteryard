@@ -136,11 +136,12 @@ function library() {
   const picks = Array.from({ length: LIBRARY }, (_, i) => pool[(day * 7 + i) % pool.length]).sort((a, b) =>
     sortKey(a.title).localeCompare(sortKey(b.title)),
   );
+  // Do not add noscript here. The template wraps this grid in noscript, and a nested one closes it early.
   const tiles = picks.map((poster, i) => {
     const sub = kind === 'movie' ? String(poster.year) : `${poster.seasons} ${poster.seasons === 1 ? 'Season' : 'Seasons'}`;
     return (
-      `<figure class="show${i === 0 ? ' focus' : ''}"><div class="art"><noscript>` +
-      `<img src="/img/posters/${poster.id}.webp" srcset="/img/posters/${poster.id}-240.webp 240w, /img/posters/${poster.id}.webp 400w" sizes="(max-width: 600px) 30vw, 145px" alt="" width="400" height="600" /></noscript></div>` +
+      `<figure class="show${i === 0 ? ' focus' : ''}"><div class="art">` +
+      `<img src="/img/posters/${poster.id}.webp" srcset="/img/posters/${poster.id}-240.webp 240w, /img/posters/${poster.id}.webp 400w" sizes="(max-width: 600px) 30vw, 145px" alt="" width="400" height="600" /></div>` +
       `<figcaption>${escape(poster.title)}<span>${sub}</span></figcaption></figure>`
     );
   });

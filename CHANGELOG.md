@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Close idle connections to the media server and other services within 30 seconds, so a firewall no longer logs blocked packets when Posteryard closes them late.
+- Make the landing page's install picker, menus, feature row and copy buttons move without jumps and stay on screen, and fix their keyboard and screen reader behaviour.
 
 ## [0.10.2] - 2026-10-31
 
