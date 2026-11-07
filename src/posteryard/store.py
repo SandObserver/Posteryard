@@ -44,8 +44,17 @@ CREATE TABLE IF NOT EXISTS guide (
     seen_at     INTEGER NOT NULL DEFAULT 0
 );
 """
+UPLOADS_TABLE = """
+CREATE TABLE IF NOT EXISTS uploads (
+    rating_key TEXT NOT NULL,
+    target     TEXT NOT NULL,
+    image_key  TEXT NOT NULL,
+    PRIMARY KEY (rating_key, target, image_key)
+);
+INSERT OR IGNORE INTO uploads SELECT rating_key, target, image_key FROM images WHERE image_key != '';
+"""
 # Append only. Entry N brings the database from version N to N + 1. Never edit a released entry.
-MIGRATIONS = (SCHEMA_1, GUIDE_TABLE)
+MIGRATIONS = (SCHEMA_1, GUIDE_TABLE, UPLOADS_TABLE)
 COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at"
 RETRY_FIRST = 900
 RETRY_MAX = 12 * 3600
@@ -130,6 +139,23 @@ class Store:
     def uploaded(self, rating_key: str, target: str, title: str, fingerprint: str, image_key: str) -> None:
         self._upsert(rating_key, target, title=title, fingerprint=fingerprint, image_key=image_key,
                      status=Status.UPLOADED, failures=0, last_error="")  # fmt: skip
+        with self._lock:
+            self._db.execute(
+                "INSERT OR IGNORE INTO uploads(rating_key, target, image_key) VALUES(?, ?, ?)",
+                (rating_key, target, image_key),
+            )
+
+    def is_upload(self, rating_key: str, target: str, image_key: str) -> bool:
+        """Whether Posteryard uploaded this image. `forget` keeps this list."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT 1 FROM uploads WHERE rating_key=? AND target=? AND image_key=?", (rating_key, target, image_key)
+            ).fetchone()
+        return row is not None
+
+    def drop_uploads(self, rating_key: str) -> None:
+        with self._lock:
+            self._db.execute("DELETE FROM uploads WHERE rating_key=?", (rating_key,))
 
     def uploading(self, rating_key: str, target: str, title: str) -> None:
         self._upsert(rating_key, target, title=title, status=Status.UPLOADING)
@@ -279,6 +305,28 @@ class Store:
                 "INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
                 (key, value),
             )
+
+    def relabel(self, label: str, current: set[str]) -> tuple[set[str], set[str]]:
+        """Save the keys that carry a label now. Returns the keys that gained it and the keys that lost it."""
+        with self._lock:
+            row = self._db.execute("SELECT value FROM meta WHERE key=?", (f"labelled:{label}",)).fetchone()
+            known = set(json.loads(row[0])) if row else set()
+            self._db.execute(
+                "INSERT INTO meta(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                (f"labelled:{label}", json.dumps(sorted(current))),
+            )
+        return current - known, known - current
+
+    def unlabel(self, label: str, rating_key: str) -> None:
+        """Posteryard removed the label itself. Adding it again must count as new."""
+        with self._lock:
+            row = self._db.execute("SELECT value FROM meta WHERE key=?", (f"labelled:{label}",)).fetchone()
+            known = set(json.loads(row[0])) if row else set()
+            if rating_key in known:
+                self._db.execute(
+                    "UPDATE meta SET value=? WHERE key=?",
+                    (json.dumps(sorted(known - {rating_key})), f"labelled:{label}"),
+                )
 
     def _upsert(self, rating_key: str, target: str, **fields: object) -> None:
         fields["updated_at"] = int(time.time())

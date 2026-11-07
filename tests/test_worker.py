@@ -11,7 +11,7 @@ from posteryard import config, http, pipeline
 from posteryard.notify import Notifier
 from posteryard.server import Item, Target
 from posteryard.store import Status, Store
-from posteryard.worker import Outcome, Worker
+from posteryard.worker import Outcome, Worker, jpeg, made_here
 from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
 
 MOVIE: Item = {
@@ -306,6 +306,67 @@ def test_custom_label_adopts_the_poster_uploaded_in_plex(tmp_path: Path) -> None
     plex.items["1"]["Label"] = []
     assert worker.process("1") == Outcome.UPLOADED
     assert store.override("1") is None
+
+
+def custom_poster(tmp_path: Path) -> tuple[Worker, FakePlex, Store, str]:
+    """A title whose custom art was taken from the server, with Posteryard's poster selected over it."""
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    images: dict[str, bytes] = {}
+    upload = plex.upload
+
+    def keep(rating_key: str, target: Target, data: bytes) -> str:
+        images[key := upload(rating_key, target, data)] = data
+        return key
+
+    def selected_bytes(item: Item) -> bytes:
+        return images.get(plex.selected_keys[(str(item["ratingKey"]), "poster")]) or FakePlex.poster_bytes(plex, item)
+
+    plex.upload = keep  # type: ignore[method-assign,assignment]
+    plex.poster_bytes = selected_bytes  # type: ignore[method-assign]
+    worker.process("1")
+    plex.selected_keys[("1", "poster")] = "uploaded-by-hand"
+    plex.items["1"]["Label"] = [{"tag": "posteryard-custom"}]
+    assert worker.process("1") == Outcome.UPLOADED
+    override = store.override("1")
+    assert override is not None and override.custom
+    return worker, plex, store, override.custom
+
+
+def test_custom_art_is_kept_after_forget(tmp_path: Path) -> None:
+    worker, _, store, custom = custom_poster(tmp_path)
+    store.forget("1")
+    assert worker.process("1") == Outcome.UPLOADED
+    override = store.override("1")
+    assert override is not None and override.custom == custom
+    assert Path(custom).exists()
+
+
+def test_custom_art_ignores_a_poster_posteryard_made_with_another_database(tmp_path: Path) -> None:
+    worker, _, store, custom = custom_poster(tmp_path)
+    store.forget("1")
+    store.drop_uploads("1")
+    worker.process("1")
+    override = store.override("1")
+    assert override is not None and override.custom == custom
+
+
+def test_posteryard_jpegs_carry_a_mark() -> None:
+    image = Image.new("RGB", (60, 90), (10, 20, 30))
+    assert made_here(jpeg(image))
+    plain = io.BytesIO()
+    image.save(plain, "JPEG", comment=b"Other tool")
+    assert not made_here(plain.getvalue())
+    assert not made_here(b"not a jpeg")
+    assert not made_here(jpeg(image)[:4])
+
+
+def test_removing_the_next_label_counts_a_later_one_as_new(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.items["1"]["Label"] = [{"tag": "posteryard-next"}]
+    store.relabel("posteryard-next", {"1"})
+    worker.process("1")
+    assert store.relabel("posteryard-next", {"1"}) == ({"1"}, set())
 
 
 def test_art_commands(tmp_path: Path) -> None:

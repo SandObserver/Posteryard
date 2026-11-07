@@ -28,6 +28,9 @@ ALERT_AFTER = 3
 LEAVING_CACHE_SECONDS = 600
 ITEM_TARGET = "item"
 JPEG_QUALITY = 90
+MADE_BY = b"Posteryard"
+JPEG_COMMENT = 0xFE
+JPEG_SCAN = 0xDA
 NOUNS = {"poster": "poster", "art": "background", "thumb": "thumbnail"}
 
 
@@ -56,8 +59,23 @@ class Leaving:
 
 def jpeg(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
-    image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY, optimize=True)
+    image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY, optimize=True, comment=MADE_BY)
     return buffer.getvalue()
+
+
+def made_here(data: bytes) -> bool:
+    """Whether a JPEG carries the comment `jpeg` writes. Only the headers before the image data are read."""
+    if not data.startswith(b"\xff\xd8"):
+        return False
+    at = 2
+    while at + 4 <= len(data) and data[at] == 0xFF:
+        marker, size = data[at + 1], int.from_bytes(data[at + 2 : at + 4])
+        if marker == JPEG_SCAN or size < 2:
+            return False
+        if marker == JPEG_COMMENT and data[at + 4 : at + 2 + size] == MADE_BY:
+            return True
+        at += 2 + size
+    return False
 
 
 class Worker:
@@ -130,6 +148,7 @@ class Worker:
             if item is None:
                 self.store.forget(rating_key)
                 self.store.reset_override(rating_key)
+                self.store.drop_uploads(rating_key)
                 return Outcome.GONE
             if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
                 return Outcome.SKIPPED
@@ -255,21 +274,24 @@ class Worker:
             log.info("next art label left alone while DRY_RUN is on", extra={"title": item.get("title")})
         elif next_tag and item.get("type") == "episode":
             self.server.remove_label(item, next_tag)
+            self.store.unlabel(overrides.NEXT_LABEL, key)
             log.info("next art label removed, an episode has one still", extra={"title": item.get("title")})
         elif next_tag:
             art = self._current_art(item)
             # Remove the label before saving the skip. A retry after a failed removal must not skip twice.
             self.server.remove_label(item, next_tag)
+            self.store.unlabel(overrides.NEXT_LABEL, key)
             self._skip(key, art)
             log.info("switching to the next art", extra={"title": item.get("title")})
             redo = True
         current = self.store.override(key)
         if overrides.CUSTOM_LABEL in tags:
-            record = self.store.get(key, "poster")
             selected = self.server.selected(key, "poster")
-            if selected and (record is None or selected != record.image_key):
-                image = overrides.decode(self.server.poster_bytes(item))
-                path = str(overrides.save(image, self.cfg.data_dir, key))
+            if selected and not self.store.is_upload(key, "poster", selected):
+                data = self.server.poster_bytes(item)
+                if made_here(data):
+                    return redo
+                path = str(overrides.save(overrides.decode(data), self.cfg.data_dir, key))
                 if current is None or current.custom != path:
                     self.store.set_custom(key, path, "plex")
                     log.info("custom art taken from the server", extra={"title": item.get("title")})

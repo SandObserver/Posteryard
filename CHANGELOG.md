@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Keep the art taken with `posteryard-custom` after `forget` or after removing `posteryard-ignore`. Posteryard took its own poster as the art, drew the title twice and deleted the original.
+- Go back to automatic art at the next sweep after `posteryard-custom` is removed, not at the daily pass.
+- Let a paused Live TV run go on from where it stopped. A title with `posteryard-custom` restarted it at every sweep, so a long guide was never finished.
 - Turn custom art and other images upright when their EXIF data says they are rotated.
 - Skip a TMDB logo that is gone or cannot be read and use the next one, so the title still gets a poster.
 - Skip an Apple TV page that is nested too deeply to read, so the title gets other art.

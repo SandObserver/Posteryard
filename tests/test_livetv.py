@@ -468,6 +468,25 @@ def test_run_counts_failures_and_stops_when_asked(tmp_path: Path, monkeypatch: p
     assert sum(live.run(tick=lambda: False).values()) == 0
 
 
+def test_a_paused_run_goes_on_from_where_it_stopped(tmp_path: Path) -> None:
+    live, _, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b"), airing("Talk", "c")])
+    calls = iter([True, False])
+    paused = live.run(tick=lambda: next(calls))
+    assert paused["uploaded"] == 1 and live.store.meta("livetv_checked", "") == ""
+    assert live.run()["uploaded"] == 3
+    assert live.store.meta("livetv_checked", "") != ""
+    assert sum(live.run(tick=lambda: False).values()) == 0
+
+
+def test_a_refreshed_guide_starts_a_paused_run_again(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a"), airing("Night", "b")])
+    calls = iter([True, False])
+    live.run(tick=lambda: next(calls))
+    plex.refreshed = 2
+    tally = live.run()
+    assert tally["uploaded"] == 1 and tally["unchanged"] == 1
+
+
 def test_records_of_shows_gone_from_the_guide_are_forgotten(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
     live.run(now=1000)

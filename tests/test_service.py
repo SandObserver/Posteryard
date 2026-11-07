@@ -177,6 +177,32 @@ def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.Mon
     assert queued(service) == ["9"]
 
 
+def test_a_label_is_queued_when_it_is_added_or_removed_and_after_a_restart(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plex = FakePlex()
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+
+    def swept(target: Service) -> list[str]:
+        target.sweep()
+        keys = queued(target)
+        while queued(target):
+            target.take(0)
+        return keys
+
+    assert swept(service) == ["9"]
+    assert swept(service) == []
+    plex.section_items = lambda *_a, **f: [] if f.get("label") else FakePlex.section_items(plex, "3", "movie", **f)  # type: ignore[method-assign]
+    service.store.uploaded("9", "poster", "Example", "fp", "upload-1")
+    assert swept(service) == ["9"]
+    del plex.section_items
+    assert swept(service) == ["9"]
+    restarted = make_service(tmp_path, plex)
+    monkeypatch.setattr(restarted.worker, "leaving_days", dict)
+    assert swept(restarted) == ["9"]
+
+
 def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

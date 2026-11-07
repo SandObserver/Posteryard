@@ -153,6 +153,7 @@ class Service:
         self.exit_code = 0
         self.server_checked = threading.Event()
         self._live_tv_running = threading.Event()
+        self._labels_read = False
         self._last_heartbeat = float("-inf")
         self._connected = False
         self._tally: Counter[Outcome] = Counter()
@@ -320,14 +321,19 @@ class Service:
         cursor = self.store.meta("sweep_cursor")
         # A new data folder starts the cursor now. The full pass covers the library, and new-poster alerts must not.
         since = int(cursor) - lookback if cursor else started
+        labelled: dict[str, set[str]] = {overrides.CUSTOM_LABEL: set(), overrides.NEXT_LABEL: set()}
         for section in self._sections():
             for kind in self._kinds(section):
                 changed = self.server.changed_since(str(section["key"]), kind, since)
                 self.enqueue(self._keys(changed), "changed")
-                for label in (overrides.CUSTOM_LABEL, overrides.NEXT_LABEL):
-                    # Adding a label does not change an item's updatedAt, so changed_since misses it.
-                    labelled = self.server.section_items(str(section["key"]), kind, label=label)
-                    self.enqueue(self._keys(labelled), "label")
+                for label, keys in labelled.items():
+                    # Adding or removing a label does not change an item's updatedAt, so changed_since misses it.
+                    keys.update(self._keys(self.server.section_items(str(section["key"]), kind, label=label)))
+        for label, keys in labelled.items():
+            gained, lost = self.store.relabel(label, keys)
+            # The queue is lost on restart. The first sweep queues every labelled title.
+            self.enqueue(sorted(gained if self._labels_read else keys), "label")
+            self.enqueue(self._scoped(sorted(lost)), "label")
         ignored = {
             str(i["ratingKey"])
             for section in self._sections()
@@ -355,6 +361,7 @@ class Service:
         self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
         self.store.set_meta("leaving_checked", today)
         self.store.set_meta("sweep_cursor", str(started))
+        self._labels_read = True
         self.last_sweep_ok = time.monotonic()
 
     def _seasons(self, keys: Iterable[str]) -> list[str]:

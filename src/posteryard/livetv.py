@@ -180,6 +180,9 @@ class LiveTv:
         self._fetch = fetch or partial(fetch_image, server=server.url)
         self._unreadable: set[str] = set()
         self._confirmed: list[str] = []
+        self._cycle: dict[str, int] | None = None
+        self._done: set[str] = set()
+        self._tally: Counter[str] = Counter()
 
     def due(self, now: float | None = None) -> bool:
         now = time.time() if now is None else now
@@ -218,25 +221,32 @@ class LiveTv:
         return False
 
     def run(self, now: float | None = None, tick: Callable[[], bool] = lambda: True) -> Counter[str]:
-        """`tick` runs before each show. When it returns False, the run stops and is done again later."""
+        """`tick` runs before each show. When it returns False, the run stops; the next run goes on from there."""
         now = time.time() if now is None else now
-        tally: Counter[str] = Counter()
         guides = self.server.guides()
+        refreshed = {g.provider: g.refreshed_at for g in guides}
+        if refreshed != self._cycle:
+            self._cycle, self._done, self._tally, self._confirmed = refreshed, set(), Counter(), []
         fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
-        self._confirmed = []
+        tally = self._tally
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings, self._remembered_picture)
             self._unreadable = set()
             for show in shows:
+                done = show.record_key(show.key)
+                if done in self._done:
+                    continue
                 if not tick():
                     return tally
                 tally.update(self.apply(show, fetch))
+                self._done.add(done)
             self.store.guide_seen([show.record_key(t) for show in shows for t in show.targets], now)
         self.store.guide_drop_unseen(now - FORGET_SECONDS)
-        self.store.set_meta("livetv_refreshed", json.dumps({g.provider: g.refreshed_at for g in guides}))
+        self.store.set_meta("livetv_refreshed", json.dumps(refreshed))
         self.store.set_meta("livetv_checked", str(now))
         self.store.set_meta("livetv_confirmed", json.dumps(self._confirmed))
+        self._cycle, self._done, self._tally, self._confirmed = None, set(), Counter(), []
         self.store.set_meta("livetv_dry_run", str(self.dry_run))
         log.info("live TV posters checked", extra={k.replace(" ", "_"): v for k, v in sorted(tally.items())})
         return tally
