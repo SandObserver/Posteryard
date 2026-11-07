@@ -367,3 +367,16 @@ def test_apple_bands_come_first_and_unknown_services_stay_grey() -> None:
     assert designs.channel_band(["netflix", "crunchyroll"]) == designs.CHANNEL_BANDS["netflix"]
     assert designs.channel_band(["net-1-abcd1234-v2", "hayu"]) == designs.channel_band(["hayu"])
     assert designs.channel_band(["net-1-abcd1234-v2", "shudder"]) == designs.CHANNEL_DEFAULT_BAND
+
+
+def test_cover_resizes_only_the_kept_part_of_a_thin_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    sizes: list[tuple[int, int]] = []
+    resize = Image.Image.resize
+
+    def recorded(self: Image.Image, size: Any, *args: Any, **kwargs: Any) -> Image.Image:
+        sizes.append(tuple(size))
+        return resize(self, size, *args, **kwargs)
+
+    monkeypatch.setattr(Image.Image, "resize", recorded)
+    assert cover(Image.new("RGB", (2160, 1)), 1000, 1500).size == (1000, 1500)
+    assert sizes == [(1000, 1500)]

@@ -17,7 +17,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | Command | What it does |
 | --- | --- |
 | `art next TITLE` | Switch to the next best art. Run it again for the one after. |
-| `art set TITLE --url URL` | Use your own image as the art. The title logo and badges are drawn on top. |
+| `art set TITLE --url URL` | Use your own image as the art: JPEG, PNG, WebP or GIF, up to 40 MB. The title logo and badges are drawn on top. |
 | `art set TITLE --file /data/my-art.jpg` | The same, with an image you put in `./data`. |
 | `art reset TITLE` | Go back to automatic art. |
 | `why TITLE` | Show the art in use, and every candidate checked with the reason it was used or not, such as text found on it. Changes nothing. |

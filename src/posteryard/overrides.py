@@ -72,4 +72,4 @@ def save(image: Image.Image, data_dir: Path, rating_key: str) -> Path:
 
 
 def load(path: str) -> Image.Image:
-    return Image.open(path.removeprefix(FILE_PREFIX)).convert("RGB")
+    return Image.open(path.removeprefix(FILE_PREFIX), formats=("JPEG",)).convert("RGB")

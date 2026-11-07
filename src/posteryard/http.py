@@ -276,19 +276,21 @@ def request(  # noqa: PLR0913
     retries: int = 3,
     redirects: bool = True,
     untrusted: bool = False,
+    check_redirects: bool = False,
 ) -> bytes:
     """Set `untrusted` for an address taken from guide content. Every redirect is then checked too.
+
+    Set `check_redirects` for a host the operator does not run. Its redirects are checked as guide content.
 
     `timeout` limits each wait for the server. The whole call, retries and redirects included, stops after
     DEADLINE_FACTOR times it.
     """
     hop = _Hop(method, url, headers or {}, data, untrusted)
-    return _call(hop, timeout, retries, redirects=redirects, check_redirects=untrusted)
+    return _call(hop, timeout, retries, redirects=redirects, check_redirects=untrusted or check_redirects)
 
 
 def get_checked_redirects(url: str, *, timeout: float) -> bytes:
-    """For a trusted address on a host the operator does not run. A redirect from it is checked as guide content."""
-    return _call(_Hop("GET", url, {}, None, untrusted=False), timeout, 3, redirects=True, check_redirects=True)
+    return request("GET", url, timeout=timeout, check_redirects=True)
 
 
 @dataclass(frozen=True)
@@ -504,7 +506,15 @@ def retry_after(value: str | None) -> float:
     return min(max(seconds, 0.0), RETRY_AFTER_MAX)
 
 
-def get_json(url: str, headers: dict[str, str] | None = None, *, redirects: bool = True) -> Any:
+def get_json(
+    url: str, headers: dict[str, str] | None = None, *, redirects: bool = True, check_redirects: bool = False
+) -> Any:
     return json.loads(
-        request("GET", url, headers={"Accept": "application/json", **(headers or {})}, redirects=redirects)
+        request(
+            "GET",
+            url,
+            headers={"Accept": "application/json", **(headers or {})},
+            redirects=redirects,
+            check_redirects=check_redirects,
+        )
     )

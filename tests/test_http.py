@@ -623,3 +623,10 @@ def test_untrusted_hosts_try_each_checked_address_in_turn(server: Server, monkey
         http.request("GET", f"http://closed.example:{port}/a", untrusted=True, retries=1)
     with pytest.raises(http.RequestError, match="NameResolutionError"):
         http.request("GET", f"http://missing.example:{port}/a", untrusted=True, retries=1)
+
+
+def test_json_from_a_host_the_operator_does_not_run_has_its_redirects_checked(server: Server) -> None:
+    server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"{}")]
+    with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
+        http.get_json(f"{server.url}/a", check_redirects=True)
+    assert [path for path, _ in server.requests] == ["/a"]

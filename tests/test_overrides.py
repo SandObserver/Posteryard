@@ -69,3 +69,12 @@ def test_a_file_over_the_limit_is_refused_before_it_is_read(tmp_path: Path, monk
     monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail("the file was read"))
     with pytest.raises(overrides.ArtError, match="larger than 40 MB"):
         overrides.from_file(big)
+
+
+def test_load_opens_only_saved_jpeg_art(tmp_path: Path) -> None:
+    saved = overrides.save(Image.new("RGB", (20, 30)), tmp_path, "1")
+    assert overrides.load(overrides.FILE_PREFIX + str(saved)).size == (20, 30)
+    other = tmp_path / "other.png"
+    Image.new("RGB", (20, 30)).save(other)
+    with pytest.raises(OSError, match="cannot identify"):
+        overrides.load(overrides.FILE_PREFIX + str(other))

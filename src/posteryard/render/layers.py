@@ -131,12 +131,15 @@ def trim(image: Image.Image) -> Image.Image:
 
 
 def cover(image: Image.Image, width: int, height: int, focus: tuple[float, float] = (0.5, 0.4)) -> Image.Image:
+    """Resize only the part that is kept. A thin image scaled whole would need gigabytes."""
     image = image.convert("RGB")
     scale = max(width / image.width, height / image.height)
-    scaled = image.resize((math.ceil(image.width * scale), math.ceil(image.height * scale)), Image.Resampling.LANCZOS)
-    x = int(min(max(focus[0] * scaled.width - width / 2, 0), scaled.width - width))
-    y = int(min(max(focus[1] * scaled.height - height / 2, 0), scaled.height - height))
-    return scaled.crop((x, y, x + width, y + height))
+    scaled_width, scaled_height = math.ceil(image.width * scale), math.ceil(image.height * scale)
+    x = int(min(max(focus[0] * scaled_width - width / 2, 0), scaled_width - width))
+    y = int(min(max(focus[1] * scaled_height - height / 2, 0), scaled_height - height))
+    fx, fy = image.width / scaled_width, image.height / scaled_height
+    box = (x * fx, y * fy, (x + width) * fx, (y + height) * fy)
+    return image.resize((width, height), Image.Resampling.LANCZOS, box=box)
 
 
 def vertical_gradient(size: tuple[int, int], stops: Stops, rgb: RGB = (0, 0, 0)) -> Image.Image:
