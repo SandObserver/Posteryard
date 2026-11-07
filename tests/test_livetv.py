@@ -218,6 +218,21 @@ def test_match_refuses_a_tie_but_takes_a_clear_favourite(tmp_path: Path) -> None
     assert live.match(guide_shows(GUIDE, [airing("Tuzak", "b")])[0]) == 3
 
 
+def test_a_movie_with_a_year_in_the_guide_gets_the_film_of_that_year(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    tmdb.results["Dune"] = [
+        {"id": 438631, "title": "Dune", "vote_count": 14000, "release_date": "2021-09-15"},
+        {"id": 841, "title": "Dune", "vote_count": 3000, "release_date": "1984-12-14"},
+    ]
+    old: Item = {**airing("Dune", "a", movie=True), "year": 1985}
+    assert live.match(guide_shows(GUIDE, [old])[0]) == 841
+    assert live.match(guide_shows(GUIDE, [airing("Dune", "b", movie=True)])[0]) == 438631
+    unknown: Item = {**airing("Dune", "c", movie=True), "year": 1950}
+    assert live.match(guide_shows(GUIDE, [unknown])[0]) == 438631
+    episode: Item = {**airing("Dune", "d"), "year": 1984}
+    assert guide_shows(GUIDE, [episode])[0].year is None
+
+
 def test_a_block_named_after_its_channel_gets_the_title_card(tmp_path: Path) -> None:
     live, _, tmdb = build(tmp_path, [])
     show = guide_shows(GUIDE, [airing("News 24", "a", thumb="https://img.example/own.jpg")])[0]
