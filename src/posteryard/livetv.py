@@ -12,7 +12,7 @@ import re
 import time
 import unicodedata
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
 from functools import lru_cache, partial
 from pathlib import Path
@@ -66,6 +66,7 @@ class GuideShow:
     targets: tuple[str, ...] = ()
     # The guide's picture before shared pictures are dropped. Stored, so a later run can count its users.
     guide_picture: str = ""
+    year: int | None = None
 
     def record_key(self, target: str) -> str:
         return f"{self.provider}/{target}"
@@ -135,7 +136,9 @@ def guide_shows(
             channel = str(media.get("channelCallSign") or media.get("channelTitle") or "")
             guid = str((airing.get("guid") if movie else airing.get("grandparentGuid")) or "")
             kind: Kind = "movie" if movie else "tv"
-            shows[key] = GuideShow(provider, key, kind, title, channel, logo, picture, guid, (target,), picture)
+            # An episode's year is when it aired, not when the show began. Only a movie's year names the film.
+            year = airing.get("year") if movie and isinstance(airing.get("year"), int) else None
+            shows[key] = GuideShow(provider, key, kind, title, channel, logo, picture, guid, (target,), picture, year)
         else:
             known = shows[key]
             targets = known.targets if target in known.targets else (*known.targets, target)
@@ -149,6 +152,12 @@ def guide_shows(
         )
         for key, show in shows.items()
     ]
+
+
+def _released(result: Mapping[str, Any]) -> int | None:
+    """A guide's year can be a year off from TMDB's: release dates differ by country."""
+    found = str(result.get("release_date") or result.get("first_air_date") or "")[:4]
+    return int(found) if found.isdigit() else None
 
 
 def _origin(url: str) -> tuple[str | None, str | None, int | None]:
@@ -333,7 +342,7 @@ class LiveTv:
         name = norm(show.title)
         if not name:
             return None
-        cache_key = f"{MATCH_PREFIX}{show.kind}:{name}"
+        cache_key = f"{MATCH_PREFIX}{show.kind}:{name}" + (f":{show.year}" if show.year else "")
         hit = self.store.get_choice(cache_key)
         if hit is not None:
             found = int(hit.get("id") or 0)
@@ -346,6 +355,8 @@ class LiveTv:
             for r in results
             if r.get("id") and name in {norm(str(r.get(label) or "")), norm(str(r.get(original) or ""))}
         ]
+        dated = [r for r in exact if show.year and abs((_released(r) or 0) - show.year) <= 1]
+        exact = dated or exact
         exact.sort(key=lambda r: -int(r.get("vote_count") or 0))
         lead = len(exact) == 1 or (
             len(exact) > 1

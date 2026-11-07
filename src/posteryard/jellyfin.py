@@ -390,8 +390,11 @@ class Jellyfin:
         channel_id = self._id(str(raw.get("ChannelId")))
         logo = self._url(f"/Items/{channel_id}/Images/Primary") if channel_id in logos else ""
         media = {"channelCallSign": channel, "beginsAt": begins, "endsAt": ends, "channelThumb": logo}
+        airing: dict[str, Any]
         if raw.get("IsMovie"):
             airing = {"type": "movie", "ratingKey": show, "title": title, "thumb": picture, "guid": show}
+            if isinstance(year := raw.get("ProductionYear"), int):
+                airing["year"] = year
         else:
             airing = {"type": "episode", "grandparentRatingKey": show, "grandparentTitle": title,
                       "grandparentThumb": picture, "grandparentGuid": show}  # fmt: skip

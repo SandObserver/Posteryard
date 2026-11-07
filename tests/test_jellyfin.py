@@ -311,7 +311,8 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
                 "Id": PROGRAMME, "Name": "Evening", "ChannelId": CHANNEL, "ChannelName": "News 24",
                 "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
             }, {
-                "Id": "4" * 32, "Name": "Quiet", "ChannelId": "3" * 32, "ChannelName": "No Logo",
+                "Id": "4" * 32, "Name": "Quiet", "ChannelId": "3" * 32, "ChannelName": "No Logo", "IsMovie": True,
+                "ProductionYear": 1984,
                 "StartDate": "2026-10-12T17:00:00.0000000Z", "EndDate": "2026-10-12T18:00:00.0000000Z",
             }]},
             "/ScheduledTasks": [{"Key": "RefreshGuide", "LastExecutionResult": {"EndTimeUtc": "2026-10-12T03:00:00Z"}}],
@@ -326,6 +327,7 @@ def test_guide_airings_come_back_plex_shaped_with_the_xmltv_picture(monkeypatch:
     found, quiet = jellyfin.guide_airings("guide", 1791780000, 1791900000)
     airing: dict[str, Any] = dict(found)
     assert quiet["Media"][0]["channelThumb"] == ""
+    assert (quiet["type"], quiet["year"]) == ("movie", 1984)
     assert airing["grandparentTitle"] == "Evening"
     assert airing["grandparentThumb"] == "https://img.example/evening.jpg"
     assert airing["targetKey"] == PROGRAMME
