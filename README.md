@@ -138,7 +138,7 @@ Every setting except the first four has a default. Add a line under `environment
 | `WEBHOOK_SECRET` | Any long random text, such as the output of `openssl rand -hex 16`. It is part of the webhook address. | |
 | `DRY_RUN` | `true` saves previews and changes nothing on your server. `false` uploads the images and locks them. | `true` |
 | `LIBRARIES` | Libraries to manage, separated by commas, named as your server shows them. Movie and TV libraries only. `PLEX_LIBRARIES` works too. | `Movies,TV Shows` |
-| `ONLY_RATING_KEYS` | Limit Posteryard to a few titles, for a first test. [Rating keys](docs/commands.md#rating-keys) separated by commas. A show includes its seasons and episodes. | |
+| `ONLY_RATING_KEYS` | Limit Posteryard to a few titles, for a first test. [Rating keys](docs/commands.md#rating-keys) separated by commas. A show includes its seasons and episodes. Service collections are left alone. | |
 | `JELLYFIN_URL` | Your Jellyfin server's address. Use it instead of `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |
 | `JELLYFIN_API_KEY` | A Jellyfin API key, from **API Keys** in the Jellyfin dashboard. | |
 | `EMBY_URL` | Your Emby server's address. Use it instead of `PLEX_URL` and `PLEX_TOKEN`. See [Jellyfin and Emby](docs/jellyfin-and-emby.md). | |

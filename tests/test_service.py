@@ -717,7 +717,9 @@ def collections_service(tmp_path: Path, plex: FakePlex, **env: str) -> tuple[Ser
     return start(cfg, plex, notifier=notifier), [], notifier
 
 
-def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_service_collections_wait_for_dry_run_off_and_a_full_library(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     synced: list[list[str]] = []
 
     def record(server: object, ctx: object, keys: list[str]) -> list[str]:
@@ -729,6 +731,9 @@ def test_service_collections_wait_for_dry_run_off(tmp_path: Path, monkeypatch: p
     service._sync_collections()
     assert synced == []
     service, _, _ = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false")
+    service._sync_collections()
+    assert synced == [["4"], ["5"]]
+    service, _, _ = collections_service(tmp_path, TwoShowLibraries(), DRY_RUN="false", ONLY_RATING_KEYS="1")
     service._sync_collections()
     assert synced == [["4"], ["5"]]
 

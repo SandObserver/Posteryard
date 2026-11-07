@@ -454,6 +454,9 @@ class Service:
         if self.cfg.dry_run:
             log.info("service collections not changed while DRY_RUN is on")
             return
+        if self.cfg.only_rating_keys:
+            log.info("service collections not changed while ONLY_RATING_KEYS is set")
+            return
         keys = [str(s["key"]) for s in shows]
         batches = [[key] for key in keys] if self.server.collections_per_library else [keys] if keys else []
         failed = False
