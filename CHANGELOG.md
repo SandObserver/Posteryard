@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Find new and changed titles at the next sweep when the media server's clock is behind Posteryard's. They waited for the daily pass.
+- Find titles in a folder added to a Jellyfin or Emby library while Posteryard runs. They were skipped until a restart.
 - Keep the art taken with `posteryard-custom` after `forget` or after removing `posteryard-ignore`. Posteryard took its own poster as the art, drew the title twice and deleted the original.
 - Go back to automatic art at the next sweep after `posteryard-custom` is removed, not at the daily pass.
 - Let a paused Live TV run go on from where it stopped. A title with `posteryard-custom` restarted it at every sweep, so a long guide was never finished.

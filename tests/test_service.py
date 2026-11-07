@@ -17,6 +17,7 @@ from posteryard import http as posteryard_http
 from posteryard.notify import Notifier
 from posteryard.server import Item
 from posteryard.service import (
+    MAX_AHEAD,
     NEW_REASONS,
     WORKER_RESTART,
     Service,
@@ -249,6 +250,59 @@ def test_the_sweep_queues_the_seasons_of_a_leaving_show(
     service.sweep()
     assert [key for key in queued(service) if key != "9"] == ["20", "21", "22", "201", "202"]
     assert "not readable" not in caplog.text
+
+
+class ClockPlex(FakePlex):
+    """A server whose clock is an hour behind this machine's."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.now = int(time.time()) - 3600
+        self.changes: dict[str, int] = {"1": self.now - 7200}
+
+    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+        return self.changes["1"]
+
+    def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
+        return [{"ratingKey": k, "updatedAt": at} for k, at in self.changes.items() if at > since]
+
+
+def test_the_sweep_follows_the_server_clock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plex = ClockPlex()
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+
+    def changed(target: Service) -> list[str]:
+        target.sweep()
+        keys = [k for k in queued(target) if k != "9"]
+        while queued(target):
+            target.take(0)
+        return keys
+
+    assert changed(service) == []
+    plex.changes["2"] = plex.now
+    assert changed(service) == ["2"]
+    assert changed(service) == []
+    plex.changes["2"] = plex.now + 5
+    plex.changes["3"] = int(time.time()) + 2 * MAX_AHEAD
+    assert changed(service) == ["2", "3"]
+    assert int(service.store.meta("sweep_cursor")) == plex.now + 5
+    restarted = make_service(tmp_path, plex)
+    monkeypatch.setattr(restarted.worker, "leaving_days", dict)
+    assert changed(restarted) == ["2", "3"]
+
+
+def test_a_cursor_from_an_older_release_moves_to_the_server_clock(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plex = ClockPlex()
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.store.set_meta("sweep_cursor", str(int(time.time())))
+    plex.changes["2"] = plex.now
+    service.sweep()
+    assert "2" in queued(service)
+    assert service.store.meta("sweep_clock") == "server"
 
 
 class GarbledPlex(ShowPlex):

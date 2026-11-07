@@ -35,6 +35,7 @@ JELLYFIN_EVENTS = frozenset({"ItemAdded"})
 KINDS = {"movie": ("movie",), "show": ("show", "season", "episode")}
 RESTART_LOOKBACK = 6 * 3600
 SWEEP_LOOKBACK = 60
+MAX_AHEAD = 86400
 WORKER_STALL = 600
 WORKER_RESTART = 3 * WORKER_STALL
 TICK = 30
@@ -49,6 +50,10 @@ NEW_WAIT_SECONDS = 300
 RESUMED = "resumed after a restart"
 LIVE_TV = "live-tv"
 EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
+
+
+def _changed_at(item: Item) -> int:
+    return max((int(v) for f in ("updatedAt", "addedAt") if isinstance(v := item.get(f), int | str)), default=0)
 
 
 def parse_webhook(content_type: str, body: bytes) -> dict[str, Any] | None:
@@ -153,7 +158,7 @@ class Service:
         self.exit_code = 0
         self.server_checked = threading.Event()
         self._live_tv_running = threading.Event()
-        self._labels_read = False
+        self._swept = False
         self._last_heartbeat = float("-inf")
         self._connected = False
         self._tally: Counter[Outcome] = Counter()
@@ -316,23 +321,53 @@ class Service:
         known = self.store.keys()
         return [k for k in keys if k in only or k in known]
 
+    def _server_now(self, started: int) -> int:
+        """The newest time the server added an item. Older titles are not queued as new: the full pass covers them."""
+        found = [
+            stamp
+            for section in self._sections()
+            for kind in self._kinds(section)
+            if (stamp := self.server.newest_added(str(section["key"]), kind)) is not None
+            and stamp <= started + MAX_AHEAD
+        ]
+        return max(found, default=started)
+
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
+        """The cursor is a time on the server's clock. This machine's clock can differ from it."""
         started = int(time.time())
-        cursor = self.store.meta("sweep_cursor")
-        # A new data folder starts the cursor now. The full pass covers the library, and new-poster alerts must not.
-        since = int(cursor) - lookback if cursor else started
+        stored = self.store.meta("sweep_cursor")
+        if stored and self.store.meta("sweep_clock") == "server":
+            newest = int(stored)
+            since = newest - lookback
+        else:
+            # A cursor from an older release is on this machine's clock. The next sweep starts at the server's newest.
+            server_now = self._server_now(started)
+            since = min(int(stored) - lookback, server_now) if stored else server_now
+            newest = server_now + SWEEP_LOOKBACK
+        # The queue is lost on restart. The first sweep queues every labelled title and every item at the cursor.
+        # Items at the cursor are found again by the next sweep.
+        # A time far ahead of this machine's clock is a wrong value. It must not move the cursor.
+        edge: dict[str, int] = json.loads(self.store.meta("sweep_edge", "{}")) if self._swept else {}
+        stamps: dict[str, int] = {}
         labelled: dict[str, set[str]] = {overrides.CUSTOM_LABEL: set(), overrides.NEXT_LABEL: set()}
         for section in self._sections():
             for kind in self._kinds(section):
                 changed = self.server.changed_since(str(section["key"]), kind, since)
-                self.enqueue(self._keys(changed), "changed")
+                fresh = []
+                for item in changed:
+                    key, stamp = str(item["ratingKey"]), _changed_at(item)
+                    stamps[key] = stamp
+                    if stamp <= started + MAX_AHEAD:
+                        newest = max(newest, stamp)
+                    if edge.get(key) != stamp:
+                        fresh.append(item)
+                self.enqueue(self._keys(fresh), "changed")
                 for label, keys in labelled.items():
                     # Adding or removing a label does not change an item's updatedAt, so changed_since misses it.
                     keys.update(self._keys(self.server.section_items(str(section["key"]), kind, label=label)))
         for label, keys in labelled.items():
             gained, lost = self.store.relabel(label, keys)
-            # The queue is lost on restart. The first sweep queues every labelled title.
-            self.enqueue(sorted(gained if self._labels_read else keys), "label")
+            self.enqueue(sorted(gained if self._swept else keys), "label")
             self.enqueue(self._scoped(sorted(lost)), "label")
         ignored = {
             str(i["ratingKey"])
@@ -360,8 +395,12 @@ class Service:
         self.enqueue(self._scoped(self.store.retry_due()), "retry")
         self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
         self.store.set_meta("leaving_checked", today)
-        self.store.set_meta("sweep_cursor", str(started))
-        self._labels_read = True
+        self.store.set_meta("sweep_cursor", str(newest))
+        self.store.set_meta("sweep_clock", "server")
+        self.store.set_meta(
+            "sweep_edge", json.dumps({k: v for k, v in sorted(stamps.items()) if v > newest - SWEEP_LOOKBACK})
+        )
+        self._swept = True
         self.last_sweep_ok = time.monotonic()
 
     def _seasons(self, keys: Iterable[str]) -> list[str]:

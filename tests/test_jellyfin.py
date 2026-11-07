@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from posteryard import http, jellyfin
-from posteryard.jellyfin import Jellyfin, _xmltv_pictures
+from posteryard.jellyfin import LIBRARIES_MISS_SECONDS, LIBRARIES_SECONDS, Jellyfin, _xmltv_pictures
 from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
 
 BASE = "http://jellyfin.example:8096"
@@ -104,6 +104,31 @@ def test_items_come_back_in_plex_shape(serve: Any) -> None:
     assert (episode["index"], episode["parentIndex"], episode["librarySectionTitle"]) == (1, 2, "Shows")
     assert "year" not in episode
     assert [s["title"] for s in jellyfin.sections()] == ["Movies", "Shows"]
+
+
+def test_a_folder_added_to_a_library_is_found_and_the_list_is_read_again_later(
+    serve: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    moved = {
+        **FORD,
+        "Path": "/media/films/Ford v Ferrari (2019)/Ford v Ferrari (2019).mkv",
+        "DateLastSaved": "2026-10-04T00:00:00Z",
+    }
+    jellyfin, server = serve({f"/Items/{MOVIE}": moved})
+    clock = [1000.0]
+    monkeypatch.setattr("posteryard.jellyfin.time.monotonic", lambda: clock[0])
+    assert jellyfin.sections()
+    folders = server.routes["/Library/VirtualFolders"]
+    folders[0] = {**folders[0], "Locations": ["/media/movies", "/media/films"]}
+    clock[0] += 30
+    assert "librarySectionTitle" not in (jellyfin.item(MOVIE) or {})
+    clock[0] += LIBRARIES_MISS_SECONDS
+    item = jellyfin.item(MOVIE)
+    assert item is not None and item["librarySectionTitle"] == "Movies" and item["updatedAt"] == 1791072000
+    reads = sum(c[1] == "/Library/VirtualFolders" for c in server.calls)
+    clock[0] += LIBRARIES_SECONDS
+    jellyfin.sections()
+    assert sum(c[1] == "/Library/VirtualFolders" for c in server.calls) == reads + 1
 
 
 def test_a_missing_item_is_none_and_bad_ids_are_refused(serve: Any) -> None:

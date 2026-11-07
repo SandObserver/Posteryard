@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import re
+import time
 import urllib.parse
 import zlib
 from collections.abc import Iterator, Mapping
@@ -20,8 +21,10 @@ TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "epi
 INCLUDE = {kind: name for name, kind in TYPES.items()}
 LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
-FIELDS = "ProviderIds,DateCreated,Tags,Path,MediaStreams,Width,Height,ProductionYear"
+FIELDS = "ProviderIds,DateCreated,DateLastSaved,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
+LIBRARIES_SECONDS = 600
+LIBRARIES_MISS_SECONDS = 60
 # Jellyfin answers HTTP 414 to a URL over 8 KB. 100 ids keep a collection request near 3.5 KB.
 IDS_PER_REQUEST = 100
 PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
@@ -104,6 +107,7 @@ class Jellyfin:
         self.api_key = api_key
         self._user: str | None = None
         self._libraries: list[Item] | None = None
+        self._libraries_at = float("-inf")
 
     def _id(self, item_id: str) -> str:
         if not self.item_id.match(item_id):
@@ -144,8 +148,9 @@ class Jellyfin:
             raise http.RequestError(f"{self.name} did not report its server ID", self.url)
         return f"{self.name.lower()}:{server}"
 
-    def sections(self) -> list[Item]:
-        if self._libraries is None:
+    def sections(self, *, older_than: float = LIBRARIES_SECONDS) -> list[Item]:
+        if self._libraries is None or time.monotonic() - self._libraries_at >= older_than:
+            self._libraries_at = time.monotonic()
             self._libraries = [
                 {
                     "key": str(folder["ItemId"]),
@@ -172,6 +177,8 @@ class Jellyfin:
             "Label": [{"tag": tag} for tag in self._tags(raw)],
             "Guid": [{"id": f"{source}://{value}"} for source, name in PROVIDERS if (value := providers.get(name))],
         }
+        if (saved := _timestamp(raw.get("DateLastSaved"))) is not None:
+            item["updatedAt"] = saved
         if raw.get("ProductionYear"):
             item["year"] = int(raw["ProductionYear"])
         if raw.get("IndexNumber") is not None:
@@ -184,7 +191,7 @@ class Jellyfin:
             item["parentRatingKey"] = str(raw.get("SeasonId") or "")
             item["grandparentRatingKey"] = str(raw.get("SeriesId") or "")
         path = _folder(self._path(raw)).rstrip("/")
-        library = next((s for s in self.sections() if any(path.startswith(p) for p in s["paths"])), None)
+        library = self._library(path)
         if library is not None:
             item["librarySectionID"] = library["key"]
             item["librarySectionTitle"] = library["title"]
@@ -193,6 +200,16 @@ class Jellyfin:
         if media:
             item["Media"] = media
         return item
+
+    def _library(self, path: str) -> Item | None:
+        """A folder added to a library since the list was read is found by reading it again."""
+        for older_than in (LIBRARIES_SECONDS, LIBRARIES_MISS_SECONDS):
+            found = next(
+                (s for s in self.sections(older_than=older_than) if any(path.startswith(p) for p in s["paths"])), None
+            )
+            if found is not None:
+                return found
+        return None
 
     def _path(self, raw: Mapping[str, Any]) -> str:
         """A season of a show without season folders has no path. Its library is the show's."""
