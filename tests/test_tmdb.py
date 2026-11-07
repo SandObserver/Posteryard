@@ -1,13 +1,14 @@
 import io
 import json
+import struct
 import urllib.parse
 from typing import Any
 
 import pytest
-from PIL import Image
+from PIL import Image, PngImagePlugin
 
 from posteryard import http
-from posteryard.tmdb import MAX_SIDE, Tmdb
+from posteryard.tmdb import MAX_SIDE, Tmdb, open_image
 
 
 def answer(routes: dict[str, Any]) -> Any:
@@ -121,3 +122,58 @@ def test_a_read_access_token_is_sent_as_a_bearer_header(monkeypatch: pytest.Monk
     url, headers = sent[0]
     assert "api_key" not in url
     assert headers["Authorization"].startswith("Bearer eyJ")
+
+
+def test_paths_that_are_not_tmdb_file_names_are_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    posters = [{"file_path": p, "iso_639_1": None} for p in ("/ok.jpg", "file:/data/custom/1-a.jpg", "/a/../b.jpg")]
+    monkeypatch.setattr(http, "request", answer({"/movie/1": {"images": {"posters": posters}}}))
+    assert [r.path for r in Tmdb("example-key").images("movie", 1).posters] == ["/ok.jpg"]
+
+
+def test_image_downloads_check_their_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        calls.append(kwargs)
+        buffer = io.BytesIO()
+        Image.new("RGB", (10, 15)).save(buffer, "JPEG")
+        return buffer.getvalue()
+
+    monkeypatch.setattr(http, "request", request)
+    Tmdb.image("/a.jpg")
+    assert calls[0]["check_redirects"] is True
+
+
+def ico_holding(png: bytes) -> bytes:
+    entry = struct.pack("<BBBBHHII", 0, 0, 0, 0, 1, 32, len(png), 22)
+    return struct.pack("<HHH", 0, 1, 1) + entry + png
+
+
+def test_formats_other_than_web_images_are_refused() -> None:
+    buffer = io.BytesIO()
+    Image.new("RGBA", (64, 64)).save(buffer, "PNG")
+    with pytest.raises(OSError, match="cannot identify"):
+        open_image(ico_holding(buffer.getvalue()))
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8)).save(buffer, "TIFF")
+    with pytest.raises(OSError, match="cannot identify"):
+        open_image(buffer.getvalue())
+
+
+def test_a_broken_image_raises_os_error_whatever_the_decoder_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(self: Image.Image) -> None:
+        raise SyntaxError("broken PNG file")
+
+    monkeypatch.setattr(PngImagePlugin.PngImageFile, "load", broken)
+    buffer = io.BytesIO()
+    Image.new("RGB", (64, 64)).save(buffer, "PNG")
+    with pytest.raises(OSError, match="not a readable image: SyntaxError"):
+        open_image(buffer.getvalue())
+
+
+def test_exif_orientation_is_applied() -> None:
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    buffer = io.BytesIO()
+    Image.new("RGB", (300, 200)).save(buffer, "JPEG", exif=exif)
+    assert open_image(buffer.getvalue()).size == (200, 300)

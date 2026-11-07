@@ -1,4 +1,5 @@
 import io
+import re
 import threading
 import time
 import urllib.parse
@@ -7,7 +8,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypedDict
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 from posteryard import http
 
@@ -17,6 +18,10 @@ IMAGES = "https://image.tmdb.org/t/p"
 MAX_SIDE = 2160
 # Larger images are refused before decoding. Decoding one costs about 3 bytes per pixel.
 MAX_PIXELS = 50_000_000
+# Other Pillow formats can decode inside Image.open, before the pixel check.
+FORMATS = ("JPEG", "PNG", "WEBP", "GIF")
+# A path that is not a TMDB file name could be read as a local `file:` path.
+IMAGE_PATH = re.compile(r"^/[A-Za-z0-9_-]+\.[a-z]+$")
 FALLBACK_SIZE = "w1280"
 CACHE_SECONDS = 600
 CACHE_SIZE = 64
@@ -128,7 +133,7 @@ def _refs(raw: Sequence[RawImage]) -> list[ImageRef]:
             vote_count=int(r.get("vote_count") or 0),
         )
         for r in raw
-        if r.get("file_path")
+        if IMAGE_PATH.match(str(r.get("file_path") or ""))
     ]
     return sorted(refs, key=lambda r: (-r.votes, -r.vote_count, -r.width))
 
@@ -174,7 +179,7 @@ class Tmdb:
     def _get(self, path: str, **params: Any) -> Any:
         if self._is_token:
             url = f"{API}{path}?{urllib.parse.urlencode(params)}"
-            return http.get_json(url, {"Authorization": f"Bearer {self.api_key}"})
+            return http.get_json(url, {"Authorization": f"Bearer {self.api_key}"}, check_redirects=True)
         return http.get_json(
             f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}", redirects=False
         )
@@ -280,25 +285,31 @@ class Tmdb:
     @staticmethod
     def image(path: str, size: str = "original") -> Image.Image:
         try:
-            return open_image(http.request("GET", f"{IMAGES}/{size}{path}", timeout=60))
+            return open_image(http.request("GET", f"{IMAGES}/{size}{path}", timeout=60, check_redirects=True))
         except ValueError:
             if size == FALLBACK_SIZE:
                 raise
-            return open_image(http.request("GET", f"{IMAGES}/{FALLBACK_SIZE}{path}", timeout=60))
+            return open_image(http.request("GET", f"{IMAGES}/{FALLBACK_SIZE}{path}", timeout=60, check_redirects=True))
 
 
 def open_image(data: bytes) -> Image.Image:
-    """Decoded and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory.
+    """Decoded, turned upright and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory.
 
-    Raises ValueError for an image over MAX_PIXELS and OSError for data that is not an image.
+    Raises ValueError for an image over MAX_PIXELS and OSError for data that is not a readable image.
     """
     try:
-        image = Image.open(io.BytesIO(data))
+        image = Image.open(io.BytesIO(data), formats=FORMATS)
+        if image.width * image.height > MAX_PIXELS:
+            raise ValueError(f"the image is too large: {image.width} x {image.height} pixels")
+        image.draft("RGB", (MAX_SIDE, MAX_SIDE))
+        image.load()
+        image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+        ImageOps.exif_transpose(image, in_place=True)
     except Image.DecompressionBombError:
         raise ValueError("the image has too many pixels") from None
-    if image.width * image.height > MAX_PIXELS:
-        raise ValueError(f"the image is too large: {image.width} x {image.height} pixels")
-    image.draft("RGB", (MAX_SIDE, MAX_SIDE))
-    image.load()
-    image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
+    except (OSError, ValueError, MemoryError):
+        raise
+    except Exception as exc:
+        # Callers handle only OSError and ValueError. Pillow decoders raise other types for broken files.
+        raise OSError(f"not a readable image: {type(exc).__name__}") from None
     return image

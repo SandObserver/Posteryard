@@ -91,3 +91,25 @@ def test_a_page_with_broken_data_gives_none_and_a_warning(
     web["page"] = b'<script id="serialized-server-data">{broken</script>'
     assert apple.find("tv", DETAILS, "CA") is None
     assert "Apple TV page not readable" in caplog.text
+
+
+def test_a_page_nested_too_deep_gives_none(web: dict[str, Any]) -> None:
+    web["page"] = ('<script id="serialized-server-data">' + "[" * 100_000 + "]" * 100_000 + "</script>").encode()
+    assert apple.find("tv", DETAILS, "CA") is None
+
+
+def test_wikidata_and_apple_redirects_are_checked(monkeypatch: pytest.MonkeyPatch) -> None:
+    checked: list[bool] = []
+
+    def get_json(url: str, headers: dict[str, str] | None = None, **kwargs: Any) -> Any:
+        checked.append(kwargs["check_redirects"])
+        return ENTITY
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        checked.append(kwargs["check_redirects"])
+        return PAGE.encode()
+
+    monkeypatch.setattr(http, "get_json", get_json)
+    monkeypatch.setattr(http, "request", request)
+    assert apple.find("tv", DETAILS, "CA")
+    assert checked == [True, True]

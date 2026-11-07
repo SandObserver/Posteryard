@@ -26,7 +26,7 @@ def apple_id(kind: Kind, details: Details) -> str | None:
     if not QID.match(qid):
         return None
     try:
-        entity = http.get_json(WIKIDATA.format(qid=qid))
+        entity = http.get_json(WIKIDATA.format(qid=qid), check_redirects=True)
     except http.HttpError as exc:
         if exc.status == 404:
             return None
@@ -43,7 +43,9 @@ def apple_id(kind: Kind, details: Details) -> str | None:
 
 def tall_art(kind: Kind, umc: str, region: str) -> str | None:
     page = http.request(
-        "GET", PAGE.format(region=region.lower(), kind="show" if kind == "tv" else "movie", umc=umc)
+        "GET",
+        PAGE.format(region=region.lower(), kind="show" if kind == "tv" else "movie", umc=umc),
+        check_redirects=True,
     ).decode("utf-8", "replace")
     match = re.search(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', page, re.S)
     if match is None:
@@ -76,6 +78,6 @@ def find(kind: Kind, details: Details, region: str) -> str | None:
         if exc.status == 404:
             return None
         raise
-    except (ValueError, KeyError) as exc:
+    except (ValueError, KeyError, RecursionError) as exc:
         log.warning("Apple TV page not readable", extra={"umc": umc, "reason": type(exc).__name__})
         return None

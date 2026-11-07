@@ -174,3 +174,17 @@ def test_art_of_an_odd_shape_is_not_read() -> None:
     picked = Picker(picker.cache, fetch_some, picker.read).textless("tv:1", refs("/c.jpg", "/b.jpg"), ["Example"])
     assert picked is not None and picked.path == "/b.jpg"
     assert reads == ["/b.jpg"]
+
+
+def test_a_gone_or_unreadable_logo_is_passed_over() -> None:
+    def fetch(path: str) -> Image.Image:
+        if path == "/gone.png":
+            raise http.HttpError(404, path)
+        if path == "/broken.png":
+            raise OSError("not a readable image")
+        return Image.new("RGBA", (10, 10), (250, 250, 250, 255))
+
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    logos = [ImageRef(p, "en", 1000, 300, 9 - i, 1) for i, p in enumerate(("/gone.png", "/broken.png", "/fine.png"))]
+    assert picker.logo("movie:1", Images([], [], logos)) == "/fine.png"
+    assert picker.logo("movie:2", Images([], [], logos[:2])) is None

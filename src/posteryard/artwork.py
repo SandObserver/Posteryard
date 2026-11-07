@@ -54,17 +54,22 @@ def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, An
     return hit
 
 
-def load(fetch: Fetch, path: str) -> Image.Image | None:
-    """The image, or None when it is gone, not an image or of an odd shape. A network failure still raises."""
+def readable(fetch: Fetch, path: str) -> Image.Image | None:
+    """The image, or None when it is gone or not an image. A network failure still raises."""
     try:
-        image = fetch(path)
+        return fetch(path)
     except http.HttpError as exc:
         if http.gone(exc):
             return None
         raise
     except (OSError, ValueError):
         return None
-    return image if 1 / MAX_ASPECT <= image.width / image.height <= MAX_ASPECT else None
+
+
+def load(fetch: Fetch, path: str) -> Image.Image | None:
+    """The image, or None when it is gone, not an image or of an odd shape. A network failure still raises."""
+    image = readable(fetch, path)
+    return image if image is not None and 1 / MAX_ASPECT <= image.width / image.height <= MAX_ASPECT else None
 
 
 @dataclass(frozen=True)
@@ -162,7 +167,9 @@ class Picker:
         hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
-        brightness = {r.path: mean_luminance(trim(self.fetch(r.path))) for r in refs}
+        logos = {r.path: image for r in refs if (image := readable(self.fetch, r.path)) is not None}
+        refs = [r for r in refs if r.path in logos]
+        brightness = {path: mean_luminance(trim(image)) for path, image in logos.items()}
         if dark:
             dark_refs = [r for r in refs if brightness[r.path] <= DARK_LUMINANCE]
             wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
