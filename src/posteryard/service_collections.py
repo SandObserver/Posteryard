@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from posteryard import http, pipeline, services
 from posteryard.pipeline import Context
-from posteryard.server import MediaServer
+from posteryard.server import Item, MediaServer
 
 log = logging.getLogger(__name__)
 MANAGED_LABEL = "posteryard-collection"
@@ -51,6 +51,23 @@ def _groups(
 
 def _children(server: MediaServer, key: str) -> set[str]:
     return {str(m["ratingKey"]) for m in server.collection_children(key)}
+
+
+def _owner(section_key: str, name: str) -> str:
+    return f"collection-of:{section_key}:{services.network_key(name)}"
+
+
+def _owned(ctx: Context, section_key: str, names: list[str], ours: dict[str, Item]) -> dict[str, str]:
+    """The collection key of each service. A renamed collection keeps its service; an older one is found by name."""
+    saved = {
+        name: str((ctx.sources.choices.get_choice(_owner(section_key, name)) or {}).get("key", "")) for name in names
+    }
+    owned = {name: key for name, key in saved.items() if key in ours}
+    by_title: dict[str, str] = {}
+    for key, collection in ours.items():
+        if key not in owned.values():
+            by_title.setdefault(str(collection.get("title")), key)
+    return {name: owned.get(name) or by_title.get(name, "") for name in names}
 
 
 def _pending(section_key: str, name: str) -> str:
@@ -106,11 +123,13 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
     """
     groups, unknown, unmatched = _groups(server, ctx, section_keys)
     section_key = section_keys[0]
-    ours = {str(c.get("title")): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
-    labelled = {str(c["ratingKey"]) for c in ours.values()}
+    choices = ctx.sources.choices
+    ours = {str(c["ratingKey"]): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
+    labelled = set(ours)
+    owned = _owned(ctx, section_key, list(groups), ours)
     kept: list[str] = []
     for name, matched in sorted(groups.items()):
-        existing = ours.pop(name, None)
+        existing = ours.pop(owned.get(name, ""), None)
         if existing is None and (adopted := _adopt(server, ctx, section_key, name, labelled)):
             existing = {"ratingKey": adopted, "title": name}
         current = _children(server, str(existing["ratingKey"])) if existing else set()
@@ -120,6 +139,7 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
                 kept.append(str(existing["ratingKey"]))
             elif existing is not None:
                 server.delete_collection(str(existing["ratingKey"]))
+                choices.put_choice(_owner(section_key, name), {})
                 log.info("collection removed", extra={"collection": name, "reason": f"fewer than {MIN_SHOWS} shows"})
             continue
         if existing is None:
@@ -131,6 +151,7 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
                 server.add_to_collection(key, missing)
             for gone in [] if unknown else sorted(current - set(members)):
                 server.remove_from_collection(key, gone)
+        choices.put_choice(_owner(section_key, name), {"key": key})
         kept.append(key)
     if unknown:
         return kept + [str(c["ratingKey"]) for c in ours.values()]

@@ -118,6 +118,26 @@ def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
     assert ("delete", "52") in plex.calls
 
 
+def test_a_renamed_collection_keeps_its_service_and_name() -> None:
+    ctx = context()
+    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    service_collections.sync(plex, ctx, ["4"])
+    plex.ours = [{"ratingKey": "50", "title": "Apple Originals"}, {"ratingKey": "60", "title": "Netflix"}]
+    plex.members["60"] = {"1", "2", "3"}
+    plex.calls = []
+    assert sorted(service_collections.sync(plex, ctx, ["4"])) == ["50", "60"]
+    assert not [call for call in plex.calls if call[0] in ("create", "delete")]
+
+
+def test_a_collection_from_before_saved_owners_is_found_by_name_once() -> None:
+    ctx = context()
+    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    plex.ours.append({"ratingKey": "53", "title": "Apple TV"})
+    service_collections.sync(plex, ctx, ["4"])
+    assert ("delete", "53") in plex.calls and ("delete", "50") not in plex.calls
+    assert ctx.sources.choices.get_choice("collection-of:4:" + services.network_key("Apple TV")) == {"key": "50"}
+
+
 class LostAnswer(FakePlex):
     def __init__(self, ours: list[Item], made: list[Item]) -> None:
         super().__init__(ours)
