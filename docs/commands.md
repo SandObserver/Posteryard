@@ -60,7 +60,7 @@ A rating key is the number Plex uses for a title. In Jellyfin and Emby it is the
 
 ## Plex labels
 
-Add these labels to a title in Plex instead of running a command. In Plex Web, open the title, choose **Edit** (the pencil), then **Tags**, and type the label under **Labels**. Posteryard picks it up at the next sweep, within 15 minutes.
+Add these labels to a title in Plex instead of running a command. In Plex Web, open the title, choose **Edit** (the pencil), then **Tags**, and type the label under **Labels**. Posteryard picks up an added or removed label at the next sweep, within 15 minutes.
 
 | Label | What it does |
 | --- | --- |

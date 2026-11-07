@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from posteryard.store import MIGRATIONS, SCHEMA_1, Status, Store, StoreError
+from posteryard.store import GUIDE_TABLE, MIGRATIONS, SCHEMA_1, Status, Store, StoreError
 
 
 def test_retry_backoff_doubles_and_caps(tmp_path: Path) -> None:
@@ -54,6 +54,30 @@ def test_a_database_from_before_versioning_keeps_its_rows(tmp_path: Path) -> Non
         db.commit()
     store = Store(tmp_path / "state.db")
     assert store.meta("sweep_cursor") == "42"
+
+
+def test_uploads_recorded_before_the_uploads_list_are_known(tmp_path: Path) -> None:
+    with closing(sqlite3.connect(tmp_path / "state.db")) as db:
+        db.executescript(SCHEMA_1 + GUIDE_TABLE)
+        db.execute("INSERT INTO images(rating_key, target, image_key) VALUES('1', 'poster', 'upload-1')")
+        db.execute("PRAGMA user_version=2")
+        db.commit()
+    store = Store(tmp_path / "state.db")
+    store.forget("1")
+    assert store.is_upload("1", "poster", "upload-1")
+    assert not store.is_upload("1", "poster", "upload-2")
+    store.uploaded("1", "poster", "One", "fp", "upload-2")
+    store.drop_uploads("1")
+    assert not store.is_upload("1", "poster", "upload-2")
+
+
+def test_label_sets_report_gained_and_lost_keys(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    assert store.relabel("posteryard-custom", {"1", "2"}) == ({"1", "2"}, set())
+    assert store.relabel("posteryard-custom", {"2", "3"}) == ({"3"}, {"1"})
+    store.unlabel("posteryard-custom", "3")
+    store.unlabel("posteryard-custom", "9")
+    assert store.relabel("posteryard-custom", {"2", "3"}) == ({"3"}, set())
 
 
 def test_a_database_from_a_newer_release_is_refused(tmp_path: Path) -> None:
