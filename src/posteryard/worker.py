@@ -99,6 +99,7 @@ class Worker:
     def rest(self) -> None:
         if not self._rested:
             self.ctx.sources.forget()
+            self.ctx.measures.forget()
             memory.release()
             self._rested = True
         ocr.close_idle()

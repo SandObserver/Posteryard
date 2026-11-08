@@ -309,6 +309,8 @@ class Sources:
         if remember:
             with self._lock:
                 self.titles[(kind, tid)] = (time.monotonic(), title)
+                while len(self.titles) > LOOKUP_SIZE:
+                    del self.titles[next(iter(self.titles))]
         return title
 
 

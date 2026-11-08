@@ -22,6 +22,21 @@ JSON = {"Accept": "application/json"}
 GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
 GUIDE_PAGE = 2000
+CHANGE_FIELDS = ("ratingKey", "parentRatingKey", "grandparentRatingKey", "updatedAt", "addedAt")
+AIRING_FIELDS = (
+    "type",
+    "ratingKey",
+    "grandparentRatingKey",
+    "title",
+    "grandparentTitle",
+    "thumb",
+    "grandparentThumb",
+    "targetKey",
+    "guid",
+    "grandparentGuid",
+    "year",
+)
+AIRING_MEDIA_FIELDS = ("channelThumb", "channelCallSign", "channelTitle")
 GUIDE_IDS = 300
 GUIDE_ID_BATCHES = 100
 
@@ -167,9 +182,11 @@ class Plex:
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         """Items added or updated after a Unix time. A replaced file only changes `updatedAt`."""
-        added = list(self.section_items(section_key, kind, **{"addedAt>>": since}))
-        updated = list(self.section_items(section_key, kind, **{"updatedAt>>": since}))
-        return list({str(i["ratingKey"]): i for i in added + updated}.values())
+        changed: dict[str, Item] = {}
+        for field in ("addedAt>>", "updatedAt>>"):
+            for item in self.section_items(section_key, kind, **{field: since}):
+                changed[str(item["ratingKey"])] = _only(item, CHANGE_FIELDS)
+        return list(changed.values())
 
     def images(self, rating_key: str, target: Target) -> list[Item]:
         listing, _, _ = ENDPOINTS[target]
@@ -258,7 +275,7 @@ class Plex:
                 **{"X-Plex-Container-Start": len(airings), "X-Plex-Container-Size": GUIDE_PAGE},
             )
             items = page.get("Metadata") or []
-            airings += items
+            airings += [_airing(item) for item in items]
             if not items or len(airings) >= int(page.get("totalSize", len(airings))):
                 return airings
 
@@ -363,6 +380,18 @@ def _guide_key(key: str) -> str:
 
 def is_rating_key(text: str) -> bool:
     return text.isascii() and text.isdigit()
+
+
+def _only(item: Mapping[str, Any], fields: tuple[str, ...]) -> Any:
+    return {field: item[field] for field in fields if field in item}
+
+
+def _airing(item: Mapping[str, Any]) -> Item:
+    """Keep every field `livetv.guide_shows` reads. A large guide does not fit in memory with whole airings."""
+    airing: Item = _only(item, AIRING_FIELDS)
+    if media := item.get("Media"):
+        airing["Media"] = [_only(media[0], AIRING_MEDIA_FIELDS)]
+    return airing
 
 
 def _key(rating_key: str) -> str:

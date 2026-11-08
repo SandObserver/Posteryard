@@ -316,7 +316,8 @@ class Store:
 
     def guide_seen(self, keys: list[str], now: float | None = None) -> None:
         stamp = int(time.time() if now is None else now)
-        with self._lock:
+        with self._lock, self._db:
+            self._db.execute("BEGIN")
             self._db.executemany("UPDATE guide SET seen_at=? WHERE key=?", [(stamp, key) for key in keys])
 
     def guide_drop_unseen(self, before: float) -> int:

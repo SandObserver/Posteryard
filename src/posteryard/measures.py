@@ -14,7 +14,7 @@ from posteryard.render.layers import cover, trim
 from posteryard.sources import Sources
 
 SAME_PICTURE_BITS = 10
-THUMB_CACHE = 2000
+THUMB_CACHE = 256
 FEATURE_CACHE = 64
 
 
@@ -25,6 +25,11 @@ class Measures:
     thumbs: OrderedDict[str, similar.Thumb] = field(default_factory=OrderedDict)
     features: OrderedDict[str, similar.Features] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def forget(self) -> None:
+        with self._lock:
+            self.thumbs.clear()
+            self.features.clear()
 
     def fade(  # noqa: PLR0913
         self,

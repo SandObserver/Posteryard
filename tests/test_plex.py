@@ -82,6 +82,12 @@ def test_changed_since_merges_added_and_updated(serve: Any) -> None:
     assert sorted(i["ratingKey"] for i in plex.changed_since("3", "show", 100)) == ["1", "2", "3"]
 
 
+def test_changed_since_keeps_only_what_the_sweep_reads(serve: Any) -> None:
+    item = {"ratingKey": "1", "grandparentRatingKey": "9", "updatedAt": 5, "summary": "long text", "Guid": []}
+    plex, _ = serve({"/library/sections/3/all": lambda _q: {"totalSize": 1, "Metadata": [item]}})
+    assert plex.changed_since("3", "episode", 100) == [{"ratingKey": "1", "grandparentRatingKey": "9", "updatedAt": 5}]
+
+
 def test_upload_selects_the_new_image(serve: Any) -> None:
     listings = iter([[{"ratingKey": "old", "selected": True}], [{"ratingKey": "old"}, {"ratingKey": "new"}]])
     plex, server = serve(
@@ -233,6 +239,25 @@ def test_guide_airings_read_every_page(serve: Any) -> None:
     assert [a["ratingKey"] for a in plex.guide_airings(GUIDE, 100, 200)] == ["a", "b", "c"]
     assert server.calls[1][2]["X-Plex-Container-Start"] == "2"
     assert server.calls[0][2]["endsAt>"] == "100"
+
+
+def test_guide_airings_keep_only_what_the_guide_reads(serve: Any) -> None:
+    airing = {
+        "type": "episode",
+        "grandparentRatingKey": "s",
+        "grandparentTitle": "Example",
+        "summary": "long text",
+        "Media": [{"channelTitle": "One", "channelThumb": "/logo", "duration": 5, "Part": [{}]}],
+    }
+    plex, _ = serve({f"/{GUIDE}/grid": lambda _q: {"totalSize": 1, "Metadata": [airing]}})
+    assert plex.guide_airings(GUIDE, 100, 200) == [
+        {
+            "type": "episode",
+            "grandparentRatingKey": "s",
+            "grandparentTitle": "Example",
+            "Media": [{"channelTitle": "One", "channelThumb": "/logo"}],
+        }
+    ]
 
 
 def test_guide_upload_selects_the_upload_of_these_bytes(serve: Any) -> None:
