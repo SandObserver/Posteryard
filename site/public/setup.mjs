@@ -133,7 +133,8 @@ const outputs = {
   run: {
     head: 'Add these to the <code>docker run</code> command',
     fname: 'Terminal',
-    line: (s, v) => `-e ${s.key}=${v}`,
+    line: (s, v) => `-e ${s.key}=${v} \\`,
+    quote: (v) => (/^[\w.,:/@%+=-]*$/.test(v) ? v : `'${v.replaceAll("'", `'\\''`)}'`),
     apply: 'remove the container with <code>docker rm -f posteryard</code> and run the command again',
   },
   unraid: {
@@ -147,7 +148,10 @@ const outputs = {
 export function lines(data, vals, method = 'compose') {
   const all = flatten(data), o = outputs[method];
   const changed = all.filter((s) => isChanged(s, vals));
-  const out = changed.map((s) => o.line(s, esc(vals[s.key].trim())));
+  const out = changed.map((s) => {
+    const v = vals[s.key].trim();
+    return o.line(s, esc(o.quote ? o.quote(v) : v));
+  });
   const events = all.find((s) => s.key === 'NOTIFY_EVENTS');
   const placeholder = isChanged(events, vals) && vals.NOTIFY_EVENTS !== '' && !vals.NOTIFY_URLS.trim();
   if (placeholder) out.push(o.line(all.find((s) => s.key === 'NOTIFY_URLS'), V('your-alert-address')));

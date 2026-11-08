@@ -905,7 +905,7 @@
         $("#s9-panel").setAttribute("aria-labelledby", `s9-tab-${tab}`);
         bindRows();
         const current = $(`#s9-tab-${tab}`);
-        current.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduce.matches ? "auto" : "smooth" });
+        if (animate) current.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduce.matches ? "auto" : "smooth" });
         if (focusTab) current.focus({ preventScroll: true });
         fades();
       }
@@ -1036,7 +1036,7 @@
             else if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); closeTime(true); }
           });
         }
-        tp.addEventListener("focusout", (e) => { if (!tp.contains(e.relatedTarget)) closeTime(); });
+        tp.addEventListener("focusout", (e) => { if (!tp.contains(e.relatedTarget) && e.relatedTarget !== btn) closeTime(); });
         requestAnimationFrame(() => { tp.classList.add("open"); $(".wheel", tp).focus({ preventScroll: true }); });
       }
       document.addEventListener("pointerdown", (e) => { if (openTimeFor && !openTimeFor.tp.contains(e.target) && !openTimeFor.btn.contains(e.target)) closeTime(); });
