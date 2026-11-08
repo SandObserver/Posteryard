@@ -6,7 +6,7 @@ import time
 import tracemalloc
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -630,3 +630,39 @@ def test_json_from_a_host_the_operator_does_not_run_has_its_redirects_checked(se
     with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
         http.get_json(f"{server.url}/a", check_redirects=True)
     assert [path for path, _ in server.requests] == ["/a"]
+
+
+@pytest.mark.parametrize(("status", "expected"), [(404, True), (410, True), (401, False), (403, False), (451, False)])
+def test_only_a_missing_file_counts_as_gone(status: int, expected: bool) -> None:
+    assert http.gone(http.HttpError(status, "http://example.test/a")) is expected
+
+
+def test_temporary_failures() -> None:
+    url = "http://example.test/a"
+    assert http.temporary(http.TemporaryError("ConnectTimeoutError", url))
+    assert http.temporary(http.HttpError(503, url))
+    assert http.temporary(http.HttpError(408, url))
+    assert not http.temporary(http.HttpError(404, url))
+    assert not http.temporary(http.RequestError("refused", url))
+
+
+def test_a_long_retry_after_is_kept_for_the_next_calls(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+
+    class Answer:
+        status = 429
+        headers: ClassVar[dict[str, str]] = {"Retry-After": "3600"}
+
+    def fake(method: str, url: str, **kwargs: Any) -> Answer:
+        calls.append(url)
+        return Answer()
+
+    monkeypatch.setattr(http.POOL, "request", fake)
+    monkeypatch.setattr(http, "_answer", lambda response, hop, deadline: (429, b"", ""))
+    monkeypatch.setattr(http, "_holds", {})
+    with pytest.raises(http.HttpError):
+        http.request("GET", "http://limited.test/a")
+    assert len(calls) == 1
+    with pytest.raises(http.TemporaryError, match="waiting"):
+        http.request("GET", "http://limited.test/b")
+    assert len(calls) == 1

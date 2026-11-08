@@ -263,7 +263,9 @@ class AutoMarks:
                 if not http.gone(exc):
                     raise
                 mark = None
-            except (OSError, ValueError):
+            except OSError:
+                return None
+            except ValueError:
                 mark = None
             if mark is not None:
                 self.folder.mkdir(parents=True, exist_ok=True)

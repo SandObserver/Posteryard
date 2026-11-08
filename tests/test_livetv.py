@@ -686,3 +686,30 @@ def test_only_the_media_server_may_serve_guide_images_from_this_machine(
     monkeypatch.setattr(http, "request", request)
     fetch_image(url, server="http://127.0.0.1:8096")
     assert seen["untrusted"] is untrusted
+
+
+def test_a_short_logo_outage_keeps_the_uploaded_poster(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Some Show", "k1")])
+    assert live.run(now=1000.0)["uploaded"] == 1
+    count = len(plex.uploads)
+
+    def down(url: str) -> Image.Image:
+        raise http.TemporaryError("ConnectTimeoutError", url)
+
+    live._fetch = down
+    assert live.run(now=2000.0)["kept"] == 1
+    assert len(plex.uploads) == count
+
+
+def test_an_outage_stops_after_the_first_airing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, _, _ = build(tmp_path, [airing("Some Show", "k1")])
+    show = replace(guide_shows(GUIDE, [airing("Some Show", "k1")])[0], targets=("a", "b", "c"))
+    calls: list[str] = []
+
+    def down(show: Any, target: str, plan: Any, drawn: list[bytes]) -> tuple[str, bool]:
+        calls.append(target)
+        raise http.TemporaryError("ConnectTimeoutError", "http://plex.example/x")
+
+    monkeypatch.setattr(live, "_apply_target", down)
+    assert live.apply(show, fetch)["failed"] == 3
+    assert calls == ["a"]

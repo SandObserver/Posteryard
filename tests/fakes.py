@@ -63,6 +63,9 @@ class FakeServer(MediaServer):
     def remove_label(self, item: Item, label: str) -> None:
         pass
 
+    def still_ours(self, item: Item, target: Target) -> bool:
+        return False
+
     def lock(self, item: Item, target: Target) -> None:
         pass
 

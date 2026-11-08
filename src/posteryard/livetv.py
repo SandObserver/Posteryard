@@ -187,7 +187,8 @@ class LiveTv:
         self.server, self.store, self.ctx = server, store, ctx
         self.dry_run, self.preview_dir = dry_run, preview_dir
         self._fetch = fetch or partial(fetch_image, server=server.url)
-        self._unreadable: set[str] = set()
+        self._unreadable: dict[str, bool] = {}
+        self._degraded: set[str] = set()
         self._confirmed: list[str] = []
         self._cycle: dict[str, int] | None = None
         self._done: set[str] = set()
@@ -241,7 +242,8 @@ class LiveTv:
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings, self._remembered_picture)
-            self._unreadable = set()
+            self._unreadable = {}
+            self._degraded = set()
             for show in shows:
                 done = show.record_key(show.key)
                 if done in self._done:
@@ -277,11 +279,14 @@ class LiveTv:
             return Counter({"failed": len(show.targets)})
         tally: Counter[str] = Counter()
         drawn: list[bytes] = []
-        for target in show.targets:
+        for index, target in enumerate(show.targets):
             try:
                 outcome, direct = self._apply_target(show, target, plan, drawn)
             except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
                 log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
+                if isinstance(exc, http.RequestError) and http.temporary(exc):
+                    tally["failed"] += len(show.targets) - index
+                    break
                 tally["failed"] += 1
                 continue
             tally[outcome] += 1
@@ -313,6 +318,8 @@ class LiveTv:
                 return "unchanged"
             self.server.guide_select(show.provider, where, ours)
             return "selected again"
+        if ours and show.key in self._degraded:
+            return "kept"
         if not drawn:
             drawn.append(jpeg(plan.draw()))
         if self.server.guide_target(show.provider, where, show.guid) != where:
@@ -368,18 +375,23 @@ class LiveTv:
 
     def _image(self, fetch: Callable[[str], Image.Image], url: str, show: GuideShow, what: str) -> Image.Image | None:
         """An image the poster cannot use, such as an SVG logo or a broken link, is left out instead of failing."""
-        if not url or url in self._unreadable:
+        if not url:
+            return None
+        if url in self._unreadable:
+            if self._unreadable[url]:
+                self._degraded.add(show.key)
             return None
         try:
             image = fetch(url)
             return livetv.logo_mark(image) if what == "logo" else livetv.guide_picture(image)
         except (http.RequestError, OSError, ValueError) as exc:
-            if url not in self._unreadable:
-                self._unreadable.add(url)
-                log.warning(
-                    f"{what} could not be read, posters are made without it",
-                    extra={"channel": show.channel, "url": http.redact(url), "reason": str(exc)},
-                )
+            self._unreadable[url] = isinstance(exc, http.RequestError) and http.temporary(exc)
+            if self._unreadable[url]:
+                self._degraded.add(show.key)
+            log.warning(
+                f"{what} could not be read, posters are made without it",
+                extra={"channel": show.channel, "url": http.redact(url), "reason": str(exc)},
+            )
             return None
 
     def plan(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> pipeline.Plan:

@@ -113,6 +113,7 @@ class Plex:
         return int(items[0]["addedAt"]) if items and items[0].get("addedAt") else None
 
     def server_id(self) -> str:
+        self._machine_id = None
         return f"plex:{self.machine_id()}"
 
     def machine_id(self) -> str:
@@ -232,6 +233,10 @@ class Plex:
             f"/library/sections/{_key(str(item['librarySectionID']))}/all",
             {"type": TYPE_IDS[str(item["type"])], "id": item["ratingKey"], f"{field}.locked": 1},
         )
+
+    def still_ours(self, item: Item, target: Target) -> bool:
+        """A Plex image key never changes for the same image."""
+        return False
 
     def guides(self) -> list[Guide]:
         found = []

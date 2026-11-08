@@ -63,6 +63,7 @@ class Sources:
     apple_dropped: bool = False
     apple_failed: dict[str, tuple[float, bool]] = field(default_factory=dict)
     text_check: bool = True
+    apple_unavailable: bool = False
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
@@ -171,16 +172,20 @@ class Sources:
                 self.picker.forget(key)
                 self.apple_failed[url] = (until, False)
             if time.monotonic() < until:
+                self.apple_unavailable = self.apple_unavailable or not gone
                 return None
             del self.apple_failed[url]
         ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
         try:
-            return self.picker.textless(key, [ref], title.all_titles, cached_only=paused)
+            picked = self.picker.textless(key, [ref], title.all_titles, cached_only=paused)
+            self.apple_unavailable = self.apple_unavailable or (paused and picked is None)
+            return picked
         except http.RequestError as exc:
             log.warning(
                 "Apple TV art not loaded", extra={"title": title.name, "using": "other art", "reason": str(exc)}
             )
             self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
+            self.apple_unavailable = True
             return None
 
     def art(self, title: Title) -> Picked | None:
