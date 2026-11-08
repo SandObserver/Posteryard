@@ -383,11 +383,11 @@ def test_a_compressed_response_that_never_unpacks_is_cut_off() -> None:
 
 
 def test_retry_after_is_read_as_seconds_or_a_date() -> None:
-    assert http.retry_after(None) == 0
-    assert http.retry_after("5") == 5
-    assert http.retry_after("3600") == http.RETRY_AFTER_MAX
-    assert http.retry_after("Wed, 21 Oct 2015 07:28:00 GMT") == 0
-    assert http.retry_after("soon") == 0
+    assert http._asked(None) == 0
+    assert http._asked("5") == 5
+    assert http._asked("3600") == 3600
+    assert http._asked("Wed, 21 Oct 2015 07:28:00 GMT") == 0
+    assert http._asked("soon") == 0
 
 
 def test_a_bad_header_value_never_reaches_the_error(server: Server) -> None:
@@ -673,3 +673,14 @@ def test_a_long_retry_after_is_kept_for_the_next_calls(monkeypatch: pytest.Monke
     with pytest.raises(http.TemporaryError, match="waiting"):
         http.request("GET", "http://limited.test/b")
     assert len(calls) == 1
+
+
+def test_a_short_pause_is_waited_out_before_the_request(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    waits: list[float] = []
+    monkeypatch.setattr(http, "_holds", {})
+    monkeypatch.setattr(time, "sleep", waits.append)
+    http._hold(server.url, 5)
+    server.answers = [(200, {}, b"picture")]
+    assert http.request("GET", f"{server.url}/a") == b"picture"
+    assert len(waits) == 1
+    assert 0 < waits[0] <= 5
