@@ -716,3 +716,39 @@ def test_an_image_chosen_before_the_retry_is_kept(tmp_path: Path) -> None:
     worker.process("1")
     record = store.get("1", "poster")
     assert record is not None and record.status == Status.MANUAL
+
+
+def test_a_refresh_after_a_failed_lock_keeps_the_original(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.selected_keys[("1", "poster")] = "users-own"
+    plex.selected_keys[("1", "art")] = "users-own-art"
+    _fail_once(plex, "lock")
+    worker.process("1")
+    target = next(t for t in ("poster", "art") if (r := store.get("1", t)) and r.fingerprint == "")
+    original = store.original("1", target)
+    plex.selected_keys[("1", target)] = "plex-agent-image"
+    worker.process("1")
+    assert original and store.original("1", target) == original
+
+
+def test_a_failed_lock_is_locked_again_during_an_apple_outage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    _fail_once(plex, "lock")
+    worker.process("1")
+    pending = next(t for t in ("poster", "art") if (r := store.get("1", t)) and r.fingerprint == "")
+    locks: list[Target] = []
+
+    def lock(item: Item, target: Target) -> None:
+        locks.append(target)
+
+    plex.lock = lock  # type: ignore[method-assign]
+    real = pipeline.plan_item
+
+    def plan(ctx: pipeline.Context, item: Item) -> Any:
+        plans = real(ctx, item)
+        ctx.sources.apple_unavailable = True
+        return plans
+
+    monkeypatch.setattr(pipeline, "plan_item", plan)
+    worker.process("1")
+    assert pending in locks

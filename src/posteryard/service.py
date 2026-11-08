@@ -344,19 +344,23 @@ class Service:
         ]
         return max(found, default=started)
 
+    def _sweep_window(self, started: int, stored: str, lookback: int) -> tuple[int, int, int]:
+        """Where this sweep starts, the newest time seen, and the newest time seen that is not ahead of this machine."""
+        if stored and self.store.meta("sweep_clock") == "server":
+            newest = int(stored)
+            # One item dated ahead of this machine must not hide titles added now. The edge stops them repeating.
+            behind = int(self.store.meta("sweep_behind") or newest)
+            return min(newest, started, behind) - lookback, newest, behind
+        # A cursor from an older release is on this machine's clock. The next sweep starts at the server's newest.
+        server_now = self._server_now(started)
+        newest = server_now + SWEEP_LOOKBACK
+        return min(int(stored) - lookback, server_now) if stored else server_now, newest, min(newest, started)
+
     def sweep(self, lookback: int = SWEEP_LOOKBACK) -> None:
         """The cursor is a time on the server's clock. This machine's clock can differ from it."""
         started = int(time.time())
         stored = self.store.meta("sweep_cursor")
-        if stored and self.store.meta("sweep_clock") == "server":
-            newest = int(stored)
-            # One item dated ahead of this machine must not hide titles added now. The edge stops them repeating.
-            since = min(newest, started) - lookback
-        else:
-            # A cursor from an older release is on this machine's clock. The next sweep starts at the server's newest.
-            server_now = self._server_now(started)
-            since = min(int(stored) - lookback, server_now) if stored else server_now
-            newest = server_now + SWEEP_LOOKBACK
+        since, newest, behind = self._sweep_window(started, stored, lookback)
         # The queue is lost on restart. The first sweep queues every labelled title and every item at the cursor.
         # Items at the cursor are found again by the next sweep.
         # A time far ahead of this machine's clock is a wrong value. It must not move the cursor.
@@ -372,6 +376,8 @@ class Service:
                     stamps[key] = stamp
                     if stamp <= started + MAX_AHEAD:
                         newest = max(newest, stamp)
+                    if stamp <= started:
+                        behind = max(behind, stamp)
                     if stored and edge.get(key) != stamp:
                         fresh.append(item)
                 self.enqueue(self._keys(fresh), "changed")
@@ -409,10 +415,11 @@ class Service:
         self.store.set_meta("leaving_dates", json.dumps(current, sort_keys=True))
         self.store.set_meta("leaving_checked", today)
         self.store.set_meta("sweep_cursor", str(newest))
+        self.store.set_meta("sweep_behind", str(behind))
         self.store.set_meta("sweep_clock", "server")
         self.store.set_meta(
             "sweep_edge",
-            json.dumps({k: v for k, v in sorted(stamps.items()) if v > min(newest, started) - SWEEP_LOOKBACK}),
+            json.dumps({k: v for k, v in sorted(stamps.items()) if v > min(newest, started, behind) - SWEEP_LOOKBACK}),
         )
         self._swept = True
         self.last_sweep_ok = time.monotonic()

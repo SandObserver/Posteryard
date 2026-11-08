@@ -78,6 +78,26 @@ def _owned(ctx: Context, section_key: str, names: list[str], ours: dict[str, Ite
     return {name: owned.get(name) or by_title.get(name, "") for name in names}
 
 
+def _checked(section_key: str) -> str:
+    return f"collection-owners:{section_key}"
+
+
+def _renamed_earlier(
+    server: MediaServer, groups: dict[str, list[str]], owned: dict[str, str], ours: dict[str, Item]
+) -> dict[str, str]:
+    """A collection renamed before owners were saved has no owner. Its shows tell which service it holds."""
+    claimed = set(owned.values())
+    free = {key: _children(server, key) for key in ours if key not in claimed}
+    found: dict[str, str] = {}
+    for name in sorted(n for n in groups if not owned.get(n)):
+        shared = {key: len(shows & set(groups[name])) for key, shows in free.items()}
+        best = max(shared, key=lambda key: shared[key], default="")
+        if best and shared[best] >= MIN_SHOWS and shared[best] * 2 > len(free[best]):
+            found[name] = best
+            del free[best]
+    return found
+
+
 def _pending(section_key: str, name: str) -> str:
     return f"collection-create:{section_key}:{name}"
 
@@ -135,6 +155,7 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
     ours = {str(c["ratingKey"]): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
     labelled = set(ours)
     owned = _owned(ctx, section_key, list(groups), ours)
+    owned |= {} if choices.get_choice(_checked(section_key)) else _renamed_earlier(server, groups, owned, ours)
     kept: list[str] = []
     for name, matched in sorted(groups.items()):
         existing = ours.pop(owned.get(name, ""), None)
@@ -171,4 +192,5 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
         log.info(
             "collection removed", extra={"collection": leftover.get("title"), "reason": "no show uses the service"}
         )
+    choices.put_choice(_checked(section_key), {"done": True})
     return kept

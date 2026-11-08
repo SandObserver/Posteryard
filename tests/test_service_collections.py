@@ -138,6 +138,15 @@ def test_a_collection_from_before_saved_owners_is_found_by_name_once() -> None:
     assert ctx.sources.choices.get_choice("collection-of:4:" + services.network_key("Apple TV")) == {"key": "50"}
 
 
+def test_a_collection_renamed_before_saved_owners_is_kept() -> None:
+    ctx = context()
+    plex = FakePlex([{"ratingKey": "50", "title": "Apple Originals"}])
+    plex.members["50"] = {"6", "7", "8"}
+    assert "50" in service_collections.sync(plex, ctx, ["4"])
+    assert ("delete", "50") not in plex.calls
+    assert not [call for call in plex.calls if call[:2] == ("create", "Apple TV")]
+
+
 class LostAnswer(FakePlex):
     def __init__(self, ours: list[Item], made: list[Item]) -> None:
         super().__init__(ours)

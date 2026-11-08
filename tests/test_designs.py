@@ -382,5 +382,17 @@ def test_cover_resizes_only_the_kept_part_of_a_thin_image(monkeypatch: pytest.Mo
     assert sizes == [(1000, 1500)]
 
 
-def test_a_very_long_guide_title_draws_a_limited_number_of_words() -> None:
+def test_a_very_long_guide_title_draws_a_limited_number_of_words(monkeypatch: pytest.MonkeyPatch) -> None:
+    real, seen = designs._rows, []
+
+    def rows(words: list[str], *args: Any) -> list[str]:
+        seen.append(len(words))
+        return real(words, *args)
+
+    monkeypatch.setattr(designs, "_rows", rows)
     assert designs.text_logo("Word " * 5000, rows=3).width > 0
+    assert seen == [designs.TEXT_LOGO_WORDS]
+
+
+def test_a_very_long_word_in_a_guide_title_stays_small() -> None:
+    assert designs.text_logo("W" * 7000, rows=3).width < 70000

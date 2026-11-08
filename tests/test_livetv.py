@@ -713,3 +713,18 @@ def test_an_outage_stops_after_the_first_airing(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setattr(live, "_apply_target", down)
     assert live.apply(show, fetch)["failed"] == 3
     assert calls == ["a"]
+
+
+def test_a_run_stops_after_repeated_network_failures(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [airing(f"Show {i}", str(i)) for i in range(10)])
+    calls: list[str] = []
+
+    def down(kind: Kind, query: str) -> list[dict[str, Any]]:
+        calls.append(query)
+        raise http.TemporaryError("ConnectionError", "https://api.themoviedb.org/3/search")
+
+    tmdb.search = down  # type: ignore[method-assign]
+    assert live.run()["failed"] == 3
+    assert len(calls) == 3
+    live.run()
+    assert len(set(calls)) == 6

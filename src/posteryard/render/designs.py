@@ -370,6 +370,7 @@ def text_logo(title: str, ink: RGB = WHITE, prefer: str = "", rows: int = 2) -> 
     face = font_for(title, "Bold", 200, prefer)
     if not face.getlength(title.strip()):
         raise ValueError(f"the title {title!r} has nothing to draw")
+    title = title[:TEXT_LOGO_CHARS]
     lines = _rows(title.split()[:TEXT_LOGO_WORDS] or [title], face, rows)
     width = round(max(face.getlength(row) for row in lines)) + 20
     height = round(len(lines) * face.size * 1.1) + 20
@@ -383,6 +384,8 @@ def text_logo(title: str, ink: RGB = WHITE, prefer: str = "", rows: int = 2) -> 
 TEXT_LOGO_CANDIDATES = 8
 # The number of splits grows with the square of the words. A guide title has no length limit.
 TEXT_LOGO_WORDS = 40
+# The canvas grows with the width of the longest row. It must stay far below the container's memory limit.
+TEXT_LOGO_CHARS = 300
 
 
 def _rows(words: list[str], face: ImageFont.FreeTypeFont, rows: int) -> list[str]:
