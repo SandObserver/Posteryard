@@ -457,6 +457,65 @@ def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path
     assert service.store.get("5", "poster") is not None
 
 
+def test_a_full_pass_keeps_the_items_of_a_show_together(tmp_path: Path) -> None:
+    class Shows(FakePlex):
+        def sections(self) -> list[Item]:
+            return [{"key": "3", "title": "TV Shows", "type": "show"}]
+
+        def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+            if filters:
+                return []
+            listing: dict[str, list[Item]] = {
+                "show": [{"ratingKey": "b", "type": "show"}, {"ratingKey": "e", "type": "show"}],
+                "season": [
+                    {"ratingKey": "a", "type": "season", "parentRatingKey": "e"},
+                    {"ratingKey": "c", "type": "season", "parentRatingKey": "b"},
+                ],
+                "episode": [
+                    {"ratingKey": "0", "type": "episode", "parentRatingKey": "a", "grandparentRatingKey": "e"},
+                    {"ratingKey": "d", "type": "episode", "parentRatingKey": "c", "grandparentRatingKey": "b"},
+                    {"ratingKey": "1", "type": "episode", "parentRatingKey": "c", "grandparentRatingKey": "b"},
+                ],
+            }
+            return listing[kind]
+
+    service = make_service(tmp_path, Shows())
+    service.full("daily")
+    assert queued(service) == ["b", "c", "1", "d", "e", "0", "a"]
+
+
+@pytest.mark.parametrize(("outcome", "expected"), [(Outcome.UNCHANGED, 2), (Outcome.UPLOADED, 7)])
+def test_memory_is_released_after_a_drawn_item_or_every_few_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: Outcome, expected: int
+) -> None:
+    service = make_service(tmp_path)
+    service.server_checked.set()
+    done: list[str] = []
+    released: list[int] = []
+
+    def process(rating_key: str, *, force: bool = False) -> Outcome:
+        done.append(rating_key)
+        return outcome
+
+    def release() -> None:
+        released.append(len(done))
+
+    monkeypatch.setattr("posteryard.service.RELEASE_EVERY", 3)
+    monkeypatch.setattr("posteryard.service.memory.release", release)
+    monkeypatch.setattr(service.worker, "process", process)
+    monkeypatch.setattr(service.worker, "rest", lambda: None)
+    service.enqueue([str(n) for n in range(7)], "test")
+    thread = threading.Thread(target=service._work, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 5
+    while len(done) < 7 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    time.sleep(0.05)
+    service._stop.set()
+    thread.join(timeout=5)
+    assert len(released) == expected
+
+
 def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.MAX_CONNECTIONS", 2)
     monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 0.5)

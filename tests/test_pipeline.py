@@ -274,6 +274,39 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
     assert [p.rating_key for p in pipeline.plan_preview(ctx, "12", episodes=None)] == ["12", "121", "122"]
 
 
+def test_episodes_of_one_show_read_the_show_once() -> None:
+    class Counting(FakePlex):
+        def __init__(self) -> None:
+            super().__init__()
+            self.reads = 0
+            self.missing = False
+
+        def item(self, rating_key: str) -> Item | None:
+            if rating_key == "1":
+                self.reads += 1
+                if self.missing:
+                    return None
+            return super().item(rating_key)
+
+    ctx = context([ref("/textless.jpg", None)])
+    server = Counting()
+    ctx.server = server
+    for key in ("111", "112"):
+        item = next(i for i in server.kids["11"] if i["ratingKey"] == key)
+        pipeline.plan_item(ctx, item)
+    assert server.reads == 1
+
+    ctx = context([ref("/textless.jpg", None)])
+    server = Counting()
+    server.missing = True
+    ctx.server = server
+    item = server.kids["11"][0]
+    for _ in range(2):
+        with pytest.raises(pipeline.NotFoundError):
+            pipeline.plan_item(ctx, item)
+    assert server.reads == 2
+
+
 def test_episode_modes() -> None:
     ctx = context([ref("/textless.jpg", None)])
     title = ctx.sources.title("tv", 42, "Example Show")
