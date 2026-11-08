@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Check large libraries faster: a show's items are processed together, a show is read once for its seasons and episodes, and memory cleanup no longer runs after every unchanged title. On Jellyfin and Emby this removes most TMDB requests of the daily check.
+
 ### Fixed
 
 - Keep a title's records, custom art and restore data when a proxy answers 404 or Jellyfin sends an empty answer while the server is down. Posteryard now confirms with the server that a title is gone.

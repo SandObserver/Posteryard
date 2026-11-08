@@ -601,9 +601,15 @@ def _show(ctx: Context, item: Item) -> tuple[Title, Item]:
     if ctx.server is None:
         raise NotFoundError("No media server is configured")
     show_key = str(item["parentRatingKey"] if item.get("type") == "season" else item["grandparentRatingKey"])
-    show_item = ctx.server.item(show_key)
-    if show_item is None:
-        raise NotFoundError(f"{ctx.server.name} has no show {show_key}")
+    server = ctx.server
+
+    def load() -> Item:
+        found = server.item(show_key)
+        if found is None:
+            raise NotFoundError(f"{server.name} has no show {show_key}")
+        return found
+
+    show_item: Item = ctx.sources.remember(("show", show_key), load)
     return ctx.sources.title("tv", _require_tmdb(ctx, show_item, "tv"), str(show_item.get("title", ""))), show_item
 
 

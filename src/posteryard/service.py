@@ -50,7 +50,15 @@ NEW_BATCH_SECONDS = 900
 NEW_WAIT_SECONDS = 300
 RESUMED = "resumed after a restart"
 LIVE_TV = "live-tv"
+RELEASE_EVERY = 25
+DREW = frozenset({Outcome.PREVIEW, Outcome.UPLOADED, Outcome.FAILED})
 EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMARY: "daily summary"}
+
+
+def _pass_position(item: Item) -> tuple[str, str]:
+    """The items of one show stay together. TMDB answers are cached for only a few recent seasons."""
+    parent = str(item.get("parentRatingKey") or "")
+    return str(item.get("grandparentRatingKey") or parent or item["ratingKey"]), parent
 
 
 def _changed_at(item: Item) -> int:
@@ -205,6 +213,7 @@ class Service:
         self.enqueue(related_keys(dict(item)) if item else [key], "webhook")
 
     def _work(self) -> None:
+        since_release = 0
         while not self._stop.is_set():
             if not self.server_checked.is_set():
                 self.worker_beat = time.monotonic()
@@ -236,7 +245,10 @@ class Service:
             if reason in NEW_REASONS:
                 self.collect_new(self.worker.fresh)
             self.announce_new(idle=False)
-            memory.release()
+            since_release += 1
+            if outcome in DREW or since_release >= RELEASE_EVERY:
+                memory.release()
+                since_release = 0
             self.worker_beat = time.monotonic()
 
     def check_live_tv(self) -> None:
@@ -478,7 +490,7 @@ class Service:
 
     def full(self, reason: str) -> None:
         listed: set[str] = set()
-        seen: set[str] = set()
+        seen: dict[str, tuple[str, str]] = {}
         if self.cfg.service_collections:
             self._sync_collections()
         for section in self._sections():
@@ -487,9 +499,9 @@ class Service:
                     key = str(item["ratingKey"])
                     listed.add(key)
                     if self.worker.in_scope(item):
-                        seen.add(key)
+                        seen[key] = _pass_position(item)
         unlisted = sorted(self.store.keys() - listed)
-        self.enqueue(sorted(seen), "daily")
+        self.enqueue(sorted(seen, key=lambda key: (*seen[key], key)), "daily")
         self.enqueue(unlisted, "unlisted")
         self.store.set_meta("full_pending", "1")
         if reason != RESUMED:
