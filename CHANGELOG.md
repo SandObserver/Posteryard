@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - Check large libraries faster: a show's items are processed together, a show is read once for its seasons and episodes, and memory cleanup no longer runs after every unchanged title. On Jellyfin and Emby this removes most TMDB requests of the daily check.
+- Download less art on repeat checks: comparisons between pictures and the shape of Live TV art are saved instead of worked out again.
+- Check a title again every 3 days, not on every pass, when one of its art candidates cannot be read and a good one was found.
 
 ### Fixed
 

@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 
 from posteryard import http
-from posteryard.artwork import TEXTLESS_RULE, MemoryChoices, Picker
+from posteryard.artwork import TEXTLESS_RULE, UNSURE_RECHECK, MemoryChoices, Picker
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef, Images
 
@@ -207,6 +207,30 @@ def test_a_block_is_not_stored_as_no_art() -> None:
         picker.textless("movie:1", candidates, ["Example"])
     blocked[0] = False
     assert picker.textless("movie:1", candidates, ["Example"]) is not None
+
+
+def test_a_pick_past_an_unreadable_candidate_is_stored_for_a_few_days(monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched: list[str] = []
+
+    def fetch(path: str) -> Image.Image:
+        fetched.append(path)
+        if path == "/broken.jpg":
+            raise OSError("cannot identify image file")
+        image = Image.new("RGBA", (10, 15), (255, 255, 255, 255))
+        image.info["path"] = path
+        return image
+
+    now = [1000.0]
+    monkeypatch.setattr("posteryard.artwork.time.time", lambda: now[0])
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    candidates = refs("/broken.jpg", "/good.jpg")
+    for _ in range(3):
+        picked = picker.textless("movie:1", candidates, ["Example"])
+        assert picked is not None and picked.path == "/good.jpg"
+    assert fetched == ["/broken.jpg", "/good.jpg"]
+    now[0] += UNSURE_RECHECK
+    picker.textless("movie:1", candidates, ["Example"])
+    assert fetched.count("/broken.jpg") == 2
 
 
 def test_a_page_that_is_not_an_image_is_not_stored_as_no_art() -> None:
