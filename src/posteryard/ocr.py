@@ -28,6 +28,8 @@ STOP_SECONDS = 5
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
 MIN_KEY_LENGTH = 3
+# A shorter Latin title matches inside too many words. It counts only as whole words.
+MIN_ANYWHERE_LENGTH = 6
 # OCR reads large shapes as one character, so a one-character title is not checked.
 MIN_SHORT_KEY_LENGTH = 2
 DISPLAY_HEIGHT = 0.035
@@ -140,6 +142,23 @@ def normalise(text: str) -> str:
     return "".join(ch for ch in unicodedata.normalize("NFC", bare).casefold() if ch.isalnum())
 
 
+def _words(text: str) -> list[str]:
+    return [word for word in map(normalise, text.split()) if word]
+
+
+def _contains(key: str, text: str, words: Sequence[str]) -> bool:
+    if len(key) >= MIN_ANYWHERE_LENGTH or not key.isascii():
+        return key in text
+    return any(
+        "".join(words[start:end]) == key for start in range(len(words)) for end in range(start + 1, len(words) + 1)
+    )
+
+
+def _part_of(text: str, key: str) -> bool:
+    """One word from the middle of a long title is not that title."""
+    return text in key and (len(text) * 2 >= len(key) or key.startswith(text) or key.endswith(text))
+
+
 def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
     confident = [line for line in lines if line.score >= MIN_SCORE]
     names = {normalise(t) for t in titles}
@@ -151,9 +170,12 @@ def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
         text = normalise(line.text)
         if text in short:
             return True
-        if len(text) >= MIN_MATCH_LENGTH and any(text in key or key in text for key in keys):
+        if len(text) >= MIN_MATCH_LENGTH and any(
+            _part_of(text, key) or _contains(key, text, _words(line.text)) for key in keys
+        ):
             return True
-    return any(key in joined for key in keys)
+    words = [word for line in confident for word in _words(line.text)]
+    return any(_contains(key, joined, words) for key in keys)
 
 
 def is_display(line: TextLine) -> bool:

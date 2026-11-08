@@ -15,6 +15,23 @@ def line(text: str, height: float = 0.05, width: float = 0.5, score: float = 0.9
     return TextLine(text, score, height, width)
 
 
+def test_a_short_title_inside_another_word_is_not_the_title() -> None:
+    assert not ocr.shows_title([line("UNITED ARTISTS")], ["Ted"])
+    assert not ocr.shows_title([line("OTHERWISE")], ["Her"])
+    assert not ocr.shows_title([line("A SAWMILL IN MAINE")], ["Saw"])
+    assert ocr.shows_title([line("TED")], ["Ted"])
+    assert ocr.shows_title([line("SAW 3D")], ["Saw"])
+    assert ocr.shows_title([line("T E D")], ["Ted"])
+
+
+def test_one_word_from_the_middle_of_a_title_is_not_the_title() -> None:
+    assert not ocr.shows_title([line("FILM")], ["Le Film de ma Vie"])
+    assert not ocr.shows_title([line("BANK")], ["The Bank Job"])
+    assert ocr.shows_title([line("DUNE")], ["Dune: Part Two"])
+    assert ocr.shows_title([line("SKYWALKER")], ["Skywalker Saga"])
+    assert ocr.shows_title([line("ACME")], ["Coyote vs. Acme"])
+
+
 def test_title_match_ignores_case_spacing_and_punctuation() -> None:
     assert ocr.shows_title([line("DUNE"), line("PART TWO")], ["Dune: Part Two"])
     assert ocr.shows_title([line("FLY ME TO"), line("THE MOON")], ["Fly Me to the Moon"])
