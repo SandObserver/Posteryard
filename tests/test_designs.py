@@ -380,3 +380,7 @@ def test_cover_resizes_only_the_kept_part_of_a_thin_image(monkeypatch: pytest.Mo
     monkeypatch.setattr(Image.Image, "resize", recorded)
     assert cover(Image.new("RGB", (2160, 1)), 1000, 1500).size == (1000, 1500)
     assert sizes == [(1000, 1500)]
+
+
+def test_a_very_long_guide_title_draws_a_limited_number_of_words() -> None:
+    assert designs.text_logo("Word " * 5000, rows=3).width > 0

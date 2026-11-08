@@ -244,10 +244,20 @@ class Jellyfin:
             raise http.RequestError(f"{self.name} sent an empty answer", self._url(f"/Items/{rating_key}"))
         return self._shape(raw)
 
+    def _as_user(self, path: str, **params: Any) -> Any:
+        try:
+            return self._get(path, userId=self.user(), **params)
+        except http.HttpError as exc:
+            if exc.status != 404:
+                raise
+        # The cached administrator may be gone. Nothing else clears it while the queue is empty.
+        self._user = None
+        return self._get(path, userId=self.user(), **params)
+
     def _items(self, **params: Any) -> Iterator[Item]:
         start = 0
         while True:
-            page = self._get("/Items", userId=self.user(), Fields=FIELDS, StartIndex=start, Limit=PAGE, **params)
+            page = self._as_user("/Items", Fields=FIELDS, StartIndex=start, Limit=PAGE, **params)
             items = page.get("Items") or []
             yield from (self._shape(raw) for raw in items)
             start += len(items)
@@ -278,9 +288,8 @@ class Jellyfin:
 
     def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
         parent = filters.get("show.id") or filters.get("season.id") or section_key
-        page = self._get(
+        page = self._as_user(
             "/Items",
-            userId=self.user(),
             ParentId=self._id(str(parent)),
             IncludeItemTypes=INCLUDE[kind],
             Recursive="true",
@@ -385,12 +394,12 @@ class Jellyfin:
     def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
         """Every airing is its own item. Airings of one title on one channel share a show key."""
         pictures = self._guide_pictures(start, end)
-        channels = self._get("/LiveTv/Channels", userId=self.user(), EnableImages="true").get("Items") or []
+        channels = self._as_user("/LiveTv/Channels", EnableImages="true").get("Items") or []
         logos = {str(c.get("Id")) for c in channels if (c.get("ImageTags") or {}).get("Primary")}
         airings: list[Item] = []
         while True:
-            page = self._get(
-                "/LiveTv/Programs", userId=self.user(), MinEndDate=_iso(start), MaxStartDate=_iso(end),
+            page = self._as_user(
+                "/LiveTv/Programs", MinEndDate=_iso(start), MaxStartDate=_iso(end),
                 StartIndex=len(airings), Limit=PAGE, EnableImages="false", Fields="ChannelInfo",
             )  # fmt: skip
             raw = page.get("Items") or []

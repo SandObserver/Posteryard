@@ -1130,3 +1130,39 @@ def test_leaving_seasons_stop_after_repeated_network_failures(tmp_path: Path) ->
     service = make_service(tmp_path, Down())
     assert service._seasons([str(n) for n in range(10)]) == []
     assert len(calls) == 3
+
+
+class DatedPlex(FakePlex):
+    def __init__(self, newest: int, rows: dict[str, int]) -> None:
+        super().__init__()
+        self.newest, self.rows = newest, rows
+
+    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+        return self.newest
+
+    def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
+        return [{"ratingKey": k, "updatedAt": v, "addedAt": v} for k, v in self.rows.items() if v >= since]
+
+
+def test_the_first_sweep_of_a_new_data_folder_queues_nothing_as_changed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = int(time.time())
+    service = make_service(tmp_path, DatedPlex(now - 86400, {"1": now - 3600}))
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    assert "1" not in queued(service)
+
+
+def test_an_item_dated_ahead_does_not_hide_new_titles(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    now = int(time.time())
+    plex = DatedPlex(now, {"1": now + 12 * 3600})
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    service.sweep()
+    while queued(service):
+        service.take(0)
+    plex.rows["2"] = now + 1
+    service.sweep()
+    assert queued(service).count("2") == 1 and "1" not in queued(service)

@@ -363,7 +363,7 @@ class LiveTv:
             if r.get("id") and name in {norm(str(r.get(label) or "")), norm(str(r.get(original) or ""))}
         ]
         dated = [r for r in exact if show.year and abs((_released(r) or 0) - show.year) <= 1]
-        exact = dated or exact
+        exact = dated if show.year else exact
         exact.sort(key=lambda r: -int(r.get("vote_count") or 0))
         lead = len(exact) == 1 or (
             len(exact) > 1

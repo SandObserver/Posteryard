@@ -351,7 +351,8 @@ class Service:
         stored = self.store.meta("sweep_cursor")
         if stored and self.store.meta("sweep_clock") == "server":
             newest = int(stored)
-            since = newest - lookback
+            # One item dated ahead of this machine must not hide titles added now. The edge stops them repeating.
+            since = min(newest, started) - lookback
         else:
             # A cursor from an older release is on this machine's clock. The next sweep starts at the server's newest.
             server_now = self._server_now(started)
@@ -372,7 +373,7 @@ class Service:
                     stamps[key] = stamp
                     if stamp <= started + MAX_AHEAD:
                         newest = max(newest, stamp)
-                    if edge.get(key) != stamp:
+                    if stored and edge.get(key) != stamp:
                         fresh.append(item)
                 self.enqueue(self._keys(fresh), "changed")
                 for label, keys in labelled.items():
@@ -411,7 +412,8 @@ class Service:
         self.store.set_meta("sweep_cursor", str(newest))
         self.store.set_meta("sweep_clock", "server")
         self.store.set_meta(
-            "sweep_edge", json.dumps({k: v for k, v in sorted(stamps.items()) if v > newest - SWEEP_LOOKBACK})
+            "sweep_edge",
+            json.dumps({k: v for k, v in sorted(stamps.items()) if v > min(newest, started) - SWEEP_LOOKBACK}),
         )
         self._swept = True
         self.last_sweep_ok = time.monotonic()

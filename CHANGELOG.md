@@ -15,10 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Stop skipping good art because a short title is part of another printed word, such as UNITED for Ted, or because one word from the middle of a title is printed on it.
+- Stop skipping good art because a short title is part of another printed word, such as UNITED for Ted, or because one word from the middle of a title is printed on it. Titles already checked keep their art until their art candidates change.
 - Show art in Adobe RGB, Display P3 or CMYK in the right colours. It came out dull or with wrong colours.
 - Render 16-bit greyscale art with its real brightness. It came out pure white.
 - Keep large palette images smooth, and stop colour stored under transparent pixels from showing on a poster.
+- The colour, brightness and transparency fixes reach a poster when it is next uploaded. Posters already uploaded stay as they are.
 - Keep a title's records, custom art and restore data when a proxy answers 404 or Jellyfin sends an empty answer while the server is down. Posteryard now confirms with the server that a title is gone.
 - Find titles again when the Jellyfin administrator Posteryard picked is deleted while it runs. Every title looked deleted.
 - Stop saving a temporary block, such as HTTP 403 or a filter's HTML page, as "this title has no art", no logo or no service mark. The art is tried again.
@@ -28,7 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep watching for new titles and retries when one page of the daily full listing keeps failing.
 - Stop looking up every show or airing after repeated network failures, so an outage no longer blocks the schedule for hours or restarts the service.
 - Wait as long as `Retry-After` asks, across titles. Posteryard asked again after 60 seconds.
-- Keep updating a Jellyfin or Emby image after its tag changes without a person, such as after restoring a backup. It counted as a change by hand.
+- Keep updating a Jellyfin or Emby image after its tag changes without a person, such as after restoring a backup. It counted as a change by hand. This covers images uploaded by this release or later.
 - Add no second Jellyfin or Emby background when a background upload is retried.
 - Let `restore --all` go on after a malformed answer. It stopped at that title and skipped the rest.
 - Limit the time spent reading XMLTV guides for Jellyfin pictures, so unreachable guide hosts no longer trip the health check.
@@ -47,10 +48,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Skip a TMDB logo that is gone or cannot be read and use the next one, so the title still gets a poster.
 - Skip an Apple TV page that is nested too deeply to read, so the title gets other art.
 - Close idle connections to the media server and other services within 30 seconds, so a firewall no longer logs blocked packets when Posteryard closes them late.
-- Give back with `restore --all` the Plex image shown before Posteryard's first upload, such as a poster you uploaded yourself. It selected the server's first own image.
+- Give back with `restore --all` the Plex image shown before Posteryard's first upload, such as a poster you uploaded yourself. It selected the server's first own image. This covers images uploaded by this release or later.
 - Find every upload with `restore --all`, also after `forget`, after removing `posteryard-ignore`, or after a dry run that followed an interrupted upload. Those images stayed on the server, locked.
 - Keep posters and thumbnails you changed by hand after `restore --all` and after `EPISODE_THUMBNAILS=off`. Starting again or turning thumbnails on again replaced them.
 - Retry an upload whose Plex lock failed. The image counted as done, and a Plex refresh then replaced it for good.
+- Keep an image you choose on the server while a failed upload waits for its retry. On Plex this covers the server's own images, not a file you upload yourself.
+- Find new titles at the next sweep when an item is dated in the future. They waited until that date passed.
+- Draw at most 40 words of a very long guide title, so it cannot fill the memory.
 - Make the landing page's install picker, menus, feature row and copy buttons move without jumps and stay on screen, and fix their keyboard and screen reader behaviour.
 
 ### Security

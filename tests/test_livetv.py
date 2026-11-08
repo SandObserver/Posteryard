@@ -228,7 +228,7 @@ def test_a_movie_with_a_year_in_the_guide_gets_the_film_of_that_year(tmp_path: P
     assert live.match(guide_shows(GUIDE, [old])[0]) == 841
     assert live.match(guide_shows(GUIDE, [airing("Dune", "b", movie=True)])[0]) == 438631
     unknown: Item = {**airing("Dune", "c", movie=True), "year": 1950}
-    assert live.match(guide_shows(GUIDE, [unknown])[0]) == 438631
+    assert live.match(guide_shows(GUIDE, [unknown])[0]) is None
     episode: Item = {**airing("Dune", "d"), "year": 1984}
     assert guide_shows(GUIDE, [episode])[0].year is None
 
