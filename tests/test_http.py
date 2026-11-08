@@ -30,6 +30,13 @@ def test_a_malformed_url_error_never_carries_the_token() -> None:
     assert caught.value.__suppress_context__
 
 
+def test_an_unreadable_address_is_a_request_error_without_the_token() -> None:
+    with pytest.raises(http.RequestError) as caught:
+        http.request("GET", f"http://[bad/a?X-Plex-Token={SECRET}", retries=1)
+    assert SECRET not in str(caught.value)
+    assert caught.value.url == http.UNREADABLE
+
+
 def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
     plex = Plex("http://plex.example:32400", SECRET)
     for key in ("1 2", "١٢", "../1"):

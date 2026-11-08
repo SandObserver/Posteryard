@@ -41,7 +41,10 @@ def decode(data: bytes) -> Image.Image:
 
 
 def from_url(url: str) -> Image.Image:
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        raise ArtError("the address is not valid") from None
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ArtError("the address must start with http:// or https://")
     try:

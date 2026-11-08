@@ -32,7 +32,7 @@ def test_save_refuses_a_key_that_is_not_a_rating_key(tmp_path: Path) -> None:
         overrides.save(Image.new("RGB", (4, 4)), tmp_path, "../1")
 
 
-@pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "nope"])
+@pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "nope", "http://[bad/a.jpg"])
 def test_only_http_addresses(url: str) -> None:
     with pytest.raises(overrides.ArtError):
         overrides.from_url(url)
