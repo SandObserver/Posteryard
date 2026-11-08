@@ -110,6 +110,15 @@ def test_find_maps_an_imdb_id_to_tmdb_ids(monkeypatch: pytest.MonkeyPatch) -> No
     assert Tmdb("example-key").find("tvdb", "0") == {}
 
 
+def test_find_episode_gives_tmdb_numbers(monkeypatch: pytest.MonkeyPatch) -> None:
+    found = {"show_id": 1437, "season_number": 1, "episode_number": 2, "still_path": "/s.jpg"}
+    routes = {"/find/297999": {"tv_episode_results": [{"show_id": 1437, "season_number": None}, found]}}
+    monkeypatch.setattr(http, "request", answer(routes))
+    assert Tmdb("example-key").find_episode("tvdb", "297999") == {"show": 1437, "season": 1, "episode": 2}
+    monkeypatch.setattr(http, "request", answer({"/find/0": {}}))
+    assert Tmdb("example-key").find_episode("tvdb", "0") is None
+
+
 def test_a_read_access_token_is_sent_as_a_bearer_header(monkeypatch: pytest.MonkeyPatch) -> None:
     sent: list[tuple[str, dict[str, str]]] = []
 

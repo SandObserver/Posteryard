@@ -25,7 +25,7 @@ from posteryard.render.layers import NEAR_BLACK, WHITE, family_for, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.settings import Settings
 from posteryard.sources import Sources, Title
-from posteryard.tmdb import ImageRef, Kind
+from posteryard.tmdb import Episode, ImageRef, Kind
 
 log = logging.getLogger(__name__)
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
@@ -505,12 +505,28 @@ def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
     return sorted(int(s["season_number"]) for s in ctx.sources.details("tv", title.tmdb_id).get("seasons") or [])
 
 
+def _tmdb_episode(ctx: Context, title: Title, item: Item) -> Episode | None:
+    """TMDB's entry for an episode. The server's numbers can follow another order, such as DVD or absolute order."""
+    season, number = int(item.get("parentIndex", 0)), int(item.get("index", 0))
+    listed = ctx.sources.tmdb.episode(title.tmdb_id, season, number)
+    if listed and _plain(str(listed.get("name") or "")) == _plain(str(item.get("title") or "")):
+        return listed
+    ids = external_ids(item)
+    for source in ("tvdb", "imdb"):
+        if source not in ids:
+            continue
+        found = ctx.sources.find_episode(source, ids[source], ctx.settings.today)
+        if found and found["show"] == title.tmdb_id:
+            return ctx.sources.tmdb.episode(title.tmdb_id, found["season"], found["episode"])
+    return listed
+
+
 def episode(ctx: Context, title: Title, item: Item) -> list[Plan]:
     if ctx.settings.episodes == EpisodeMode.OFF:
         return []
     key, number = str(item["ratingKey"]), int(item.get("index", 0))
     season_number, name = int(item.get("parentIndex", 0)), str(item.get("title", ""))
-    still = (ctx.sources.tmdb.episode(title.tmdb_id, season_number, number) or {}).get("still_path")
+    still = (_tmdb_episode(ctx, title, item) or {}).get("still_path")
     if not still:
         return []
     path = str(still)
