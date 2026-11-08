@@ -53,8 +53,16 @@ CREATE TABLE IF NOT EXISTS uploads (
 );
 INSERT OR IGNORE INTO uploads SELECT rating_key, target, image_key FROM images WHERE image_key != '';
 """
+ORIGINALS_TABLE = """
+CREATE TABLE IF NOT EXISTS originals (
+    rating_key TEXT NOT NULL,
+    target     TEXT NOT NULL,
+    image_key  TEXT NOT NULL,
+    PRIMARY KEY (rating_key, target)
+);
+"""
 # Append only. Entry N brings the database from version N to N + 1. Never edit a released entry.
-MIGRATIONS = (SCHEMA_1, GUIDE_TABLE, UPLOADS_TABLE)
+MIGRATIONS = (SCHEMA_1, GUIDE_TABLE, UPLOADS_TABLE, ORIGINALS_TABLE)
 COLUMNS = "rating_key, target, title, fingerprint, image_key, status, failures, updated_at"
 RETRY_FIRST = 900
 RETRY_MAX = 12 * 3600
@@ -156,6 +164,27 @@ class Store:
     def drop_uploads(self, rating_key: str) -> None:
         with self._lock:
             self._db.execute("DELETE FROM uploads WHERE rating_key=?", (rating_key,))
+            self._db.execute("DELETE FROM originals WHERE rating_key=?", (rating_key,))
+
+    def upload_targets(self) -> set[tuple[str, str]]:
+        with self._lock:
+            return {(row[0], row[1]) for row in self._db.execute("SELECT DISTINCT rating_key, target FROM uploads")}
+
+    def set_original(self, rating_key: str, target: str, image_key: str) -> None:
+        """The image the server showed before Posteryard's upload. Restore selects it again."""
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO originals(rating_key, target, image_key) VALUES(?, ?, ?) "
+                "ON CONFLICT(rating_key, target) DO UPDATE SET image_key=excluded.image_key",
+                (rating_key, target, image_key),
+            )
+
+    def original(self, rating_key: str, target: str) -> str | None:
+        with self._lock:
+            row = self._db.execute(
+                "SELECT image_key FROM originals WHERE rating_key=? AND target=?", (rating_key, target)
+            ).fetchone()
+        return str(row[0]) if row else None
 
     def uploading(self, rating_key: str, target: str, title: str) -> None:
         self._upsert(rating_key, target, title=title, status=Status.UPLOADING)

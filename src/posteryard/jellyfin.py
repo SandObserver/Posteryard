@@ -337,7 +337,7 @@ class Jellyfin:
     def lock(self, item: Item, target: Target) -> None:
         """Nothing to lock: Jellyfin keeps an uploaded image unless a refresh is told to replace images."""
 
-    def restore(self, item: Item, target: Target) -> None:
+    def restore(self, item: Item, target: Target, original: str | None = None) -> None:
         key = self._id(str(item["ratingKey"]))
         self._send("DELETE", f"/Items/{key}/Images/{IMAGE_TYPES[target]}")
         self._send("POST", f"/Items/{key}/Refresh", imageRefreshMode="FullRefresh", replaceAllImages="false")

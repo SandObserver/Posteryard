@@ -63,8 +63,8 @@ def _parser() -> argparse.ArgumentParser:
 
     restore = commands.add_parser(
         "restore",
-        help="give every uploaded image back to the server's own, before you remove Posteryard",
-        description="Give every uploaded image back to the server's own and unlock it. Stop the service first.",
+        help="give back every uploaded image, before you remove Posteryard",
+        description="Give back every uploaded image and unlock it. Stop the service first.",
     )
     restore.add_argument("--all", action="store_true", required=True, help="every movie, show, season and episode")
 

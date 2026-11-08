@@ -89,4 +89,4 @@ Posteryard changes images, removes the `posteryard-next` label, and keeps the co
 | Live TV guide posters | With `LIVE_TV`, on Plex and Jellyfin. | Set `LIVE_TV=false`. On Plex, the next guide refresh brings back the guide's own images. On Jellyfin, airings keep the poster until they end. |
 | Collections | With `SERVICE_COLLECTIONS`: created per service, shows added and removed, and deleted below 3 shows. Only collections with the `posteryard-collection` label. | Delete the collections with the `posteryard-collection` label. |
 
-On Jellyfin and Emby, a new background replaces all of a title's backgrounds, and `restore --all` deletes the uploaded image and refreshes the item, so the server downloads its own art again.
+On Jellyfin and Emby, a new background replaces all of a title's backgrounds, and `restore --all` deletes the uploaded image and refreshes the item, so the server downloads its own art again. An image you uploaded before Posteryard is not kept.

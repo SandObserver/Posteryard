@@ -19,7 +19,7 @@ from posteryard.notify import Notifier
 from posteryard.server import TARGETS, Item, MediaServer, Target, label_tag, labels
 from posteryard.settings import Settings
 from posteryard.sources import Sources
-from posteryard.store import Status, Store
+from posteryard.store import Record, Status, Store
 from posteryard.tmdb import Tmdb
 
 log = logging.getLogger(__name__)
@@ -211,31 +211,38 @@ class Worker:
         return self.process(rating_key, force=True)
 
     def restore_all(self) -> Restored:
-        """Give every uploaded image back to the server's own, also while DRY_RUN is on.
+        """Give every uploaded image back, also while DRY_RUN is on.
 
-        Images changed by hand are left as they are. A failed item keeps its record, so a second run retries it.
-        An item without a selected image is restored again: a run that stopped halfway leaves it so.
-        An upload that was stopped halfway is restored too.
+        Images changed by hand are left as they are and keep their record. A failed item keeps its record, so a second
+        run retries it. An item without a selected image is restored again: a run that stopped halfway leaves it so.
+        An upload that was stopped halfway is restored too. An upload whose record was forgotten is found in `uploads`.
         """
         counts = Restored()
-        for record in self.store.with_upload():
-            if record.target not in TARGETS:
+        records = {(r.rating_key, r.target): r for r in self.store.with_upload()}
+        for key, name in sorted(records.keys() | self.store.upload_targets()):
+            if name not in TARGETS:
                 continue
-            target = cast(Target, record.target)
+            target, record = cast(Target, name), records.get((key, name))
+            title = record.title if record else key
             try:
-                item = self.server.item(record.rating_key)
-                selected = self.server.selected(record.rating_key, target) if item is not None else None
-                ours = selected in (record.image_key, None) or record.status == Status.UPLOADING
-                if item is not None and ours:
-                    self.server.restore(item, target)
+                item = self.server.item(key)
+                if item is None:
+                    self.store.forget_target(key, target)
+                    continue
+                selected = self.server.selected(key, target)
+                ours = selected is not None and self.store.is_upload(key, target, selected)
+                if record is not None:
+                    ours = ours or selected in (record.image_key, None) or record.status == Status.UPLOADING
+                if ours:
+                    self.server.restore(item, target, self.store.original(key, target))
+                    self.store.forget_target(key, target)
                     counts.restored += 1
-                elif item is not None:
+                elif record is not None:
+                    self.store.manual(key, target, record.title)
                     counts.kept += 1
             except (http.RequestError, ValueError) as exc:
-                log.warning(f"{NOUNS[target]} not restored", extra={"title": record.title, "reason": str(exc)})
+                log.warning(f"{NOUNS[target]} not restored", extra={"title": title, "reason": str(exc)})
                 counts.failed += 1
-                continue
-            self.store.forget_target(record.rating_key, record.target)
         return counts
 
     def _current_art(self, item: Item) -> str:
@@ -255,14 +262,17 @@ class Worker:
         record = self.store.get(key, target)
         if record is None:
             return
+        if record.status == Status.MANUAL:
+            return
         if record.status in (Status.UPLOADED, Status.UPLOADING):
             if self.cfg.dry_run:
                 return
-            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
+            if record.status != Status.UPLOADING and self.server.selected(key, target) != record.image_key:
+                self.store.manual(key, target, record.title)
                 log.info(f"{NOUNS[target]} changed by hand, left alone", extra={"title": item.get("title")})
-            else:
-                self.server.restore(item, target)
-                log.info(f"{NOUNS[target]} restored", extra={"title": item.get("title")})
+                return
+            self.server.restore(item, target, self.store.original(key, target))
+            log.info(f"{NOUNS[target]} restored", extra={"title": item.get("title")})
         self.store.forget_target(key, target)
 
     def _follow_labels(self, item: Item) -> bool:
@@ -305,7 +315,10 @@ class Worker:
     def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:
         key, target, noun = plan.rating_key, plan.target, NOUNS[plan.target]
         record = self.store.get(key, target)
-        uploaded = record is not None and record.status in (Status.UPLOADED, Status.FAILED) and bool(record.image_key)
+        uploaded = record is not None and (
+            record.status == Status.UPLOADING
+            or (record.status in (Status.UPLOADED, Status.FAILED) and bool(record.image_key))
+        )
         if record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
@@ -327,18 +340,29 @@ class Worker:
             log.info(f"{noun} preview saved", extra={"title": plan.name, "using": "; ".join(plan.notes)})
             return Outcome.PREVIEW
         data = jpeg(image)
+        self._remember_shown(key, target, record)
         # Mark the upload before it starts. A container killed during it must not look like a change by hand.
         self.store.uploading(key, target, plan.name)
         image_key = self.server.upload(key, target, data)
         try:
             self.server.lock(item, target)
-        except http.RequestError as exc:
-            log.warning(f"{noun} not locked", extra={"title": plan.name, "reason": str(exc)})
+        except http.RequestError:
+            # The empty fingerprint makes the retry upload and lock again. A server refresh replaces an unlocked image.
+            self.store.uploaded(key, target, plan.name, "", image_key)
+            raise
         self.store.uploaded(key, target, plan.name, plan.fingerprint, image_key)
         log.info(f"{noun} uploaded", extra={"title": plan.name, "using": "; ".join(plan.notes)})
         if target == "poster" and record is None:
             self.fresh.append((plan.name, data))
         return Outcome.UPLOADED
+
+    def _remember_shown(self, key: str, target: Target, record: Record | None) -> None:
+        """An upload stopped halfway can be selected already. It must not count as the image shown before."""
+        if record is not None and record.status == Status.UPLOADING:
+            return
+        shown = self.server.selected(key, target)
+        if shown and not self.store.is_upload(key, target, shown):
+            self.store.set_original(key, target, shown)
 
     def _failed(self, rating_key: str, title: str, exc: Exception) -> None:
         failures = self.store.failed(rating_key, ITEM_TARGET, title, str(exc))

@@ -24,7 +24,7 @@ Name a title the way Plex shows it. Case and punctuation do not matter, and quot
 | `forget TITLE` | You changed the poster in Plex and want Posteryard to manage it again. |
 | `test-alert` | Send a test alert to every service in `NOTIFY_URLS`. |
 | `health` | Exit with `0` when the running service is healthy, `1` when not. The Docker health check runs it. |
-| `restore --all` | Give every image Posteryard uploaded back to the server's own. See [Uninstalling](maintenance.md#uninstalling). |
+| `restore --all` | Give back every image Posteryard uploaded. See [Uninstalling](maintenance.md#uninstalling). |
 | `find WORDS` | List the movies and shows whose name contains `WORDS`, with their rating keys. |
 | `preview TITLE` | Save the images to `./data/previews` without touching Plex. `--episodes 2` adds the first 2 episodes of each season. |
 | `preview --tmdb movie:ID` | Preview any TMDB movie or show (`tv:ID`), even one not in Plex. |
