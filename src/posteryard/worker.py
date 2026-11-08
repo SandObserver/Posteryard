@@ -328,6 +328,9 @@ class Worker:
         if record and record.status in done and record.fingerprint == plan.fingerprint and not force:
             return Outcome.UNCHANGED
         if self.ctx.sources.apple_unavailable and not force and record and record.status == Status.UPLOADED:
+            # An empty fingerprint is a failed lock. The caller drops the retry after this outcome.
+            if not record.fingerprint and not self.cfg.dry_run:
+                self.server.lock(item, target)
             log.info(f"{noun} kept while Apple TV art is unavailable", extra={"title": plan.name})
             return Outcome.UNCHANGED
         image = plan.draw()
@@ -382,8 +385,10 @@ class Worker:
         return True
 
     def _remember_shown(self, key: str, target: Target, record: Record | None) -> None:
-        """An upload stopped halfway can be selected already. It must not count as the image shown before."""
-        if record is not None and record.status == Status.UPLOADING:
+        """An upload stopped halfway, or a refresh of an unlocked upload, is not the image shown before."""
+        if record is not None and (
+            record.status == Status.UPLOADING or (record.status == Status.UPLOADED and not record.fingerprint)
+        ):
             return
         shown = self.server.selected(key, target)
         if shown and not self.store.is_upload(key, target, shown):

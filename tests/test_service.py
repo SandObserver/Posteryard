@@ -1164,3 +1164,19 @@ def test_an_item_dated_ahead_does_not_hide_new_titles(tmp_path: Path, monkeypatc
     plex.rows["2"] = now + 1
     service.sweep()
     assert queued(service).count("2") == 1 and "1" not in queued(service)
+
+
+def test_an_item_dated_ahead_does_not_hide_new_titles_when_the_server_is_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = int(time.time())
+    plex = DatedPlex(now - 600, {"1": now + 12 * 3600})
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    service.sweep()
+    while queued(service):
+        service.take(0)
+    plex.rows["2"] = now - 599
+    service.sweep()
+    assert queued(service).count("2") == 1

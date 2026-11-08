@@ -42,6 +42,7 @@ VOTE_LEAD = 3
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 JPEG_QUALITY = 90
 LOGO_CACHE = 16
+MAX_NETWORK_FAILURES = 3
 HTTP_NOT_FOUND = 404
 PROBES = 3
 CONFIRMED = frozenset({"uploaded", "unchanged", "selected again"})
@@ -187,6 +188,7 @@ class LiveTv:
         self.server, self.store, self.ctx = server, store, ctx
         self.dry_run, self.preview_dir = dry_run, preview_dir
         self._fetch = fetch or partial(fetch_image, server=server.url)
+        self._outage = False
         self._unreadable: dict[str, bool] = {}
         self._degraded: set[str] = set()
         self._confirmed: list[str] = []
@@ -239,6 +241,7 @@ class LiveTv:
             self._cycle, self._done, self._tally, self._confirmed = refreshed, set(), Counter(), []
         fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
         tally = self._tally
+        failures = 0
         for guide in guides:
             airings = self.server.guide_airings(guide.provider, int(now), int(now + WINDOW_SECONDS))
             shows = guide_shows(guide.provider, airings, self._remembered_picture)
@@ -252,6 +255,10 @@ class LiveTv:
                     return tally
                 tally.update(self.apply(show, fetch))
                 self._done.add(done)
+                failures = failures + 1 if self._outage else 0
+                if failures >= MAX_NETWORK_FAILURES:
+                    log.warning("live TV run stopped after repeated network failures, the next run goes on")
+                    return tally
             self.store.guide_seen([show.record_key(t) for show in shows for t in show.targets], now)
         self.store.guide_drop_unseen(now - FORGET_SECONDS)
         self.store.set_meta("livetv_refreshed", json.dumps(refreshed))
@@ -268,6 +275,7 @@ class LiveTv:
 
     def apply(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> Counter[str]:
         first = self.store.guide(show.record_key(show.targets[0])) if show.targets else None
+        self._outage = False
         try:
             plan = self.plan(show, fetch)
             if self.dry_run:
@@ -276,6 +284,7 @@ class LiveTv:
             return Counter({"left alone": len(show.targets)})
         except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
             log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
+            self._outage = isinstance(exc, http.RequestError) and http.temporary(exc)
             return Counter({"failed": len(show.targets)})
         tally: Counter[str] = Counter()
         drawn: list[bytes] = []
@@ -285,6 +294,7 @@ class LiveTv:
             except (http.RequestError, pipeline.NotFoundError, OSError, ValueError) as exc:
                 log.warning("live TV poster failed", extra={"title": show.title, "reason": str(exc)})
                 if isinstance(exc, http.RequestError) and http.temporary(exc):
+                    self._outage = True
                     tally["failed"] += len(show.targets) - index
                     break
                 tally["failed"] += 1
