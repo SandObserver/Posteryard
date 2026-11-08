@@ -16,6 +16,7 @@ from posteryard.artwork import (
     POOL_SIZE,
     TEXTLESS_RULE,
     UNCHECKED,
+    remember,
 )
 from posteryard.config import EpisodeMode
 from posteryard.fanart import is_fanart
@@ -37,6 +38,7 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "measured:": (MEASURED,),
     "poster-": ("poster-hash:",),
     "same-details:": (f"same-details:{similar.FEATURE_RULE}:",),
+    "same-thumb:": (f"same-thumb:{similar.THUMB_RULE}:",),
     "logo": (f"logo{LOGO_RULE}:",),
     "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
     UNCHECKED: (f"{UNCHECKED}textless{TEXTLESS_RULE}:", f"{UNCHECKED}textless-all{TEXTLESS_RULE}:"),
@@ -705,14 +707,20 @@ def live_poster(ctx: Context, kind: Kind, tid: int, key: str, name: str) -> Plan
         ctx.sources.title(kind, tid, name, remember=False), name=name, service=None, logo_languages=languages
     )
     picked = ctx.sources.art(title)
-    if picked is not None:
-        art = ctx.sources.load(picked.path)
-        if art.width >= art.height:
-            raise NotFoundError(f"TMDB has only wide art for {name}, which a poster would crop")
+    if picked is not None and _is_wide(ctx, picked.path):
+        raise NotFoundError(f"TMDB has only wide art for {name}, which a poster would crop")
     plan = _poster(ctx, title, key, name, season=None, badges=[], label=None)
     if languages is not None:
         plan.inputs["logo_languages"] = list(languages)
     return plan
+
+
+def _is_wide(ctx: Context, path: str) -> bool:
+    def measure() -> Mapping[str, Any]:
+        art = ctx.sources.load(path)
+        return {"wide": art.width >= art.height}
+
+    return bool(remember(ctx.sources.choices, f"art-shape:{path}", measure)["wide"])
 
 
 def _plain(text: str) -> str:

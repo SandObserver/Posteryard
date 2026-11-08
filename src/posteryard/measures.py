@@ -85,9 +85,7 @@ class Measures:
             if bin(int(first["hash"]) ^ int(second["hash"])).count("1") <= SAME_PICTURE_BITS:
                 return True
             shared = similar.overlap(first["histogram"], second["histogram"])
-            if shared >= similar.HISTOGRAM_SAME and similar.same_picture(
-                self._thumb(a), self._thumb(b), shared, redrawn=redrawn
-            ):
+            if shared >= similar.HISTOGRAM_SAME and self._same_thumb(a, b, shared, redrawn=redrawn):
                 return True
             return redrawn and self._same_details(a, b)
         except http.HttpError as exc:
@@ -108,6 +106,13 @@ class Measures:
         hit = {"hash": value, "histogram": similar.histogram(image)}
         choices.put_choice(f"poster-hash:{path}", hit)
         return hit
+
+    def _same_thumb(self, a: str, b: str, shared: float, *, redrawn: bool) -> bool:
+        def measure() -> Mapping[str, Any]:
+            return {"same": similar.same_picture(self._thumb(a), self._thumb(b), shared, redrawn=redrawn)}
+
+        key = f"same-thumb:{similar.THUMB_RULE}:{redrawn}:{a}:{b}"
+        return bool(remember(self.sources.choices, key, measure)["same"])
 
     def _same_details(self, a: str, b: str) -> bool:
         first, second = sorted((a, b))

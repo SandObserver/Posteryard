@@ -1,3 +1,5 @@
+import math
+import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -23,6 +25,8 @@ TEXTLESS_RULE = 2
 LOGO_RULE = 3
 
 UNREADABLE = "not a usable image"
+# A broken file and a filter's page look the same. A pick made past one is checked again after this time.
+UNSURE_RECHECK = 3 * 86400
 # Widest shape a candidate may have, either way. OCR scales a narrower image to a size that can exhaust memory.
 MAX_ASPECT = 4.0
 
@@ -103,7 +107,7 @@ class Picker:
     ) -> Picked | None:
         candidates = [r.path for r in refs[:MAX_CANDIDATES]]
         hit = self.cache.get_choice(key)
-        if hit is not None and hit.get("candidates") == candidates:
+        if hit is not None and hit.get("candidates") == candidates and time.time() < hit.get("recheck", math.inf):
             path = hit.get("path")
             if not path:
                 return None
@@ -122,13 +126,14 @@ class Picker:
             if accept(lines):
                 picked = Picked(path, lines)
                 break
-        if not unsure:
+        if picked or not unsure:
             self.cache.put_choice(
                 key,
                 {
                     "candidates": candidates,
                     "path": picked.path if picked else None,
                     "lines": _rows(picked.lines) if picked else [],
+                    **({"recheck": time.time() + UNSURE_RECHECK} if unsure else {}),
                 },
             )
         return picked
