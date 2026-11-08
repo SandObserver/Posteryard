@@ -154,7 +154,7 @@ class Store:
             )
 
     def is_upload(self, rating_key: str, target: str, image_key: str) -> bool:
-        """Whether Posteryard uploaded this image. `forget` keeps this list."""
+        """`forget` keeps this list."""
         with self._lock:
             row = self._db.execute(
                 "SELECT 1 FROM uploads WHERE rating_key=? AND target=? AND image_key=?", (rating_key, target, image_key)
@@ -171,7 +171,6 @@ class Store:
             return {(row[0], row[1]) for row in self._db.execute("SELECT DISTINCT rating_key, target FROM uploads")}
 
     def set_original(self, rating_key: str, target: str, image_key: str) -> None:
-        """The image the server showed before Posteryard's upload. Restore selects it again."""
         with self._lock:
             self._db.execute(
                 "INSERT INTO originals(rating_key, target, image_key) VALUES(?, ?, ?) "
@@ -337,7 +336,7 @@ class Store:
             )
 
     def relabel(self, label: str, current: set[str]) -> tuple[set[str], set[str]]:
-        """Save the keys that carry a label now. Returns the keys that gained it and the keys that lost it."""
+        """Returns the keys that gained the label, then the keys that lost it."""
         with self._lock:
             row = self._db.execute("SELECT value FROM meta WHERE key=?", (f"labelled:{label}",)).fetchone()
             known = set(json.loads(row[0])) if row else set()
