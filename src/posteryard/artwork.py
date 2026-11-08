@@ -54,21 +54,29 @@ def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, An
     return hit
 
 
-def readable(fetch: Fetch, path: str) -> Image.Image | None:
-    """The image, or None when it is gone or not an image. A network failure still raises."""
+def readable(fetch: Fetch, path: str, unsure: set[str] | None = None) -> Image.Image | None:
+    """The image, or None when it is gone or not an image. A network failure still raises.
+
+    `unsure` collects paths that answered with something undecodable. A filter's HTML page looks the same as a broken
+    file, so such a result must not be stored.
+    """
     try:
         return fetch(path)
     except http.HttpError as exc:
         if http.gone(exc):
             return None
         raise
-    except (OSError, ValueError):
+    except OSError:
+        if unsure is not None:
+            unsure.add(path)
+        return None
+    except ValueError:
         return None
 
 
-def load(fetch: Fetch, path: str) -> Image.Image | None:
+def load(fetch: Fetch, path: str, unsure: set[str] | None = None) -> Image.Image | None:
     """The image, or None when it is gone, not an image or of an odd shape. A network failure still raises."""
-    image = readable(fetch, path)
+    image = readable(fetch, path, unsure)
     return image if image is not None and 1 / MAX_ASPECT <= image.width / image.height <= MAX_ASPECT else None
 
 
@@ -105,22 +113,24 @@ class Picker:
         if cached_only:
             return None
         picked = None
+        unsure: set[str] = set()
         for path in candidates:
-            image = load(self.fetch, path)
+            image = load(self.fetch, path, unsure)
             if image is None:
                 continue
             lines = self.read(image)
             if accept(lines):
                 picked = Picked(path, lines)
                 break
-        self.cache.put_choice(
-            key,
-            {
-                "candidates": candidates,
-                "path": picked.path if picked else None,
-                "lines": _rows(picked.lines) if picked else [],
-            },
-        )
+        if not unsure:
+            self.cache.put_choice(
+                key,
+                {
+                    "candidates": candidates,
+                    "path": picked.path if picked else None,
+                    "lines": _rows(picked.lines) if picked else [],
+                },
+            )
         return picked
 
     def textless(
@@ -167,7 +177,8 @@ class Picker:
         hit = self.cache.get_choice(cache_key)
         if hit is not None and hit.get("candidates") == candidates:
             return str(hit["path"]) if hit.get("path") else None
-        logos = {r.path: image for r in refs if (image := readable(self.fetch, r.path)) is not None}
+        unsure: set[str] = set()
+        logos = {r.path: image for r in refs if (image := readable(self.fetch, r.path, unsure)) is not None}
         refs = [r for r in refs if r.path in logos]
         brightness = {path: mean_luminance(trim(image)) for path, image in logos.items()}
         if dark:
@@ -175,7 +186,8 @@ class Picker:
             wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
             chosen = (wide_dark if prefer_wordmark and wide_dark else dark_refs)[:1]
             path = chosen[0].path if chosen else None
-            self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
+            if not unsure:
+                self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
             return path
         visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
         light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
@@ -183,7 +195,8 @@ class Picker:
         wide_light = [r for r in wide if r in light]
         pool = wide_light or wide or light or visible or refs
         path = pool[0].path if pool else None
-        self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
+        if not unsure:
+            self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
         return path
 
 
@@ -226,7 +239,10 @@ class Pool:
     def __iter__(self) -> Iterator[str]:
         for path in self._candidates:
             if path not in self._verdicts:
-                image = load(self._picker.fetch, path)
+                unsure: set[str] = set()
+                image = load(self._picker.fetch, path, unsure)
+                if unsure:
+                    continue
                 lines = self._picker.read(image) if image is not None else []
                 self._verdicts[path] = image is not None and _textless(lines, self._titles)
                 if self._verdicts[path]:

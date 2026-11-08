@@ -8,6 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Keep a title's records, custom art and restore data when a proxy answers 404 or Jellyfin sends an empty answer while the server is down. Posteryard now confirms with the server that a title is gone.
+- Find titles again when the Jellyfin administrator Posteryard picked is deleted while it runs. Every title looked deleted.
+- Stop saving a temporary block, such as HTTP 403 or a filter's HTML page, as "this title has no art", no logo or no service mark. The art is tried again.
+- Keep the Apple TV art already found when Apple's page cannot be read. The title lost it for 30 days.
+- Keep a Live TV poster during a short outage of a channel logo or guide picture host. It was uploaded without the image, then uploaded again.
+- Keep an uploaded poster during an Apple TV outage. It was replaced by other art, then replaced again.
+- Keep watching for new titles and retries when one page of the daily full listing keeps failing.
+- Stop looking up every show or airing after repeated network failures, so an outage no longer blocks the schedule for hours or restarts the service.
+- Wait as long as `Retry-After` asks, across titles. Posteryard asked again after 60 seconds.
+- Keep updating a Jellyfin or Emby image after its tag changes without a person, such as after restoring a backup. It counted as a change by hand.
+- Add no second Jellyfin or Emby background when a background upload is retried.
+- Let `restore --all` go on after a malformed answer. It stopped at that title and skipped the rest.
+- Limit the time spent reading XMLTV guides for Jellyfin pictures, so unreachable guide hosts no longer trip the health check.
 - Match a Live TV movie to the TMDB film of the year the guide gives, so an older film no longer gets a remake's poster.
 - Recognise a title printed on art without its accents, such as AMELIE for Amélie, and skip that art.
 - Recognise a printed two-letter title, such as IT for It, and skip that art.

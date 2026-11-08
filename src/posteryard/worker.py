@@ -16,7 +16,7 @@ from posteryard.config import Config, EpisodeMode
 from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.server import TARGETS, Item, MediaServer, Target, label_tag, labels
+from posteryard.server import MADE_BY, TARGETS, Item, MediaServer, Target, label_tag, labels, made_here
 from posteryard.settings import Settings
 from posteryard.sources import Sources
 from posteryard.store import Record, Status, Store
@@ -28,9 +28,6 @@ ALERT_AFTER = 3
 LEAVING_CACHE_SECONDS = 600
 ITEM_TARGET = "item"
 JPEG_QUALITY = 90
-MADE_BY = b"Posteryard"
-JPEG_COMMENT = 0xFE
-JPEG_SCAN = 0xDA
 NOUNS = {"poster": "poster", "art": "background", "thumb": "thumbnail"}
 
 
@@ -61,21 +58,6 @@ def jpeg(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY, optimize=True, comment=MADE_BY)
     return buffer.getvalue()
-
-
-def made_here(data: bytes) -> bool:
-    """Whether a JPEG carries the comment `jpeg` writes. Only the headers before the image data are read."""
-    if not data.startswith(b"\xff\xd8"):
-        return False
-    at = 2
-    while at + 4 <= len(data) and data[at] == 0xFF:
-        marker, size = data[at + 1], int.from_bytes(data[at + 2 : at + 4])
-        if marker == JPEG_SCAN or size < 2:
-            return False
-        if marker == JPEG_COMMENT and data[at + 4 : at + 2 + size] == MADE_BY:
-            return True
-        at += 2 + size
-    return False
 
 
 class Worker:
@@ -142,10 +124,12 @@ class Worker:
     def process(self, rating_key: str, *, force: bool = False) -> Outcome:  # noqa: C901
         self._rested = False
         self.fresh = []
+        self.ctx.sources.apple_unavailable = False
         title, kind = rating_key, ""
         try:
             item = self.server.item(rating_key)
             if item is None:
+                self._confirm_server()
                 self.store.forget(rating_key)
                 self.store.reset_override(rating_key)
                 self.store.drop_uploads(rating_key)
@@ -227,12 +211,14 @@ class Worker:
             try:
                 item = self.server.item(key)
                 if item is None:
+                    self._confirm_server()
                     self.store.forget_target(key, target)
                     continue
                 selected = self.server.selected(key, target)
                 ours = selected is not None and self.store.is_upload(key, target, selected)
                 if record is not None:
                     ours = ours or selected in (record.image_key, None) or record.status == Status.UPLOADING
+                ours = ours or (selected is not None and self.server.still_ours(item, target))
                 if ours:
                     self.server.restore(item, target, self.store.original(key, target))
                     self.store.forget_target(key, target)
@@ -240,10 +226,16 @@ class Worker:
                 elif record is not None:
                     self.store.manual(key, target, record.title)
                     counts.kept += 1
-            except (http.RequestError, ValueError) as exc:
+            except Exception as exc:  # One malformed answer must not stop the other titles.
                 log.warning(f"{NOUNS[target]} not restored", extra={"title": title, "reason": str(exc)})
                 counts.failed += 1
         return counts
+
+    def _confirm_server(self) -> None:
+        """A proxy answers 404 while the server behind it is down. Only the server itself can say a title is gone."""
+        known, current = self.store.meta("server"), self.server.server_id()
+        if known and known != current:
+            raise http.RequestError(f"{self.server.name} answered as another server", self.server.url)
 
     def _current_art(self, item: Item) -> str:
         poster = next((p for p in pipeline.plan_item(self.ctx, item) if p.target == "poster"), None)
@@ -267,7 +259,7 @@ class Worker:
         if record.status in (Status.UPLOADED, Status.UPLOADING):
             if self.cfg.dry_run:
                 return
-            if record.status != Status.UPLOADING and self.server.selected(key, target) != record.image_key:
+            if record.status != Status.UPLOADING and self._changed_by_hand(item, target, record):
                 self.store.manual(key, target, record.title)
                 log.info(f"{NOUNS[target]} changed by hand, left alone", extra={"title": item.get("title")})
                 return
@@ -312,7 +304,7 @@ class Worker:
             redo = True
         return redo
 
-    def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:
+    def _apply(self, plan: pipeline.Plan, item: Item, force: bool) -> Outcome:  # noqa: C901
         key, target, noun = plan.rating_key, plan.target, NOUNS[plan.target]
         record = self.store.get(key, target)
         uploaded = record is not None and (
@@ -322,13 +314,16 @@ class Worker:
         if record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
-            if record.status == Status.UPLOADED and self.server.selected(key, target) != record.image_key:
+            if record.status == Status.UPLOADED and self._changed_by_hand(item, target, record):
                 if not self.cfg.dry_run:
                     self.store.manual(key, target, plan.name)
                 log.info(f"{noun} changed by hand, left alone", extra={"title": plan.name})
                 return Outcome.MANUAL
         done = (Status.PREVIEW, Status.UPLOADED) if self.cfg.dry_run else (Status.UPLOADED,)
         if record and record.status in done and record.fingerprint == plan.fingerprint and not force:
+            return Outcome.UNCHANGED
+        if self.ctx.sources.apple_unavailable and not force and record and record.status == Status.UPLOADED:
+            log.info(f"{noun} kept while Apple TV art is unavailable", extra={"title": plan.name})
             return Outcome.UNCHANGED
         image = plan.draw()
         if self.cfg.dry_run:
@@ -355,6 +350,20 @@ class Worker:
         if target == "poster" and record is None:
             self.fresh.append((plan.name, data))
         return Outcome.UPLOADED
+
+    def _changed_by_hand(self, item: Item, target: Target, record: Record) -> bool:
+        return self.server.selected(str(item["ratingKey"]), target) != record.image_key and not self._adopt_tag(
+            item, target, record
+        )
+
+    def _adopt_tag(self, item: Item, target: Target, record: Record) -> bool:
+        """Jellyfin and Emby tags follow the file's time. A restored backup changes them with no change by hand."""
+        key = str(item["ratingKey"])
+        selected = self.server.selected(key, target)
+        if selected is None or not self.server.still_ours(item, target):
+            return False
+        self.store.uploaded(key, target, record.title, record.fingerprint, selected)
+        return True
 
     def _remember_shown(self, key: str, target: Target, record: Record | None) -> None:
         """An upload stopped halfway can be selected already. It must not count as the image shown before."""

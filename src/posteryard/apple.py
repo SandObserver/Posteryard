@@ -49,7 +49,7 @@ def tall_art(kind: Kind, umc: str, region: str) -> str | None:
     ).decode("utf-8", "replace")
     match = re.search(r'<script[^>]*id="serialized-server-data"[^>]*>(.*?)</script>', page, re.S)
     if match is None:
-        return None
+        raise ValueError("the Apple TV page has no data block")
     templates: list[str] = []
 
     def walk(node: object, parent: str) -> None:
@@ -68,7 +68,7 @@ def tall_art(kind: Kind, umc: str, region: str) -> str | None:
 
 
 def find(kind: Kind, details: Details, region: str) -> str | None:
-    """Apple TV's tall art for a TMDB title. A page Posteryard cannot read counts as none; a network error raises."""
+    """Apple TV's tall art for a TMDB title. A page Posteryard cannot read raises: it says nothing about the title."""
     umc = apple_id(kind, details)
     if umc is None:
         return None
@@ -79,5 +79,4 @@ def find(kind: Kind, details: Details, region: str) -> str | None:
             return None
         raise
     except (ValueError, KeyError, RecursionError) as exc:
-        log.warning("Apple TV page not readable", extra={"umc": umc, "reason": type(exc).__name__})
-        return None
+        raise ValueError(f"the Apple TV page is not readable: {type(exc).__name__}") from None

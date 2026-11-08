@@ -1040,3 +1040,34 @@ def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pyt
     service.check_live_tv()
     assert queued(service) == []
     assert "live TV guide not checked" in caplog.text
+
+
+def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.store.set_meta("settings_signature", service.settings_signature())
+    service.store.set_meta("last_full", "2020-01-01")
+    swept: list[int] = []
+
+    def full(reason: str) -> None:
+        service._stop.set()
+        raise posteryard_http.HttpError(500, "http://plex.example:32400/library/sections/1/all")
+
+    service.full = full  # type: ignore[method-assign]
+    service.sweep = lambda lookback=60: swept.append(lookback)  # type: ignore[method-assign]
+    service.connect = lambda: None  # type: ignore[method-assign]
+    service.check_live_tv = lambda: None  # type: ignore[method-assign]
+    service._schedule()
+    assert len(swept) == 1
+
+
+def test_leaving_seasons_stop_after_repeated_network_failures(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    class Down(FakePlex):
+        def item(self, rating_key: str) -> Item | None:
+            calls.append(rating_key)
+            raise posteryard_http.TemporaryError("ConnectTimeoutError", "http://plex.example:32400/x")
+
+    service = make_service(tmp_path, Down())
+    assert service._seasons([str(n) for n in range(10)]) == []
+    assert len(calls) == 3

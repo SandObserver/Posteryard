@@ -202,8 +202,9 @@ def test_collection_calls(serve: Any) -> None:
     assert server.calls[-1][2]["type"] == "18"
     assert [c["ratingKey"] for c in plex.collection_children("60")] == ["1"]
     plex.delete_collection("60")
-    assert plex.server_id() == "plex:abc"
     assert [c[:2] for c in server.calls].count(("GET", "/identity")) == 1
+    assert plex.server_id() == "plex:abc"
+    assert [c[:2] for c in server.calls].count(("GET", "/identity")) == 2
 
 
 GUIDE = "tv.plex.providers.epg.xmltv:15"

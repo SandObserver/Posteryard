@@ -42,6 +42,7 @@ TICK = 30
 STOP = "stop"
 HEARTBEAT_SECONDS = 60
 RETRY_SECONDS = 120
+MAX_NETWORK_FAILURES = 3
 URGENT = frozenset({"webhook", "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
 NEW_REASONS = frozenset({"webhook", "changed", "retry"})
@@ -405,13 +406,17 @@ class Service:
 
     def _seasons(self, keys: Iterable[str]) -> list[str]:
         found: list[str] = []
+        failures = 0
         for key in keys:
+            if failures >= MAX_NETWORK_FAILURES:
+                break
             try:
                 item = self.server.item(key)
                 if item is None or item.get("type") != "show":
                     continue
                 children = self.server.children(key)
             except http.RequestError as exc:
+                failures = failures + 1 if http.temporary(exc) else failures
                 if not (isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND):
                     log.warning("seasons of a leaving title not readable", extra={"key": key, "reason": str(exc)})
                 continue
@@ -539,6 +544,12 @@ class Service:
                     self.server_checked.set()
                 if not self._connected:
                     self.connect()
+                # Sweep first. A library that cannot be listed in full must not stop new titles and retries.
+                if time.monotonic() >= next_sweep:
+                    self.sweep(lookback)
+                    lookback = SWEEP_LOOKBACK
+                    next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
+                    self.check_live_tv()
                 signature = self.settings_signature()
                 if not resumed:
                     if self.store.meta("settings_signature") == signature:
@@ -551,11 +562,6 @@ class Service:
                 last_full = self.store.meta("last_full")
                 if not last_full or (last_full != now.date().isoformat() and now.time() >= self.cfg.daily_at):
                     self.full("daily")
-                if time.monotonic() >= next_sweep:
-                    self.sweep(lookback)
-                    lookback = SWEEP_LOOKBACK
-                    next_sweep = time.monotonic() + self.cfg.sweep_minutes * 60
-                    self.check_live_tv()
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
                 log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})

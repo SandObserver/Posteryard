@@ -48,11 +48,9 @@ def test_tall_art_is_found_through_wikidata(web: dict[str, Any]) -> None:
     assert apple.is_apple(url)
 
 
-def test_missing_ids_pages_and_unreadable_pages_give_none(web: dict[str, Any]) -> None:
+def test_missing_ids_and_pages_give_none(web: dict[str, Any]) -> None:
     assert apple.find("tv", {"external_ids": {}}, "CA") is None
     assert apple.find("movie", DETAILS, "CA") is None
-    web["page"] = b"<html>changed</html>"
-    assert apple.find("tv", DETAILS, "CA") is None
     web["page"] = http.HttpError(404, "https://tv.apple.com/ca/show/title/x")
     assert apple.find("tv", DETAILS, "CA") is None
     web["page"] = http.RequestError("ConnectTimeoutError", "https://tv.apple.com/ca/show/title/x")
@@ -85,17 +83,22 @@ def test_a_page_error_other_than_404_raises(web: dict[str, Any]) -> None:
         apple.find("tv", DETAILS, "CA")
 
 
-def test_a_page_with_broken_data_gives_none_and_a_warning(
-    web: dict[str, Any], caplog: pytest.LogCaptureFixture
-) -> None:
+def test_a_page_without_its_data_says_nothing_about_the_title(web: dict[str, Any]) -> None:
+    web["page"] = b"<html>changed</html>"
+    with pytest.raises(ValueError, match="not readable"):
+        apple.find("tv", DETAILS, "CA")
+
+
+def test_a_page_with_broken_data_is_not_read_as_no_art(web: dict[str, Any]) -> None:
     web["page"] = b'<script id="serialized-server-data">{broken</script>'
-    assert apple.find("tv", DETAILS, "CA") is None
-    assert "Apple TV page not readable" in caplog.text
+    with pytest.raises(ValueError, match="not readable"):
+        apple.find("tv", DETAILS, "CA")
 
 
-def test_a_page_nested_too_deep_gives_none(web: dict[str, Any]) -> None:
+def test_a_page_nested_too_deep_is_not_read_as_no_art(web: dict[str, Any]) -> None:
     web["page"] = ('<script id="serialized-server-data">' + "[" * 100_000 + "]" * 100_000 + "</script>").encode()
-    assert apple.find("tv", DETAILS, "CA") is None
+    with pytest.raises(ValueError, match="not readable"):
+        apple.find("tv", DETAILS, "CA")
 
 
 def test_wikidata_and_apple_redirects_are_checked(monkeypatch: pytest.MonkeyPatch) -> None:

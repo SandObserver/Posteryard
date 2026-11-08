@@ -31,6 +31,8 @@ ERROR_EXCERPT = 4096
 MAX_REDIRECTS = 5
 DEFAULT_PORTS = {"http": 80, "https": 443}
 RETRY_AFTER_MAX = 60.0
+HOLD_MAX = 3600.0
+HOLD_STATUSES = frozenset({429, 503})
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
 GZIP = frozenset({"gzip", "x-gzip"})
@@ -56,6 +58,8 @@ def refused(address: str) -> str:
 
 
 _calls = threading.local()
+_holds: dict[str, float] = {}
+_holds_lock = threading.Lock()
 
 
 def _hang_up(sock: socket.socket) -> None:
@@ -220,6 +224,10 @@ class RequestError(Exception):
         self.url = redact(url)
 
 
+class TemporaryError(RequestError):
+    """The server could not be reached or was too slow."""
+
+
 class HttpError(RequestError):
     def __init__(self, status: int, url: str, body: str = "") -> None:
         detail = "" if body.lstrip().startswith("<") else " ".join(body.split())[:200]
@@ -234,7 +242,14 @@ class RedirectError(RequestError):
 
 
 def gone(exc: RequestError) -> bool:
-    return isinstance(exc, HttpError) and 400 <= exc.status < 500 and exc.status not in RETRY_STATUSES
+    """A 401, 403 or 451 says nothing about the file: a block can end."""
+    return isinstance(exc, HttpError) and exc.status in (HTTPStatus.NOT_FOUND, HTTPStatus.GONE)
+
+
+def temporary(exc: RequestError) -> bool:
+    return isinstance(exc, TemporaryError) or (
+        isinstance(exc, HttpError) and (exc.status in RETRY_STATUSES or exc.status == HTTPStatus.REQUEST_TIMEOUT)
+    )
 
 
 def redact(url: str) -> str:
@@ -352,6 +367,7 @@ def _origin(url: str) -> tuple[str, str, int] | None:
 
 def _attempts(hop: _Hop, timeout: float, retries: int, deadline: _Deadline) -> tuple[int, bytes, str]:
     delay = 2.0
+    _wait_for_hold(hop.url, deadline)
     for attempt in range(1, retries + 1):
         wait = delay
         try:
@@ -369,8 +385,11 @@ def _attempts(hop: _Hop, timeout: float, retries: int, deadline: _Deadline) -> t
             status, body, location = _answer(response, hop, deadline)
             if status < 400:
                 return status, body, location
-            wait = max(delay, retry_after(response.headers.get("Retry-After")))
-            if status not in RETRY_STATUSES or attempt == retries or wait >= deadline.left():
+            asked = _asked(response.headers.get("Retry-After"))
+            if status in HOLD_STATUSES and asked > 0:
+                _hold(hop.url, asked)
+            wait = max(delay, min(asked, RETRY_AFTER_MAX))
+            if status not in RETRY_STATUSES or attempt == retries or wait >= deadline.left() or asked > RETRY_AFTER_MAX:
                 raise HttpError(status, hop.url, _error_text(body, hop))
             log.warning(
                 "retrying request", extra={"method": hop.method, "url": redact(hop.url), "reason": f"HTTP {status}"}
@@ -379,7 +398,7 @@ def _attempts(hop: _Hop, timeout: float, retries: int, deadline: _Deadline) -> t
             raise RequestError(type(exc).__name__, hop.url) from None
         except urllib3.exceptions.HTTPError as exc:
             if deadline.expired:
-                raise RequestError("response too slow", hop.url) from None
+                raise TemporaryError("response too slow", hop.url) from None
             last = attempt == retries or delay >= deadline.left()
             if _network_failure(exc, hop.method, hop.url, last=last, first=attempt == 1):
                 continue
@@ -472,10 +491,10 @@ def _read_body(
         if max(raw, size) > limit:
             raise RequestError(f"response larger than {limit // 1024 // 1024} MB", url)
         if deadline.expired:
-            raise RequestError("response too slow", url)
+            raise TemporaryError("response too slow", url)
     # A hang-up at the deadline ends a body without a length like its real end.
     if deadline.expired:
-        raise RequestError("response too slow", url)
+        raise TemporaryError("response too slow", url)
     if gunzip and raw and not gunzip.complete:
         raise RequestError("compressed response cut off", url)
     return b"".join(chunks)
@@ -485,7 +504,7 @@ def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *
     """True to try again at once: a pooled connection the other side dropped while idle."""
     cause = getattr(exc, "reason", None) or exc
     if last:
-        raise RequestError(type(cause).__name__, url) from None
+        raise TemporaryError(type(cause).__name__, url) from None
     if first and isinstance(cause, urllib3.exceptions.ProtocolError):
         log.debug("connection dropped, trying again", extra={"method": method, "url": redact(url)})
         return True
@@ -493,7 +512,31 @@ def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *
     return False
 
 
+def _host(url: str) -> str:
+    return urllib.parse.urlsplit(url).netloc.rpartition("@")[2].lower()
+
+
+def _hold(url: str, seconds: float) -> None:
+    """Later calls to this host wait too. A rate limit covers the host, not one request."""
+    with _holds_lock:
+        _holds[_host(url)] = time.monotonic() + min(seconds, HOLD_MAX)
+
+
+def _wait_for_hold(url: str, deadline: _Deadline) -> None:
+    with _holds_lock:
+        left = _holds.get(_host(url), 0.0) - time.monotonic()
+    if left <= 0:
+        return
+    if left >= min(RETRY_AFTER_MAX, deadline.left()):
+        raise TemporaryError("waiting for the time the server asked for", url)
+    time.sleep(left)
+
+
 def retry_after(value: str | None) -> float:
+    return min(_asked(value), RETRY_AFTER_MAX)
+
+
+def _asked(value: str | None) -> float:
     if not value:
         return 0.0
     try:
@@ -503,7 +546,7 @@ def retry_after(value: str | None) -> float:
             seconds = parsedate_to_datetime(value).timestamp() - time.time()
         except (TypeError, ValueError):
             return 0.0
-    return min(max(seconds, 0.0), RETRY_AFTER_MAX)
+    return max(seconds, 0.0)
 
 
 def get_json(

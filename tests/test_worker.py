@@ -9,9 +9,9 @@ from PIL import Image
 
 from posteryard import config, http, pipeline
 from posteryard.notify import Notifier
-from posteryard.server import Item, Target
+from posteryard.server import Item, Target, made_here
 from posteryard.store import Status, Store
-from posteryard.worker import Outcome, Worker, jpeg, made_here
+from posteryard.worker import Outcome, Worker, jpeg
 from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
 
 MOVIE: Item = {
@@ -600,3 +600,78 @@ def test_episode_thumbnails_changed_by_hand_stay_after_turning_thumbnails_on(tmp
     worker.process("6")
     record = store.get("6", "thumb")
     assert record is not None and record.status == Status.MANUAL
+
+
+def test_a_404_from_something_other_than_the_server_erases_nothing(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    store.manual("1", "art", "Example Movie")
+    del plex.items["1"]
+
+    def down() -> str:
+        raise http.HttpError(404, "http://plex.example:32400/identity")
+
+    plex.server_id = down  # type: ignore[method-assign]
+    assert worker.process("1") == Outcome.FAILED
+    record = store.get("1", "art")
+    assert record is not None and record.status == Status.MANUAL
+    assert store.upload_targets()
+
+
+def test_an_answer_from_another_server_erases_nothing(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    store.set_meta("server", "plex:another")
+    del plex.items["1"]
+    assert worker.process("1") == Outcome.FAILED
+    assert store.get("1", "poster") is not None
+
+
+def test_a_title_the_server_says_is_gone_is_forgotten(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    store.set_meta("server", "plex:example")
+    del plex.items["1"]
+    assert worker.process("1") == Outcome.GONE
+    assert store.get("1", "poster") is None
+
+
+def test_restore_goes_on_after_a_malformed_answer(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.items["2"] = Item(**{**MOVIE, "ratingKey": "2"})
+    store.uploaded("1", "poster", "A", "f", "upload-a")
+    store.uploaded("2", "poster", "B", "f", "upload-b")
+    plex.selected_keys[("2", "poster")] = "upload-b"
+    real = plex.selected
+
+    def broken(key: str, target: Target) -> str | None:
+        if key == "1":
+            raise AttributeError("'str' object has no attribute 'get'")
+        return real(key, target)
+
+    plex.selected = broken  # type: ignore[assignment]
+    counts = worker.restore_all()
+    assert (counts.failed, counts.restored) == (1, 1)
+    assert store.get("1", "poster") is not None
+
+
+def test_a_new_tag_on_our_own_image_is_not_a_change_by_hand(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    plex.selected_keys[("1", "poster")] = "new-tag"
+    plex.still_ours = lambda item, target: True  # type: ignore[method-assign]
+    assert worker.process("1") == Outcome.UNCHANGED
+    record = store.get("1", "poster")
+    assert record is not None and record.status == Status.UPLOADED and record.image_key == "new-tag"
+
+
+def test_an_uploaded_poster_stays_while_apple_art_is_unavailable(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    store.uploaded("1", "poster", "Example Movie", "older", plex.selected_keys[("1", "poster")])
+    item = plex.items["1"]
+    plan = next(p for p in pipeline.plan_item(worker.ctx, item) if p.target == "poster")
+    worker.ctx.sources.apple_unavailable = True
+    count = len(plex.uploads)
+    assert worker._apply(plan, item, force=False) == Outcome.UNCHANGED
+    assert len(plex.uploads) == count

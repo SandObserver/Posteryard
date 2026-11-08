@@ -221,3 +221,22 @@ def test_one_set_of_collections_covers_several_libraries() -> None:
     plex = TwoLibraries([])
     service_collections.sync(plex, context(), ["4", "5"])
     assert ("create", "Netflix", "1", "2", "3") in plex.calls
+
+
+def test_an_outage_stops_the_show_lookups(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = context()
+    calls: list[str] = []
+
+    def down(ctx: pipeline.Context, show: Item, kind: str) -> int:
+        calls.append(str(show["ratingKey"]))
+        raise http.TemporaryError("ConnectTimeoutError", "https://api.themoviedb.org/3/x")
+
+    monkeypatch.setattr(pipeline, "resolve_tmdb", down)
+
+    class Many(FakePlex):
+        def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+            return [{"ratingKey": str(n), "type": "show"} for n in range(10)] if kind == "show" and not filters else []
+
+    named, unknown, _ = service_collections._groups(Many([]), ctx, ["4"])
+    assert named == {} and len(unknown) == 10
+    assert len(calls) == 3

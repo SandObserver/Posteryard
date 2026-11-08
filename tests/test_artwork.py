@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+import pytest
 from PIL import Image
 
 from posteryard import http
@@ -188,3 +189,43 @@ def test_a_gone_or_unreadable_logo_is_passed_over() -> None:
     logos = [ImageRef(p, "en", 1000, 300, 9 - i, 1) for i, p in enumerate(("/gone.png", "/broken.png", "/fine.png"))]
     assert picker.logo("movie:1", Images([], [], logos)) == "/fine.png"
     assert picker.logo("movie:2", Images([], [], logos[:2])) is None
+
+
+def test_a_block_is_not_stored_as_no_art() -> None:
+    blocked = [True]
+
+    def fetch(path: str) -> Image.Image:
+        if blocked[0]:
+            raise http.HttpError(403, path)
+        image = Image.new("RGBA", (10, 15), (255, 255, 255, 255))
+        image.info["path"] = path
+        return image
+
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    candidates = refs("/b.jpg")
+    with pytest.raises(http.HttpError):
+        picker.textless("movie:1", candidates, ["Example"])
+    blocked[0] = False
+    assert picker.textless("movie:1", candidates, ["Example"]) is not None
+
+
+def test_a_page_that_is_not_an_image_is_not_stored_as_no_art() -> None:
+    filtered = [True]
+
+    def fetch(path: str) -> Image.Image:
+        if filtered[0]:
+            raise OSError("cannot identify image file")
+        image = Image.new("RGBA", (10, 15), (255, 255, 255, 255))
+        image.info["path"] = path
+        return image
+
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    candidates = refs("/b.jpg")
+    logos = [ImageRef("/l.png", "en", 1000, 300, 9, 1)]
+    assert picker.textless("movie:1", candidates, ["Example"]) is None
+    assert picker.logo("movie:1", Images([], [], logos)) is None
+    assert list(picker.textless_pool("movie:1", candidates, ["Example"])) == []
+    filtered[0] = False
+    assert picker.textless("movie:1", candidates, ["Example"]) is not None
+    assert picker.logo("movie:1", Images([], [], logos)) == "/l.png"
+    assert list(picker.textless_pool("movie:1", candidates, ["Example"])) == ["/b.jpg"]

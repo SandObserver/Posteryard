@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 MANAGED_LABEL = "posteryard-collection"
 MIN_SHOWS = 3
 CLOCK_SLACK = 600
+MAX_NETWORK_FAILURES = 3
 
 
 def _groups(
@@ -23,14 +24,21 @@ def _groups(
     members: dict[str, list[str]] = {}
     unknown: set[str] = set()
     unmatched: set[str] = set()
+    failures = 0
     for show in (show for key in section_keys for show in server.section_items(key, "show")):
+        if failures >= MAX_NETWORK_FAILURES:
+            unknown.add(str(show["ratingKey"]))
+            continue
         try:
             tid = pipeline.resolve_tmdb(ctx, show, "tv")
             if tid is None:
                 unmatched.add(str(show["ratingKey"]))
                 continue
             name = ctx.sources.title("tv", tid, str(show.get("title", ""))).service_name
+            failures = 0
         except (http.RequestError, OSError, ValueError) as exc:
+            if isinstance(exc, http.RequestError) and http.temporary(exc):
+                failures += 1
             if isinstance(exc, http.HttpError) and exc.status == HTTPStatus.NOT_FOUND:
                 log.warning("show not on TMDB, collections kept as they are", extra={"title": show.get("title")})
                 unmatched.add(str(show["ratingKey"]))

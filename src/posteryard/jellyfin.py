@@ -15,7 +15,7 @@ from typing import Any
 from xml.parsers import expat
 
 from posteryard import http
-from posteryard.server import Guide, Item, Target
+from posteryard.server import Guide, Item, Target, made_here
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
@@ -33,6 +33,9 @@ log = logging.getLogger(__name__)
 XMLTV_TIME = "%Y%m%d%H%M%S %z"
 XMLTV_MAX_EVENTS = 8_000_000
 XMLTV_MAX_DEPTH = 16
+# Keep it under 360 s. One more guide can take 240 s, and the worker counts as stalled after 600 s.
+XMLTV_SECONDS = 240
+XMLTV_TIMEOUT = 60
 
 
 def _timestamp(value: Any) -> int | None:
@@ -230,10 +233,16 @@ class Jellyfin:
         try:
             raw = self._raw(rating_key)
         except http.HttpError as exc:
-            if exc.status in (400, 404):
+            if exc.status not in (400, 404):
+                raise
+            # The cached administrator may be gone, and Jellyfin answers 404 for that too.
+            self._user = None
+            if not self._get("/Items", userId=self.user(), Ids=rating_key)["Items"]:
                 return None
-            raise
-        return self._shape(raw) if raw else None
+            raw = self._raw(rating_key)
+        if not raw:
+            raise http.RequestError(f"{self.name} sent an empty answer", self._url(f"/Items/{rating_key}"))
+        return self._shape(raw)
 
     def _items(self, **params: Any) -> Iterator[Item]:
         start = 0
@@ -306,6 +315,8 @@ class Jellyfin:
             f"/Items/{self._id(rating_key)}/Images/{image_type}",
             body=base64.b64encode(jpeg),
             content="image/jpeg",
+            # Each background sent is added to the list. The next run deletes them all first.
+            retries=1 if target == "art" else 3,
         )
         tag = self.selected(rating_key, target)
         if not tag:
@@ -322,6 +333,11 @@ class Jellyfin:
 
     def _save_tags(self, raw: dict[str, Any], tags: list[str]) -> None:
         raw["Tags"] = tags
+
+    def still_ours(self, item: Item, target: Target) -> bool:
+        path = "Backdrop/0" if target == "art" else "Primary"
+        url = self._url(f"/Items/{self._id(str(item['ratingKey']))}/Images/{path}")
+        return made_here(http.request("GET", url, headers=self._auth, timeout=60))
 
     def _update_tags(self, rating_key: str, change: Any) -> None:
         raw = self._raw(rating_key)
@@ -406,12 +422,16 @@ class Jellyfin:
         Guide pictures are optional: a guide Posteryard cannot read gives none, and posters go on without them.
         """
         pictures: dict[tuple[str, int], str] = {}
+        started = time.monotonic()
         for listing in (self._get("/System/Configuration/livetv") or {}).get("ListingProviders") or []:
             path = str(listing.get("Path") or "")
             if listing.get("Type") != "xmltv" or not path.startswith(("http://", "https://")):
                 continue
+            if time.monotonic() - started > XMLTV_SECONDS:
+                log.warning("guide pictures skipped", extra={"guide": http.redact(path), "reason": "out of time"})
+                continue
             try:
-                data = http.get_checked_redirects(path, timeout=120)
+                data = http.get_checked_redirects(path, timeout=XMLTV_TIMEOUT)
                 pictures |= _xmltv_pictures(_unzip(data) if data[:2] == b"\x1f\x8b" else data, start, end)
             except (http.RequestError, expat.ExpatError, OSError, EOFError, ValueError, zlib.error) as exc:
                 reason = str(exc) if isinstance(exc, http.RequestError) else type(exc).__name__

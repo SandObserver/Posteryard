@@ -132,7 +132,7 @@ def test_a_folder_added_to_a_library_is_found_and_the_list_is_read_again_later(
 
 
 def test_a_missing_item_is_none_and_bad_ids_are_refused(serve: Any) -> None:
-    jellyfin, _ = serve({})
+    jellyfin, _ = serve({"/Items": {"Items": []}})
     assert jellyfin.item("9" * 32) is None
     assert jellyfin.item("../Users") is None
     assert jellyfin.item("1917") is None
@@ -442,3 +442,31 @@ def test_large_collections_are_sent_in_batches(monkeypatch: pytest.MonkeyPatch) 
     members = [f"{i:032x}" for i in range(234)]
     assert Jellyfin(BASE, "example-key").create_collection(LIBRARY, "show", "Netflix", members) == SERIES
     assert sent == [("/Collections", 100), (f"/Collections/{SERIES}/Items", 100), (f"/Collections/{SERIES}/Items", 34)]
+
+
+def test_a_cached_user_that_is_gone_is_read_again(serve: Any) -> None:
+    jellyfin, _ = serve({"/Items": {"Items": [FORD]}})
+    jellyfin._user = "9" * 32
+    answers = [http.HttpError(404, BASE), FORD]
+
+    def raw(key: str) -> Any:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    jellyfin._raw = raw
+    assert jellyfin.item(MOVIE) is not None
+    assert jellyfin._user == USER
+
+
+def test_an_empty_answer_is_not_a_missing_item(serve: Any) -> None:
+    jellyfin, _ = serve({f"/Items/{MOVIE}": b""})
+    with pytest.raises(http.RequestError, match="empty answer"):
+        jellyfin.item(MOVIE)
+
+
+def test_a_proxy_404_on_every_path_is_not_a_missing_item(serve: Any) -> None:
+    jellyfin, _ = serve({"/Users": None})
+    with pytest.raises(http.HttpError):
+        jellyfin.item(MOVIE)

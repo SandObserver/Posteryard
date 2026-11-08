@@ -5,6 +5,25 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict
 
+JPEG_COMMENT = 0xFE
+JPEG_SCAN = 0xDA
+MADE_BY = b"Posteryard"
+
+
+def made_here(data: bytes) -> bool:
+    """Whether a JPEG carries the comment Posteryard writes. Only the headers before the image data are read."""
+    if not data.startswith(b"\xff\xd8"):
+        return False
+    at = 2
+    while at + 4 <= len(data) and data[at] == 0xFF:
+        marker, size = data[at + 1], int.from_bytes(data[at + 2 : at + 4])
+        if marker == JPEG_SCAN or size < 2:
+            return False
+        if marker == JPEG_COMMENT and data[at + 4 : at + 2 + size] == MADE_BY:
+            return True
+        at += 2 + size
+    return False
+
 
 class Item(TypedDict, total=False):
     ratingKey: str
@@ -57,6 +76,7 @@ class MediaServer(Protocol):
     def poster_bytes(self, item: Item) -> bytes: ...
     def remove_label(self, item: Item, label: str) -> None: ...
     def lock(self, item: Item, target: Target) -> None: ...
+    def still_ours(self, item: Item, target: Target) -> bool: ...
     def restore(self, item: Item, target: Target, original: str | None = None) -> None: ...
     def collection_children(self, rating_key: str) -> list[Item]: ...
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str: ...
