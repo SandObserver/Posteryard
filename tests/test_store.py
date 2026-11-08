@@ -141,3 +141,12 @@ def test_old_versions_of_cached_choices_are_deleted(tmp_path: Path) -> None:
     ]  # fmt: skip
     store.put_choice("titled:movie:1", {})
     assert store.drop_choices("titled:", ()) == 1
+
+
+def test_guide_seen_writes_all_rows_in_one_transaction(tmp_path: Path) -> None:
+    store = Store(tmp_path / "state.db")
+    statements: list[str] = []
+    store._db.set_trace_callback(statements.append)
+    store.guide_seen(["a", "b", "c"], 5)
+    store._db.set_trace_callback(None)
+    assert [s for s in statements if s in ("BEGIN", "COMMIT")] == ["BEGIN", "COMMIT"]

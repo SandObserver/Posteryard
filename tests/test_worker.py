@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from posteryard import config, http, pipeline
+from posteryard import config, http, pipeline, similar
 from posteryard.notify import Notifier
 from posteryard.server import Item, Target, made_here
 from posteryard.store import Status, Store
@@ -94,8 +94,10 @@ def test_rest_frees_images_and_keeps_results(tmp_path: Path) -> None:
     worker, _, _, _ = make(tmp_path)
     worker.ctx.sources.fetch = lru_cache(maxsize=8)(fetch)
     assert worker.process("1") == Outcome.PREVIEW
+    worker.ctx.measures.thumbs["/a.jpg"] = similar.thumb(Image.new("RGB", (60, 90)))
     worker.rest()
     assert worker.ctx.sources.fetch.cache_info().currsize == 0
+    assert not worker.ctx.measures.thumbs
     assert worker.process("1") == Outcome.UNCHANGED
 
 

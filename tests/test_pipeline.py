@@ -442,6 +442,14 @@ def test_an_imdb_id_is_looked_up_once_and_remembered() -> None:
         pipeline.movie(ctx, {**ITEM, "Guid": [{"id": "imdb://tt0000078"}]})
 
 
+def test_titles_kept_in_memory_are_limited(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sources, "LOOKUP_SIZE", 2)
+    ctx = context([ref("/textless.jpg", None)])
+    for tid in (1, 2, 3):
+        ctx.sources.title("tv", tid, "Example Show")
+    assert [key[1] for key in ctx.sources.titles] == [2, 3]
+
+
 def test_forget_drops_downloaded_images_and_expired_lookups() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.sources.fetch = lru_cache(maxsize=sources.FETCH_CACHE)(fetch)
