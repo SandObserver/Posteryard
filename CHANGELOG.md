@@ -16,6 +16,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Stop skipping good art because a short title is part of another printed word, such as UNITED for Ted, or because one word from the middle of a title is printed on it.
+- Show art in Adobe RGB, Display P3 or CMYK in the right colours. It came out dull or with wrong colours.
+- Render 16-bit greyscale art with its real brightness. It came out pure white.
+- Keep large palette images smooth, and stop colour stored under transparent pixels from showing on a poster.
 - Keep a title's records, custom art and restore data when a proxy answers 404 or Jellyfin sends an empty answer while the server is down. Posteryard now confirms with the server that a title is gone.
 - Find titles again when the Jellyfin administrator Posteryard picked is deleted while it runs. Every title looked deleted.
 - Stop saving a temporary block, such as HTTP 403 or a filter's HTML page, as "this title has no art", no logo or no service mark. The art is tried again.

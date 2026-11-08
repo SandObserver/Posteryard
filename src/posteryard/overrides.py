@@ -7,6 +7,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from posteryard import http
+from posteryard.render.layers import flatten
 from posteryard.server import is_item_key
 from posteryard.tmdb import open_image
 
@@ -32,7 +33,7 @@ def decode(data: bytes) -> Image.Image:
     if len(data) > MAX_DOWNLOAD:
         raise ArtError("the image is larger than 40 MB")
     try:
-        return open_image(data).convert("RGB")
+        return flatten(open_image(data))
     except ValueError as exc:
         raise ArtError(str(exc)) from None
     except (UnidentifiedImageError, OSError) as exc:

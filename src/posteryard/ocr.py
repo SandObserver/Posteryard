@@ -14,11 +14,14 @@ import numpy as np
 from PIL import Image
 
 from posteryard import memory
+from posteryard.render.layers import flatten
 
 # onnxruntime reads this once, at import. Without it, onnxruntime contacts Microsoft's telemetry server.
 os.environ["ORT_DISABLE_TELEMETRY"] = "1"
 
 READ_WIDTH = 480
+# Mid grey, so both dark and light text on a transparent image can be read.
+TRANSPARENT_READS_AS = (128, 128, 128)
 # Each onnxruntime thread holds its own buffers. More threads push the service past its memory limit.
 OCR_THREADS = 2
 READS_PER_PROCESS = 100
@@ -106,7 +109,7 @@ def close_idle() -> None:
 
 
 def read(image: Image.Image) -> list[TextLine]:
-    rgb = image.convert("RGB")
+    rgb = flatten(image, TRANSPARENT_READS_AS)
     rgb = rgb.resize((READ_WIDTH, max(1, round(rgb.height * READ_WIDTH / rgb.width))))
     pixels = np.asarray(rgb)
     for _ in range(2):

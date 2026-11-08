@@ -4,10 +4,12 @@ import struct
 import urllib.parse
 from typing import Any
 
+import numpy as np
 import pytest
-from PIL import Image, PngImagePlugin
+from PIL import Image, ImageCms, PngImagePlugin
 
 from posteryard import http
+from posteryard.render.layers import cover
 from posteryard.tmdb import MAX_SIDE, Tmdb, open_image
 
 
@@ -186,3 +188,70 @@ def test_exif_orientation_is_applied() -> None:
     buffer = io.BytesIO()
     Image.new("RGB", (300, 200)).save(buffer, "JPEG", exif=exif)
     assert open_image(buffer.getvalue()).size == (200, 300)
+
+
+def _png(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, "PNG")
+    return buffer.getvalue()
+
+
+def test_a_16_bit_greyscale_image_keeps_its_brightness() -> None:
+    image = open_image(_png(Image.fromarray(np.full((30, 20), 19660, dtype=np.uint16))))
+    assert image.mode == "L"
+    assert cover(image, 10, 15).getpixel((5, 7)) == (76, 76, 76)
+
+
+def test_a_large_palette_image_is_shrunk_with_filtering() -> None:
+    lines = (np.indices((MAX_SIDE + 840, 2000))[0] % 2 * 255).astype(np.uint8)
+    image = open_image(_png(Image.fromarray(lines, "L").convert("P")))
+    assert image.mode == "RGB"
+    assert len(np.unique(np.asarray(image))) > 2
+
+
+def test_a_palette_image_keeps_its_transparency() -> None:
+    source = Image.new("P", (4, 4), 0)
+    source.putpalette([255, 0, 255, 10, 10, 10])
+    source.info["transparency"] = 0
+    assert open_image(_png(source)).mode == "RGBA"
+
+
+def test_hidden_colour_under_transparency_does_not_show() -> None:
+    pixels = np.zeros((6, 4, 4), np.uint8)
+    pixels[..., :3] = (255, 0, 255)
+    assert cover(open_image(_png(Image.fromarray(pixels, "RGBA"))), 4, 6).getpixel((1, 1)) == (0, 0, 0)
+
+
+def _with_profile() -> bytes:
+    buffer = io.BytesIO()
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    Image.new("RGB", (4, 4), (200, 40, 40)).save(buffer, "PNG", icc_profile=profile)
+    return buffer.getvalue()
+
+
+def test_srgb_art_is_not_converted(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*args: object, **kwargs: object) -> None:
+        raise AssertionError("converted")
+
+    monkeypatch.setattr("posteryard.tmdb.ImageCms.profileToProfile", fail)
+    assert open_image(_with_profile()).getpixel((1, 1)) == (200, 40, 40)
+
+
+def test_art_in_another_colour_space_is_converted_to_srgb(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.tmdb.ImageCms.getProfileDescription", lambda profile: "Adobe RGB (1998)")
+    monkeypatch.setattr(
+        "posteryard.tmdb.ImageCms.profileToProfile",
+        lambda image, source, target, **_: Image.new("RGB", image.size, (255, 35, 35)),
+    )
+    image = open_image(_with_profile())
+    assert image.getpixel((1, 1)) == (255, 35, 35)
+    assert "icc_profile" not in image.info
+
+
+def test_a_profile_that_cannot_be_read_leaves_the_art_alone(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken(*args: object) -> None:
+        raise ImageCms.PyCMSError("bad profile")
+
+    data = _with_profile()
+    monkeypatch.setattr("posteryard.tmdb.ImageCms.ImageCmsProfile", broken)
+    assert open_image(data).getpixel((1, 1)) == (200, 40, 40)
