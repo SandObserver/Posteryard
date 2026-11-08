@@ -56,6 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep an image you choose on the server while a failed upload waits for its retry. On Plex this covers the server's own images, not a file you upload yourself.
 - Find new titles at the next sweep when an item is dated in the future. They waited until that date passed.
 - Draw at most 40 words and 300 characters of a very long guide title, so it cannot fill the memory.
+- Quote values with spaces in the landing page's `docker run` lines, so the pasted command works.
 - Make the landing page's install picker, menus, feature row and copy buttons move without jumps and stay on screen, and fix their keyboard and screen reader behaviour.
 
 ### Security
