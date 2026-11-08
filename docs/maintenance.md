@@ -17,7 +17,7 @@ Back up `./data`. `state.db` records the art chosen for each title and what was 
 ## Uninstalling
 
 1. Stop the service, so it uploads nothing new: `docker compose stop posteryard`.
-2. Give every uploaded image back and unlock it: `docker compose run --rm posteryard posteryard restore --all`. Plex shows the image it showed before Posteryard's first upload, or its own image when that one is gone. Jellyfin and Emby download their own image again: an image you uploaded there before Posteryard is not kept. Images you changed by hand stay as they are.
+2. Give every uploaded image back and unlock it: `docker compose run --rm posteryard posteryard restore --all`. Plex shows the image it showed before Posteryard's first upload, or its own image when that one is gone. For images uploaded by 0.10.2 or older, Plex shows its own image. Jellyfin and Emby download their own image again: an image you uploaded there before Posteryard is not kept. Images you changed by hand stay as they are.
 3. With `SERVICE_COLLECTIONS`, delete the collections that carry the `posteryard-collection` label (a tag in Jellyfin and Emby).
 4. Remove the container and its data: `docker compose down`, then delete `./data`.
 

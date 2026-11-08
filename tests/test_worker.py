@@ -3,6 +3,7 @@ import logging
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -599,7 +600,12 @@ def test_episode_thumbnails_changed_by_hand_stay_after_turning_thumbnails_on(tmp
     store.uploaded("6", "thumb", "Pilot", "abc", "upload-2")
     plex.selected_keys[("6", "thumb")] = "chosen-by-hand"
     worker.process("6")
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.items["6"] = {"ratingKey": "6", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+                       "librarySectionTitle": "TV Shows"}  # fmt: skip
+    plex.selected_keys[("6", "thumb")] = "chosen-by-hand"
     worker.process("6")
+    assert plex.uploads == []
     record = store.get("6", "thumb")
     assert record is not None and record.status == Status.MANUAL
 
@@ -677,3 +683,37 @@ def test_an_uploaded_poster_stays_while_apple_art_is_unavailable(tmp_path: Path)
     count = len(plex.uploads)
     assert worker._apply(plan, item, force=False) == Outcome.UNCHANGED
     assert len(plex.uploads) == count
+
+
+def _fail_once(plex: FakePlex, name: str) -> None:
+    real, calls = getattr(plex, name), []
+
+    def once(*args: Any) -> Any:
+        calls.append(args)
+        if len(calls) == 1:
+            raise http.RequestError("server error", "http://plex.example")
+        return real(*args)
+
+    setattr(plex, name, once)
+
+
+def test_a_refresh_after_a_failed_lock_is_not_a_change_by_hand(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    _fail_once(plex, "lock")
+    worker.process("1")
+    target = next(t for t in ("poster", "art") if (r := store.get("1", t)) and r.fingerprint == "")
+    plex.selected_keys[("1", target)] = "plex-agent-image"
+    worker.process("1")
+    record = store.get("1", target)
+    assert record is not None and record.status == Status.UPLOADED and record.fingerprint
+
+
+def test_an_image_chosen_before_the_retry_is_kept(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.selected_keys[("1", "poster")] = "plex-agent-image"
+    _fail_once(plex, "upload")
+    worker.process("1")
+    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
+    worker.process("1")
+    record = store.get("1", "poster")
+    assert record is not None and record.status == Status.MANUAL

@@ -470,3 +470,18 @@ def test_a_proxy_404_on_every_path_is_not_a_missing_item(serve: Any) -> None:
     jellyfin, _ = serve({"/Users": None})
     with pytest.raises(http.HttpError):
         jellyfin.item(MOVIE)
+
+
+def test_a_listing_reads_a_cached_user_that_is_gone_again(serve: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    jellyfin, _ = serve({"/Items": {"Items": [FORD], "TotalRecordCount": 1}})
+    jellyfin._user = "9" * 32
+    real = jellyfin._get
+
+    def get(path: str, **params: Any) -> Any:
+        if params.get("userId") == "9" * 32:
+            raise http.HttpError(404, BASE)
+        return real(path, **params)
+
+    monkeypatch.setattr(jellyfin, "_get", get)
+    assert len(list(jellyfin.section_items(LIBRARY, "movie", **{"updatedAt>>": 1}))) == 1
+    assert jellyfin._user == USER

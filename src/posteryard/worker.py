@@ -315,7 +315,11 @@ class Worker:
         if record and not force:
             if record.status == Status.MANUAL:
                 return Outcome.MANUAL
-            if record.status == Status.UPLOADED and self._changed_by_hand(item, target, record):
+            # An empty fingerprint is a failed lock. A server refresh before the retry is not a change by hand.
+            pending = record.status == Status.UPLOADING and self._chosen_during_retry(item, target, record)
+            if pending or (
+                record.status == Status.UPLOADED and record.fingerprint and self._changed_by_hand(item, target, record)
+            ):
                 if not self.cfg.dry_run:
                     self.store.manual(key, target, plan.name)
                 log.info(f"{noun} changed by hand, left alone", extra={"title": plan.name})
@@ -356,6 +360,17 @@ class Worker:
         return self.server.selected(str(item["ratingKey"]), target) != record.image_key and not self._adopt_tag(
             item, target, record
         )
+
+    def _chosen_during_retry(self, item: Item, target: Target, record: Record) -> bool:
+        """An upload stopped halfway can be selected already. Plex gives no way to tell one upload from another."""
+        key = str(item["ratingKey"])
+        selected = self.server.selected(key, target)
+        original = self.store.original(key, target)
+        if not selected or original is None or selected in (record.image_key, original):
+            return False
+        if selected.startswith("upload://") or self.store.is_upload(key, target, selected):
+            return False
+        return not self.server.still_ours(item, target)
 
     def _adopt_tag(self, item: Item, target: Target, record: Record) -> bool:
         """Jellyfin and Emby tags follow the file's time. A restored backup changes them with no change by hand."""
