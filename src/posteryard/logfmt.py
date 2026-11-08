@@ -16,16 +16,9 @@ LABEL_WIDTH = 11
 ADDRESS = re.compile(r"\b[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.IGNORECASE)
 
 
-def _redacted(match: re.Match[str]) -> str:
-    try:
-        return redact(match.group())
-    except ValueError:
-        return "***"
-
-
 def masked(text: str) -> str:
     """Hide credentials in every address in a log line. Libraries log addresses without `redact`."""
-    return ADDRESS.sub(_redacted, text)
+    return ADDRESS.sub(lambda match: redact(match.group()), text)
 
 
 def value(raw: object) -> str:

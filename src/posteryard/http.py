@@ -36,6 +36,7 @@ HOLD_STATUSES = frozenset({429, 503})
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
 GZIP = frozenset({"gzip", "x-gzip"})
+UNREADABLE = "***"
 METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
 
 
@@ -253,7 +254,10 @@ def temporary(exc: RequestError) -> bool:
 
 def redact(url: str) -> str:
     """Pass every URL through this before it reaches a log or an error. It hides credentials."""
-    parts = urllib.parse.urlsplit(url)
+    try:
+        parts = urllib.parse.urlsplit(url)
+    except ValueError:
+        return UNREADABLE
     query = [
         (k, "***" if k.lower() in SECRET_PARAMS else v)
         for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
@@ -299,6 +303,8 @@ def request(  # noqa: PLR0913
     `timeout` limits each wait for the server. The whole call, retries and redirects included, stops after
     DEADLINE_FACTOR times it.
     """
+    if redact(url) == UNREADABLE:
+        raise RequestError("request not sent", url)
     hop = _Hop(method, url, headers or {}, data, untrusted)
     return _call(hop, timeout, retries, redirects=redirects, check_redirects=untrusted or check_redirects)
 

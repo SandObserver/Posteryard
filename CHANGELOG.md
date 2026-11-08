@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Print a message when `art set` gets a malformed address. It ended with a traceback.
 - Stop skipping good art because a short title is part of another printed word, such as UNITED for Ted, or because one word from the middle of a title is printed on it. Titles already checked keep their art until their art candidates change.
 - Show art in Adobe RGB, Display P3 or CMYK in the right colours. It came out dull or with wrong colours.
 - Render 16-bit greyscale art with its real brightness. It came out pure white.
