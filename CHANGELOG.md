@@ -23,6 +23,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Skip a TMDB logo that is gone or cannot be read and use the next one, so the title still gets a poster.
 - Skip an Apple TV page that is nested too deeply to read, so the title gets other art.
 - Close idle connections to the media server and other services within 30 seconds, so a firewall no longer logs blocked packets when Posteryard closes them late.
+- Give back with `restore --all` the Plex image shown before Posteryard's first upload, such as a poster you uploaded yourself. It selected the server's first own image.
+- Find every upload with `restore --all`, also after `forget`, after removing `posteryard-ignore`, or after a dry run that followed an interrupted upload. Those images stayed on the server, locked.
+- Keep posters and thumbnails you changed by hand after `restore --all` and after `EPISODE_THUMBNAILS=off`. Starting again or turning thumbnails on again replaced them.
+- Retry an upload whose Plex lock failed. The image counted as done, and a Plex refresh then replaced it for good.
 - Make the landing page's install picker, menus, feature row and copy buttons move without jumps and stay on screen, and fix their keyboard and screen reader behaviour.
 
 ### Security

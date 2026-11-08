@@ -198,17 +198,12 @@ class Plex:
         self._send("PUT", f"/library/metadata/{_key(rating_key)}/{select}", {"url": image_key})
         return image_key
 
-    def restore(self, item: Item, target: Target) -> None:
+    def restore(self, item: Item, target: Target, original: str | None = None) -> None:
         rating_key = str(item["ratingKey"])
         _, select, field = ENDPOINTS[target]
-        original = next(
-            (
-                str(i["ratingKey"])
-                for i in self.images(rating_key, target)
-                if not str(i.get("ratingKey", "")).startswith("upload://")
-            ),
-            None,
-        )
+        listed = [str(i.get("ratingKey", "")) for i in self.images(rating_key, target)]
+        if original not in listed:
+            original = next((key for key in listed if key and not key.startswith("upload://")), None)
         self._send(
             "PUT",
             f"/library/sections/{_key(str(item['librarySectionID']))}/all",

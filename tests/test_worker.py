@@ -27,6 +27,7 @@ class FakePlex(FakeServer):
         self.uploads: list[tuple[str, str]] = []
         self.fail = False
         self.restored: list[tuple[str, str]] = []
+        self.originals: list[str | None] = []
 
     def item(self, rating_key: str) -> Item | None:
         if self.fail:
@@ -43,8 +44,9 @@ class FakePlex(FakeServer):
         self.selected_keys[(rating_key, target)] = image_key
         return image_key
 
-    def restore(self, item: Item, target: Target) -> None:
+    def restore(self, item: Item, target: Target, original: str | None = None) -> None:
         self.restored.append((str(item["ratingKey"]), target))
+        self.originals.append(original)
 
     def remove_label(self, item: Item, label: str) -> None:
         key = str(item["ratingKey"])
@@ -402,7 +404,8 @@ def test_episodes_off_gives_back_plex_thumbnails(tmp_path: Path) -> None:
     plex.selected_keys[("6", "thumb")] = "chosen-by-hand"
     worker.process("6")
     assert plex.restored == [("5", "thumb")]
-    assert store.get("6", "thumb") is None
+    record = store.get("6", "thumb")
+    assert record is not None and record.status == Status.MANUAL
 
 
 def test_episodes_off_gives_back_a_thumbnail_whose_upload_stopped_halfway(tmp_path: Path) -> None:
@@ -463,7 +466,7 @@ def test_restore_all_gives_back_uploads_and_keeps_hand_changes(tmp_path: Path) -
     counts = worker.restore_all()
     assert (counts.restored, counts.kept, counts.failed) == (2, 1, 0)
     assert plex.restored == [("1", "art"), ("1", "poster")]
-    assert store.with_upload() == []
+    assert [(r.rating_key, r.status) for r in store.with_upload()] == [("2", Status.MANUAL)]
     assert store.get("1", "item") is not None
 
 
@@ -516,3 +519,84 @@ def test_an_unreadable_maintainerr_answer_keeps_the_saved_schedule(
     monkeypatch.setattr(worker.maintainerr, "action_days", nested)
     assert worker.leaving_days() == {"1": date(2026, 11, 1)}
     assert alerts.sent == ["Maintainerr"]
+
+
+def test_restore_all_gives_back_the_image_shown_before_the_first_upload(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.selected_keys[("1", "poster")] = "upload://posters/own-upload"
+    worker.process("1")
+    worker.process("1", force=True)
+    assert store.original("1", "poster") == "upload://posters/own-upload"
+    worker.restore_all()
+    assert dict(zip(plex.restored, plex.originals, strict=True))[("1", "poster")] == "upload://posters/own-upload"
+
+
+def test_restore_all_finds_uploads_whose_record_was_forgotten(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "true"})
+    store.forget("1")
+    assert worker.process("1") == Outcome.PREVIEW
+    plex.selected_keys[("1", "art")] = "chosen-by-hand"
+    counts = worker.restore_all()
+    assert (counts.restored, counts.kept) == (1, 0)
+    assert plex.restored == [("1", "poster")]
+
+
+def test_a_dry_run_after_an_interrupted_first_upload_keeps_it_restorable(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    upload = plex.upload
+
+    def stopped(rating_key: str, target: Target, data: bytes) -> str:
+        upload(rating_key, target, data)
+        raise http.RequestError("ConnectionError", "http://plex.example:32400/library/metadata/1/posters")
+
+    plex.upload = stopped  # type: ignore[method-assign, assignment]
+    assert worker.process("1") == Outcome.FAILED
+    worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "true"})
+    assert worker.process("1") == Outcome.PREVIEW
+    record = store.get("1", "poster")
+    assert record is not None and record.status == Status.UPLOADING
+    worker.restore_all()
+    assert ("1", "poster") in plex.restored
+
+
+def test_a_failed_lock_is_retried(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    locks: list[str] = []
+
+    def lock(item: Item, target: Target) -> None:
+        locks.append(target)
+        if len(locks) == 1:
+            raise http.HttpError(500, "http://plex.example:32400/library/sections/3/all")
+
+    plex.lock = lock  # type: ignore[method-assign]
+    assert worker.process("1") == Outcome.FAILED
+    record = store.get("1", plex.uploads[0][1])
+    assert record is not None and record.image_key == plex.selected_keys[("1", plex.uploads[0][1])]
+    assert "1" in store.retry_due(now=10**12)
+    assert worker.process("1") == Outcome.UPLOADED
+    assert len(locks) == 3
+    assert worker.process("1") == Outcome.UNCHANGED
+
+
+def test_hand_changes_stay_protected_after_restore_all(tmp_path: Path) -> None:
+    worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
+    assert worker.restore_all().kept == 1
+    worker.process("1")
+    assert plex.selected_keys[("1", "poster")] == "chosen-by-hand"
+    assert plex.uploads.count(("1", "poster")) == 1
+
+
+def test_episode_thumbnails_changed_by_hand_stay_after_turning_thumbnails_on(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false", EPISODE_THUMBNAILS="off")
+    plex.items["6"] = {"ratingKey": "6", "type": "episode", "title": "Pilot", "grandparentRatingKey": "404",
+                       "librarySectionTitle": "TV Shows"}  # fmt: skip
+    store.uploaded("6", "thumb", "Pilot", "abc", "upload-2")
+    plex.selected_keys[("6", "thumb")] = "chosen-by-hand"
+    worker.process("6")
+    worker.process("6")
+    record = store.get("6", "thumb")
+    assert record is not None and record.status == Status.MANUAL

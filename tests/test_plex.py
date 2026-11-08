@@ -9,7 +9,7 @@ import pytest
 from posteryard import http
 from posteryard import plex as plex_module
 from posteryard.plex import Plex
-from posteryard.server import external_ids, labels, tmdb_id
+from posteryard.server import Item, external_ids, labels, tmdb_id
 
 BASE = "http://plex.example:32400"
 
@@ -158,6 +158,19 @@ def test_restore_selects_the_agents_image_and_unlocks(serve: Any) -> None:
     puts = [call for call in server.calls if call[0] == "PUT"]
     assert puts[0][2]["thumb.locked"] == "0"
     assert puts[1] == ("PUT", "/library/metadata/7/poster", {"url": "metadata://posters/agent"})
+
+
+def test_restore_selects_the_image_shown_before_when_plex_still_lists_it(serve: Any) -> None:
+    images = [{"ratingKey": "upload://posters/ours"}, {"ratingKey": "metadata://posters/agent"},
+              {"ratingKey": "upload://posters/own"}]  # fmt: skip
+    routes = {"GET /library/metadata/7/posters": {"Metadata": images}, "PUT /library/metadata/7/poster": b"",
+              "PUT /library/sections/4/all": b""}  # fmt: skip
+    plex, server = serve(routes)
+    item: Item = {"ratingKey": "7", "type": "movie", "librarySectionID": 4}
+    plex.restore(item, "poster", "upload://posters/own")
+    plex.restore(item, "poster", "upload://posters/gone")
+    selects = [call[2]["url"] for call in server.calls if call[1] == "/library/metadata/7/poster"]
+    assert selects == ["upload://posters/own", "metadata://posters/agent"]
 
 
 def test_newest_added(serve: Any) -> None:

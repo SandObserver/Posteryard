@@ -66,7 +66,7 @@ class FakeServer(MediaServer):
     def lock(self, item: Item, target: Target) -> None:
         pass
 
-    def restore(self, item: Item, target: Target) -> None:
+    def restore(self, item: Item, target: Target, original: str | None = None) -> None:
         pass
 
     def collection_children(self, rating_key: str) -> list[Item]:
