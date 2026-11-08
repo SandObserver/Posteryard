@@ -130,9 +130,18 @@ def trim(image: Image.Image) -> Image.Image:
     return image.crop(box) if box else image
 
 
+def flatten(image: Image.Image, background: RGB = (0, 0, 0)) -> Image.Image:
+    """Colour stored under transparent pixels must not show."""
+    if "A" not in image.getbands():
+        return image.convert("RGB")
+    flat = Image.new("RGB", image.size, background)
+    flat.paste(image.convert("RGB"), mask=image.getchannel("A"))
+    return flat
+
+
 def cover(image: Image.Image, width: int, height: int, focus: tuple[float, float] = (0.5, 0.4)) -> Image.Image:
     """Resize only the part that is kept. A thin image scaled whole would need gigabytes."""
-    image = image.convert("RGB")
+    image = flatten(image)
     scale = max(width / image.width, height / image.height)
     scaled_width, scaled_height = math.ceil(image.width * scale), math.ceil(image.height * scale)
     x = int(min(max(focus[0] * scaled_width - width / 2, 0), scaled_width - width))

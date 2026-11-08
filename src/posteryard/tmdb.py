@@ -8,7 +8,8 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, TypedDict
 
-from PIL import Image, ImageOps
+import numpy as np
+from PIL import Image, ImageCms, ImageOps
 
 from posteryard import http
 
@@ -302,17 +303,50 @@ class Tmdb:
             return open_image(http.request("GET", f"{IMAGES}/{FALLBACK_SIZE}{path}", timeout=60, check_redirects=True))
 
 
+def _eight_bit(image: Image.Image) -> Image.Image:
+    """Pillow clips 16-bit values to white in convert, and resizes palette images without filtering."""
+    if image.mode.startswith("I"):
+        scaled = Image.fromarray((np.asarray(image).astype(np.uint32) // 257).clip(0, 255).astype(np.uint8), "L")
+        scaled.info = image.info
+        return scaled
+    if image.mode == "P":
+        return image.convert("RGBA" if "transparency" in image.info else "RGB")
+    return image.convert("L") if image.mode == "1" else image
+
+
+def _to_srgb(image: Image.Image) -> Image.Image:
+    """A profile that cannot be read leaves the image as it is. Plain sRGB art must stay byte-identical."""
+    data = image.info.get("icc_profile")
+    if not data or image.mode not in ("RGB", "RGBA", "CMYK"):
+        return image
+    try:
+        source = ImageCms.ImageCmsProfile(io.BytesIO(data))
+        if "srgb" in ImageCms.getProfileDescription(source).lower():
+            return image
+        colour = image.convert("RGB") if image.mode == "RGBA" else image
+        converted = ImageCms.profileToProfile(colour, source, ImageCms.createProfile("sRGB"), outputMode="RGB")
+    except (ImageCms.PyCMSError, OSError, ValueError):
+        return image
+    if converted is None:
+        return image
+    if image.mode == "RGBA":
+        converted.putalpha(image.getchannel("A"))
+    converted.info = {key: value for key, value in image.info.items() if key != "icc_profile"}
+    return converted
+
+
 def open_image(data: bytes) -> Image.Image:
     """Decoded, turned upright and shrunk to MAX_SIDE. Full-size TMDB originals reach 70 MB each in memory.
 
     Raises ValueError for an image over MAX_PIXELS and OSError for data that is not a readable image.
     """
     try:
-        image = Image.open(io.BytesIO(data), formats=FORMATS)
+        image: Image.Image = Image.open(io.BytesIO(data), formats=FORMATS)
         if image.width * image.height > MAX_PIXELS:
             raise ValueError(f"the image is too large: {image.width} x {image.height} pixels")
         image.draft("RGB", (MAX_SIDE, MAX_SIDE))
         image.load()
+        image = _to_srgb(_eight_bit(image))
         image.thumbnail((MAX_SIDE, MAX_SIDE), Image.Resampling.LANCZOS)
         ImageOps.exif_transpose(image, in_place=True)
     except Image.DecompressionBombError:
