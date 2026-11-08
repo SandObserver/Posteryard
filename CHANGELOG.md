@@ -9,6 +9,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Match a Live TV movie to the TMDB film of the year the guide gives, so an older film no longer gets a remake's poster.
+- Recognise a title printed on art without its accents, such as AMELIE for Amélie, and skip that art.
+- Recognise a printed two-letter title, such as IT for It, and skip that art.
 - Leave service collections unchanged while `ONLY_RATING_KEYS` is set. A first test changed them for the whole library.
 - Keep a service collection you renamed. Posteryard deleted it and made it again under the service name.
 - Find new and changed titles at the next sweep when the media server's clock is behind Posteryard's. They waited for the daily pass.
