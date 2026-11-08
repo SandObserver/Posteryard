@@ -59,6 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
+- Update oauthlib to 4.0.1 for CVE-2026-49272. Posteryard does not use the affected OAuth server flow.
 - Read only JPEG, PNG, WebP and GIF images. Other formats could fill the memory before the size check, or stop the Live TV run at the same channel on every sweep.
 - Check redirects from TMDB, Wikidata and Apple TV like guide pictures, so they cannot reach Posteryard's own machine or a cloud metadata service.
 - Ignore TMDB image paths that are not TMDB file names, so a changed TMDB answer cannot point at a file inside the container.
