@@ -4,7 +4,7 @@ import time
 from collections import OrderedDict
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from typing import Any, cast
 
@@ -27,6 +27,7 @@ LOOKUP_SIZE = 4096
 DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
+FIND_RETRY = timedelta(days=30)
 
 
 def fetch_art(path: str) -> Image.Image:
@@ -245,6 +246,16 @@ class Sources:
             hit = found
         value = hit.get(kind)
         return int(value) if value else None
+
+    def find_episode(self, source: str, external_id: str, today: date) -> dict[str, int] | None:
+        """A miss is asked again after FIND_RETRY: TMDB may add the id later."""
+        key = f"find-episode:{source}:{external_id}"
+        hit = self.choices.get_choice(key)
+        if hit is not None and ("show" in hit or today < date.fromisoformat(hit["checked"]) + FIND_RETRY):
+            return {k: int(hit[k]) for k in ("show", "season", "episode")} if "show" in hit else None
+        found = self.tmdb.find_episode(source, external_id)
+        self.choices.put_choice(key, found or {"checked": today.isoformat()})
+        return found
 
     def service(self, providers: Mapping[str, RegionOffers]) -> str | None:
         """The first offer is the service. When its mark is left out, the poster has no mark."""

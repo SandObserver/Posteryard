@@ -286,6 +286,56 @@ def test_episode_modes() -> None:
     assert pipeline.episode(ctx, title, item) == []
 
 
+def test_an_episode_in_another_order_gets_its_own_still() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    title = ctx.sources.title("tv", 42, "Example Show")
+    tmdb = tmdb_of(ctx)
+    tmdb.episode_ids = {
+        "5005": {"show": 42, "season": 1, "episode": 2},
+        "6006": {"show": 99, "season": 3, "episode": 1},
+    }
+    ctx.settings.episodes = EpisodeMode.TITLED
+    item: Item = {
+        "ratingKey": "115",
+        "index": 5,
+        "parentIndex": 1,
+        "title": "The Train Job",
+        "Guid": [{"id": "tvdb://5005"}],
+    }
+    plan = pipeline.episode(ctx, title, item)[0]
+    assert plan.inputs["still"] == "/still-1-2.jpg"
+    assert plan.inputs["number"] == 5 and plan.inputs["title"] == "The Train Job"
+    pipeline.episode(ctx, title, item)
+    assert tmdb.finds.count("5005") == 1
+    other: Item = {**item, "Guid": [{"id": "tvdb://6006"}]}
+    assert pipeline.episode(ctx, title, other)[0].inputs["still"] == "/still-1-5.jpg"
+
+
+def test_an_episode_with_the_same_name_needs_no_lookup() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    title = ctx.sources.title("tv", 42, "Example Show")
+    item: Item = {
+        "ratingKey": "112",
+        "index": 2,
+        "parentIndex": 1,
+        "title": "Episode 1x2",
+        "Guid": [{"id": "tvdb://7"}],
+    }
+    assert pipeline.episode(ctx, title, item)[0].inputs["still"] == "/still-1-2.jpg"
+    assert tmdb_of(ctx).finds == []
+
+
+def test_an_episode_tmdb_does_not_know_is_asked_again_after_a_month() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    tmdb = tmdb_of(ctx)
+    today = date(2026, 11, 7)
+    assert ctx.sources.find_episode("tvdb", "8", today) is None
+    assert ctx.sources.find_episode("tvdb", "8", today + timedelta(days=29)) is None
+    assert tmdb.finds == ["8"]
+    tmdb.episode_ids["8"] = {"show": 42, "season": 2, "episode": 3}
+    assert ctx.sources.find_episode("tvdb", "8", today + timedelta(days=30)) == {"show": 42, "season": 2, "episode": 3}
+
+
 def test_a_title_without_a_logo_is_set_in_text() -> None:
     ctx = context([ref("/textless.jpg", None)])
     tmdb_of(ctx).logos = []

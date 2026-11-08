@@ -45,6 +45,7 @@ class ImageSet(TypedDict, total=False):
 
 class Episode(TypedDict, total=False):
     episode_number: int
+    name: str
     air_date: str | None
     still_path: str | None
 
@@ -257,6 +258,15 @@ class Tmdb:
             if results and results[0].get("id"):
                 found[kind] = int(results[0]["id"])
         return found
+
+    def find_episode(self, source: str, external_id: str) -> dict[str, int] | None:
+        """The show, season and episode number TMDB gives an episode with this IMDb or TVDB id."""
+        raw = self._get(f"/find/{urllib.parse.quote(external_id, safe='')}", external_source=f"{source}_id")
+        for found in raw.get("tv_episode_results") or []:
+            numbers = (found.get("show_id"), found.get("season_number"), found.get("episode_number"))
+            if all(isinstance(n, int) for n in numbers):
+                return dict(zip(("show", "season", "episode"), numbers, strict=True))
+        return None
 
     def language_logos(self, kind: Kind, tmdb_id: int, languages: Sequence[str]) -> list[ImageRef]:
         raw = self._cached(

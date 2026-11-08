@@ -101,6 +101,7 @@ class FakeTmdb(Tmdb):
         ]
         self.logos = [ref("/logo.png", "en")]
         self.finds: list[str] = []
+        self.episode_ids: dict[str, dict[str, int]] = {}
 
     def details(self, kind: Kind, tmdb_id: int) -> Details:
         return {"title": "Example Movie", "seasons": [{"season_number": n} for n in range(1, self.seasons + 1)]}
@@ -118,7 +119,11 @@ class FakeTmdb(Tmdb):
         return {}
 
     def episode(self, show_id: int, season: int, episode: int) -> Episode | None:
-        return {"still_path": f"/still-{season}-{episode}.jpg"}
+        return {"still_path": f"/still-{season}-{episode}.jpg", "name": f"Episode {season}x{episode}"}
+
+    def find_episode(self, source: str, external_id: str) -> dict[str, int] | None:
+        self.finds.append(external_id)
+        return self.episode_ids.get(external_id)
 
     def find(self, source: str, external_id: str) -> dict[str, int]:
         self.finds.append(external_id)
