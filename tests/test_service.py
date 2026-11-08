@@ -253,8 +253,6 @@ def test_the_sweep_queues_the_seasons_of_a_leaving_show(
 
 
 class ClockPlex(FakePlex):
-    """A server whose clock is an hour behind this machine's."""
-
     def __init__(self) -> None:
         super().__init__()
         self.now = int(time.time()) - 3600

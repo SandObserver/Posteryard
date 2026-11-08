@@ -11,7 +11,6 @@ MADE_BY = b"Posteryard"
 
 
 def made_here(data: bytes) -> bool:
-    """Whether a JPEG carries the comment Posteryard writes. Only the headers before the image data are read."""
     if not data.startswith(b"\xff\xd8"):
         return False
     at = 2

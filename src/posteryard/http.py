@@ -201,7 +201,6 @@ UNTRUSTED_POOL = _pool_manager(_UntrustedPool, _UntrustedHTTPSPool)
 
 
 def close_idle() -> None:
-    """Close pooled connections that are not in use. A closed connection reconnects on its next use."""
     for manager in (POOL, UNTRUSTED_POOL):
         keys = manager.pools.keys()
         for key in keys:
@@ -225,7 +224,7 @@ class RequestError(Exception):
 
 
 class TemporaryError(RequestError):
-    """The server could not be reached or was too slow."""
+    pass
 
 
 class HttpError(RequestError):

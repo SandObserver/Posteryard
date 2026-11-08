@@ -56,7 +56,6 @@ EVENT_NAMES = {Event.PROBLEMS: "problems", Event.NEW: "new posters", Event.SUMMA
 
 
 def _pass_position(item: Item) -> tuple[str, str]:
-    """The items of one show stay together. TMDB answers are cached for only a few recent seasons."""
     parent = str(item.get("parentRatingKey") or "")
     return str(item.get("grandparentRatingKey") or parent or item["ratingKey"]), parent
 
@@ -335,7 +334,7 @@ class Service:
         return [k for k in keys if k in only or k in known]
 
     def _server_now(self, started: int) -> int:
-        """The newest time the server added an item. Older titles are not queued as new: the full pass covers them."""
+        """Older titles are not queued as new. The full pass covers them."""
         found = [
             stamp
             for section in self._sections()

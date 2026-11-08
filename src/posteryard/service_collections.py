@@ -66,7 +66,7 @@ def _owner(section_key: str, name: str) -> str:
 
 
 def _owned(ctx: Context, section_key: str, names: list[str], ours: dict[str, Item]) -> dict[str, str]:
-    """The collection key of each service. A renamed collection keeps its service; an older one is found by name."""
+    """A renamed collection keeps its service. An older one is found by name."""
     saved = {
         name: str((ctx.sources.choices.get_choice(_owner(section_key, name)) or {}).get("key", "")) for name in names
     }

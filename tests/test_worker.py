@@ -314,7 +314,6 @@ def test_custom_label_adopts_the_poster_uploaded_in_plex(tmp_path: Path) -> None
 
 
 def custom_poster(tmp_path: Path) -> tuple[Worker, FakePlex, Store, str]:
-    """A title whose custom art was taken from the server, with Posteryard's poster selected over it."""
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     images: dict[str, bytes] = {}
     upload = plex.upload

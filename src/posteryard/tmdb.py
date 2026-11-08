@@ -261,7 +261,6 @@ class Tmdb:
         return found
 
     def find_episode(self, source: str, external_id: str) -> dict[str, int] | None:
-        """The show, season and episode number TMDB gives an episode with this IMDb or TVDB id."""
         raw = self._get(f"/find/{urllib.parse.quote(external_id, safe='')}", external_source=f"{source}_id")
         for found in raw.get("tv_episode_results") or []:
             numbers = (found.get("show_id"), found.get("season_number"), found.get("episode_number"))

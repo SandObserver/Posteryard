@@ -253,7 +253,6 @@ class Sources:
         return int(value) if value else None
 
     def find_episode(self, source: str, external_id: str, today: date) -> dict[str, int] | None:
-        """A miss is asked again after FIND_RETRY: TMDB may add the id later."""
         key = f"find-episode:{source}:{external_id}"
         hit = self.choices.get_choice(key)
         if hit is not None and ("show" in hit or today < date.fromisoformat(hit["checked"]) + FIND_RETRY):
