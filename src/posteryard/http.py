@@ -537,10 +537,6 @@ def _wait_for_hold(url: str, deadline: _Deadline) -> None:
     time.sleep(left)
 
 
-def retry_after(value: str | None) -> float:
-    return min(_asked(value), RETRY_AFTER_MAX)
-
-
 def _asked(value: str | None) -> float:
     if not value:
         return 0.0

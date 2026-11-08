@@ -86,3 +86,17 @@ def test_only_fanart_assets_are_downloaded(monkeypatch: pytest.MonkeyPatch) -> N
     assert is_fanart("http://assets.fanart.tv/x.jpg")
     with pytest.raises(ValueError, match=r"not a fanart\.tv image"):
         Fanart.image("https://elsewhere.example/a.jpg")
+
+
+def test_an_outage_raises_so_the_item_is_tried_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    def down(url: str, *args: Any, **kwargs: Any) -> Any:
+        raise http.HttpError(503, url)
+
+    monkeypatch.setattr(http, "get_json", down)
+    with pytest.raises(http.HttpError):
+        Fanart("example-key").images("movie", 603, None)
+
+
+def test_an_answer_that_is_not_an_object_has_no_images(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(http, "get_json", lambda *args, **kwargs: [])
+    assert Fanart("example-key").images("movie", 603, None).images.posters == []
