@@ -2,6 +2,7 @@ import atexit
 import multiprocessing
 import os
 import time
+import unicodedata
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -26,6 +27,9 @@ IDLE_SECONDS = 600
 STOP_SECONDS = 5
 MIN_SCORE = 0.6
 MIN_MATCH_LENGTH = 4
+MIN_KEY_LENGTH = 3
+# OCR reads large shapes as one character, so a one-character title is not checked.
+MIN_SHORT_KEY_LENGTH = 2
 DISPLAY_HEIGHT = 0.035
 DISPLAY_WIDTH = 0.35
 # OCR reads large shapes such as a window or an emblem as one character. One character is not display text.
@@ -131,17 +135,23 @@ def _read_pixels(pixels: np.ndarray) -> list[TextLine]:
 
 
 def normalise(text: str) -> str:
-    return "".join(ch for ch in text.lower() if ch.isalnum())
+    """Art often prints a title without its accents, so marks are left out on both sides."""
+    bare = "".join(ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch))
+    return "".join(ch for ch in unicodedata.normalize("NFC", bare).casefold() if ch.isalnum())
 
 
 def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
-    keys = [k for k in (normalise(t) for t in titles) if len(k) >= 3]
-    joined = normalise(" ".join(line.text for line in lines if line.score >= MIN_SCORE))
-    for line in lines:
+    confident = [line for line in lines if line.score >= MIN_SCORE]
+    names = {normalise(t) for t in titles}
+    keys = [k for k in names if len(k) >= MIN_KEY_LENGTH]
+    # A short title matches inside too many words. It counts only as a whole line.
+    short = {k for k in names if MIN_SHORT_KEY_LENGTH <= len(k) < MIN_KEY_LENGTH}
+    joined = normalise(" ".join(line.text for line in confident))
+    for line in confident:
         text = normalise(line.text)
-        if line.score < MIN_SCORE or len(text) < MIN_MATCH_LENGTH:
-            continue
-        if any(text in key or key in text for key in keys):
+        if text in short:
+            return True
+        if len(text) >= MIN_MATCH_LENGTH and any(text in key or key in text for key in keys):
             return True
     return any(key in joined for key in keys)
 

@@ -22,6 +22,20 @@ def test_title_match_ignores_case_spacing_and_punctuation() -> None:
     assert not ocr.shows_title([line("THE OFFICE", score=0.3)], ["The Office"])
 
 
+def test_title_match_ignores_accents_on_either_side() -> None:
+    assert ocr.shows_title([line("AMELIE", height=0.02, width=0.2)], ["Amélie"])
+    assert ocr.shows_title([line("POKÉMON", height=0.02, width=0.2)], ["Pokemon"])
+    assert ocr.shows_title([line("기생충", height=0.02, width=0.2)], ["기생충"])
+    assert not ocr.shows_title([line("기생", height=0.02, width=0.2)], ["생충"])
+
+
+def test_a_short_title_matches_only_a_whole_line() -> None:
+    assert ocr.shows_title([line("US", height=0.03, width=0.2)], ["Us"])
+    assert ocr.shows_title([line("U.S.", height=0.03, width=0.2)], ["Us"])
+    assert not ocr.shows_title([line("MUSIC FROM THE FILM", height=0.03, width=0.2)], ["Us"])
+    assert not ocr.shows_title([line("M", height=0.03, width=0.2)], ["M"])
+
+
 def test_display_text_is_large_text_only() -> None:
     assert ocr.has_display_text([line("A TAGLINE", height=0.06, width=0.6)])
     assert not ocr.has_display_text([line("WORLD'S BEST BOSS", height=0.02, width=0.2)])

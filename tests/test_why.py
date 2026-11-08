@@ -40,7 +40,7 @@ def test_report_lists_candidates_until_the_art_in_use(store: Store) -> None:
     assert group == "TMDB posters"
     assert [(c.ref.path, c.reason) for c in candidates] == [
         ("/english.jpg", 'shows the title: "EXAMPLE MOVIE"'),
-        ("/foreign.jpg", 'large text: "PELICULA DE EJEMPLO"'),
+        ("/foreign.jpg", 'shows the title: "PELICULA DE EJEMPLO"'),
         ("/textless.jpg", None),
     ]
     assert result.unchecked == ["TMDB backdrops"]
