@@ -5,7 +5,9 @@ import socket
 import threading
 import time
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
+from datetime import time as dt_time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -1102,6 +1104,7 @@ def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pyt
 def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.store.set_meta("settings_signature", service.settings_signature())
+    service.cfg = replace(service.cfg, daily_at=dt_time(0, 0))
     service.store.set_meta("last_full", "2020-01-01")
     swept: list[int] = []
 
@@ -1178,5 +1181,28 @@ def test_an_item_dated_ahead_does_not_hide_new_titles_when_the_server_is_behind(
     while queued(service):
         service.take(0)
     plex.rows["2"] = now - 599
+    service.sweep()
+    assert queued(service).count("2") == 1
+
+
+def test_an_item_reaching_its_date_does_not_hide_titles_when_the_server_is_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    now = int(time.time())
+    date = now + 3600
+    plex = DatedPlex(now - 600, {"1": date})
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    service.sweep()
+    while queued(service):
+        service.take(0)
+    real = time.time
+    monkeypatch.setattr(time, "time", lambda: real() + 3700)
+    plex.newest = date
+    service.sweep()
+    while queued(service):
+        service.take(0)
+    plex.rows["2"] = date - 540
     service.sweep()
     assert queued(service).count("2") == 1

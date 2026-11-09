@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 LIVE_VERSION = "3"
 WINDOW_SECONDS = 4 * 86400
 CHECK_SECONDS = 86400
+RETRY_SECONDS = 3600
 FORGET_SECONDS = 14 * 86400
 MATCH_PREFIX = "livetv-match:"
 MATCH_HIT_SECONDS = 30 * 86400
@@ -195,6 +196,7 @@ class LiveTv:
         self._cycle: dict[str, int] | None = None
         self._done: set[str] = set()
         self._tally: Counter[str] = Counter()
+        self._retry = False
 
     def due(self, now: float | None = None) -> bool:
         now = time.time() if now is None else now
@@ -239,6 +241,7 @@ class LiveTv:
         refreshed = {g.provider: g.refreshed_at for g in guides}
         if refreshed != self._cycle:
             self._cycle, self._done, self._tally, self._confirmed = refreshed, set(), Counter(), []
+            self._retry = False
         fetch = lru_cache(maxsize=LOGO_CACHE)(self._fetch)
         tally = self._tally
         failures = 0
@@ -253,7 +256,9 @@ class LiveTv:
                     continue
                 if not tick():
                     return tally
-                tally.update(self.apply(show, fetch))
+                result = self.apply(show, fetch)
+                tally.update(result)
+                self._retry = self._retry or (self._outage and result["failed"] > 0)
                 self._done.add(done)
                 failures = failures + 1 if self._outage else 0
                 if failures >= MAX_NETWORK_FAILURES:
@@ -262,9 +267,10 @@ class LiveTv:
             self.store.guide_seen([show.record_key(t) for show in shows for t in show.targets], now)
         self.store.guide_drop_unseen(now - FORGET_SECONDS)
         self.store.set_meta("livetv_refreshed", json.dumps(refreshed))
-        self.store.set_meta("livetv_checked", str(now))
+        self.store.set_meta("livetv_checked", str(now - CHECK_SECONDS + RETRY_SECONDS if self._retry else now))
         self.store.set_meta("livetv_confirmed", json.dumps(self._confirmed))
         self._cycle, self._done, self._tally, self._confirmed = None, set(), Counter(), []
+        self._retry = False
         self.store.set_meta("livetv_dry_run", str(self.dry_run))
         log.info("live TV posters checked", extra={k.replace(" ", "_"): v for k, v in sorted(tally.items())})
         return tally
@@ -276,6 +282,7 @@ class LiveTv:
     def apply(self, show: GuideShow, fetch: Callable[[str], Image.Image]) -> Counter[str]:
         first = self.store.guide(show.record_key(show.targets[0])) if show.targets else None
         self._outage = False
+        self.ctx.sources.apple_unavailable = False
         try:
             plan = self.plan(show, fetch)
             if self.dry_run:
@@ -328,7 +335,7 @@ class LiveTv:
                 return "unchanged"
             self.server.guide_select(show.provider, where, ours)
             return "selected again"
-        if ours and show.key in self._degraded:
+        if ours and (show.key in self._degraded or self.ctx.sources.apple_unavailable):
             return "kept"
         if not drawn:
             drawn.append(jpeg(plan.draw()))
@@ -398,6 +405,7 @@ class LiveTv:
             self._unreadable[url] = isinstance(exc, http.RequestError) and http.temporary(exc)
             if self._unreadable[url]:
                 self._degraded.add(show.key)
+                self._outage = True
             log.warning(
                 f"{what} could not be read, posters are made without it",
                 extra={"channel": show.channel, "url": http.redact(url), "reason": str(exc)},

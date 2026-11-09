@@ -752,3 +752,25 @@ def test_a_failed_lock_is_locked_again_during_an_apple_outage(tmp_path: Path, mo
     monkeypatch.setattr(pipeline, "plan_item", plan)
     worker.process("1")
     assert pending in locks
+
+
+def test_a_poster_chosen_after_a_lock_during_an_apple_outage_is_kept(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    _fail_once(plex, "lock")
+    worker.process("1")
+    target = next(t for t in ("poster", "art") if (r := store.get("1", t)) and r.fingerprint == "")
+    real = pipeline.plan_item
+
+    def outage(ctx: pipeline.Context, item: Item) -> Any:
+        plans = real(ctx, item)
+        ctx.sources.apple_unavailable = True
+        return plans
+
+    monkeypatch.setattr(pipeline, "plan_item", outage)
+    worker.process("1")
+    monkeypatch.setattr(pipeline, "plan_item", real)
+    plex.selected_keys[("1", target)] = "hand-picked"
+    worker.process("1")
+    assert plex.selected_keys[("1", target)] == "hand-picked"

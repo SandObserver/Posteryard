@@ -368,10 +368,10 @@ def channel_tile(
 
 def text_logo(title: str, ink: RGB = WHITE, prefer: str = "", rows: int = 2) -> Image.Image:
     face = font_for(title, "Bold", 200, prefer)
-    if not face.getlength(title.strip()):
+    words = title[:TEXT_LOGO_CHARS].split()[:TEXT_LOGO_WORDS]
+    if not face.getlength("".join(words)):
         raise ValueError(f"the title {title!r} has nothing to draw")
-    title = title[:TEXT_LOGO_CHARS]
-    lines = _rows(title.split()[:TEXT_LOGO_WORDS] or [title], face, rows)
+    lines = _rows(words, face, rows)
     width = round(max(face.getlength(row) for row in lines)) + 20
     height = round(len(lines) * face.size * 1.1) + 20
     layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
