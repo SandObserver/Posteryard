@@ -337,7 +337,7 @@
       .wheel::-webkit-scrollbar { display: none; }
       .wheel [role="option"] { height: 28px; display: grid; place-items: center; scroll-snap-align: center; font: 15px/1 var(--font); font-variant-numeric: tabular-nums; color: var(--dim); cursor: pointer; }
       .wheel [role="option"][aria-selected="true"] { color: var(--label); font-weight: 600; }
-      .wheel:focus-visible li[aria-selected="true"] { color: var(--accent); }
+      .wheel:focus-visible [role="option"][aria-selected="true"] { color: var(--accent); }
       .colon { font: 600 15px var(--font); color: var(--label); }
       .tp-foot { margin: 4px 0 0; text-align: center; font-size: 11px; color: var(--dim); }
       .tp-foot code { font-size: 0.9em; }
@@ -937,7 +937,7 @@
           const open = () => showMenu(b, {
             label: s.label, align: "end", multiple: s.type === "multi",
             options: s.options.map(([v, label, note]) => ({ v, label, note })),
-            selected: new Set(vals[s.key].split(",")),
+            selected: new Set(s.type === "multi" ? vals[s.key].split(",") : [vals[s.key]]),
             onPick: (v, on) => {
               let next = v;
               if (s.type === "multi") {
@@ -991,6 +991,7 @@
         if (refocus) btn.focus({ preventScroll: true });
         openTimeFor = null;
       }
+      let pressedTimeBtn = false;
       function openTime(btn) {
         if (openTimeFor?.btn === btn) { closeTime(true); return; }
         closeTime(); closeMenu();
@@ -1036,10 +1037,10 @@
             else if (e.key === "Escape" || e.key === "Enter") { e.preventDefault(); closeTime(true); }
           });
         }
-        tp.addEventListener("focusout", (e) => { if (!tp.contains(e.relatedTarget) && e.relatedTarget !== btn) closeTime(); });
+        tp.addEventListener("focusout", (e) => { if (!tp.contains(e.relatedTarget) && e.relatedTarget !== btn && !pressedTimeBtn) closeTime(); });
         requestAnimationFrame(() => { tp.classList.add("open"); $(".wheel", tp).focus({ preventScroll: true }); });
       }
-      document.addEventListener("pointerdown", (e) => { if (openTimeFor && !openTimeFor.tp.contains(e.target) && !openTimeFor.btn.contains(e.target)) closeTime(); });
+      document.addEventListener("pointerdown", (e) => { pressedTimeBtn = !!openTimeFor?.btn.contains(e.target); if (openTimeFor && !openTimeFor.tp.contains(e.target) && !pressedTimeBtn) closeTime(); });
 
       if (g.server !== "plex" || g.method !== "compose") drawInstall(false);
       $("#s9-tabs").classList.add("has-pill");
