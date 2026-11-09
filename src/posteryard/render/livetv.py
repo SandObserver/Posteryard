@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 from posteryard.render import designs
-from posteryard.render.layers import cover, trim
+from posteryard.render.layers import cover, flatten, trim
 
 W, H = designs.POSTER
 CORNER = 0.12
@@ -100,7 +100,7 @@ def trim_bars(image: Image.Image) -> Image.Image:
 
 def guide_picture(image: Image.Image) -> Image.Image:
     """The guide's picture without flat bars. A picture too thin for a poster is refused."""
-    picture = trim_bars(image).convert("RGB")
+    picture = trim_bars(flatten(image))
     if max(picture.width / picture.height, picture.height / picture.width) > PICTURE_MAX_ASPECT:
         raise ValueError(f"the picture is {picture.width}x{picture.height}, too thin for a poster")
     return picture

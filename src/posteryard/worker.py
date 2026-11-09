@@ -331,6 +331,7 @@ class Worker:
             # An empty fingerprint is a failed lock. The caller drops the retry after this outcome.
             if not record.fingerprint and not self.cfg.dry_run:
                 self.server.lock(item, target)
+                self.store.uploaded(key, target, plan.name, plan.fingerprint, record.image_key)
             log.info(f"{noun} kept while Apple TV art is unavailable", extra={"title": plan.name})
             return Outcome.UNCHANGED
         image = plan.draw()

@@ -728,3 +728,61 @@ def test_a_run_stops_after_repeated_network_failures(tmp_path: Path) -> None:
     assert len(calls) == 3
     live.run()
     assert len(set(calls)) == 6
+
+
+def test_a_show_that_failed_in_an_outage_is_tried_again_within_the_hour(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [airing("Some Show", "k1")])
+
+    def down(kind: Kind, query: str) -> list[dict[str, Any]]:
+        raise http.TemporaryError("ConnectionError", "https://api.themoviedb.org/3/search")
+
+    tmdb.search = down  # type: ignore[method-assign]
+    assert live.run(now=100000.0)["failed"] == 1
+    assert not live.due(now=100000.0 + 3599)
+    assert live.due(now=100000.0 + 3600)
+
+
+def test_a_picture_host_that_stops_answering_stops_the_run(tmp_path: Path) -> None:
+    shows = [airing(f"Show {i}", str(i), thumb=f"https://img.example/{i}.jpg") for i in range(10)]
+    live, _, _ = build(tmp_path, shows)
+    pictures: list[str] = []
+
+    def down(url: str) -> Image.Image:
+        if "img.example" not in url:
+            return logo()
+        pictures.append(url)
+        raise http.TemporaryError("ConnectTimeoutError", url)
+
+    live._fetch = down
+    live.run()
+    assert len(pictures) == 3
+    live.run()
+    assert len(set(pictures)) == 6
+
+
+def test_a_title_with_only_invisible_characters_in_the_part_drawn_fails_alone(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("\u200b" * 301 + "Real", "a"), airing("Later", "b")])
+    assert live.run()["failed"] == 1
+    assert len(plex.uploads) == 1
+
+
+def test_an_apple_outage_keeps_the_uploaded_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, plex, tmdb = build(tmp_path, [airing("Example Movie", "k1")])
+    tmdb.results["Example Movie"] = [{"id": 5, "name": "Example Movie"}]
+    assert live.run(now=1000.0)["uploaded"] == 1
+    sources, real = live.ctx.sources, live.ctx.sources.art
+
+    def down(title: Any) -> Any:
+        sources.apple_unavailable = True
+        return real(title)
+
+    monkeypatch.setattr(sources, "art", down)
+    monkeypatch.setattr(pipeline, "_is_wide", lambda ctx, path: True)
+    assert live.run(now=2000.0)["kept"] == 1
+    assert len(plex.uploads) == 1
+
+
+def test_colour_under_transparent_pixels_stays_off_a_guide_picture() -> None:
+    image = Image.effect_noise((400, 600), 60).convert("RGBA")
+    image.paste((255, 0, 0, 0), (150, 250, 250, 350))
+    assert cards.guide_picture(image).getpixel((200, 300)) == (0, 0, 0)

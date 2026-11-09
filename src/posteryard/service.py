@@ -376,10 +376,11 @@ class Service:
                     stamps[key] = stamp
                     if stamp <= started + MAX_AHEAD:
                         newest = max(newest, stamp)
-                    if stamp <= started:
-                        behind = max(behind, stamp)
                     if stored and edge.get(key) != stamp:
                         fresh.append(item)
+                        # An item dated ahead reaches this machine's date before the server's. Only a new stamp counts.
+                        if stamp <= started:
+                            behind = max(behind, stamp)
                 self.enqueue(self._keys(fresh), "changed")
                 for label, keys in labelled.items():
                     # Adding or removing a label does not change an item's updatedAt, so changed_since misses it.
