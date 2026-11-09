@@ -5,7 +5,9 @@ import socket
 import threading
 import time
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import date
+from datetime import time as dt_time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -1102,6 +1104,7 @@ def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pyt
 def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(tmp_path: Path) -> None:
     service = make_service(tmp_path)
     service.store.set_meta("settings_signature", service.settings_signature())
+    service.cfg = replace(service.cfg, daily_at=dt_time(0, 0))
     service.store.set_meta("last_full", "2020-01-01")
     swept: list[int] = []
 
