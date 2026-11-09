@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Open landing page menus faster, shorten size changes, and add a short poster entrance to the hero.
+- Keep fades and colour changes on the landing page under Reduce Motion and honour Increase Contrast.
+
+### Fixed
+
+- Stop iPhones zooming the landing page when a settings text box is tapped.
+- Keep the pill shape of landing page buttons under keyboard focus.
+- Stop hover styles sticking after a tap, and wrap long words instead of widening the page.
+
 ## [0.10.3] - 2026-11-08
 
 ### Changed
