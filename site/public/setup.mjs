@@ -128,6 +128,11 @@ const outputs = {
     head: 'Add these lines under <code>environment:</code> in <code>compose.yml</code>',
     fname: 'compose.yml',
     line: (s, v) => `- ${s.key}=${v}`,
+    item: (s, v) => {
+      if (/^[\w.,:/@%+=-]*$/.test(v)) return `- ${s.key}=${esc(v)}`;
+      const safe = v.replaceAll('\\', '\\\\').replaceAll('"', '\\"').replaceAll('$', () => '$$');
+      return `- "${s.key}=${esc(safe)}"`;
+    },
     apply: 'run <code>docker compose up -d</code>',
   },
   run: {
@@ -150,7 +155,7 @@ export function lines(data, vals, method = 'compose') {
   const changed = all.filter((s) => isChanged(s, vals));
   const out = changed.map((s) => {
     const v = vals[s.key].trim();
-    return o.line(s, esc(o.quote ? o.quote(v) : v));
+    return o.item ? o.item(s, v) : o.line(s, esc(o.quote ? o.quote(v) : v));
   });
   const events = all.find((s) => s.key === 'NOTIFY_EVENTS');
   const placeholder = isChanged(events, vals) && vals.NOTIFY_EVENTS !== '' && !vals.NOTIFY_URLS.trim();

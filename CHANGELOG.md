@@ -57,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Find new titles at the next sweep when an item is dated in the future. They waited until that date passed.
 - Draw at most 40 words and 300 characters of a very long guide title, so it cannot fill the memory.
 - Try Live TV shows again within an hour after a network failure. They waited for the next guide refresh or a day.
-- Quote values with spaces in the landing page's `docker run` lines, so the pasted command works.
+- Quote values in the landing page's `docker run` and Docker Compose lines, so the pasted command works and no library is lost.
 - Make the landing page's install picker, menus, feature row and copy buttons move without jumps and stay on screen, and fix their keyboard and screen reader behaviour.
 
 ### Security
