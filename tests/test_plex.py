@@ -9,7 +9,7 @@ import pytest
 from posteryard import http
 from posteryard import plex as plex_module
 from posteryard.plex import Plex
-from posteryard.server import Item, external_ids, labels, tmdb_id
+from posteryard.server import Item, external_ids, is_target, labels, tmdb_id
 
 BASE = "http://plex.example:32400"
 
@@ -390,3 +390,7 @@ def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatc
     plex._machine_id = "abc"
     assert plex.create_collection("4", "show", "Netflix", ["1"]) == "60"
     assert sent == [("POST", 1)]
+
+
+def test_only_the_three_image_targets_are_targets() -> None:
+    assert [name for name in ("poster", "art", "thumb", "banner", "") if is_target(name)] == ["poster", "art", "thumb"]

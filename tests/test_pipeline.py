@@ -540,8 +540,10 @@ def test_lookups_are_bounded_and_details_trimmed(monkeypatch: pytest.MonkeyPatch
     for n in "01234":
         ctx.sources.remember(("n", n), str)
     assert [key[1] for key in ctx.sources.lookups] == ["2", "3", "4"]
-    monkeypatch.setattr(ctx.sources.tmdb, "details", lambda kind, tid: {"name": "A", "images": {"posters": []}})
-    assert ctx.sources.details("tv", 7) == {"name": "A"}
+    monkeypatch.setattr(
+        ctx.sources.tmdb, "details", lambda kind, tid: {"name": "A", "seasons": [], "images": {"posters": []}}
+    )
+    assert ctx.sources.show_seasons(7) == {"seasons": []}
 
 
 class ImdbCollection(FakeServer):

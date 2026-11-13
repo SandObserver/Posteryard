@@ -23,7 +23,7 @@ from posteryard.livetv import (
 from posteryard.plex import Plex
 from posteryard.render import designs
 from posteryard.render import livetv as cards
-from posteryard.server import Guide, Item
+from posteryard.server import Airing, AiringMedia, Guide, ImageEntry, Item
 from posteryard.store import Store
 from posteryard.tmdb import Details, ImageRef, Kind
 from tests.fakes import FakeTmdb, ref
@@ -33,11 +33,11 @@ GUIDE = "tv.plex.providers.epg.xmltv:15"
 LOGO = "https://logos.example/news.png"
 
 
-def airing(title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False) -> Item:
-    media = {"channelCallSign": channel, "channelThumb": LOGO}
+def airing(title: str, key: str, *, channel: str = "News 24", thumb: str = "", movie: bool = False) -> Airing:
+    media: AiringMedia = {"channelCallSign": channel, "channelThumb": LOGO}
     if movie:
         return {"type": "movie", "ratingKey": key, "title": title, "thumb": thumb, "guid": f"g/{key}", "Media": [media]}
-    return {  # type: ignore[typeddict-unknown-key]
+    return {
         "type": "episode", "grandparentRatingKey": key, "grandparentTitle": title, "grandparentThumb": thumb,
         "grandparentGuid": f"g/{key}", "Media": [media],
     }  # fmt: skip
@@ -62,7 +62,7 @@ class GuideTmdb(FakeTmdb):
 
 
 class GuidePlex(Plex):
-    def __init__(self, airings: list[Item]) -> None:
+    def __init__(self, airings: list[Airing]) -> None:
         super().__init__("http://plex.example", "example-token")
         self.airings = airings
         self.refreshed = 1
@@ -80,10 +80,10 @@ class GuidePlex(Plex):
     def guides(self) -> list[Guide]:
         return [Guide(GUIDE, self.refreshed)]
 
-    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Airing]:
         return self.airings
 
-    def guide_images(self, provider: str, key: str) -> list[Item]:
+    def guide_images(self, provider: str, key: str) -> list[ImageEntry]:
         return self.posters.get(key, [])  # type: ignore[return-value]
 
     def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
@@ -110,7 +110,7 @@ def fetch(url: str) -> Image.Image:
     return Image.new("RGB", (900, 500), (40, 90, 140))
 
 
-def build(tmp_path: Path, airings: list[Item], *, dry_run: bool = False) -> tuple[LiveTv, GuidePlex, GuideTmdb]:
+def build(tmp_path: Path, airings: list[Airing], *, dry_run: bool = False) -> tuple[LiveTv, GuidePlex, GuideTmdb]:
     plex = GuidePlex(airings)
     ctx = fake_context([ref("/poster.jpg", None)])
     tmdb = GuideTmdb()
@@ -230,12 +230,12 @@ def test_a_movie_with_a_year_in_the_guide_gets_the_film_of_that_year(tmp_path: P
         {"id": 438631, "title": "Dune", "vote_count": 14000, "release_date": "2021-09-15"},
         {"id": 841, "title": "Dune", "vote_count": 3000, "release_date": "1984-12-14"},
     ]
-    old: Item = {**airing("Dune", "a", movie=True), "year": 1985}
+    old: Airing = {**airing("Dune", "a", movie=True), "year": 1985}
     assert live.match(guide_shows(GUIDE, [old])[0]) == 841
     assert live.match(guide_shows(GUIDE, [airing("Dune", "b", movie=True)])[0]) == 438631
-    unknown: Item = {**airing("Dune", "c", movie=True), "year": 1950}
+    unknown: Airing = {**airing("Dune", "c", movie=True), "year": 1950}
     assert live.match(guide_shows(GUIDE, [unknown])[0]) is None
-    episode: Item = {**airing("Dune", "d"), "year": 1984}
+    episode: Airing = {**airing("Dune", "d"), "year": 1984}
     assert guide_shows(GUIDE, [episode])[0].year is None
 
 
@@ -375,7 +375,7 @@ def test_a_poster_the_server_deleted_makes_the_guide_due(tmp_path: Path, monkeyp
     assert plex.uploads == ["a", "b", "b"]
     assert not live.due(now=3000)
 
-    def gone(provider: str, key: str) -> list[Item]:
+    def gone(provider: str, key: str) -> list[ImageEntry]:
         raise http.HttpError(404, "http://plex.example")
 
     monkeypatch.setattr(plex, "guide_images", gone)
@@ -429,7 +429,7 @@ def test_each_check_asks_for_a_few_posters_and_all_are_asked_in_turn(
     asked: list[str] = []
     images = plex.guide_images
 
-    def counted(provider: str, key: str) -> list[Item]:
+    def counted(provider: str, key: str) -> list[ImageEntry]:
         asked.append(key)
         return images(provider, key)
 
@@ -573,7 +573,7 @@ def test_a_guide_entry_renumbered_before_the_upload_is_skipped(tmp_path: Path, m
     plex.mixed |= {"a": "b", "7": "a"}
     images = plex.guide_images
 
-    def refresh(provider: str, key: str) -> list[Item]:
+    def refresh(provider: str, key: str) -> list[ImageEntry]:
         if key == "7":
             plex.mixed |= {"7": "c", "8": "a"}
         return images(provider, key)

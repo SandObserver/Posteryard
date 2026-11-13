@@ -9,13 +9,13 @@ import re
 import time
 import urllib.parse
 import zlib
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
 from xml.parsers import expat
 
 from posteryard import http
-from posteryard.server import SOURCES, Guide, Item, Target, made_here
+from posteryard.server import SOURCES, Airing, AiringMedia, Guide, ImageEntry, Item, Target, made_here
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
@@ -347,7 +347,7 @@ class Jellyfin:
         url = self._url(f"/Items/{self._id(str(item['ratingKey']))}/Images/{path}")
         return made_here(http.request("GET", url, headers=self._auth, timeout=60))
 
-    def _update_tags(self, rating_key: str, change: Any) -> None:
+    def _update_tags(self, rating_key: str, change: Callable[[list[str]], list[str]]) -> None:
         raw = self._raw(rating_key)
         self._save_tags(raw, change(self._tags(raw)))
         self._send("POST", f"/Items/{self._id(rating_key)}", body=json.dumps(raw).encode(), content="application/json")
@@ -390,12 +390,12 @@ class Jellyfin:
         finished = _timestamp(((task or {}).get("LastExecutionResult") or {}).get("EndTimeUtc"))
         return [Guide(GUIDE, finished or 0)]
 
-    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Airing]:
         """Every airing is its own item. Airings of one title on one channel share a show key."""
         pictures = self._guide_pictures(start, end)
         channels = self._as_user("/LiveTv/Channels", EnableImages="true").get("Items") or []
         logos = {str(c.get("Id")) for c in channels if (c.get("ImageTags") or {}).get("Primary")}
-        airings: list[Item] = []
+        airings: list[Airing] = []
         while True:
             page = self._as_user(
                 "/LiveTv/Programs", MinEndDate=_iso(start), MaxStartDate=_iso(end),
@@ -406,15 +406,15 @@ class Jellyfin:
             if not raw or len(airings) >= int(page.get("TotalRecordCount") or len(airings)):
                 return airings
 
-    def _airing(self, raw: Mapping[str, Any], pictures: Mapping[tuple[str, int], str], logos: set[str]) -> Item:
+    def _airing(self, raw: Mapping[str, Any], pictures: Mapping[tuple[str, int], str], logos: set[str]) -> Airing:
         channel, title = str(raw.get("ChannelName") or ""), str(raw.get("Name") or "")
-        begins, ends = _timestamp(raw.get("StartDate")) or 0, _timestamp(raw.get("EndDate")) or 0
+        begins = _timestamp(raw.get("StartDate")) or 0
         show = f"{raw.get('ChannelId')}/{title.casefold()}"
         picture = pictures.get((channel.casefold(), begins), "")
         channel_id = self._id(str(raw.get("ChannelId")))
         logo = self._url(f"/Items/{channel_id}/Images/Primary") if channel_id in logos else ""
-        media = {"channelCallSign": channel, "beginsAt": begins, "endsAt": ends, "channelThumb": logo}
-        airing: dict[str, Any]
+        media: AiringMedia = {"channelCallSign": channel, "channelThumb": logo}
+        airing: Airing
         if raw.get("IsMovie"):
             airing = {"type": "movie", "ratingKey": show, "title": title, "thumb": picture, "guid": show}
             if isinstance(year := raw.get("ProductionYear"), int):
@@ -422,7 +422,8 @@ class Jellyfin:
         else:
             airing = {"type": "episode", "grandparentRatingKey": show, "grandparentTitle": title,
                       "grandparentThumb": picture, "grandparentGuid": show}  # fmt: skip
-        return {**airing, "targetKey": self._id(str(raw.get("Id"))), "Media": [media]}  # type: ignore[typeddict-item]
+        airing["targetKey"], airing["Media"] = self._id(str(raw.get("Id"))), [media]
+        return airing
 
     def _guide_pictures(self, start: int, end: int) -> dict[tuple[str, int], str]:
         """Jellyfin keeps its copy of a guide picture, not the address. The XMLTV guides it reads still have it.
@@ -449,9 +450,9 @@ class Jellyfin:
     def guide_target(self, provider: str, key: str, guid: str) -> str | None:
         return key
 
-    def guide_images(self, provider: str, key: str) -> list[Item]:
+    def guide_images(self, provider: str, key: str) -> list[ImageEntry]:
         tag = self.selected(key, "poster")
-        return [{"ratingKey": tag, "selected": True}] if tag else []  # type: ignore[typeddict-unknown-key]
+        return [{"ratingKey": tag, "selected": True}] if tag else []
 
     def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
         return self.upload(key, "poster", jpeg)

@@ -23,7 +23,7 @@ from PIL import Image
 
 from posteryard import http, pipeline
 from posteryard.render import designs, livetv
-from posteryard.server import GuideServer, Item
+from posteryard.server import Airing, GuideServer
 from posteryard.store import GuideRecord, Store
 from posteryard.titles import plain, slug
 from posteryard.tmdb import Kind, open_image
@@ -106,7 +106,7 @@ def _web(url: str) -> bool:
 
 
 def guide_shows(
-    provider: str, airings: Iterable[Item], remembered: Callable[[str], str] = lambda _: ""
+    provider: str, airings: Iterable[Airing], remembered: Callable[[str], str] = lambda _: ""
 ) -> list[GuideShow]:
     """One entry per show or movie. A picture that several shows share is a channel image, not the show's own.
 
@@ -116,8 +116,7 @@ def guide_shows(
     shows: dict[str, GuideShow] = {}
     users: dict[str, set[str]] = {}
     channels: dict[str, set[str]] = {}
-    for item in airings:
-        airing: dict[str, Any] = dict(item)
+    for airing in airings:
         movie = airing.get("type") == "movie"
         key = str((airing.get("ratingKey") if movie else airing.get("grandparentRatingKey")) or "")
         title = str((airing.get("title") if movie else airing.get("grandparentTitle")) or "")
