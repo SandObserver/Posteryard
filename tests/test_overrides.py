@@ -78,3 +78,20 @@ def test_load_opens_only_saved_jpeg_art(tmp_path: Path) -> None:
     Image.new("RGB", (20, 30)).save(other)
     with pytest.raises(OSError, match="cannot identify"):
         overrides.load(overrides.FILE_PREFIX + str(other))
+
+
+def test_a_failed_save_keeps_the_saved_art(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    image = Image.new("RGB", (4, 4), "red")
+    path = overrides.save(image, tmp_path, "7")
+    before = path.read_bytes()
+
+    def full(self: Path, data: bytes) -> int:
+        with self.open("wb") as file:
+            file.write(data[:3])
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(Path, "write_bytes", full)
+    with pytest.raises(OSError):
+        overrides.save(image, tmp_path, "7")
+    assert path.read_bytes() == before
+    assert list(path.parent.glob("*.part")) == []

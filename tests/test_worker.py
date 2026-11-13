@@ -1,5 +1,6 @@
 import io
 import logging
+import time
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -847,3 +848,13 @@ def test_a_label_on_a_poster_changed_by_hand_survives_one_failed_run(tmp_path: P
     assert worker.process("1") == Outcome.UPLOADED
     record = store.get("1", "poster")
     assert record is not None and record.status == Status.UPLOADED
+
+
+def test_an_ignored_title_drops_its_failure(tmp_path: Path) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    plex.fail = True
+    assert worker.process("1") == Outcome.FAILED
+    plex.fail = False
+    plex.items["1"]["Label"] = [{"tag": "posteryard-ignore"}]
+    assert worker.process("1") == Outcome.SKIPPED
+    assert store.retry_due(time.time() + 30 * 86400) == []

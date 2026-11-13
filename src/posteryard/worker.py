@@ -126,6 +126,7 @@ class Worker:
                 self.store.drop_uploads(rating_key)
                 return Outcome.GONE
             if not self.allowed(item) or overrides.IGNORE_LABEL in labels(item):
+                self.store.forget_target(rating_key, ITEM_TARGET)
                 return Outcome.SKIPPED
             title, kind = str(item.get("title", rating_key)), str(item.get("type"))
             self.ctx.settings.action_days = self.leaving_days()
