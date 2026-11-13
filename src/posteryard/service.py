@@ -668,17 +668,22 @@ class Service:
         return bool(self.status()["ok"])
 
     def _watch(self, server: ThreadingHTTPServer) -> None:
-        while not self._stop.wait(TICK):
-            http.close_idle()
-            dead = [thread.name for thread in self.threads if not thread.is_alive()]
-            stuck = time.monotonic() - self.worker_beat >= WORKER_RESTART
-            if dead or stuck:
-                reason = f"{', '.join(dead)} stopped" if dead else f"one title took over {WORKER_RESTART // 60} minutes"
-                log.error("exiting so the container restarts", extra={"reason": reason})
-                self.worker.notifier.alert("restart", f"Posteryard restarts because {reason}.")
-                self.exit_code = 1
-                self.stop()
-        server.shutdown()
+        try:
+            while not self._stop.wait(TICK):
+                http.close_idle()
+                dead = [thread.name for thread in self.threads if not thread.is_alive()]
+                stuck = time.monotonic() - self.worker_beat >= WORKER_RESTART
+                if dead or stuck:
+                    reason = (
+                        f"{', '.join(dead)} stopped" if dead else f"one title took over {WORKER_RESTART // 60} minutes"
+                    )
+                    log.error("exiting so the container restarts", extra={"reason": reason})
+                    # Stop before the alert. A failing alert must not keep a broken process running.
+                    self.exit_code = 1
+                    self.stop()
+                    self.worker.notifier.alert("restart", f"Posteryard restarts because {reason}.")
+        finally:
+            server.shutdown()
 
     def handler(self) -> type[BaseHTTPRequestHandler]:  # noqa: C901
         service = self

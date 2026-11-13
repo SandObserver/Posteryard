@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import sqlite3
 import threading
 import time
 from collections.abc import Sequence
@@ -134,5 +135,10 @@ class Notifier:
         return False
 
     def _save(self) -> None:
-        if self._state is not None:
+        """Never raises. Alerts are sent from error handlers, and a full disk must not stop the thread."""
+        if self._state is None:
+            return
+        try:
             self._state.set_meta(ALERT_STATE, json.dumps({"muted": self._muted, "open": sorted(self._open)}))
+        except (sqlite3.Error, OSError) as exc:
+            log.warning("alert state not saved", extra={"reason": str(exc)})
