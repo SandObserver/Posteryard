@@ -3,7 +3,7 @@
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypedDict
+from typing import Any, Literal, Protocol, TypedDict, TypeGuard, get_args
 
 JPEG_COMMENT = 0xFE
 JPEG_SCAN = 0xDA
@@ -46,12 +46,44 @@ class Item(TypedDict, total=False):
     paths: list[str]
 
 
+class AiringMedia(TypedDict, total=False):
+    channelThumb: str
+    channelCallSign: str
+    channelTitle: str
+
+
+class Airing(TypedDict, total=False):
+    """One guide airing, with only what `livetv.guide_shows` reads. Plex keeps exactly these fields."""
+
+    type: str
+    ratingKey: str
+    grandparentRatingKey: str
+    title: str
+    grandparentTitle: str
+    thumb: str
+    grandparentThumb: str
+    targetKey: str
+    guid: str
+    grandparentGuid: str
+    year: int
+    Media: list[AiringMedia]
+
+
+class ImageEntry(TypedDict, total=False):
+    ratingKey: str
+    selected: bool
+
+
 Target = Literal["poster", "art", "thumb"]
-TARGETS: frozenset[str] = frozenset({"poster", "art", "thumb"})
+TARGETS: frozenset[str] = frozenset(get_args(Target))
 ITEM_KEY = re.compile(r"^(\d{1,12}|[0-9a-f]{32})$")
 SOURCES = ("tmdb", "imdb", "tvdb")
 LEGACY_AGENTS = {"themoviedb": "tmdb", "imdb": "imdb", "thetvdb": "tvdb"}
 LEGACY_GUID = re.compile(r"^com\.plexapp\.agents\.(\w+)://([^/?]+)")
+
+
+def is_target(name: str) -> TypeGuard[Target]:
+    return name in TARGETS
 
 
 def is_item_key(text: str) -> bool:
@@ -98,9 +130,9 @@ class GuideServer(Protocol):
     url: str
 
     def guides(self) -> list[Guide]: ...
-    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]: ...
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Airing]: ...
     def guide_target(self, provider: str, key: str, guid: str) -> str | None: ...
-    def guide_images(self, provider: str, key: str) -> list[Item]: ...
+    def guide_images(self, provider: str, key: str) -> list[ImageEntry]: ...
     def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str: ...
     def guide_select(self, provider: str, key: str, image_key: str) -> None: ...
 

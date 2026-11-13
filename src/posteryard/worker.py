@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
-from typing import cast
 from urllib.parse import urlsplit
 
 from PIL import Image
@@ -14,7 +13,7 @@ from posteryard import http, memory, ocr, overrides, pipeline, service_collectio
 from posteryard.config import Config, EpisodeMode
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.server import MADE_BY, TARGETS, Item, MediaServer, Target, label_tag, labels, made_here
+from posteryard.server import MADE_BY, Item, MediaServer, Target, is_target, label_tag, labels, made_here
 from posteryard.settings import Settings
 from posteryard.sources import Sources
 from posteryard.store import Record, Status, Store
@@ -197,9 +196,9 @@ class Worker:
         counts = Restored()
         records = {(r.rating_key, r.target): r for r in self.store.with_upload()}
         for key, name in sorted(records.keys() | self.store.upload_targets()):
-            if name not in TARGETS:
+            if not is_target(name):
                 continue
-            target, record = cast(Target, name), records.get((key, name))
+            target, record = name, records.get((key, name))
             title = record.title if record else key
             try:
                 item = self.server.item(key)

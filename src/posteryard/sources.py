@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from functools import lru_cache
-from typing import Any, cast
+from typing import cast
 
 from PIL import Image
 
@@ -19,14 +19,13 @@ from posteryard.overrides import Override
 from posteryard.render.layers import preferred_family
 from posteryard.settings import Settings
 from posteryard.store import Store
-from posteryard.tmdb import Details, Images, Kind, RegionOffers, Tmdb, open_image
+from posteryard.tmdb import Images, Kind, RegionOffers, ShowSeasons, Tmdb, open_image
 
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
 APPLE_ART_DAYS = 30
 APPLE_RETRY_SECONDS = 3600
 LOOKUP_SIZE = 4096
-DETAIL_FIELDS = ("title", "name", "seasons", "next_episode_to_air")
 # Downloaded images held in memory. Unbounded, a long-running service runs out of memory.
 FETCH_CACHE = 8
 FIND_RETRY = timedelta(days=30)
@@ -66,7 +65,7 @@ class Sources:
     apple_failed: dict[str, tuple[float, bool]] = field(default_factory=dict)
     text_check: bool = True
     apple_unavailable: bool = False
-    lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
+    lookups: OrderedDict[tuple[str, ...], tuple[float, object]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     @classmethod
@@ -97,12 +96,12 @@ class Sources:
             return Picker(self.choices, self.fetch, lambda _image: [], UNCHECKED)
         return Picker(self.choices, self.fetch, self.read)
 
-    def remember(self, key: tuple[str, ...], load: Callable[[], Any], *, fresh: bool = False) -> Any:
+    def remember[T](self, key: tuple[str, ...], load: Callable[[], T], *, fresh: bool = False) -> T:
         with self._lock:
             hit = self.lookups.get(key)
             if hit and not fresh and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
                 self.lookups.move_to_end(key)
-                return hit[1]
+                return cast(T, hit[1])
         value = load()
         with self._lock:
             self.lookups[key] = (time.monotonic(), value)
@@ -257,13 +256,17 @@ class Sources:
         images: Images = self.remember(key, lambda: self.tmdb.season_images(tid, season))
         return images
 
-    def details(self, kind: Kind, tid: int) -> Details:
-        def load() -> Details:
-            full: Mapping[str, object] = self.tmdb.details(kind, tid)
-            return cast(Details, {name: full[name] for name in DETAIL_FIELDS if name in full})
+    def show_seasons(self, tid: int) -> ShowSeasons:
+        def load() -> ShowSeasons:
+            full = self.tmdb.details("tv", tid)
+            kept: ShowSeasons = {}
+            if "seasons" in full:
+                kept["seasons"] = full["seasons"]
+            if "next_episode_to_air" in full:
+                kept["next_episode_to_air"] = full["next_episode_to_air"]
+            return kept
 
-        details: Details = self.remember(("details", kind, str(tid)), load)
-        return details
+        return self.remember(("details", "tv", str(tid)), load)
 
     def find(self, kind: Kind, source: str, external_id: str) -> int | None:
         key = f"find:{source}:{external_id}"

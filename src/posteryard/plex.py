@@ -7,7 +7,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 from posteryard import http
-from posteryard.server import Guide, Item, Target
+from posteryard.server import Airing, AiringMedia, Guide, ImageEntry, Item, Target
 
 log = logging.getLogger(__name__)
 
@@ -23,20 +23,8 @@ GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
 GUIDE_PAGE = 2000
 CHANGE_FIELDS = ("ratingKey", "parentRatingKey", "grandparentRatingKey", "updatedAt", "addedAt")
-AIRING_FIELDS = (
-    "type",
-    "ratingKey",
-    "grandparentRatingKey",
-    "title",
-    "grandparentTitle",
-    "thumb",
-    "grandparentThumb",
-    "targetKey",
-    "guid",
-    "grandparentGuid",
-    "year",
-)
-AIRING_MEDIA_FIELDS = ("channelThumb", "channelCallSign", "channelTitle")
+AIRING_FIELDS = tuple(field for field in Airing.__annotations__ if field != "Media")
+AIRING_MEDIA_FIELDS = tuple(AiringMedia.__annotations__)
 GUIDE_IDS = 300
 GUIDE_ID_BATCHES = 100
 
@@ -188,9 +176,9 @@ class Plex:
                 changed[str(item["ratingKey"])] = _only(item, CHANGE_FIELDS)
         return list(changed.values())
 
-    def images(self, rating_key: str, target: Target) -> list[Item]:
+    def images(self, rating_key: str, target: Target) -> list[ImageEntry]:
         listing, _, _ = ENDPOINTS[target]
-        images: list[Item] = self._get(f"/library/metadata/{_key(rating_key)}/{listing}").get("Metadata", [])
+        images: list[ImageEntry] = self._get(f"/library/metadata/{_key(rating_key)}/{listing}").get("Metadata", [])
         return images
 
     def selected(self, rating_key: str, target: Target) -> str | None:
@@ -263,10 +251,10 @@ class Plex:
                 found.append(Guide(provider, int(dvr.get("refreshedAt") or 0)))
         return found
 
-    def guide_airings(self, provider: str, start: int, end: int) -> list[Item]:
+    def guide_airings(self, provider: str, start: int, end: int) -> list[Airing]:
         """Every airing that ends after `start` and begins before `end`, on all channels."""
         self._guide_batches.pop(provider, None)
-        airings: list[Item] = []
+        airings: list[Airing] = []
         while True:
             page = self._get(
                 f"/{_provider(provider)}/grid",
@@ -347,8 +335,10 @@ class Plex:
             items = []
         return {str(i.get("guid") or "") for i in items}
 
-    def guide_images(self, provider: str, key: str) -> list[Item]:
-        images: list[Item] = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters").get("Metadata", [])
+    def guide_images(self, provider: str, key: str) -> list[ImageEntry]:
+        images: list[ImageEntry] = self._get(f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters").get(
+            "Metadata", []
+        )
         return images
 
     def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
@@ -386,9 +376,9 @@ def _only(item: Mapping[str, Any], fields: tuple[str, ...]) -> Any:
     return {field: item[field] for field in fields if field in item}
 
 
-def _airing(item: Mapping[str, Any]) -> Item:
-    """Keep every field `livetv.guide_shows` reads. A large guide does not fit in memory with whole airings."""
-    airing: Item = _only(item, AIRING_FIELDS)
+def _airing(item: Mapping[str, Any]) -> Airing:
+    """Only the fields of `Airing`. A large guide does not fit in memory with whole airings."""
+    airing: Airing = _only(item, AIRING_FIELDS)
     if media := item.get("Media"):
         airing["Media"] = [_only(media[0], AIRING_MEDIA_FIELDS)]
     return airing

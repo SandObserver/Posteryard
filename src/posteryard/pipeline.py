@@ -453,7 +453,7 @@ def show(ctx: Context, item: Item) -> list[Plan]:
         added=status.from_timestamp(item.get("addedAt")),
         newest_season=_newest_season(ctx, key),
         newest_episode=_newest(ctx, item, "episode", "show.id", key),
-        next_season=status.next_season(ctx.sources.details("tv", title.tmdb_id)) if ctx.settings.labels else None,
+        next_season=status.next_season(ctx.sources.show_seasons(title.tmdb_id)) if ctx.settings.labels else None,
     )
     poster = _poster(
         ctx, title, key, title.name, season=None, badges=[], label=_label(ctx, dates, ctx.settings.leaving(key))
@@ -511,7 +511,7 @@ def _sibling_seasons(ctx: Context, title: Title, item: Item) -> list[int]:
             children = ctx.sources.remember(("children", parent), lambda: server.children(parent), fresh=True)
             numbers = sorted(int(child["index"]) for child in children if child.get("index") is not None)
         return numbers
-    return sorted(int(s["season_number"]) for s in ctx.sources.details("tv", title.tmdb_id).get("seasons") or [])
+    return sorted(int(s["season_number"]) for s in ctx.sources.show_seasons(title.tmdb_id).get("seasons") or [])
 
 
 def _tmdb_episode(ctx: Context, title: Title, item: Item) -> Episode | None:

@@ -6,7 +6,7 @@ import urllib.parse
 from collections import OrderedDict
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 import numpy as np
 from PIL import Image, ImageCms, ImageOps
@@ -45,6 +45,7 @@ class ImageSet(TypedDict, total=False):
 
 
 class Episode(TypedDict, total=False):
+    season_number: int
     episode_number: int
     name: str
     air_date: str | None
@@ -53,6 +54,13 @@ class Episode(TypedDict, total=False):
 
 class SeasonSummary(TypedDict, total=False):
     season_number: int
+
+
+class ShowSeasons(TypedDict, total=False):
+    """The part of a show's details that is kept between titles."""
+
+    seasons: list[SeasonSummary]
+    next_episode_to_air: Episode | None
 
 
 class Season(TypedDict, total=False):
@@ -167,7 +175,7 @@ class Tmdb:
     def __init__(self, api_key: str, languages: Sequence[str] = ("en",)) -> None:
         self.api_key = api_key
         self.languages = tuple(languages)
-        self._cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+        self._cache: OrderedDict[str, tuple[float, object]] = OrderedDict()
         self._lock = threading.Lock()
 
     @property
@@ -186,13 +194,13 @@ class Tmdb:
             f"{API}{path}?{urllib.parse.urlencode({**params, 'api_key': self.api_key})}", redirects=False
         )
 
-    def _cached(self, key: str, load: Callable[[], Any]) -> Any:
+    def _cached[T](self, key: str, load: Callable[[], T]) -> T:
         now = time.monotonic()
         with self._lock:
             hit = self._cache.get(key)
             if hit and now - hit[0] < CACHE_SECONDS:
                 self._cache.move_to_end(key)
-                return hit[1]
+                return cast(T, hit[1])
         value = load()
         with self._lock:
             self._cache[key] = (now, value)
