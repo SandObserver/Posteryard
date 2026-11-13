@@ -32,6 +32,7 @@ TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
 DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, the server was not changed)"
+ITEM_ERRORS = (pipeline.NotFoundError, overrides.ArtError, OSError, ValueError)
 
 
 def _set_log_level(level: config.LogLevel) -> None:
@@ -238,7 +239,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
                 plan.draw().convert("RGB").save(path, quality=92)
                 print(f"{path}  {plan.name}  ({'; '.join(plan.notes)})")
             memory.release()
-        except (pipeline.NotFoundError, http.RequestError, ValueError, OSError) as exc:
+        except (*ITEM_ERRORS, http.RequestError) as exc:
             print(f"{label}: {exc}")
             failed += 1
     return 1 if failed else 0
@@ -383,7 +384,7 @@ def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store:
     worker.ctx.sources.marks = None
     try:
         result = why.report(worker.ctx, item, store)
-    except (pipeline.NotFoundError, overrides.ArtError, OSError) as exc:
+    except ITEM_ERRORS as exc:
         print(f"{match.label}: {exc}")
         return 1
     print("\n".join(why.lines(match.label, result)))
@@ -411,7 +412,7 @@ def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, sto
             outcome = worker.next_art(key)
         else:
             outcome = worker.reset_art(key)
-    except (overrides.ArtError, pipeline.NotFoundError) as exc:
+    except ITEM_ERRORS as exc:
         print(f"{match.label}: {exc}")
         return 1
     print(f"{match.label}: {outcome}{DRY_RUN_NOTE if cfg.dry_run and outcome == Outcome.PREVIEW else ''}")

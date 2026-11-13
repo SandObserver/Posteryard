@@ -201,6 +201,28 @@ def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     assert store.get("1", "item") is None
 
 
+def test_fanart_failures_alert_as_fanart_and_resolve_after_a_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, _, _, alerts = make(tmp_path)
+    resolved: list[str] = []
+    monkeypatch.setattr(alerts, "resolve", lambda cause, message: resolved.append(cause))
+    down = [True]
+
+    def plan_item(ctx: pipeline.Context, item: Item) -> list[pipeline.Plan]:
+        if down[0]:
+            raise http.TemporaryError("ConnectTimeoutError", "https://webservice.fanart.tv/v3/movies/1")
+        return []
+
+    monkeypatch.setattr(pipeline, "plan_item", plan_item)
+    for _ in range(3):
+        assert worker.process("1") == Outcome.FAILED
+    assert alerts.sent == ["fanart.tv"]
+    down[0] = False
+    worker.process("1")
+    assert "fanart.tv" in resolved
+
+
 def test_an_unmatched_title_is_skipped_without_retries_or_alerts(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -507,6 +529,22 @@ def test_an_item_is_planned_again_without_apple_art_that_failed_to_load(
     monkeypatch.setattr(pipeline, "plan_item", plan_item)
     assert worker.process("1") is not Outcome.FAILED
     assert len(calls) == 2
+
+
+def test_apple_art_dropped_before_the_item_does_not_plan_it_again(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, _, _, _ = make(tmp_path)
+    calls: list[int] = []
+
+    def plan_item(ctx: pipeline.Context, item: Item) -> list[pipeline.Plan]:
+        calls.append(1)
+        raise http.HttpError(500, "https://plex.example/library/metadata/1")
+
+    monkeypatch.setattr(pipeline, "plan_item", plan_item)
+    worker.ctx.sources.apple_dropped = True
+    assert worker.process("1") is Outcome.FAILED
+    assert len(calls) == 1
 
 
 def test_an_unreadable_maintainerr_answer_keeps_the_saved_schedule(

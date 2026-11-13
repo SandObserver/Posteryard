@@ -119,7 +119,11 @@ class Store:
             self._db.execute("PRAGMA journal_mode=WAL")
         except sqlite3.Error as exc:
             raise StoreError(f"{path} could not be opened: {exc}") from None
-        self._migrate()
+        try:
+            self._migrate()
+        except sqlite3.Error as exc:
+            self._db.close()
+            raise StoreError(f"{path} could not be updated for this release: {exc}") from None
         self._lock = threading.Lock()
 
     def _migrate(self) -> None:

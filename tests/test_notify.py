@@ -68,6 +68,22 @@ def test_a_resolved_problem_says_so_once(receiver: Any) -> None:
     ]
 
 
+def test_a_resolved_message_that_failed_is_sent_again(monkeypatch: pytest.MonkeyPatch) -> None:
+    notifier = Notifier(["json://alerts.example/hook"])
+    sent: list[str] = []
+    delivered = iter([True, False, True, True])
+
+    def send(subject: str, message: str, *args: Any) -> bool:
+        sent.append(message)
+        return next(delivered)
+
+    monkeypatch.setattr(notifier, "send", send)
+    notifier.alert("TMDB", "TMDB is down")
+    for _ in range(3):
+        notifier.resolve("TMDB", "TMDB works again.")
+    assert sent == ["TMDB is down", "TMDB works again.", "TMDB works again."]
+
+
 def test_open_problems_survive_a_restart(tmp_path: Path, receiver: Any) -> None:
     address, received = receiver
     store = Store(tmp_path / "state.db")

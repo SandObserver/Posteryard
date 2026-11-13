@@ -1,4 +1,5 @@
 import logging
+import os
 import sqlite3
 import threading
 from contextlib import closing
@@ -288,6 +289,21 @@ def test_art_set_from_a_missing_file_changes_nothing(
     assert run(["art", "set", "5646", "--file", str(tmp_path / "missing.jpg")]) == 1
     assert FakeWorker.calls == []
     assert "no such file" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
+def test_art_set_from_an_unreadable_file_reports_it(
+    run: Any, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    locked = tmp_path / "locked.jpg"
+    locked.write_bytes(b"not read")
+    locked.chmod(0)
+    try:
+        assert run(["art", "set", "5646", "--file", str(locked)]) == 1
+    finally:
+        locked.chmod(0o600)
+    assert FakeWorker.calls == []
+    assert "Permission denied" in capsys.readouterr().out
 
 
 def test_why_explains_or_reports_what_it_could_not_read(

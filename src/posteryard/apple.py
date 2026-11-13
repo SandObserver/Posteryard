@@ -31,14 +31,25 @@ def apple_id(kind: Kind, details: Details) -> str | None:
         if exc.status == 404:
             return None
         raise
-    entities: dict[str, Any] = entity.get("entities") or {}
-    first: dict[str, Any] = next(iter(entities.values()), {})
-    claims: dict[str, Any] = first.get("claims") or {}
-    for claim in claims.get(PROPERTIES[kind]) or []:
-        value = str(((claim.get("mainsnak") or {}).get("datavalue") or {}).get("value") or "")
+    entities = _object(_object(entity).get("entities"))
+    claims = _object(_object(next(iter(entities.values()), None)).get("claims"))
+    found = claims.get(PROPERTIES[kind]) or []
+    if not isinstance(found, list):
+        raise ValueError("the Wikidata answer is not readable")
+    for claim in found:
+        value = str(_object(_object(_object(claim).get("mainsnak")).get("datavalue")).get("value") or "")
         if UMC.match(value):
             return value
     return None
+
+
+def _object(value: object) -> dict[str, Any]:
+    """Missing is empty. Any other shape raises: a page Posteryard cannot read says nothing about the title."""
+    if value is None or value == []:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError("the Wikidata answer is not readable")
+    return value
 
 
 def tall_art(kind: Kind, umc: str, region: str) -> str | None:
