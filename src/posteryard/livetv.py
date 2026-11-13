@@ -25,8 +25,9 @@ from posteryard import http, pipeline
 from posteryard.render import designs, livetv
 from posteryard.server import GuideServer, Item
 from posteryard.store import GuideRecord, Store
+from posteryard.titles import plain, slug
 from posteryard.tmdb import Kind, open_image
-from posteryard.worker import jpeg
+from posteryard.worker import JPEG_QUALITY, jpeg
 
 log = logging.getLogger(__name__)
 LIVE_VERSION = "3"
@@ -41,7 +42,6 @@ MATCH_MISS_SECONDS = 7 * 86400
 VOTE_LEAD = 3
 # Emoji and pictographs have no glyph in the poster fonts. The zero-width non-joiner stays: Persian needs it.
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
-JPEG_QUALITY = 90
 LOGO_CACHE = 16
 MAX_NETWORK_FAILURES = 3
 HTTP_NOT_FOUND = 404
@@ -98,7 +98,7 @@ def without_notes(text: str) -> str:
 
 
 def norm(text: str) -> str:
-    return "".join(ch for ch in without_notes(text).casefold() if ch.isalnum())
+    return plain(without_notes(text))
 
 
 def _web(url: str) -> bool:
@@ -349,7 +349,7 @@ class LiveTv:
         if record and record.fingerprint == plan.fingerprint:
             return "unchanged"
         self.preview_dir.mkdir(parents=True, exist_ok=True)
-        name = re.sub(r"[^a-z0-9]+", "-", show.title.lower()).strip("-")[:40] or "show"
+        name = slug(show.title, 40) or "show"
         digest = hashlib.sha1(show.record_key(show.key).encode(), usedforsecurity=False).hexdigest()[:8]
         path = self.preview_dir / f"livetv-{name}-{digest}.jpg"
         plan.draw().convert("RGB").save(path, quality=JPEG_QUALITY)

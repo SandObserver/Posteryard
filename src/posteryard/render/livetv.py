@@ -1,5 +1,3 @@
-import math
-
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
@@ -47,11 +45,7 @@ def _fit(logo: Image.Image, box: tuple[float, float]) -> Image.Image:
 
 def with_channel(poster: Image.Image, logo: Image.Image) -> Image.Image:
     """The channel logo in its own colours, where a TV show poster carries its streaming mark."""
-    aspect = logo.width / logo.height
-    height = W * min(
-        math.sqrt(designs.SERVICE_AREA / aspect), designs.SERVICE_MAX_HEIGHT, designs.SERVICE_MAX_WIDTH / aspect
-    )
-    mark = logo.resize((max(1, round(height * aspect)), max(1, round(height))), Image.Resampling.LANCZOS)
+    mark = logo.resize(designs.mark_size(logo.width / logo.height, W), Image.Resampling.LANCZOS)
     canvas = poster.convert("RGBA")
     margin = round(designs.SERVICE_MARGIN * W)
     canvas.alpha_composite(mark, (margin, margin))

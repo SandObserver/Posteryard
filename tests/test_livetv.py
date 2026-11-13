@@ -210,6 +210,12 @@ def test_match_takes_one_exact_title_and_caches_the_answer(tmp_path: Path) -> No
     assert tmdb.searches == ["Daha 17"]
 
 
+def test_match_ignores_accents_the_guide_leaves_out(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    tmdb.results["Kucuk Gelin"] = [{"id": 9, "name": "Little Bride", "original_name": "Küçük Gelin"}]
+    assert live.match(guide_shows(GUIDE, [airing("Kucuk Gelin", "a")])[0]) == 9
+
+
 def test_match_refuses_a_tie_but_takes_a_clear_favourite(tmp_path: Path) -> None:
     live, _, tmdb = build(tmp_path, [])
     tmdb.results["Bahar"] = [{"id": 1, "name": "Bahar", "vote_count": 10}, {"id": 2, "name": "Bahar", "vote_count": 6}]

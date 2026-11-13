@@ -26,6 +26,7 @@ from posteryard.render.layers import NEAR_BLACK, WHITE, family_for, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.settings import Settings
 from posteryard.sources import Sources, Title
+from posteryard.titles import plain
 from posteryard.tmdb import Episode, ImageRef, Kind
 
 log = logging.getLogger(__name__)
@@ -231,10 +232,16 @@ def _shared_art(  # noqa: PLR0913
     return next((p for p in pool if not _seen(ctx, p, [*used, *reserved, *held], redrawn=False)), None)
 
 
+def _season_posters(ctx: Context, title: Title, number: int) -> tuple[str, list[ImageRef]]:
+    """TMDB's textless season posters, or fanart.tv's when TMDB has none. The name says which."""
+    if own := ctx.sources.season_images(title.tmdb_id, number).textless_posters():
+        return "TMDB", own
+    fanart = ctx.sources.fanart_images(title.kind, title.tmdb_id).seasons.get(number, [])
+    return "fanart.tv", [r for r in fanart if r.language is None]
+
+
 def _season_refs(ctx: Context, title: Title, number: int) -> list[ImageRef]:
-    return ctx.sources.season_images(title.tmdb_id, number).textless_posters() or [
-        r for r in ctx.sources.fanart_images(title.kind, title.tmdb_id).seasons.get(number, []) if r.language is None
-    ]
+    return _season_posters(ctx, title, number)[1]
 
 
 def _next_unused(
@@ -511,7 +518,7 @@ def _tmdb_episode(ctx: Context, title: Title, item: Item) -> Episode | None:
     """TMDB's entry for an episode. The server's numbers can follow another order, such as DVD or absolute order."""
     season, number = int(item.get("parentIndex", 0)), int(item.get("index", 0))
     listed = ctx.sources.tmdb.episode(title.tmdb_id, season, number)
-    if listed and _plain(str(listed.get("name") or "")) == _plain(str(item.get("title") or "")):
+    if listed and plain(str(listed.get("name") or "")) == plain(str(item.get("title") or "")):
         return listed
     ids = external_ids(item)
     for source in ("tvdb", "imdb"):
@@ -643,13 +650,8 @@ def art_candidates(ctx: Context, item: Item, *, next_art: bool = False) -> list[
     if kind == "season":
         title = _show(ctx, item)[0]
         number = int(item.get("index", 0))
-        own = ctx.sources.season_images(title.tmdb_id, number).textless_posters()
-        group = f"TMDB {_season_label(number).lower()} posters"
-        if not own:
-            own = [
-                r for r in ctx.sources.fanart_images("tv", title.tmdb_id).seasons.get(number, []) if r.language is None
-            ]
-            group = f"fanart.tv {_season_label(number).lower()} posters"
+        source, own = _season_posters(ctx, title, number)
+        group = f"{source} {_season_label(number).lower()} posters"
         pool = ctx.sources.images("tv", title.tmdb_id).textless_art()[:POOL_SIZE]
         return [(group, own[:MAX_CANDIDATES]), ("TMDB series art", pool)]
     if kind not in ("movie", "show"):
@@ -659,7 +661,7 @@ def art_candidates(ctx: Context, item: Item, *, next_art: bool = False) -> list[
     images = ctx.sources.images(tmdb_kind, title.tmdb_id)
     groups: list[tuple[str, list[ImageRef]]] = [("TMDB posters", images.textless_posters()[:MAX_CANDIDATES])]
     if (url := ctx.sources.apple_art(title)) is not None:
-        groups.append(("Apple TV art", [ImageRef(url, None, 1680, 3636, 0.0, 0)]))
+        groups.append(("Apple TV art", [apple.tall_ref(url)]))
     groups.append(("TMDB backdrops", images.textless_backdrops()[:MAX_CANDIDATES]))
     if ctx.sources.fanart is not None:
         extra = ctx.sources.fanart_images(tmdb_kind, title.tmdb_id).images
@@ -697,10 +699,10 @@ def live_poster(ctx: Context, kind: Kind, tid: int, key: str, name: str) -> Plan
     title, and the guide's name as text when TMDB has no logo in that language.
     """
     details = ctx.sources.tmdb.details(kind, tid)
-    wanted = _plain(name)
+    wanted = plain(name)
     languages: tuple[str, ...] | None = None
-    if wanted != _plain(str(details.get("title") or details.get("name") or "")):
-        same = wanted == _plain(str(details.get("original_title") or details.get("original_name") or ""))
+    if wanted != plain(str(details.get("title") or details.get("name") or "")):
+        same = wanted == plain(str(details.get("original_title") or details.get("original_name") or ""))
         original = str(details.get("original_language") or "")
         languages = (original,) if same and original else ()
     title = replace(
@@ -721,10 +723,6 @@ def _is_wide(ctx: Context, path: str) -> bool:
         return {"wide": art.width >= art.height}
 
     return bool(remember(ctx.sources.choices, f"art-shape:{path}", measure)["wide"])
-
-
-def _plain(text: str) -> str:
-    return "".join(ch for ch in text.casefold() if ch.isalnum())
 
 
 def plan_tmdb(ctx: Context, kind: Kind, tid: int, seasons: Sequence[int] = ()) -> list[Plan]:

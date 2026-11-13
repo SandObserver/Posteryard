@@ -11,9 +11,7 @@ from urllib.parse import urlsplit
 from PIL import Image
 
 from posteryard import http, memory, ocr, overrides, pipeline, service_collections
-from posteryard.automarks import AutoMarks
 from posteryard.config import Config, EpisodeMode
-from posteryard.fanart import Fanart
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.server import MADE_BY, TARGETS, Item, MediaServer, Target, label_tag, labels, made_here
@@ -68,15 +66,7 @@ class Worker:
         self.cfg, self.server, self.store, self.notifier = cfg, server, store, notifier
         self.maintainerr = Maintainerr(cfg.maintainerr_url)
         settings = Settings.from_config(cfg, {}, date.today())
-        sources = Sources(
-            tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
-            settings,
-            choices=store,
-            overrides=store.override,
-            fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
-            marks=AutoMarks(cfg.data_dir / "marks", store),
-            text_check=cfg.text_check,
-        )
+        sources = Sources.from_config(cfg, settings, tmdb=tmdb, state=store)
         self.ctx = pipeline.Context(settings, sources, server)
         self._leaving: Leaving | None = None
         self._rested = True

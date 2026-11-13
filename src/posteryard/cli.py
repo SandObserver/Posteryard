@@ -9,10 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import TypeGuard
 
-from posteryard import __version__, config, http, livetv, logfmt, lookup, memory, overrides, pipeline, why
-from posteryard.artwork import MemoryChoices
-from posteryard.automarks import AutoMarks
-from posteryard.fanart import Fanart
+from posteryard import __version__, config, http, livetv, logfmt, lookup, memory, overrides, pipeline, titles, why
 from posteryard.jellyfin import Emby, Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
@@ -22,8 +19,8 @@ from posteryard.service import Service, other_server
 from posteryard.settings import Settings
 from posteryard.sources import Sources
 from posteryard.store import Store, StoreError
-from posteryard.tmdb import Kind, Tmdb
-from posteryard.worker import Outcome, Worker
+from posteryard.tmdb import Kind
+from posteryard.worker import JPEG_QUALITY, Outcome, Worker
 
 log = logging.getLogger("posteryard")
 # These libraries log full URLs, with tokens, or every image chunk at debug level.
@@ -39,10 +36,6 @@ def _set_log_level(level: config.LogLevel) -> None:
     logging.getLogger().setLevel(level.upper())
     for name in QUIET_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)
-
-
-def _slug(text: str) -> str:
-    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:60]
 
 
 def _title_arguments(parser: argparse.ArgumentParser, *, required: bool = True) -> None:
@@ -153,12 +146,7 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
     if not _has_guide(server):
         print(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
         return 2
-    sources = Sources(
-        Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
-        Settings.from_config(cfg, {}, date.today()),
-        fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
-        text_check=cfg.text_check,
-    )
+    sources = Sources.from_config(cfg, Settings.from_config(cfg, {}, date.today()), marks=False)
     with tempfile.TemporaryDirectory(prefix="posteryard-live-tv-") as scratch:
         store = Store(Path(scratch) / "state.db")
         try:
@@ -213,13 +201,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
         log.warning("Maintainerr unavailable, rendering without leaving labels", extra={"reason": str(exc)})
         days = {}
     settings = Settings.from_config(cfg, days, date.today())
-    sources = Sources(
-        Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
-        settings,
-        fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
-        marks=AutoMarks(cfg.data_dir / "marks", MemoryChoices()),
-        text_check=cfg.text_check,
-    )
+    sources = Sources.from_config(cfg, settings)
     ctx = pipeline.Context(settings, sources, plex)
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -235,8 +217,8 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
             else:
                 plans = pipeline.plan_tmdb(ctx, tmdb_ref[0], tmdb_ref[1], args.season)
             for plan in plans:
-                path = out_dir / f"{plan.rating_key}-{plan.target}-{_slug(plan.name)}.jpg"
-                plan.draw().convert("RGB").save(path, quality=92)
+                path = out_dir / f"{plan.rating_key}-{plan.target}-{titles.slug(plan.name, 60)}.jpg"
+                plan.draw().convert("RGB").save(path, quality=JPEG_QUALITY)
                 print(f"{path}  {plan.name}  ({'; '.join(plan.notes)})")
             memory.release()
         except (*ITEM_ERRORS, http.RequestError) as exc:

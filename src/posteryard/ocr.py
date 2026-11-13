@@ -2,7 +2,6 @@ import atexit
 import multiprocessing
 import os
 import time
-import unicodedata
 from collections.abc import Iterable, Sequence
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures.process import BrokenProcessPool
@@ -15,6 +14,7 @@ from PIL import Image
 
 from posteryard import memory
 from posteryard.render.layers import flatten
+from posteryard.titles import plain
 
 # onnxruntime reads this once, at import. Without it, onnxruntime contacts Microsoft's telemetry server.
 os.environ["ORT_DISABLE_TELEMETRY"] = "1"
@@ -139,14 +139,8 @@ def _read_pixels(pixels: np.ndarray) -> list[TextLine]:
     return lines
 
 
-def normalise(text: str) -> str:
-    """Art often prints a title without its accents, so marks are left out on both sides."""
-    bare = "".join(ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch))
-    return "".join(ch for ch in unicodedata.normalize("NFC", bare).casefold() if ch.isalnum())
-
-
 def _words(text: str) -> list[str]:
-    return [word for word in map(normalise, text.split()) if word]
+    return [word for word in map(plain, text.split()) if word]
 
 
 def _contains(key: str, text: str, words: Sequence[str]) -> bool:
@@ -164,13 +158,13 @@ def _part_of(text: str, key: str) -> bool:
 
 def shows_title(lines: Iterable[TextLine], titles: Sequence[str]) -> bool:
     confident = [line for line in lines if line.score >= MIN_SCORE]
-    names = {normalise(t) for t in titles}
+    names = {plain(t) for t in titles}
     keys = [k for k in names if len(k) >= MIN_KEY_LENGTH]
     # A short title matches inside too many words. It counts only as a whole line.
     short = {k for k in names if MIN_SHORT_KEY_LENGTH <= len(k) < MIN_KEY_LENGTH}
-    joined = normalise(" ".join(line.text for line in confident))
+    joined = plain(" ".join(line.text for line in confident))
     for line in confident:
-        text = normalise(line.text)
+        text = plain(line.text)
         if text in short:
             return True
         if len(text) >= MIN_MATCH_LENGTH and any(
@@ -186,7 +180,7 @@ def is_display(line: TextLine) -> bool:
         line.score >= MIN_SCORE
         and line.height > DISPLAY_HEIGHT
         and line.width > DISPLAY_WIDTH
-        and len(normalise(line.text)) >= MIN_DISPLAY_LENGTH
+        and len(plain(line.text)) >= MIN_DISPLAY_LENGTH
     )
 
 
