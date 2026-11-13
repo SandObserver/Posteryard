@@ -19,6 +19,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Answer Jellyfin and Emby webhooks at once, so a burst of new items on a slow server no longer blocks the health check.
 - Log a failed webhook request as one line instead of a traceback.
 - Remember the chosen logo when one of a title's logo files is broken, instead of downloading every logo again on each check.
+- Name the TLS reason when a secure connection fails, and stop retrying a refused certificate.
+- Alert fanart.tv outages as fanart.tv instead of rendering, and say when fanart.tv works again.
+- Send a "works again" message again when the first one was not delivered.
+- Fall back to other art when Wikidata sends an answer Posteryard cannot read.
+- Show a clear message instead of a traceback when the state database cannot be updated for a new release, or when `art set --file` cannot read the file.
+- Keep the schedule running when the heartbeat cannot read the health state.
 
 ## [0.10.3] - 2026-11-08
 

@@ -150,3 +150,11 @@ def test_guide_seen_writes_all_rows_in_one_transaction(tmp_path: Path) -> None:
     store.guide_seen(["a", "b", "c"], 5)
     store._db.set_trace_callback(None)
     assert [s for s in statements if s in ("BEGIN", "COMMIT")] == ["BEGIN", "COMMIT"]
+
+
+def test_a_failed_schema_update_is_a_store_error(tmp_path: Path) -> None:
+    path = tmp_path / "state.db"
+    with closing(sqlite3.connect(path)) as db:
+        db.execute("PRAGMA user_version=2")
+    with pytest.raises(StoreError, match="could not be updated for this release: no such table: images"):
+        Store(path)

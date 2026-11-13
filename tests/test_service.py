@@ -2,6 +2,7 @@ import http.client
 import json
 import logging
 import socket
+import sqlite3
 import threading
 import time
 from collections.abc import Sequence
@@ -642,6 +643,20 @@ def test_an_unexpected_heartbeat_error_leaves_the_schedule_running(
     monkeypatch.setattr(posteryard_http, "request", broken)
     service.heartbeat()
     assert "HEARTBEAT_URL not reachable" in caplog.text
+
+
+def test_an_unreadable_health_state_skips_the_heartbeat(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": "http://kuma.example/x"})
+    service = start(cfg, FakePlex())
+
+    def locked(*args: Any) -> str:
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(service.store, "meta", locked)
+    service.heartbeat()
+    assert "heartbeat not sent, health not readable" in caplog.text
 
 
 def test_a_bad_heartbeat_url_is_rejected() -> None:

@@ -1,6 +1,7 @@
 import contextlib
 import gzip
 import socket
+import ssl
 import threading
 import time
 import tracemalloc
@@ -9,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, ClassVar
 
 import pytest
+import urllib3
 
 from posteryard import __version__, http
 from posteryard.plex import Plex
@@ -181,6 +183,25 @@ def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPa
     with pytest.raises(http.RequestError, match="NewConnectionError") as caught:
         http.request("GET", f"http://127.0.0.1:9/a?X-Plex-Token={SECRET}", retries=2)
     assert SECRET not in str(caught.value)
+
+
+def test_a_tls_failure_names_its_reason_and_hides_secrets(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: None)
+    server.answers = [(200, {}, b"")] * 3
+    https = server.url.replace("http://", "https://")
+    with pytest.raises(http.TemporaryError, match="SSLError WRONG_VERSION_NUMBER") as caught:
+        http.request("GET", f"{https}/a?X-Plex-Token={SECRET}", retries=2)
+    assert SECRET not in str(caught.value)
+
+
+def test_a_refused_tls_certificate_is_not_retried() -> None:
+    refused = ssl.SSLCertVerificationError(1, "certificate verify failed")
+    refused.reason, refused.verify_message = "CERTIFICATE_VERIFY_FAILED", "self-signed certificate"
+    with pytest.raises(http.RequestError, match="TLS certificate refused: self-signed certificate") as caught:
+        http._network_failure(
+            urllib3.exceptions.SSLError(refused), "GET", "https://example.com/a", last=False, first=True
+        )
+    assert not http.temporary(caught.value)
 
 
 def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:

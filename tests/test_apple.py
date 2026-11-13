@@ -89,6 +89,28 @@ def test_a_page_without_its_data_says_nothing_about_the_title(web: dict[str, Any
         apple.find("tv", DETAILS, "CA")
 
 
+@pytest.mark.parametrize(
+    "entity",
+    [
+        ["Q147235"],
+        {"entities": ["Q147235"]},
+        {"entities": {"Q147235": {"claims": {"P9751": "umc"}}}},
+        {"entities": {"Q147235": {"claims": {"P9751": ["umc"]}}}},
+    ],
+    ids=["list", "entities list", "claims text", "claim text"],
+)
+def test_a_wikidata_answer_of_another_shape_is_not_read_as_no_art(web: dict[str, Any], entity: object) -> None:
+    web["entity"] = entity
+    with pytest.raises(ValueError, match="Wikidata answer is not readable"):
+        apple.find("tv", DETAILS, "CA")
+
+
+@pytest.mark.parametrize("entity", [[], {"entities": {"Q147235": {"claims": []}}}], ids=["empty", "no claims"])
+def test_an_empty_wikidata_answer_gives_none(web: dict[str, Any], entity: object) -> None:
+    web["entity"] = entity
+    assert apple.find("tv", DETAILS, "CA") is None
+
+
 def test_a_page_with_broken_data_is_not_read_as_no_art(web: dict[str, Any]) -> None:
     web["page"] = b'<script id="serialized-server-data">{broken</script>'
     with pytest.raises(ValueError, match="not readable"):

@@ -3,6 +3,7 @@ import ipaddress
 import json
 import logging
 import socket
+import ssl
 import threading
 import time
 import urllib.parse
@@ -508,12 +509,17 @@ def _read_body(
 def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *, last: bool, first: bool) -> bool:
     """True to try again at once: a pooled connection the other side dropped while idle."""
     cause = getattr(exc, "reason", None) or exc
+    tls = next((arg for arg in cause.args if isinstance(arg, ssl.SSLError)), None)
+    if isinstance(tls, ssl.SSLCertVerificationError):
+        raise RequestError(f"TLS certificate refused: {tls.verify_message or tls.reason}", url) from None
+    # Only the class name and the TLS reason code. urllib3's message can hold the full URL with a credential.
+    reason = f"{type(cause).__name__} {tls.reason}" if tls is not None and tls.reason else type(cause).__name__
     if last:
-        raise TemporaryError(type(cause).__name__, url) from None
+        raise TemporaryError(reason, url) from None
     if first and isinstance(cause, urllib3.exceptions.ProtocolError):
         log.debug("connection dropped, trying again", extra={"method": method, "url": redact(url)})
         return True
-    log.warning("retrying request", extra={"method": method, "url": redact(url), "reason": type(cause).__name__})
+    log.warning("retrying request", extra={"method": method, "url": redact(url), "reason": reason})
     return False
 
 

@@ -95,10 +95,12 @@ class Notifier:
         with self._lock:
             if cause not in self._open:
                 return
+        if not self.send(cause, message, apprise.NotifyType.SUCCESS):
+            return
+        log.info("problem resolved", extra={"cause": cause})
+        with self._lock:
             self._open.discard(cause)
             self._save()
-        log.info("problem resolved", extra={"cause": cause})
-        self.send(cause, message, apprise.NotifyType.SUCCESS)
 
     def new_posters(self, names: Sequence[str], poster: bytes | None = None) -> None:
         if Event.NEW not in self.events or not names:

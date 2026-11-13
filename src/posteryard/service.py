@@ -625,7 +625,14 @@ class Service:
 
     def heartbeat(self) -> None:
         now = time.monotonic()
-        if not self.cfg.heartbeat_url or now - self._last_heartbeat < HEARTBEAT_SECONDS or not self.healthy():
+        if not self.cfg.heartbeat_url or now - self._last_heartbeat < HEARTBEAT_SECONDS:
+            return
+        try:
+            healthy = self.healthy()
+        except Exception as exc:  # The schedule thread calls this outside its own error handling.
+            log.warning("heartbeat not sent, health not readable", extra={"reason": type(exc).__name__})
+            return
+        if not healthy:
             return
         self._last_heartbeat = now
         try:
