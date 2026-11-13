@@ -2,7 +2,7 @@ import math
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeGuard
 
 from PIL import Image
 
@@ -48,6 +48,16 @@ class MemoryChoices:
 
     def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
         self._data[key] = value
+
+
+def _fresh(hit: Mapping[str, Any] | None, candidates: list[str]) -> TypeGuard[Mapping[str, Any]]:
+    return hit is not None and hit.get("candidates") == candidates and time.time() < hit.get("recheck", math.inf)
+
+
+def _keep(cache: ChoiceCache, key: str, choice: dict[str, Any], *, found: bool, unsure: set[str]) -> None:
+    """A choice made past an unsure file is kept until UNSURE_RECHECK. Nothing found past one is not kept."""
+    if found or not unsure:
+        cache.put_choice(key, {**choice, **({"recheck": time.time() + UNSURE_RECHECK} if unsure else {})})
 
 
 def remember(cache: ChoiceCache, key: str, compute: Callable[[], Mapping[str, Any]]) -> Mapping[str, Any]:
@@ -107,7 +117,7 @@ class Picker:
     ) -> Picked | None:
         candidates = [r.path for r in refs[:MAX_CANDIDATES]]
         hit = self.cache.get_choice(key)
-        if hit is not None and hit.get("candidates") == candidates and time.time() < hit.get("recheck", math.inf):
+        if _fresh(hit, candidates):
             path = hit.get("path")
             if not path:
                 return None
@@ -126,16 +136,12 @@ class Picker:
             if accept(lines):
                 picked = Picked(path, lines)
                 break
-        if picked or not unsure:
-            self.cache.put_choice(
-                key,
-                {
-                    "candidates": candidates,
-                    "path": picked.path if picked else None,
-                    "lines": _rows(picked.lines) if picked else [],
-                    **({"recheck": time.time() + UNSURE_RECHECK} if unsure else {}),
-                },
-            )
+        choice = {
+            "candidates": candidates,
+            "path": picked.path if picked else None,
+            "lines": _rows(picked.lines) if picked else [],
+        }
+        _keep(self.cache, key, choice, found=picked is not None, unsure=unsure)
         return picked
 
     def textless(
@@ -180,7 +186,7 @@ class Picker:
         if dark:
             cache_key += ":dark"
         hit = self.cache.get_choice(cache_key)
-        if hit is not None and hit.get("candidates") == candidates:
+        if _fresh(hit, candidates):
             return str(hit["path"]) if hit.get("path") else None
         unsure: set[str] = set()
         logos = {r.path: image for r in refs if (image := readable(self.fetch, r.path, unsure)) is not None}
@@ -191,8 +197,9 @@ class Picker:
             wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
             chosen = (wide_dark if prefer_wordmark and wide_dark else dark_refs)[:1]
             path = chosen[0].path if chosen else None
-            if not unsure:
-                self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
+            _keep(
+                self.cache, cache_key, {"candidates": candidates, "path": path}, found=path is not None, unsure=unsure
+            )
             return path
         visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
         light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
@@ -200,8 +207,7 @@ class Picker:
         wide_light = [r for r in wide if r in light]
         pool = wide_light or wide or light or visible or refs
         path = pool[0].path if pool else None
-        if not unsure:
-            self.cache.put_choice(cache_key, {"candidates": candidates, "path": path})
+        _keep(self.cache, cache_key, {"candidates": candidates, "path": path}, found=path is not None, unsure=unsure)
         return path
 
 
