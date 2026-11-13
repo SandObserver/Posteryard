@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from posteryard import ocr
+from posteryard import artwork
 from posteryard.ocr import TextLine
 
 READINGS: list[dict[str, Any]] = json.loads((Path(__file__).parent / "ocr_readings.json").read_text())
@@ -13,7 +13,7 @@ READINGS: list[dict[str, Any]] = json.loads((Path(__file__).parent / "ocr_readin
 @pytest.mark.parametrize("reading", READINGS, ids=[f"{r['name']} {r['image']}" for r in READINGS])
 def test_real_art_is_judged_as_expected(reading: dict[str, Any]) -> None:
     lines = [TextLine(*line) for line in reading["lines"]]
-    clean = not ocr.shows_title(lines, reading["titles"]) and not ocr.has_display_text(lines)
+    clean = artwork.rejection(lines, reading["titles"]) is None
     expected = reading["expect"] == "clean"
     assert clean == expected or (reading.get("known_miss") and not clean)
 

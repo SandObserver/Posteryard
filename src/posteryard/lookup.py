@@ -7,7 +7,6 @@ from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.titles import plain
 
 YEAR = re.compile(r"^(.*\S)\s+\(?(\d{4})\)?$")
-KINDS = ("movie", "show")
 MAX_SUGGESTIONS = 8
 CLOSE_MATCH = 0.75
 

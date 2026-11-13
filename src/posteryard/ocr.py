@@ -184,9 +184,5 @@ def is_display(line: TextLine) -> bool:
     )
 
 
-def has_display_text(lines: Iterable[TextLine]) -> bool:
-    return any(is_display(line) for line in lines)
-
-
 def confident_text(lines: Iterable[TextLine]) -> str:
     return " ".join(line.text for line in lines if line.score >= MIN_SCORE)

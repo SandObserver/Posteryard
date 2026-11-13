@@ -1,12 +1,10 @@
 import json
-import logging
 import re
 from typing import Any
 
 from posteryard import http
 from posteryard.tmdb import Details, ImageRef, Kind
 
-log = logging.getLogger(__name__)
 WIKIDATA = "https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
 PAGE = "https://tv.apple.com/{region}/{kind}/title/{umc}"
 # Wikidata properties: Apple TV movie ID and Apple TV show ID.
