@@ -233,6 +233,27 @@ def test_a_pick_past_an_unreadable_candidate_is_stored_for_a_few_days(monkeypatc
     assert fetched.count("/broken.jpg") == 2
 
 
+def test_a_logo_picked_past_an_unreadable_candidate_is_stored_for_a_few_days(monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched: list[str] = []
+
+    def fetch(path: str) -> Image.Image:
+        fetched.append(path)
+        if path == "/broken.png":
+            raise OSError("cannot identify image file")
+        return Image.new("RGBA", (400, 100), (255, 255, 255, 255))
+
+    now = [1000.0]
+    monkeypatch.setattr("posteryard.artwork.time.time", lambda: now[0])
+    picker = Picker(MemoryChoices(), fetch, lambda image: [])
+    logos = Images([], [], [ImageRef(p, "en", 400, 100, 5, 1) for p in ("/broken.png", "/good.png")])
+    for _ in range(3):
+        assert picker.logo("movie:1", logos) == "/good.png"
+    assert fetched.count("/broken.png") == 1
+    now[0] += UNSURE_RECHECK
+    assert picker.logo("movie:1", logos) == "/good.png"
+    assert fetched.count("/broken.png") == 2
+
+
 def test_a_page_that_is_not_an_image_is_not_stored_as_no_art() -> None:
     filtered = [True]
 

@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stop hover styles sticking after a tap, and wrap long words instead of widening the page.
 - Answer Jellyfin and Emby webhooks at once, so a burst of new items on a slow server no longer blocks the health check.
 - Log a failed webhook request as one line instead of a traceback.
+- Remember the chosen logo when one of a title's logo files is broken, instead of downloading every logo again on each check.
 
 ## [0.10.3] - 2026-11-08
 
