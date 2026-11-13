@@ -725,12 +725,66 @@ def test_a_webhook_item_queues_the_item_and_its_parents(tmp_path: Path, monkeypa
     episode: Item = {"ratingKey": "d" * 32, "parentRatingKey": "c" * 32, "grandparentRatingKey": "b" * 32}
     monkeypatch.setattr(service.server, "item", lambda key: episode if key == "d" * 32 else None)
     service.item_added("dddddddd-dddd-dddd-dddd-dddddddddddd")
+    assert service.take(0) == ("d" * 32, "added")
+    service.queue_with_parents("d" * 32)
     assert queued(service) == ["d" * 32, "c" * 32, "b" * 32]
     service.item_added("../etc")
     service.item_added(None)
     service.item_added("a" * 32)
     service.item_added(245)
     assert queued(service)[-2:] == ["a" * 32, "245"]
+
+
+def test_a_malformed_webhook_item_answer_still_queues_the_item(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service = make_service(tmp_path)
+
+    def broken(key: str) -> Item:
+        raise KeyError("Items")
+
+    monkeypatch.setattr(service.server, "item", broken)
+    service.queue_with_parents("e" * 32)
+    assert queued(service) == ["e" * 32]
+
+
+def test_a_webhook_answers_before_the_server_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
+    service = start(cfg, FakePlex())
+    looked_up: list[str] = []
+    monkeypatch.setattr(service.server, "item", looked_up.append)
+    server = WebhookServer(("127.0.0.1", 0), service.handler())
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        connection = http.client.HTTPConnection("127.0.0.1", int(server.server_address[1]), timeout=5)
+        body = b'{"NotificationType": "ItemAdded", "ItemId": "' + b"e" * 32 + b'"}'
+        connection.request("POST", "/webhook/example-secret", body, {"Content-Type": "application/json"})
+        assert connection.getresponse().status == 200
+        connection.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert looked_up == []
+    assert queued(service) == ["e" * 32]
+
+
+def test_a_failed_webhook_request_logs_one_line(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class Broken(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            raise BrokenPipeError
+
+    server = WebhookServer(("127.0.0.1", 0), Broken)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with socket.create_connection(("127.0.0.1", int(server.server_address[1])), timeout=5) as connection:
+            connection.sendall(b"GET / HTTP/1.1\r\nHost: example\r\n\r\n")
+            assert connection.recv(1) == b""
+    finally:
+        server.shutdown()
+        server.server_close()
+    assert [r.getMessage() for r in caplog.records] == ["webhook request failed"]
+    assert caplog.records[0].__dict__["reason"] == "BrokenPipeError"
+    assert "Exception occurred during processing of request" not in capsys.readouterr().err
 
 
 def test_webhook_items_go_before_the_full_pass(tmp_path: Path) -> None:
