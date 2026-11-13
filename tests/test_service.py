@@ -680,6 +680,24 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
     assert alerts.sent and "worker" in alerts.sent[0]
 
 
+def test_the_watchdog_stops_even_when_the_alert_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+
+    class Failing(Alerts):
+        def alert(self, subject: str, message: str) -> None:
+            raise RuntimeError("alert failed")
+
+    service.worker.notifier = Failing()
+    service.worker_beat = time.monotonic() - WORKER_RESTART - 1
+    stopped: list[bool] = []
+    with pytest.raises(RuntimeError):
+        service._watch(type("S", (), {"shutdown": lambda self: stopped.append(True)})())
+    assert stopped == [True]
+    assert service.exit_code == 1
+    assert service._stop.is_set()
+
+
 def test_the_watchdog_restarts_when_the_worker_is_stuck(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)

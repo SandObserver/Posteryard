@@ -1,5 +1,6 @@
 import json
 import logging
+import sqlite3
 import threading
 import time
 from collections.abc import Iterator
@@ -149,6 +150,19 @@ def test_unreadable_alert_state_starts_empty(tmp_path: Path) -> None:
     for raw in ("not json", "[]", '{"muted": {"Plex": "soon"}, "open": []}'):
         store.set_meta("alert_state", raw)
         Notifier(state=store).alert("Plex", "Plex is down")
+
+
+class FullDisk(Store):
+    def set_meta(self, key: str, value: str) -> None:
+        raise sqlite3.OperationalError("database or disk is full")
+
+
+def test_an_alert_is_sent_when_its_state_cannot_be_saved(tmp_path: Path, receiver: Any) -> None:
+    address, received = receiver
+    notifier = Notifier([f"json://{address}/hook"], state=FullDisk(tmp_path / "state.db"))
+    notifier.alert("schedule", "A scheduled run failed")
+    notifier.resolve("schedule", "Scheduled runs work again.")
+    assert [m["message"] for m in messages(received)] == ["A scheduled run failed", "Scheduled runs work again."]
 
 
 def test_a_bad_address_is_not_logged(caplog: pytest.LogCaptureFixture) -> None:
