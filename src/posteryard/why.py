@@ -53,9 +53,7 @@ def report(ctx: pipeline.Context, item: Item, store: Store) -> Report:
         result.notices.append("The poster was changed by hand. Posteryard leaves it alone until `forget`.")
     override = ctx.sources.overrides(key)
     if override and override.custom:
-        result.notices.append(
-            f"Custom art from {override.source or 'a command'}. `art reset` returns to automatic art."
-        )
+        result.notices.append(f"Custom art from {override.origin}. `art reset` returns to automatic art.")
         return result
     if override and override.skip:
         result.skipped = override.skip

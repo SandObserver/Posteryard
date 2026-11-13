@@ -328,10 +328,18 @@ def test_custom_label_adopts_the_poster_uploaded_in_plex(tmp_path: Path) -> None
     plex.items["1"]["Label"] = [{"tag": "Posteryard-Custom"}]
     assert worker.process("1") == Outcome.UPLOADED
     override = store.override("1")
-    assert override is not None and override.source == "plex" and override.custom
+    assert override is not None and override.source == "label" and override.custom
     assert worker.process("1") == Outcome.UNCHANGED
     plex.items["1"]["Label"] = []
     assert worker.process("1") == Outcome.UPLOADED
+    assert store.override("1") is None
+
+
+def test_custom_art_from_an_older_release_ends_when_the_label_goes(tmp_path: Path) -> None:
+    worker, _, store, _ = make(tmp_path, DRY_RUN="false")
+    worker.process("1")
+    store.set_custom("1", str(tmp_path / "custom.jpg"), "plex")
+    worker.process("1")
     assert store.override("1") is None
 
 

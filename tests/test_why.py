@@ -77,8 +77,10 @@ def test_custom_art_lists_no_candidates(store: Store, tmp_path: Path, monkeypatc
         ctx.sources, "load", lambda path: pipeline_load("/textless.jpg" if path.startswith("file:") else path)
     )
     result = why.report(ctx, MOVIE, store)
-    assert result.notices == ["Custom art from label. `art reset` returns to automatic art."]
+    assert result.notices == ["Custom art from the posteryard-custom label. `art reset` returns to automatic art."]
     assert result.groups == []
+    ctx.sources.overrides = lambda key: overrides.Override(custom=str(custom), source="command")
+    assert why.report(ctx, MOVIE, store).notices == ["Custom art from `art set`. `art reset` returns to automatic art."]
 
 
 def test_hand_changed_and_ignored_posters_are_named(store: Store) -> None:

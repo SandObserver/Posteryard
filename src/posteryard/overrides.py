@@ -16,6 +16,10 @@ NEXT_LABEL = "posteryard-next"
 IGNORE_LABEL = "posteryard-ignore"
 MAX_DOWNLOAD = 40 * 1024 * 1024
 FILE_PREFIX = "file:"
+FROM_LABEL = "label"
+FROM_COMMAND = "command"
+# Older releases stored art taken through the label with this source. It must still count as from the label.
+OLD_FROM_LABEL = "plex"
 
 
 class ArtError(Exception):
@@ -27,6 +31,14 @@ class Override:
     custom: str | None = None
     source: str = ""
     skip: frozenset[str] = field(default_factory=frozenset)
+
+    @property
+    def from_label(self) -> bool:
+        return self.source in (FROM_LABEL, OLD_FROM_LABEL)
+
+    @property
+    def origin(self) -> str:
+        return f"the {CUSTOM_LABEL} label" if self.from_label else "`art set`"
 
 
 def decode(data: bytes) -> Image.Image:

@@ -172,7 +172,7 @@ class Worker:
 
     def set_custom(self, rating_key: str, image: Image.Image) -> Outcome:
         path = overrides.save(image, self.cfg.data_dir, rating_key)
-        self.store.set_custom(rating_key, str(path), "command")
+        self.store.set_custom(rating_key, str(path), overrides.FROM_COMMAND)
         return self.process(rating_key, force=True)
 
     def next_art(self, rating_key: str) -> Outcome:
@@ -287,10 +287,10 @@ class Worker:
                     return redo
                 path = str(overrides.save(overrides.decode(data), self.cfg.data_dir, key))
                 if current is None or current.custom != path:
-                    self.store.set_custom(key, path, "plex")
+                    self.store.set_custom(key, path, overrides.FROM_LABEL)
                     log.info("custom art taken from the server", extra={"title": item.get("title")})
                     redo = True
-        elif current is not None and current.source == "plex":
+        elif current is not None and current.from_label:
             self.store.reset_override(key)
             log.info("custom art label removed, back to automatic art", extra={"title": item.get("title")})
             redo = True
