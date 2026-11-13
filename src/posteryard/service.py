@@ -7,6 +7,7 @@ import platform
 import queue
 import signal
 import socket
+import sys
 import threading
 import time
 from collections import Counter
@@ -43,7 +44,8 @@ STOP = "stop"
 HEARTBEAT_SECONDS = 60
 RETRY_SECONDS = 120
 MAX_NETWORK_FAILURES = 3
-URGENT = frozenset({"webhook", "label", "unignored"})
+ADDED = "added"
+URGENT = frozenset({"webhook", ADDED, "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
 NEW_REASONS = frozenset({"webhook", "changed", "retry"})
 NEW_BATCH_SECONDS = 900
@@ -149,6 +151,10 @@ class WebhookServer(ThreadingHTTPServer):
             timer.cancel()
             self._slots.release()
 
+    def handle_error(self, request: Any, client_address: Any) -> None:
+        """One log line. The default prints a traceback to stderr, outside the log format."""
+        log.warning("webhook request failed", extra={"reason": type(sys.exception()).__name__})
+
 
 class Service:
     def __init__(
@@ -201,15 +207,31 @@ class Service:
                     return key, reason
 
     def item_added(self, item_id: object) -> None:
+        """Queue only. The server lookup runs on the worker: a webhook must not hold a connection slot for it."""
         key = str(item_id or "").replace("-", "").lower()
-        if not is_item_key(key):
-            return
+        if is_item_key(key):
+            self.enqueue([key], ADDED)
+
+    def queue_with_parents(self, key: str) -> None:
         try:
             item = self.server.item(key)
         except http.RequestError as exc:
             log.warning("webhook item not readable", extra={"key": key, "reason": str(exc)})
             item = None
+        except Exception:  # The worker thread runs this. It must survive a malformed answer.
+            log.exception("webhook item not readable", extra={"key": key})
+            item = None
         self.enqueue(related_keys(dict(item)) if item else [key], "webhook")
+
+    def _not_a_title(self, key: str, reason: str) -> bool:
+        if key == LIVE_TV:
+            self._live_tv()
+        elif reason == ADDED:
+            self.queue_with_parents(key)
+            self.worker_beat = time.monotonic()
+        else:
+            return False
+        return True
 
     def _work(self) -> None:
         since_release = 0
@@ -228,8 +250,7 @@ class Service:
                 self.announce_new(idle=True)
                 self.worker.rest()
                 continue
-            if key == LIVE_TV:
-                self._live_tv()
+            if self._not_a_title(key, reason):
                 continue
             started = time.monotonic()
             try:

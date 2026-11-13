@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stop iPhones zooming the landing page when a settings text box is tapped.
 - Keep the pill shape of landing page buttons under keyboard focus.
 - Stop hover styles sticking after a tap, and wrap long words instead of widening the page.
+- Answer Jellyfin and Emby webhooks at once, so a burst of new items on a slow server no longer blocks the health check.
+- Log a failed webhook request as one line instead of a traceback.
 
 ## [0.10.3] - 2026-11-08
 
