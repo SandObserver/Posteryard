@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Open landing page menus faster, shorten size changes, and add a short poster entrance to the hero.
 - Keep fades and colour changes on the landing page under Reduce Motion and honour Increase Contrast.
+- Match titles without regard to accents everywhere, so a guide's "Amelie" finds TMDB's "Amélie" and an episode title matches with or without accents.
+- Save `preview` images at the quality Posteryard uploads.
 
 ### Fixed
 

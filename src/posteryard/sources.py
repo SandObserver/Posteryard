@@ -13,11 +13,13 @@ from PIL import Image
 from posteryard import apple, http, ocr, overrides, services
 from posteryard.artwork import UNCHECKED, ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
+from posteryard.config import Config
 from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.render.layers import preferred_family
 from posteryard.settings import Settings
-from posteryard.tmdb import Details, ImageRef, Images, Kind, RegionOffers, Tmdb, open_image
+from posteryard.store import Store
+from posteryard.tmdb import Details, Images, Kind, RegionOffers, Tmdb, open_image
 
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
@@ -66,6 +68,28 @@ class Sources:
     apple_unavailable: bool = False
     lookups: OrderedDict[tuple[str, ...], tuple[float, Any]] = field(default_factory=OrderedDict)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    @classmethod
+    def from_config(
+        cls,
+        cfg: Config,
+        settings: Settings,
+        *,
+        tmdb: Tmdb | None = None,
+        state: Store | None = None,
+        marks: bool = True,
+    ) -> "Sources":
+        """Without `state`, choices live in memory. Without `marks`, a service with no built-in mark gets none."""
+        choices: ChoiceCache = state if state is not None else MemoryChoices()
+        return cls(
+            tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
+            settings,
+            choices=choices,
+            overrides=state.override if state is not None else lambda _key: None,
+            fanart=Fanart(cfg.fanart_api_key) if cfg.fanart_api_key else None,
+            marks=AutoMarks(cfg.data_dir / "marks", choices) if marks else None,
+            text_check=cfg.text_check,
+        )
 
     @property
     def picker(self) -> Picker:
@@ -175,7 +199,7 @@ class Sources:
                 self.apple_unavailable = self.apple_unavailable or not gone
                 return None
             del self.apple_failed[url]
-        ref = ImageRef(url, None, 1680, 3636, 0.0, 0)
+        ref = apple.tall_ref(url)
         try:
             picked = self.picker.textless(key, [ref], title.all_titles, cached_only=paused)
             self.apple_unavailable = self.apple_unavailable or (paused and picked is None)
@@ -263,21 +287,25 @@ class Sources:
 
     def service(self, providers: Mapping[str, RegionOffers]) -> str | None:
         """The first offer is the service. When its mark is left out, the poster has no mark."""
-        for offer in services.offers(providers, self.settings.regions):
-            if key := services.service_for(offer.name):
-                return key
-            mark = self.marks.get(offer, self.tmdb) if self.marks is not None else None
-            if mark:
-                self._remember_mark(offer.name, mark)
-            return mark
-        return None
+        offer = self._first_offer(providers)
+        if offer is None:
+            return None
+        if key := services.service_for(offer.name):
+            return key
+        mark = self.marks.get(offer, self.tmdb) if self.marks is not None else None
+        if mark:
+            self._remember_mark(offer.name, mark)
+        return mark
 
     def service_name(self, providers: Mapping[str, RegionOffers]) -> str:
-        offer = next(services.offers(providers, self.settings.regions), None)
+        offer = self._first_offer(providers)
         if offer is None:
             return ""
         key = services.service_for(offer.name)
         return services.NAMES[key] if key else services.display_name(offer.name)
+
+    def _first_offer(self, providers: Mapping[str, RegionOffers]) -> services.Offer | None:
+        return next(services.offers(providers, self.settings.regions), None)
 
     def _remember_mark(self, provider_name: str, mark: str) -> None:
         key = f"service-mark:{services.network_key(provider_name)}"

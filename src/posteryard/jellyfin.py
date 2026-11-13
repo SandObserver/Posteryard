@@ -15,7 +15,7 @@ from typing import Any
 from xml.parsers import expat
 
 from posteryard import http
-from posteryard.server import Guide, Item, Target, made_here
+from posteryard.server import SOURCES, Guide, Item, Target, made_here
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
@@ -27,7 +27,6 @@ LIBRARIES_SECONDS = 600
 LIBRARIES_MISS_SECONDS = 60
 # Jellyfin answers HTTP 414 to a URL over 8 KB. 100 ids keep a collection request near 3.5 KB.
 IDS_PER_REQUEST = 100
-PROVIDERS = (("tmdb", "tmdb"), ("imdb", "imdb"), ("tvdb", "tvdb"))
 GUIDE = "guide"
 log = logging.getLogger(__name__)
 XMLTV_TIME = "%Y%m%d%H%M%S %z"
@@ -178,7 +177,7 @@ class Jellyfin:
             "title": str(raw.get("Name", "")),
             "addedAt": _timestamp(raw.get("DateCreated")),
             "Label": [{"tag": tag} for tag in self._tags(raw)],
-            "Guid": [{"id": f"{source}://{value}"} for source, name in PROVIDERS if (value := providers.get(name))],
+            "Guid": [{"id": f"{source}://{value}"} for source in SOURCES if (value := providers.get(source))],
         }
         if (saved := _timestamp(raw.get("DateLastSaved"))) is not None:
             item["updatedAt"] = saved

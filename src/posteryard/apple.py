@@ -4,7 +4,7 @@ import re
 from typing import Any
 
 from posteryard import http
-from posteryard.tmdb import Details, Kind
+from posteryard.tmdb import Details, ImageRef, Kind
 
 log = logging.getLogger(__name__)
 WIKIDATA = "https://www.wikidata.org/wiki/Special:EntityData/{qid}.json"
@@ -14,7 +14,12 @@ PROPERTIES: dict[Kind, str] = {"movie": "P9586", "tv": "P9751"}
 UMC = re.compile(r"^umc\.cmc\.[a-z0-9]+$")
 QID = re.compile(r"^Q\d+$")
 IMAGE_HOST = re.compile(r"^https://is\d-ssl\.mzstatic\.com/image/thumb/")
-TALL = "1680x3636"
+TALL_SIZE = (1680, 3636)
+TALL = f"{TALL_SIZE[0]}x{TALL_SIZE[1]}"
+
+
+def tall_ref(url: str) -> ImageRef:
+    return ImageRef(url, None, *TALL_SIZE, 0.0, 0)
 
 
 def is_apple(path: str) -> bool:

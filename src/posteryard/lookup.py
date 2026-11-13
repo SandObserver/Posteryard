@@ -4,6 +4,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from posteryard.server import Item, MediaServer, is_item_key
+from posteryard.titles import plain
 
 YEAR = re.compile(r"^(.*\S)\s+\(?(\d{4})\)?$")
 KINDS = ("movie", "show")
@@ -47,15 +48,11 @@ class TitleError(Exception):
         lines = [f'"{self.text}" matches {len(self.matches)} titles. Run again with one of these:']
         width = max(len(m.label) for m in self.matches)
         for m in self.matches:
-            unique = sum(1 for other in self.matches if _norm(other.name_with_year) == _norm(m.name_with_year)) == 1
+            unique = sum(1 for other in self.matches if plain(other.name_with_year) == plain(m.name_with_year)) == 1
             retry = f'posteryard {command} "{m.name_with_year}"{options}' if unique else ""
             retry = f"{retry}   or {m.rating_key}" if retry else m.rating_key
             lines.append(f"  {m.label.ljust(width)}   {retry}")
         return "\n".join([*lines, "Nothing changed."])
-
-
-def _norm(text: str) -> str:
-    return "".join(ch for ch in text.lower() if ch.isalnum())
 
 
 def _match(item: Item) -> Match:
@@ -76,15 +73,15 @@ def library_titles(server: MediaServer, libraries: Iterable[str]) -> list[Match]
 
 
 def search(titles: Sequence[Match], query: str) -> list[Match]:
-    key = _norm(query)
+    key = plain(query)
     if not key:
         return []
-    containing = [t for t in titles if key in _norm(t.title)]
-    names = {_norm(t.title) for t in titles}
+    containing = [t for t in titles if key in plain(t.title)]
+    names = {plain(t.title) for t in titles}
     close = set(difflib.get_close_matches(key, names, n=MAX_SUGGESTIONS, cutoff=CLOSE_MATCH))
-    similar = [t for t in titles if _norm(t.title) in close and t not in containing]
+    similar = [t for t in titles if plain(t.title) in close and t not in containing]
     return sorted(containing, key=lambda t: (t.title, t.year or 0)) + sorted(
-        similar, key=lambda t: difflib.SequenceMatcher(None, key, _norm(t.title)).ratio(), reverse=True
+        similar, key=lambda t: difflib.SequenceMatcher(None, key, plain(t.title)).ratio(), reverse=True
     )
 
 
@@ -92,11 +89,11 @@ def resolve(server: MediaServer, libraries: Iterable[str], text: str) -> Match:
     """The one movie or show `text` names: a title, a title and year, or a rating key. Never a guess."""
     text = text.strip()
     titles = library_titles(server, libraries)
-    matches = [t for t in titles if _norm(t.title) == _norm(text)]
+    matches = [t for t in titles if plain(t.title) == plain(text)]
     year = YEAR.match(text)
     if year:
-        name, number = _norm(year.group(1)), int(year.group(2))
-        matches += [t for t in titles if _norm(t.title) == name and t.year == number and t not in matches]
+        name, number = plain(year.group(1)), int(year.group(2))
+        matches += [t for t in titles if plain(t.title) == name and t.year == number and t not in matches]
     if is_item_key(text):
         item = server.item(text)
         if item is not None and str(item.get("ratingKey")) not in {m.rating_key for m in matches}:

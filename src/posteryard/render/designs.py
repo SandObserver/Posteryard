@@ -87,16 +87,15 @@ SERVICE_MARGIN = 0.044
 SERVICE_AREA = SERVICE_HEIGHT**2 * 3.7
 
 
-def _service_size(service: str, width: int) -> tuple[int, int]:
-    src = mark(service, 240)
-    aspect = src.width / src.height
+def mark_size(aspect: float, width: int) -> tuple[int, int]:
+    """The size of a streaming mark, or of a channel logo in its place, on a poster this wide."""
     height = min(math.sqrt(SERVICE_AREA / aspect), SERVICE_MAX_HEIGHT, SERVICE_MAX_WIDTH / aspect) * width
     return max(1, round(height * aspect)), max(1, round(height))
 
 
-def _service_logo(service: str, width: int) -> Image.Image:
-    logo_w, logo_h = _service_size(service, width)
-    return mark(service, logo_h).resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+def _service_size(service: str, width: int) -> tuple[int, int]:
+    src = mark(service, 240)
+    return mark_size(src.width / src.height, width)
 
 
 def _region(art: Image.Image, area: tuple[float, float, float, float]) -> np.ndarray:
@@ -173,7 +172,7 @@ def recolour(logo: Image.Image, ink: RGB) -> Image.Image:
 
 def _service(canvas: Image.Image, service: str, ink: RGB = WHITE) -> None:
     margin = round(SERVICE_MARGIN * canvas.width)
-    size = _service_logo(service, canvas.width).size
+    size = _service_size(service, canvas.width)
     logo = mark(service, size[1], ink).resize(size, Image.Resampling.LANCZOS)
     canvas.alpha_composite(logo, (margin, margin))
 
