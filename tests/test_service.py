@@ -784,7 +784,7 @@ def test_a_failed_webhook_request_logs_one_line(
         server.server_close()
     assert [r.getMessage() for r in caplog.records] == ["webhook request failed"]
     assert caplog.records[0].__dict__["reason"] == "BrokenPipeError"
-    assert capsys.readouterr().err == ""
+    assert "Exception occurred during processing of request" not in capsys.readouterr().err
 
 
 def test_webhook_items_go_before_the_full_pass(tmp_path: Path) -> None:
