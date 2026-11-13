@@ -820,3 +820,30 @@ def test_a_poster_chosen_after_a_lock_during_an_apple_outage_is_kept(
     plex.selected_keys[("1", target)] = "hand-picked"
     worker.process("1")
     assert plex.selected_keys[("1", target)] == "hand-picked"
+
+
+def _fail_first_logo(worker: Worker) -> None:
+    real = worker.ctx.sources.fetch
+    state = {"fail": True}
+
+    def flaky(path: str) -> Any:
+        if path.endswith(".png") and state["fail"]:
+            state["fail"] = False
+            raise http.TemporaryError("ReadTimeoutError", "https://image.tmdb.org/t/p/original/logo.png")
+        return real(path)
+
+    worker.ctx.sources.fetch = flaky
+
+
+@pytest.mark.parametrize("label", ["posteryard-custom", "posteryard-next"])
+def test_a_label_on_a_poster_changed_by_hand_survives_one_failed_run(tmp_path: Path, label: str) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    assert worker.process("1") == Outcome.UPLOADED
+    plex.selected_keys[("1", "poster")] = "chosen-by-hand"
+    assert worker.process("1") == Outcome.MANUAL
+    plex.items["1"]["Label"] = [{"tag": label}]
+    _fail_first_logo(worker)
+    assert worker.process("1") == Outcome.FAILED
+    assert worker.process("1") == Outcome.UPLOADED
+    record = store.get("1", "poster")
+    assert record is not None and record.status == Status.UPLOADED

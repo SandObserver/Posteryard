@@ -131,6 +131,10 @@ class Worker:
             self.ctx.settings.action_days = self.leaving_days()
             self.ctx.settings.today = date.today()
             redo_poster = self._follow_labels(item)
+            poster = self.store.get(rating_key, "poster")
+            if redo_poster and poster is not None and poster.status == Status.MANUAL:
+                # The label is used up. A failed run must still redraw on the retry.
+                self.store.forget_target(rating_key, "poster")
             if item.get("type") == "episode" and self.cfg.episodes == EpisodeMode.OFF:
                 self._restore(item, "thumb")
             self.ctx.sources.apple_dropped = False

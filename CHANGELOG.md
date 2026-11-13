@@ -28,6 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Show a clear message instead of a traceback when the state database cannot be updated for a new release, or when `art set --file` cannot read the file.
 - Keep the schedule running when the heartbeat cannot read the health state.
 - Keep the schedule running when the data folder cannot be written, and restart reliably when a thread stops, instead of staying up and doing nothing.
+- Keep a `posteryard-custom` or `posteryard-next` request on a poster changed by hand when the first try fails, instead of dropping it.
 - Say in `why` whether custom art came from the `posteryard-custom` label or `art set`, instead of naming Plex on every server.
 
 ## [0.10.3] - 2026-11-08
