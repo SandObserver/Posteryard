@@ -698,6 +698,53 @@ def test_the_watchdog_stops_even_when_the_alert_fails(tmp_path: Path, monkeypatc
     assert service._stop.is_set()
 
 
+class LabelPlex(FakePlex):
+    def __init__(self) -> None:
+        super().__init__()
+        self.custom: list[Item] = [{"ratingKey": "9"}]
+        self.ignored = [{"ratingKey": "8"}]
+
+    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Any]:
+        if filters.get("label") == "posteryard-custom":
+            return self.custom
+        if filters.get("label") == "posteryard-next":
+            return []
+        return FakePlex.section_items(self, section_key, kind, **filters)
+
+
+def test_removed_labels_are_queued_after_a_restart(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    plex = LabelPlex()
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    while queued(service):
+        service._processed(service.take(0)[0])
+    plex.custom, plex.ignored = [], []
+    service.sweep()
+    assert {"9", "8"} <= set(queued(service))
+    restarted = make_service(tmp_path, plex)
+    restarted.resume()
+    assert {"9", "8"} <= set(queued(restarted))
+    for key in ("9", "8"):
+        restarted._processed(key)
+    assert make_service(tmp_path, plex)._pending == set()
+
+
+def test_the_watchdog_sends_the_heartbeat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.TICK", 0.01)
+    service = make_service(tmp_path)
+    beats: list[bool] = []
+
+    def beat() -> None:
+        beats.append(True)
+        service.stop()
+
+    monkeypatch.setattr(service, "heartbeat", beat)
+    threading.Timer(2, service.stop).start()
+    service._watch(type("S", (), {"shutdown": lambda self: None})())
+    assert beats == [True]
+
+
 def test_the_watchdog_restarts_when_the_worker_is_stuck(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)

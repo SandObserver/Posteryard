@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Fall back to other art when Wikidata sends an answer Posteryard cannot read.
 - Show a clear message instead of a traceback when the state database cannot be updated for a new release, or when `art set --file` cannot read the file.
 - Keep the schedule running when the heartbeat cannot read the health state.
+- Call `HEARTBEAT_URL` every minute during long checks too, so a push monitor no longer reports a healthy Posteryard as down.
+- Process a removed label, a removed `posteryard-ignore` or a new Maintainerr date after a restart, instead of waiting for the daily check.
+- Stop retrying a failed title once it is ignored or out of scope.
+- Write custom art to a new file first, so a full disk cannot damage the art a title already uses.
 - Keep the schedule running when the data folder cannot be written, and restart reliably when a thread stops, instead of staying up and doing nothing.
 - Keep a `posteryard-custom` or `posteryard-next` request on a poster changed by hand when the first try fails, instead of dropping it.
 - Say in `why` whether custom art came from the `posteryard-custom` label or `art set`, instead of naming Plex on every server.

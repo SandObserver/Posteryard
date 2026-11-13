@@ -47,10 +47,12 @@ MAX_NETWORK_FAILURES = 3
 ADDED = "added"
 URGENT = frozenset({"webhook", ADDED, "label", "unignored"})
 BACKGROUND = frozenset({"daily", "unlisted"})
+KEPT = frozenset({"label", "unignored", "leaving"})
 NEW_REASONS = frozenset({"webhook", "changed", "retry"})
 NEW_BATCH_SECONDS = 900
 NEW_WAIT_SECONDS = 300
 RESUMED = "resumed after a restart"
+PENDING_KEYS = "pending_keys"
 LIVE_TV = "live-tv"
 RELEASE_EVERY = 25
 DREW = frozenset({Outcome.PREVIEW, Outcome.UPLOADED, Outcome.FAILED})
@@ -173,6 +175,7 @@ class Service:
         self.server_checked = threading.Event()
         self._live_tv_running = threading.Event()
         self._swept = False
+        self._pending = self._saved_pending()
         self._last_heartbeat = float("-inf")
         self._connected = False
         self._tally: Counter[Outcome] = Counter()
@@ -184,12 +187,33 @@ class Service:
 
     def enqueue(self, keys: Iterable[str], reason: str) -> None:
         priority = 0 if reason in URGENT else 2 if reason in BACKGROUND else 1
+        keys = list(keys)
+        if reason in KEPT and not set(keys) <= self._pending:
+            # The sweep saves label and leaving state before the worker runs. A restart must still find the work.
+            with self._lock:
+                self._pending.update(keys)
+                pending = sorted(self._pending)
+            self.store.set_meta(PENDING_KEYS, json.dumps(pending))
         for key in keys:
             with self._lock:
                 if self._queued.get(key, priority + 1) <= priority:
                     continue
                 self._queued[key] = priority
                 self.queue.put((priority, next(self._order), key, reason))
+
+    def _saved_pending(self) -> set[str]:
+        try:
+            return {str(key) for key in json.loads(self.store.meta(PENDING_KEYS, "[]"))}
+        except (ValueError, TypeError):
+            return set()
+
+    def _processed(self, key: str) -> None:
+        with self._lock:
+            if key not in self._pending:
+                return
+            self._pending.discard(key)
+            pending = sorted(self._pending)
+        self.store.set_meta(PENDING_KEYS, json.dumps(pending))
 
     def stop(self) -> None:
         """Wake the worker. It must not sleep through a stop: Docker kills the container after 10 seconds."""
@@ -258,6 +282,7 @@ class Service:
             except Exception:
                 log.exception("unexpected error", extra={"key": key})
                 outcome = Outcome.FAILED
+            self._processed(key)
             took = logfmt.took(time.monotonic() - started)
             log.debug("item processed", extra={"key": key, "outcome": outcome, "trigger": reason, "took": took})
             if self._full_started is not None:
@@ -495,6 +520,9 @@ class Service:
     def resume(self) -> None:
         if self.store.meta("full_pending") == "1":
             self.full(RESUMED)
+        with self._lock:
+            pending = sorted(self._pending)
+        self.enqueue(self._scoped(pending), "label")
 
     def _sync_collections(self) -> None:
         shows = [s for s in self._sections() if s.get("type") == "show"]
@@ -572,7 +600,6 @@ class Service:
         self.worker.notifier.resolve("restart", "Posteryard is running again.")
         while not self._stop.is_set():
             if time.monotonic() < retry_at:
-                self.heartbeat()
                 self._stop.wait(TICK)
                 continue
             try:
@@ -613,7 +640,6 @@ class Service:
                 log.exception("scheduled run failed, trying again in 2 minutes")
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 retry_at = time.monotonic() + RETRY_SECONDS
-            self.heartbeat()
             self._stop.wait(TICK)
 
     def connect(self) -> None:
@@ -629,7 +655,7 @@ class Service:
             return
         try:
             healthy = self.healthy()
-        except Exception as exc:  # The schedule thread calls this outside its own error handling.
+        except Exception as exc:  # The watch thread calls this. It must survive any error.
             log.warning("heartbeat not sent, health not readable", extra={"reason": type(exc).__name__})
             return
         if not healthy:
@@ -641,7 +667,7 @@ class Service:
             log.warning("HEARTBEAT_URL refused the call", extra={"reason": f"HTTP {exc.status}"})
         except http.RequestError:
             log.warning("HEARTBEAT_URL not reachable")
-        except Exception as exc:  # The schedule thread calls this outside its own error handling.
+        except Exception as exc:  # The watch thread calls this. It must survive any error.
             log.warning("HEARTBEAT_URL not reachable", extra={"reason": type(exc).__name__})
 
     def status(self) -> dict[str, Any]:
@@ -671,6 +697,7 @@ class Service:
         try:
             while not self._stop.wait(TICK):
                 http.close_idle()
+                self.heartbeat()
                 dead = [thread.name for thread in self.threads if not thread.is_alive()]
                 stuck = time.monotonic() - self.worker_beat >= WORKER_RESTART
                 if dead or stuck:

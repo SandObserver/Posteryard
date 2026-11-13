@@ -83,7 +83,13 @@ def save(image: Image.Image, data_dir: Path, rating_key: str) -> Path:
     folder = data_dir / "custom"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{rating_key}-{hashlib.sha256(data).hexdigest()[:12]}.jpg"
-    path.write_bytes(data)
+    # Write a copy, then rename. The override may already point at this name.
+    part = path.with_suffix(".part")
+    try:
+        part.write_bytes(data)
+        part.replace(path)
+    finally:
+        part.unlink(missing_ok=True)
     return path
 
 
