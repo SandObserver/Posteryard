@@ -10,9 +10,11 @@ import pytest
 from PIL import Image
 
 from posteryard import config, http, pipeline, similar
+from posteryard.fanart import Fanart, FanartImages
 from posteryard.notify import Notifier
 from posteryard.server import Item, Target, made_here
 from posteryard.store import Status, Store
+from posteryard.tmdb import Kind
 from posteryard.worker import Outcome, Worker, jpeg
 from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
 
@@ -202,24 +204,39 @@ def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     assert store.get("1", "item") is None
 
 
-def test_fanart_failures_alert_as_fanart_and_resolve_after_a_success(
+class FanartUp(Fanart):
+    def __init__(self) -> None:
+        super().__init__("example")
+
+    def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
+        return FanartImages()
+
+
+def test_fanart_failures_alert_as_fanart_and_resolve_after_fanart_answers(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     worker, _, _, alerts = make(tmp_path)
     resolved: list[str] = []
     monkeypatch.setattr(alerts, "resolve", lambda cause, message: resolved.append(cause))
-    down = [True]
+    worker.ctx.sources.fanart = FanartUp()
+    state = ["down"]
 
     def plan_item(ctx: pipeline.Context, item: Item) -> list[pipeline.Plan]:
-        if down[0]:
+        if state[0] == "down":
             raise http.TemporaryError("ConnectTimeoutError", "https://webservice.fanart.tv/v3/movies/1")
+        if state[0] == "asked":
+            ctx.sources.fanart_images("movie", 1)
         return []
 
     monkeypatch.setattr(pipeline, "plan_item", plan_item)
     for _ in range(3):
         assert worker.process("1") == Outcome.FAILED
     assert alerts.sent == ["fanart.tv"]
-    down[0] = False
+    state[0] = "not asked"
+    worker.process("1")
+    assert "TMDB" in resolved
+    assert "fanart.tv" not in resolved
+    state[0] = "asked"
     worker.process("1")
     assert "fanart.tv" in resolved
 

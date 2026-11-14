@@ -139,13 +139,14 @@ class Worker:
             if item.get("type") == "episode" and self.cfg.episodes == EpisodeMode.OFF:
                 self._restore(item, "thumb")
             self.ctx.sources.apple_dropped = False
+            self.ctx.sources.fanart_reached = False
             try:
                 outcomes = self._apply_all(item, force, redo_poster)
             except http.RequestError:
                 if not self.ctx.sources.retry_without_apple():
                     raise
                 outcomes = self._apply_all(item, force, redo_poster)
-            for cause in (self.server.name, "TMDB", FANART):
+            for cause in (self.server.name, "TMDB", *([FANART] if self.ctx.sources.fanart_reached else [])):
                 self.notifier.resolve(cause, f"{cause} works again.")
         except pipeline.UnmatchedError as exc:
             self.store.forget_target(rating_key, ITEM_TARGET)
