@@ -563,3 +563,16 @@ def test_guides_past_the_time_limit_are_skipped(
 def test_a_programme_time_without_an_offset_gives_no_picture() -> None:
     guide = XMLTV.replace(b'start="20261012170000 +0000"', b'start="20261012170000"')
     assert _xmltv_pictures(guide, 1791820800, 2**31) == {}
+
+
+def test_seasons_without_folders_read_their_show_once_per_listing(serve: Any) -> None:
+    seasons = [
+        {"Id": f"{n:032x}", "Type": "Season", "Name": f"Season {n}", "IndexNumber": n, "SeriesId": SERIES}
+        for n in (1, 2, 3)
+    ]
+    show = {"Id": SERIES, "Type": "Series", "Name": "Show", "Path": "/media/tv/Show"}
+    jellyfin, server = serve({"/Items": {"Items": seasons, "TotalRecordCount": 3}, f"/Items/{SERIES}": show})
+    assert [s["librarySectionTitle"] for s in jellyfin.children(SERIES)] == ["Shows"] * 3
+    assert [c[1] for c in server.calls].count(f"/Items/{SERIES}") == 1
+    jellyfin.children(SERIES)
+    assert [c[1] for c in server.calls].count(f"/Items/{SERIES}") == 2

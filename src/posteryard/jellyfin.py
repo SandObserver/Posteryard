@@ -168,7 +168,7 @@ class Jellyfin:
     def _tags(self, raw: Mapping[str, Any]) -> list[str]:
         return [str(tag) for tag in raw.get("Tags") or []]
 
-    def _shape(self, raw: Mapping[str, Any]) -> Item:
+    def _shape(self, raw: Mapping[str, Any], shows: dict[str, str] | None = None) -> Item:
         kind = TYPES.get(str(raw.get("Type")), str(raw.get("Type", "")).lower())
         providers = {str(name).lower(): value for name, value in (raw.get("ProviderIds") or {}).items()}
         item: Item = {
@@ -192,7 +192,7 @@ class Jellyfin:
         elif kind == "episode":
             item["parentRatingKey"] = str(raw.get("SeasonId") or "")
             item["grandparentRatingKey"] = str(raw.get("SeriesId") or "")
-        path = _folder(self._path(raw)).rstrip("/")
+        path = _folder(self._path(raw, {} if shows is None else shows)).rstrip("/")
         library = self._library(path)
         if library is not None:
             item["librarySectionID"] = library["key"]
@@ -213,18 +213,20 @@ class Jellyfin:
                 return found
         return None
 
-    def _path(self, raw: Mapping[str, Any]) -> str:
+    def _path(self, raw: Mapping[str, Any], shows: dict[str, str]) -> str:
         """A season of a show without season folders has no path. Its library is the show's."""
         path = str(raw.get("Path") or "")
         series = str(raw.get("SeriesId") or "")
         if path or not series or not self.item_id.match(series):
             return path
-        try:
-            return str(self._raw(series).get("Path") or "")
-        except http.HttpError as exc:
-            if exc.status in (400, 404):
-                return ""
-            raise
+        if series not in shows:
+            try:
+                shows[series] = str(self._raw(series).get("Path") or "")
+            except http.HttpError as exc:
+                if exc.status not in (400, 404):
+                    raise
+                shows[series] = ""
+        return shows[series]
 
     def item(self, rating_key: str) -> Item | None:
         if not self.item_id.match(rating_key):
@@ -255,10 +257,11 @@ class Jellyfin:
 
     def _items(self, **params: Any) -> Iterator[Item]:
         start = 0
+        shows: dict[str, str] = {}
         while True:
             page = self._as_user("/Items", Fields=FIELDS, StartIndex=start, Limit=PAGE, **params)
             items = page.get("Items") or []
-            yield from (self._shape(raw) for raw in items)
+            yield from (self._shape(raw, shows) for raw in items)
             start += len(items)
             if not items or start >= int(page.get("TotalRecordCount", start)):
                 return
