@@ -485,3 +485,81 @@ def test_a_listing_reads_a_cached_user_that_is_gone_again(serve: Any, monkeypatc
     monkeypatch.setattr(jellyfin, "_get", get)
     assert len(list(jellyfin.section_items(LIBRARY, "movie", **{"updatedAt>>": 1}))) == 1
     assert jellyfin._user == USER
+
+
+OURS = b"\xff\xd8\xff\xfe\x00\x0cPosteryard"
+
+
+@pytest.mark.parametrize(("target", "path"), [("poster", "Primary"), ("art", "Backdrop/0")])
+def test_still_ours_reads_the_shown_image(serve: Any, target: Any, path: str) -> None:
+    jellyfin, server = serve({f"/Items/{MOVIE}/Images/{path}": OURS})
+    assert jellyfin.still_ours({"ratingKey": MOVIE}, target)
+    server.routes[f"/Items/{MOVIE}/Images/{path}"] = b"\xff\xd8\xff\xda"
+    assert not jellyfin.still_ours({"ratingKey": MOVIE}, target)
+
+
+def _fails(query: dict[str, str]) -> Any:
+    raise http.HttpError(500, BASE)
+
+
+def test_a_server_error_is_not_a_missing_item(serve: Any) -> None:
+    jellyfin, server = serve({f"/Items/{MOVIE}": _fails})
+    with pytest.raises(http.HttpError):
+        jellyfin.item(MOVIE)
+    assert not any(c[1] == "/Items" for c in server.calls)
+
+
+def test_a_server_error_while_listing_is_raised(serve: Any) -> None:
+    jellyfin, _ = serve({"/Items": _fails})
+    with pytest.raises(http.HttpError):
+        list(jellyfin.section_items(LIBRARY, "movie"))
+
+
+def test_a_server_error_reading_the_show_of_a_season_is_raised(serve: Any) -> None:
+    season = {"Id": SEASON, "Type": "Season", "Name": "Season 1", "SeriesId": SERIES}
+    jellyfin, _ = serve({f"/Items/{SEASON}": season, f"/Items/{SERIES}": _fails})
+    with pytest.raises(http.HttpError):
+        jellyfin.item(SEASON)
+
+
+def test_an_upload_that_leaves_no_image_is_an_error(serve: Any) -> None:
+    jellyfin, _ = serve({f"GET /Items/{MOVIE}": {**FORD, "ImageTags": {}}, f"POST /Items/{MOVIE}/Images/Primary": b""})
+    with pytest.raises(http.RequestError, match="no poster"):
+        jellyfin.upload(MOVIE, "poster", b"\xff\xd8jpeg")
+
+
+def _guides(monkeypatch: pytest.MonkeyPatch, paths: list[str], body: bytes) -> list[str]:
+    fetched: list[str] = []
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        return json.dumps({"ListingProviders": [{"Type": "xmltv", "Path": p} for p in paths]}).encode()
+
+    def guide(url: str, *, timeout: float) -> bytes:
+        fetched.append(url)
+        return body
+
+    monkeypatch.setattr(http, "request", request)
+    monkeypatch.setattr(http, "get_checked_redirects", guide)
+    return fetched
+
+
+def test_a_gzip_xmltv_guide_is_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    _guides(monkeypatch, ["https://guide.example/g.xml.gz"], gzip.compress(XMLTV))
+    pictures = Jellyfin(BASE, "example-key")._guide_pictures(0, 2**31)
+    assert pictures == {("news 24", 1791824400): "https://img.example/evening.jpg"}
+
+
+def test_guides_past_the_time_limit_are_skipped(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    fetched = _guides(monkeypatch, ["https://guide.example/a.xml", "https://guide.example/b.xml"], XMLTV)
+    clock = iter([0.0, 0.0, jellyfin.XMLTV_SECONDS + 1])
+    monkeypatch.setattr("posteryard.jellyfin.time.monotonic", lambda: next(clock))
+    assert Jellyfin(BASE, "example-key")._guide_pictures(0, 2**31)
+    assert fetched == ["https://guide.example/a.xml"]
+    assert [getattr(r, "reason", "") for r in caplog.records] == ["out of time"]
+
+
+def test_a_programme_time_without_an_offset_gives_no_picture() -> None:
+    guide = XMLTV.replace(b'start="20261012170000 +0000"', b'start="20261012170000"')
+    assert _xmltv_pictures(guide, 1791820800, 2**31) == {}
