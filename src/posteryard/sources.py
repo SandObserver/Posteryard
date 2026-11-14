@@ -62,6 +62,7 @@ class Sources:
     titles: dict[tuple[Kind, int], tuple[float, Title]] = field(default_factory=dict)
     apple_down_until: float = 0.0
     apple_dropped: bool = False
+    fanart_reached: bool = False
     apple_failed: dict[str, tuple[float, bool]] = field(default_factory=dict)
     text_check: bool = True
     apple_unavailable: bool = False
@@ -153,7 +154,12 @@ class Sources:
             return FanartImages()
 
         def load() -> FanartImages:
-            return fanart.images(kind, tid, self.tmdb.tvdb_id(kind, tid) if kind == "tv" else None)
+            tvdb = self.tmdb.tvdb_id(kind, tid) if kind == "tv" else None
+            if kind == "tv" and not tvdb:
+                return FanartImages()
+            images = fanart.images(kind, tid, tvdb)
+            self.fanart_reached = True
+            return images
 
         images: FanartImages = self.remember(("fanart", kind, str(tid)), load)
         return images

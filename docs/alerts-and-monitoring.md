@@ -4,7 +4,7 @@
 
 ## Alerts
 
-Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours, also across restarts. When TMDB, the media server, Maintainerr, scheduled runs or service collections work again, a second alert says so. An alert or "works again" message that could not be delivered is tried again after 10 minutes.
+Posteryard sends an alert when a title fails three times in a row, when Maintainerr is unreachable, and when a scheduled run fails. Each cause sends at most one alert every 6 hours, also across restarts. When TMDB, fanart.tv, the media server, Maintainerr, scheduled runs or service collections work again, a second alert says so. An alert or "works again" message that could not be delivered is tried again after 10 minutes.
 
 `NOTIFY_EVENTS` sets which alerts are sent, such as `NOTIFY_EVENTS=problems,new`:
 
