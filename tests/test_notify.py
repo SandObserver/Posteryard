@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from posteryard import config
-from posteryard.notify import Event, Notifier, invalid_urls, split_urls
+from posteryard.notify import RETRY_SECONDS, Event, Notifier, invalid_urls, split_urls
 from posteryard.store import Store
 
 
@@ -69,17 +69,23 @@ def test_a_resolved_problem_says_so_once(receiver: Any) -> None:
     ]
 
 
-def test_a_resolved_message_that_failed_is_sent_again(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_resolved_message_that_failed_is_sent_again_after_a_pause(monkeypatch: pytest.MonkeyPatch) -> None:
     notifier = Notifier(["json://alerts.example/hook"])
     sent: list[str] = []
     delivered = iter([True, False, True, True])
+    now = [1000.0]
 
     def send(subject: str, message: str, *args: Any) -> bool:
         sent.append(message)
         return next(delivered)
 
     monkeypatch.setattr(notifier, "send", send)
+    monkeypatch.setattr("posteryard.notify.time.time", lambda: now[0])
     notifier.alert("TMDB", "TMDB is down")
+    for _ in range(5):
+        notifier.resolve("TMDB", "TMDB works again.")
+    assert sent == ["TMDB is down", "TMDB works again."]
+    now[0] += RETRY_SECONDS
     for _ in range(3):
         notifier.resolve("TMDB", "TMDB works again.")
     assert sent == ["TMDB is down", "TMDB works again.", "TMDB works again."]

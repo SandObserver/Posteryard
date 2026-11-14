@@ -69,6 +69,7 @@ class Notifier:
         self._state = state
         self._lock = threading.Lock()
         self._muted, self._open = _load(state)
+        self._resolve_after: dict[str, float] = {}
 
     @property
     def configured(self) -> bool:
@@ -92,15 +93,21 @@ class Notifier:
             self._save()
 
     def resolve(self, cause: str, message: str) -> None:
-        """The end of a problem. Sent only when the alert for the cause was delivered."""
+        """The end of a problem. Sent only when the alert for the cause was delivered.
+        A failed send is tried again after RETRY_SECONDS, so callers on every title cannot flood."""
         with self._lock:
             if cause not in self._open:
                 return
+            now = time.time()
+            if now < self._resolve_after.get(cause, 0.0):
+                return
+            self._resolve_after[cause] = now + RETRY_SECONDS
         if not self.send(cause, message, apprise.NotifyType.SUCCESS):
             return
         log.info("problem resolved", extra={"cause": cause})
         with self._lock:
             self._open.discard(cause)
+            self._resolve_after.pop(cause, None)
             self._save()
 
     def new_posters(self, names: Sequence[str], poster: bytes | None = None) -> None:
