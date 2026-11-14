@@ -154,7 +154,6 @@ class WebhookServer(ThreadingHTTPServer):
             self._slots.release()
 
     def handle_error(self, request: Any, client_address: Any) -> None:
-        """One log line. The default prints a traceback to stderr, outside the log format."""
         log.warning("webhook request failed", extra={"reason": type(sys.exception()).__name__})
 
 

@@ -233,7 +233,6 @@ def _shared_art(  # noqa: PLR0913
 
 
 def _season_posters(ctx: Context, title: Title, number: int) -> tuple[str, list[ImageRef]]:
-    """TMDB's textless season posters, or fanart.tv's when TMDB has none. The name says which."""
     if own := ctx.sources.season_images(title.tmdb_id, number).textless_posters():
         return "TMDB", own
     fanart = ctx.sources.fanart_images(title.kind, title.tmdb_id).seasons.get(number, [])

@@ -88,7 +88,6 @@ SERVICE_AREA = SERVICE_HEIGHT**2 * 3.7
 
 
 def mark_size(aspect: float, width: int) -> tuple[int, int]:
-    """The size of a streaming mark, or of a channel logo in its place, on a poster this wide."""
     height = min(math.sqrt(SERVICE_AREA / aspect), SERVICE_MAX_HEIGHT, SERVICE_MAX_WIDTH / aspect) * width
     return max(1, round(height * aspect)), max(1, round(height))
 
