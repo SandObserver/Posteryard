@@ -730,6 +730,24 @@ def test_removed_labels_are_queued_after_a_restart(tmp_path: Path, monkeypatch: 
     assert make_service(tmp_path, plex)._pending == set()
 
 
+def test_a_failed_pending_save_does_not_stop_the_worker(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    plex = LabelPlex()
+    service = make_service(tmp_path, plex)
+    monkeypatch.setattr(service.worker, "leaving_days", dict)
+    service.sweep()
+    key = sorted(service._pending)[0]
+
+    def full(key: str, value: str) -> None:
+        raise sqlite3.OperationalError("database or disk is full")
+
+    monkeypatch.setattr(service.store, "set_meta", full)
+    service._processed(key)
+    assert key not in service._pending
+    assert "pending titles not saved" in caplog.text
+
+
 def test_the_watchdog_sends_the_heartbeat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)

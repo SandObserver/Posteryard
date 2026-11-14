@@ -7,6 +7,7 @@ import platform
 import queue
 import signal
 import socket
+import sqlite3
 import sys
 import threading
 import time
@@ -212,7 +213,10 @@ class Service:
                 return
             self._pending.discard(key)
             pending = sorted(self._pending)
-        self.store.set_meta(PENDING_KEYS, json.dumps(pending))
+        try:
+            self.store.set_meta(PENDING_KEYS, json.dumps(pending))
+        except (sqlite3.Error, OSError) as exc:
+            log.warning("pending titles not saved", extra={"reason": str(exc)})
 
     def stop(self) -> None:
         """Wake the worker. It must not sleep through a stop: Docker kills the container after 10 seconds."""
