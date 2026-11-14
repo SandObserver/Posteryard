@@ -57,8 +57,6 @@ class SeasonSummary(TypedDict, total=False):
 
 
 class ShowSeasons(TypedDict, total=False):
-    """The part of a show's details that is kept between titles."""
-
     seasons: list[SeasonSummary]
     next_episode_to_air: Episode | None
 

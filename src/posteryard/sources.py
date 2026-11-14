@@ -78,7 +78,6 @@ class Sources:
         state: Store | None = None,
         marks: bool = True,
     ) -> "Sources":
-        """Without `state`, choices live in memory. Without `marks`, a service with no built-in mark gets none."""
         choices: ChoiceCache = state if state is not None else MemoryChoices()
         return cls(
             tmdb or Tmdb(cfg.tmdb_api_key, cfg.logo_languages),
