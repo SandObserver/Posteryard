@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Keep fades and colour changes on the landing page under Reduce Motion and honour Increase Contrast.
 - Match titles without regard to accents everywhere, so a guide's "Amelie" finds TMDB's "Amélie" and an episode title matches with or without accents.
 - Save `preview` images at the quality Posteryard uploads.
+- Read a show once per listing on Jellyfin and Emby, instead of once for each season without its own folder.
 
 ### Fixed
 
