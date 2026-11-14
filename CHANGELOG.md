@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Remember the chosen logo when one of a title's logo files is broken, instead of downloading every logo again on each check.
 - Name the TLS reason when a secure connection fails, and stop retrying a refused certificate.
 - Alert fanart.tv outages as fanart.tv instead of rendering, and say when fanart.tv works again.
-- Send a "works again" message again when the first one was not delivered.
+- Send a "works again" message again after 10 minutes when the first one was not delivered.
 - Fall back to other art when Wikidata sends an answer Posteryard cannot read.
 - Show a clear message instead of a traceback when the state database cannot be updated for a new release, or when `art set --file` cannot read the file.
 - Keep the schedule running when the heartbeat cannot read the health state.
