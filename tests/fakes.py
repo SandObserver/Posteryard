@@ -1,7 +1,6 @@
 import hashlib
 from collections.abc import Iterable
 from datetime import date
-from typing import Any
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -29,6 +28,7 @@ class FakeServer(MediaServer):
     name = "Plex"
     url = "http://plex.example:32400"
     collections_per_library = True
+    has_guide = False
 
     def server_id(self) -> str:
         return "plex:example"
@@ -42,13 +42,15 @@ class FakeServer(MediaServer):
     def children(self, rating_key: str) -> list[Item]:
         return []
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> Iterable[Item]:
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> Iterable[Item]:
         return []
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
         return []
 
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
         return None
 
     def selected(self, rating_key: str, target: Target) -> str | None:

@@ -181,7 +181,7 @@ def test_restore_selects_the_image_shown_before_when_plex_still_lists_it(serve: 
 
 def test_newest_added(serve: Any) -> None:
     plex, server = serve({"/library/sections/4/all": lambda q: {"Metadata": [{"addedAt": 1700000000}]}})
-    assert plex.newest_added("4", "episode", **{"show.id": "9"}) == 1700000000
+    assert plex.newest_added("4", "episode", show="9") == 1700000000
     assert server.calls[-1][2]["sort"] == "addedAt:desc"
     assert server.calls[-1][2]["show.id"] == "9"
 

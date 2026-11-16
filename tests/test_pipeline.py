@@ -28,7 +28,9 @@ from tests.test_similar import detailed
 
 
 class DatedPlex(FakeServer):
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
         if kind == "episode":
             return int(datetime(2026, 9, 29).timestamp())
         return int(datetime(2025, 1, 1).timestamp())

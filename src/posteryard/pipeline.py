@@ -5,7 +5,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from PIL import Image
 
@@ -451,7 +451,7 @@ def show(ctx: Context, item: Item) -> list[Plan]:
     dates = status.Dates(
         added=status.from_timestamp(item.get("addedAt")),
         newest_season=_newest_season(ctx, key),
-        newest_episode=_newest(ctx, item, "episode", "show.id", key),
+        newest_episode=_newest(ctx, item, "episode", "show", key),
         next_season=status.next_season(ctx.sources.show_seasons(title.tmdb_id)) if ctx.settings.labels else None,
     )
     poster = _poster(
@@ -468,7 +468,7 @@ def season(ctx: Context, title: Title, item: Item, show_added: date | None = Non
     dates = status.Dates(
         added=show_added,
         newest_season=status.from_timestamp(item.get("addedAt")) if number else None,
-        newest_episode=_newest(ctx, item, "episode", "season.id", key),
+        newest_episode=_newest(ctx, item, "episode", "season", key),
     )
     name = f"{title.name} · {_season_label(number)}"
     siblings = _sibling_seasons(ctx, title, item)
@@ -480,13 +480,18 @@ def _label(ctx: Context, dates: status.Dates, leaving: str | None) -> lines.Labe
     return status.label(dates if ctx.settings.labels else status.Dates(), ctx.settings.today, leaving)
 
 
-def _newest(ctx: Context, item: Item, kind: str, field: str, key: str) -> date | None:
+def _newest(ctx: Context, item: Item, kind: str, parent: Literal["show", "season"], key: str) -> date | None:
     section = str(item.get("librarySectionID", ""))
     if not ctx.settings.labels or ctx.server is None or not section:
         return None
     server = ctx.server
     found = ctx.sources.remember(
-        ("newest", kind, field, key), lambda: server.newest_added(section, kind, **{field: key})
+        ("newest", kind, parent, key),
+        lambda: (
+            server.newest_added(section, kind, show=key)
+            if parent == "show"
+            else server.newest_added(section, kind, season=key)
+        ),
     )
     return status.from_timestamp(found)
 

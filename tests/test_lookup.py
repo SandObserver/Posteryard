@@ -1,5 +1,3 @@
-from typing import Any
-
 import pytest
 
 from posteryard import lookup
@@ -35,7 +33,7 @@ class FakePlex(FakeServer):
             {"key": "5", "title": "Music", "type": "artist"},
         ]
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
         return self.titles[kind]
 
     def item(self, rating_key: str) -> Item | None:

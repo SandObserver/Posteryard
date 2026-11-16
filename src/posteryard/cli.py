@@ -7,7 +7,6 @@ import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
-from typing import TypeGuard
 
 from posteryard import __version__, config, custom_art, http, livetv, logfmt, lookup, memory, pipeline, titles, why
 from posteryard.encode import JPEG_QUALITY
@@ -15,7 +14,7 @@ from posteryard.jellyfin import Emby, Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
-from posteryard.server import MediaServer
+from posteryard.server import MediaServer, with_guide
 from posteryard.service import Service, other_server
 from posteryard.settings import Settings
 from posteryard.sources import ReadOnlyState, Sources
@@ -144,7 +143,7 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
         print(exc)
         return 2
     server = _server(cfg)
-    if not _has_guide(server):
+    if not with_guide(server):
         print(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
         return 2
     sources = Sources.from_config(cfg, Settings.from_config(cfg, {}, date.today()), marks=False)
@@ -274,17 +273,12 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
 def _live_tv(cfg: config.Config, server: MediaServer, store: Store, worker: Worker) -> livetv.LiveTv | None:
     if not cfg.live_tv:
         return None
-    if not _has_guide(server):
+    if not with_guide(server):
         log.warning(
             "LIVE_TV is on, but Live TV posters work with Plex and Jellyfin only", extra={"server": server.name}
         )
         return None
     return livetv.LiveTv(server, store, worker.ctx, dry_run=cfg.dry_run, preview_dir=cfg.preview_dir)
-
-
-def _has_guide(server: MediaServer) -> TypeGuard[Plex | Jellyfin]:
-    """Emby Live TV needs Emby Premiere. Emby is not supported."""
-    return isinstance(server, Plex) or (isinstance(server, Jellyfin) and not isinstance(server, Emby))
 
 
 def _server(cfg: config.Config) -> MediaServer:

@@ -5,7 +5,6 @@ import gzip
 import io
 import json
 import logging
-import re
 import time
 import urllib.parse
 import zlib
@@ -16,7 +15,18 @@ from xml.parsers import expat
 
 from posteryard import http
 from posteryard.encode import made_here
-from posteryard.server import SOURCES, Airing, AiringMedia, Guide, ImageEntry, Item, Target
+from posteryard.server import (
+    HEX_ID,
+    NUMERIC_ID,
+    SOURCES,
+    Airing,
+    AiringMedia,
+    Guide,
+    ImageEntry,
+    Item,
+    Target,
+    changed_fields,
+)
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
@@ -103,7 +113,8 @@ def _media(streams: list[Mapping[str, Any]]) -> dict[str, Any]:
 class Jellyfin:
     name = "Jellyfin"
     collections_per_library = False
-    item_id = re.compile(r"^[0-9a-f]{32}$")
+    has_guide = True
+    item_id = HEX_ID
 
     def __init__(self, url: str, api_key: str) -> None:
         self.url = url
@@ -273,24 +284,27 @@ class Jellyfin:
     def collection_children(self, rating_key: str) -> list[Item]:
         return list(self._items(ParentId=self._id(rating_key)))
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> Iterator[Item]:
+    def section_items(
+        self, section_key: str, kind: str, *, label: str | None = None, since: int | None = None
+    ) -> Iterator[Item]:
         """Without collections_per_library, collections are not inside a library; every library lists all of them."""
         params: dict[str, Any] = {"IncludeItemTypes": INCLUDE[kind], "Recursive": "true"}
         if kind != "collection" or self.collections_per_library:
             params["ParentId"] = self._id(section_key)
-        if "label" in filters:
-            params["Tags"] = filters["label"]
+        if label is not None:
+            params["Tags"] = label
         # Jellyfin has no created-date filter and ignores MinDateCreated. A new item's save date is its added date.
-        since = filters.get("updatedAt>>", filters.get("addedAt>>"))
         if since is not None:
-            params["MinDateLastSaved"] = _iso(int(since))
+            params["MinDateLastSaved"] = _iso(since)
         return self._items(**params)
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
-        return list(self.section_items(section_key, kind, **{"updatedAt>>": since}))
+        return [changed_fields(item) for item in self.section_items(section_key, kind, since=since)]
 
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
-        parent = filters.get("show.id") or filters.get("season.id") or section_key
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
+        parent = show or season or section_key
         page = self._as_user(
             "/Items",
             ParentId=self._id(str(parent)),
@@ -545,7 +559,9 @@ class Emby(Jellyfin):
 
     name = "Emby"
     collections_per_library = True
-    item_id = re.compile(r"^\d{1,12}$")
+    # Emby Live TV needs Emby Premiere. Emby is not supported.
+    has_guide = False
+    item_id = NUMERIC_ID
 
     def _raw(self, rating_key: str) -> dict[str, Any]:
         raw: dict[str, Any] = self._get(f"/Users/{self.user()}/Items/{self._id(rating_key)}")

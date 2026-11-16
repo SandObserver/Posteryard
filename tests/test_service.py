@@ -84,12 +84,12 @@ class FakePlex(FakeServer):
     def sections(self) -> list[Item]:
         return [{"key": "3", "title": "Movies", "type": "movie"}]
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-        if filters.get("label") == "posteryard-next":
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        if label == "posteryard-next":
             return [{"ratingKey": "9"}]
-        if filters.get("label") == "posteryard-ignore":
+        if label == "posteryard-ignore":
             return self.ignored
-        if filters:
+        if label is not None:
             return []
         return [{"ratingKey": "1"}, {"ratingKey": "2"}]
 
@@ -261,7 +261,9 @@ class ClockPlex(FakePlex):
         self.now = int(time.time()) - 3600
         self.changes: dict[str, int] = {"1": self.now - 7200}
 
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
         return self.changes["1"]
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:
@@ -463,8 +465,8 @@ def test_a_full_pass_keeps_the_items_of_a_show_together(tmp_path: Path) -> None:
         def sections(self) -> list[Item]:
             return [{"key": "3", "title": "TV Shows", "type": "show"}]
 
-        def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-            if filters:
+        def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+            if label is not None:
                 return []
             listing: dict[str, list[Item]] = {
                 "show": [{"ratingKey": "b", "type": "show"}, {"ratingKey": "e", "type": "show"}],
@@ -704,12 +706,12 @@ class LabelPlex(FakePlex):
         self.custom: list[Item] = [{"ratingKey": "9"}]
         self.ignored = [{"ratingKey": "8"}]
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Any]:
-        if filters.get("label") == "posteryard-custom":
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Any]:
+        if label == "posteryard-custom":
             return self.custom
-        if filters.get("label") == "posteryard-next":
+        if label == "posteryard-next":
             return []
-        return FakePlex.section_items(self, section_key, kind, **filters)
+        return FakePlex.section_items(self, section_key, kind, label=label)
 
 
 def test_removed_labels_are_queued_after_a_restart(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1290,7 +1292,9 @@ class DatedPlex(FakePlex):
         super().__init__()
         self.newest, self.rows = newest, rows
 
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
         return self.newest
 
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]:

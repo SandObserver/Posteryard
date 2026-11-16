@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.
+- Hold less memory on Jellyfin and Emby when a sweep finds many changed items.
 - Make `preview TITLE` show the art set with `art set`, `art next` or the `posteryard-custom` label, and use the last known Maintainerr schedule when Maintainerr is down.
 - Draw each title's own name when two library items share a TMDB id, such as one movie in two libraries under different names.
 

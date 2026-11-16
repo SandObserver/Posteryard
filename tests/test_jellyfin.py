@@ -11,6 +11,7 @@ import pytest
 from posteryard import http, jellyfin
 from posteryard.jellyfin import LIBRARIES_MISS_SECONDS, LIBRARIES_SECONDS, Jellyfin, _xmltv_pictures
 from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
+from posteryard.server import CHANGE_FIELDS
 
 BASE = "http://jellyfin.example:8096"
 MOVIE = "a" * 32
@@ -143,7 +144,7 @@ def test_a_missing_item_is_none_and_bad_ids_are_refused(serve: Any) -> None:
 def test_section_items_filters_and_pages(serve: Any) -> None:
     pages = iter([{"Items": [FORD], "TotalRecordCount": 2}, {"Items": [FORD], "TotalRecordCount": 2}])
     jellyfin, server = serve({"/Items": lambda q: next(pages)})
-    found = list(jellyfin.section_items(LIBRARY, "movie", label="posteryard-next", **{"updatedAt>>": 1791065111}))
+    found = list(jellyfin.section_items(LIBRARY, "movie", label="posteryard-next", since=1791065111))
     assert len(found) == 2
     item_calls = [c for c in server.calls if c[1] == "/Items"]
     query = item_calls[0][2]
@@ -165,7 +166,7 @@ def test_collections_are_listed_without_a_library(serve: Any) -> None:
 
 def test_newest_added(serve: Any) -> None:
     jellyfin, server = serve({"/Items": {"Items": [{"DateCreated": "2026-10-03T22:05:11Z"}]}})
-    assert jellyfin.newest_added(LIBRARY, "episode", **{"show.id": SERIES}) == 1791065111
+    assert jellyfin.newest_added(LIBRARY, "episode", show=SERIES) == 1791065111
     assert server.calls[-1][2]["ParentId"] == SERIES
     assert server.calls[-1][2]["SortBy"] == "DateCreated"
 
@@ -259,7 +260,9 @@ def test_missing_numbers_are_left_out(serve: Any) -> None:
 
 def test_changed_since_uses_the_save_date(serve: Any) -> None:
     jellyfin, server = serve({"/Items": {"Items": [FORD], "TotalRecordCount": 1}})
-    assert [i["ratingKey"] for i in jellyfin.changed_since(LIBRARY, "movie", 1791065111)] == [MOVIE]
+    changed = jellyfin.changed_since(LIBRARY, "movie", 1791065111)
+    assert [i["ratingKey"] for i in changed] == [MOVIE]
+    assert set(changed[0]) <= set(CHANGE_FIELDS)
     assert [c[2].get("MinDateLastSaved") for c in server.calls if c[1] == "/Items"] == ["2026-10-03T22:05:11Z"]
 
 
@@ -483,7 +486,7 @@ def test_a_listing_reads_a_cached_user_that_is_gone_again(serve: Any, monkeypatc
         return real(path, **params)
 
     monkeypatch.setattr(jellyfin, "_get", get)
-    assert len(list(jellyfin.section_items(LIBRARY, "movie", **{"updatedAt>>": 1}))) == 1
+    assert len(list(jellyfin.section_items(LIBRARY, "movie", since=1))) == 1
     assert jellyfin._user == USER
 
 

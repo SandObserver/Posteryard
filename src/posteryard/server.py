@@ -1,9 +1,9 @@
 """Plex, Jellyfin and Emby all answer with the Plex-shaped `Item`."""
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypedDict, TypeGuard, get_args
+from typing import Any, Literal, Protocol, TypedDict, TypeGuard, cast, get_args
 
 
 class Item(TypedDict, total=False):
@@ -58,7 +58,10 @@ class ImageEntry(TypedDict, total=False):
 
 Target = Literal["poster", "art", "thumb"]
 TARGETS: frozenset[str] = frozenset(get_args(Target))
-ITEM_KEY = re.compile(r"^(\d{1,12}|[0-9a-f]{32})$")
+NUMERIC_ID = re.compile(r"^\d{1,12}$")
+HEX_ID = re.compile(r"^[0-9a-f]{32}$")
+# Only the fields the sweep reads. A whole library of changed items does not fit in memory.
+CHANGE_FIELDS = ("ratingKey", "parentRatingKey", "grandparentRatingKey", "updatedAt", "addedAt")
 SOURCES = ("tmdb", "imdb", "tvdb")
 LEGACY_AGENTS = {"themoviedb": "tmdb", "imdb": "imdb", "thetvdb": "tvdb"}
 LEGACY_GUID = re.compile(r"^com\.plexapp\.agents\.(\w+)://([^/?]+)")
@@ -68,22 +71,29 @@ def is_target(name: str) -> TypeGuard[Target]:
     return name in TARGETS
 
 
+def changed_fields(item: Mapping[str, object]) -> Item:
+    return cast(Item, {field: item[field] for field in CHANGE_FIELDS if field in item})
+
+
 def is_item_key(text: str) -> bool:
-    return bool(ITEM_KEY.match(text))
+    return bool(NUMERIC_ID.match(text) or HEX_ID.match(text))
 
 
 class MediaServer(Protocol):
     url: str
     name: str
     collections_per_library: bool
+    has_guide: bool
 
     def server_id(self) -> str: ...
     def sections(self) -> list[Item]: ...
     def item(self, rating_key: str) -> Item | None: ...
     def children(self, rating_key: str) -> list[Item]: ...
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> Iterable[Item]: ...
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> Iterable[Item]: ...
     def changed_since(self, section_key: str, kind: str, since: int) -> list[Item]: ...
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None: ...
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None: ...
     def selected(self, rating_key: str, target: Target) -> str | None: ...
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str: ...
     def poster_bytes(self, item: Item) -> bytes: ...
@@ -142,3 +152,11 @@ def external_ids(item: Item) -> dict[str, str]:
 def tmdb_id(item: Item) -> int | None:
     value = external_ids(item).get("tmdb", "")
     return int(value) if value.isascii() and value.isdigit() else None
+
+
+class GuideMediaServer(MediaServer, GuideServer, Protocol):
+    pass
+
+
+def with_guide(server: MediaServer) -> TypeGuard[GuideMediaServer]:
+    return server.has_guide

@@ -7,7 +7,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any
 
 from posteryard import http
-from posteryard.server import Airing, AiringMedia, Guide, ImageEntry, Item, Target
+from posteryard.server import Airing, AiringMedia, Guide, ImageEntry, Item, Target, changed_fields
 
 log = logging.getLogger(__name__)
 
@@ -22,7 +22,6 @@ JSON = {"Accept": "application/json"}
 GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
 GUIDE_PAGE = 2000
-CHANGE_FIELDS = ("ratingKey", "parentRatingKey", "grandparentRatingKey", "updatedAt", "addedAt")
 AIRING_FIELDS = tuple(field for field in Airing.__annotations__ if field != "Media")
 AIRING_MEDIA_FIELDS = tuple(AiringMedia.__annotations__)
 GUIDE_IDS = 300
@@ -32,6 +31,7 @@ GUIDE_ID_BATCHES = 100
 class Plex:
     name = "Plex"
     collections_per_library = True
+    has_guide = True
 
     def __init__(self, url: str, token: str) -> None:
         self.url = url
@@ -88,7 +88,10 @@ class Plex:
         items: list[Item] = self._get(path, includeGuids=1).get("Metadata", [])
         return items
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> Iterator[Item]:
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> Iterator[Item]:
+        return self._section_items(section_key, kind, {"label": label} if label is not None else {})
+
+    def _section_items(self, section_key: str, kind: str, filters: Mapping[str, Any]) -> Iterator[Item]:
         start = 0
         while True:
             page = self._get(
@@ -104,7 +107,10 @@ class Plex:
             if not items or start >= int(page.get("totalSize", start)):
                 return
 
-    def newest_added(self, section_key: str, kind: str, **filters: Any) -> int | None:
+    def newest_added(
+        self, section_key: str, kind: str, *, show: str | None = None, season: str | None = None
+    ) -> int | None:
+        filters = {"show.id": show} if show else {"season.id": season} if season else {}
         page = self._get(
             f"/library/sections/{_key(section_key)}/all",
             type=TYPE_IDS[kind],
@@ -172,8 +178,8 @@ class Plex:
         """Items added or updated after a Unix time. A replaced file only changes `updatedAt`."""
         changed: dict[str, Item] = {}
         for field in ("addedAt>>", "updatedAt>>"):
-            for item in self.section_items(section_key, kind, **{field: since}):
-                changed[str(item["ratingKey"])] = _only(item, CHANGE_FIELDS)
+            for item in self._section_items(section_key, kind, {field: since}):
+                changed[str(item["ratingKey"])] = changed_fields(item)
         return list(changed.values())
 
     def images(self, rating_key: str, target: Target) -> list[ImageEntry]:
