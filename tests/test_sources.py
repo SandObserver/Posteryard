@@ -48,3 +48,13 @@ def test_fanart_counts_as_reached_only_when_asked(tmp_path: Path) -> None:
     sources.fanart_reached = False
     sources.fanart_images("movie", 1)
     assert (fanart.calls, sources.fanart_reached) == (1, False)
+
+
+def test_a_cached_title_keeps_the_name_each_item_asks_for(tmp_path: Path) -> None:
+    cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path)})
+    sources = Sources(FakeTmdb(), Settings.from_config(cfg, {}, date(2026, 1, 1)))
+    first = sources.title("movie", 1, "Das Boot")
+    second = sources.title("movie", 1, "The Boat")
+    assert (first.name, second.name) == ("Das Boot", "The Boat")
+    assert "Das Boot" in second.all_titles and "The Boat" in second.all_titles
+    assert sources.title("movie", 1, "Das Boot") is first

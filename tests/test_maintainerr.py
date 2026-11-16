@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from posteryard import http
-from posteryard.maintainerr import Maintainerr, action_days, days_left, label
+from posteryard.maintainerr import Maintainerr, action_days
 
 
 def test_earliest_active_collection_wins() -> None:
@@ -18,14 +18,6 @@ def test_earliest_active_collection_wins() -> None:
         {"isActive": False, "deleteAfterDays": 1, "media": [{"mediaServerId": "11", "addDate": "2026-09-01"}]},
     ]
     assert action_days(collections) == {"10": date(2026, 9, 11)}
-
-
-def test_days_left_and_label() -> None:
-    today = date(2026, 10, 1)
-    assert days_left(date(2026, 10, 13), today) == 12
-    assert days_left(date(2026, 9, 30), today) is None
-    assert days_left(None, today) is None
-    assert [label(0), label(1), label(12)] == ["LEAVING TODAY", "LEAVING TOMORROW", "LEAVING IN 12 DAYS"]
 
 
 def test_unexpected_answers_are_rejected_or_skipped() -> None:

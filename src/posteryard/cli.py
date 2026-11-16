@@ -9,7 +9,8 @@ from datetime import date
 from pathlib import Path
 from typing import TypeGuard
 
-from posteryard import __version__, config, http, livetv, logfmt, lookup, memory, overrides, pipeline, titles, why
+from posteryard import __version__, config, custom_art, http, livetv, logfmt, lookup, memory, pipeline, titles, why
+from posteryard.encode import JPEG_QUALITY
 from posteryard.jellyfin import Emby, Jellyfin
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
@@ -20,7 +21,7 @@ from posteryard.settings import Settings
 from posteryard.sources import ReadOnlyState, Sources
 from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind
-from posteryard.worker import JPEG_QUALITY, Outcome, Worker, saved_leaving_days
+from posteryard.worker import Outcome, Worker, saved_leaving_days
 
 log = logging.getLogger("posteryard")
 # These libraries log full URLs, with tokens, or every image chunk at debug level.
@@ -29,7 +30,7 @@ TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
 DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, the server was not changed)"
-ITEM_ERRORS = (pipeline.NotFoundError, overrides.ArtError, OSError, ValueError)
+ITEM_ERRORS = (pipeline.NotFoundError, custom_art.ArtError, OSError, ValueError)
 
 
 def _set_log_level(level: config.LogLevel) -> None:
@@ -418,7 +419,7 @@ def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, sto
             store.forget(key)
             outcome = worker.process(key)
         elif args.art_command == "set":
-            image = overrides.from_url(args.url) if args.url else overrides.from_file(args.file)
+            image = custom_art.from_url(args.url) if args.url else custom_art.from_file(args.file)
             outcome = worker.set_custom(key, image)
         elif args.art_command == "next":
             outcome = worker.next_art(key)

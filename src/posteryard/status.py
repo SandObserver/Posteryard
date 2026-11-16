@@ -21,6 +21,20 @@ class Dates:
     next_season: date | None = None
 
 
+def days_left(action_day: date | None, today: date) -> int | None:
+    if action_day is None or action_day < today:
+        return None
+    return (action_day - today).days
+
+
+def leaving(days: int) -> str:
+    if days == 0:
+        return "LEAVING TODAY"
+    if days == 1:
+        return "LEAVING TOMORROW"
+    return f"LEAVING IN {days} DAYS"
+
+
 def label(dates: Dates, today: date, leaving: str | None = None) -> Label | None:
     if leaving:
         return Label(leaving, APPLE_RED)

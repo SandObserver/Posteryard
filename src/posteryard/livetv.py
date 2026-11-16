@@ -22,12 +22,12 @@ import urllib3
 from PIL import Image
 
 from posteryard import http, pipeline
+from posteryard.encode import JPEG_QUALITY, jpeg
 from posteryard.render import designs, livetv
 from posteryard.server import Airing, GuideServer
 from posteryard.store import GuideRecord, Store
 from posteryard.titles import plain, slug
 from posteryard.tmdb import Kind, open_image
-from posteryard.worker import JPEG_QUALITY, jpeg
 
 log = logging.getLogger(__name__)
 WINDOW_SECONDS = 4 * 86400

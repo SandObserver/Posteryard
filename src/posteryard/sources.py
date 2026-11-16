@@ -10,7 +10,7 @@ from typing import Any, Protocol, cast
 
 from PIL import Image
 
-from posteryard import apple, http, ocr, overrides, services
+from posteryard import apple, custom_art, http, ocr, services
 from posteryard.artwork import UNCHECKED, ChoiceCache, MemoryChoices, Picked, Picker
 from posteryard.automarks import AutoMarks
 from posteryard.config import Config
@@ -140,8 +140,8 @@ class Sources:
             del self.apple_failed[url]
 
     def load(self, path: str) -> Image.Image:
-        if path.startswith(overrides.FILE_PREFIX):
-            return overrides.load(path)
+        if path.startswith(custom_art.FILE_PREFIX):
+            return custom_art.load(path)
         if apple.is_apple(path) and time.monotonic() < self.apple_down_until:
             self._drop_apple(path, gone=False)
             raise http.RequestError("Apple TV art is paused", path)
@@ -353,7 +353,10 @@ class Sources:
             hit = self.titles.get((kind, tid))
         if hit and time.monotonic() - hit[0] < TITLE_CACHE_SECONDS:
             cached = hit[1]
-            return cached if name in cached.all_titles else replace(cached, all_titles=[name, *cached.all_titles])
+            if cached.name == name:
+                return cached
+            every = cached.all_titles if name in cached.all_titles else [name, *cached.all_titles]
+            return replace(cached, name=name, all_titles=every)
         every = list(dict.fromkeys([name, *self.tmdb.all_titles(kind, tid)]))
         providers = self.tmdb.watch_providers(kind, tid) if kind == "tv" else {}
         service = self.service(providers) if kind == "tv" else None
