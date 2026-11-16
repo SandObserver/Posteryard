@@ -1,26 +1,12 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any
 
 from posteryard import apple, overrides, pipeline
-from posteryard.artwork import UNREADABLE, MemoryChoices, Read, load, rejection
+from posteryard.artwork import UNREADABLE, Read, load, rejection
 from posteryard.fanart import is_fanart
 from posteryard.server import Item, labels
 from posteryard.store import Status, Store
 from posteryard.tmdb import ImageRef, Kind
-
-
-class ReadOnlyChoices:
-    """Reads the service's cached choices. New ones stay in memory."""
-
-    def __init__(self, store: Store) -> None:
-        self.store, self.memory = store, MemoryChoices()
-
-    def get_choice(self, key: str) -> Mapping[str, Any] | None:
-        return self.memory.get_choice(key) or self.store.get_choice(key)
-
-    def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
-        self.memory.put_choice(key, value)
 
 
 @dataclass(frozen=True)

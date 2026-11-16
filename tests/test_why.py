@@ -8,6 +8,7 @@ from posteryard import apple, cli, http, overrides, pipeline, why
 from posteryard.artwork import rejection
 from posteryard.ocr import TextLine
 from posteryard.server import Item
+from posteryard.sources import ReadOnlyState
 from posteryard.store import Store
 from posteryard.tmdb import Images
 from tests.fakes import FakeServer, context, ref, tmdb_of
@@ -95,7 +96,7 @@ def test_hand_changed_and_ignored_posters_are_named(store: Store) -> None:
 
 def test_choices_are_read_from_the_store_and_never_written(store: Store) -> None:
     store.put_choice("kept", {"path": "/a.jpg"})
-    choices = why.ReadOnlyChoices(store)
+    choices = ReadOnlyState(store)
     choices.put_choice("new", {"path": "/b.jpg"})
     assert choices.get_choice("kept") == {"path": "/a.jpg"}
     assert choices.get_choice("new") == {"path": "/b.jpg"}
