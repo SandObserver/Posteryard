@@ -18,7 +18,7 @@ from posteryard.fanart import Fanart, FanartImages
 from posteryard.ocr import TextLine
 from posteryard.quality import Badge
 from posteryard.render import designs
-from posteryard.render.layers import APPLE_BLUE, APPLE_RED
+from posteryard.render.layers import APPLE_BLUE, APPLE_GREEN, APPLE_RED
 from posteryard.render.lines import Badges, Caption, Label
 from posteryard.server import Item
 from posteryard.services import Offer
@@ -154,6 +154,18 @@ def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> 
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
     assert plan.fingerprint == "d9725431849bc589f1e483a93c55afea"
+
+
+def test_fingerprints_of_labels_and_lines_stay_the_same() -> None:
+    inputs = {
+        "design": "tile",
+        "art": "/a.jpg",
+        "label": Label("JUST ADDED", APPLE_GREEN),
+        "lines": [Caption("Specials"), Badges(tuple(Badge))],
+    }
+    plan = pipeline.Plan("1", "poster", "Example", inputs, lambda: Image.new("RGB", (1, 1)))
+    # A changed fingerprint uploads every labelled poster again.
+    assert plan.fingerprint == "e62934c21cad99aebcc142ac9cf06939"
 
 
 def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:

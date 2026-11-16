@@ -84,7 +84,9 @@ Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subcla
 
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. The bump also measures the fade and logo ink of every poster again.
 
-`tests/test_golden.py` compares every design with the reference images in `tests/golden`. It fails when the output changes and `DESIGN_VERSION` does not. After bumping it, write the references again and commit them:
+A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/livetv.py` instead. It re-uploads only the guide posters.
+
+`tests/test_golden.py` compares every design with the reference images in `tests/golden`. It fails when the output changes and `DESIGN_VERSION` (or `LIVE_VERSION` for a Live TV design) does not. It also fails when a channel band, brand colour, category palette or built-in mark changes without a `DESIGN_VERSION` bump: these are drawn, but not part of the fingerprint. A new mark passes. After bumping, write the references again and commit them:
 
 ```sh
 UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
