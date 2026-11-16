@@ -1,10 +1,10 @@
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
-from posteryard import apple, overrides, pipeline
+from posteryard import overrides, pipeline
 from posteryard.artwork import UNREADABLE, Read, load, rejection
-from posteryard.fanart import is_fanart
 from posteryard.server import Item, labels
+from posteryard.sources import APPLE_TV, FANART, source_of
 from posteryard.store import Status, Store
 from posteryard.tmdb import ImageRef, Kind
 
@@ -121,9 +121,10 @@ def lines(name: str, result: Report) -> list[str]:
 
 
 def _votes(ref: ImageRef) -> str:
-    if apple.is_apple(ref.path):
-        return "Apple TV"
-    if is_fanart(ref.path):
+    source = source_of(ref.path)
+    if source == APPLE_TV:
+        return source
+    if source == FANART:
         return f"{ref.vote_count} like{'' if ref.vote_count == 1 else 's'}"
     return (
         f"rated {ref.votes:.1f} ({ref.vote_count} vote{'' if ref.vote_count == 1 else 's'})"
