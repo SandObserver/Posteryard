@@ -58,6 +58,11 @@ def jpeg(image: Image.Image) -> bytes:
     return buffer.getvalue()
 
 
+def saved_leaving_days(store: Store) -> dict[str, date]:
+    saved = json.loads(store.meta("leaving_days", "{}"))
+    return {k: date.fromisoformat(v) for k, v in saved.items()}
+
+
 class Worker:
     def __init__(
         self, cfg: Config, server: MediaServer, store: Store, notifier: Notifier, tmdb: Tmdb | None = None
@@ -81,8 +86,7 @@ class Worker:
         except (http.RequestError, ValueError, RecursionError) as exc:
             log.warning("Maintainerr unavailable, using its last known schedule", extra={"reason": str(exc)})
             self.notifier.alert("Maintainerr", f"Maintainerr is unavailable: {exc}")
-            saved = json.loads(self.store.meta("leaving_days", "{}"))
-            days = {k: date.fromisoformat(v) for k, v in saved.items()}
+            days = saved_leaving_days(self.store)
         self._leaving = Leaving(days, time.monotonic())
         return days
 

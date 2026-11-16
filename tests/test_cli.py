@@ -3,6 +3,7 @@ import os
 import sqlite3
 import threading
 from contextlib import closing
+from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from posteryard.jellyfin import Emby
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
+from posteryard.store import Store
 from posteryard.worker import Outcome, Restored
 from tests.test_lookup import FakePlex
 
@@ -215,6 +217,54 @@ def test_preview_of_a_title_renders_without_maintainerr(
     assert run(["preview", "The", "Office", "--season", "2", "--out", str(tmp_path / "out")]) == 0
     assert keys == ["5648"]
     assert "Maintainerr unavailable" in capsys.readouterr().out
+
+
+def test_preview_of_a_title_reads_the_saved_state_without_changing_it(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with closing(Store(tmp_path / "state.db")) as store:
+        store.set_custom("5646", str(tmp_path / "custom" / "5646-abc.jpg"), "command")
+        store.set_meta("leaving_days", '{"5646": "2026-12-01"}')
+        store.put_choice("tv:2316:posters", {"path": "/saved.jpg"})
+    seen: list[Any] = []
+
+    def plan_preview(ctx: Any, key: str, episodes: int | None) -> list[pipeline.Plan]:
+        ctx.sources.choices.put_choice("tv:2316:posters", {"path": "/new.jpg"})
+        seen.extend(
+            [ctx.sources.overrides(key), ctx.settings.action_days, ctx.sources.choices.get_choice("tv:2316:posters")]
+        )
+        return [plan(key)]
+
+    def unavailable(self: Any) -> Any:
+        raise http.RequestError("ConnectionError", "http://maintainerr.example:6246/api/collections")
+
+    monkeypatch.setattr(pipeline, "plan_preview", plan_preview)
+    monkeypatch.setattr(Maintainerr, "action_days", unavailable)
+    assert run(["preview", "5646", "--out", str(tmp_path / "out")]) == 0
+    override, days, choice = seen
+    assert override.custom == str(tmp_path / "custom" / "5646-abc.jpg")
+    assert days == {"5646": date(2026, 12, 1)}
+    assert choice == {"path": "/new.jpg"}
+    with closing(Store(tmp_path / "state.db")) as store:
+        assert store.get_choice("tv:2316:posters") == {"path": "/saved.jpg"}
+
+
+def test_preview_skips_the_saved_state_of_another_server(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with closing(Store(tmp_path / "state.db")) as store:
+        store.set_custom("5646", str(tmp_path / "custom" / "5646-abc.jpg"), "command")
+        store.set_meta("server", "another-server")
+    seen: list[Any] = []
+
+    def plan_preview(ctx: Any, key: str, episodes: int | None) -> list[pipeline.Plan]:
+        seen.append(ctx.sources.overrides(key))
+        return [plan(key)]
+
+    monkeypatch.setattr(pipeline, "plan_preview", plan_preview)
+    monkeypatch.setattr(Maintainerr, "action_days", lambda self: {})
+    assert run(["preview", "5646", "--out", str(tmp_path / "out")]) == 0
+    assert seen == [None]
 
 
 def test_preview_of_an_unknown_title_renders_nothing(run: Any, capsys: pytest.CaptureFixture[str]) -> None:

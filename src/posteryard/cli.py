@@ -17,10 +17,10 @@ from posteryard.plex import Plex
 from posteryard.server import MediaServer
 from posteryard.service import Service, other_server
 from posteryard.settings import Settings
-from posteryard.sources import Sources
+from posteryard.sources import ReadOnlyState, Sources
 from posteryard.store import Store, StoreError
 from posteryard.tmdb import Kind
-from posteryard.worker import JPEG_QUALITY, Outcome, Worker
+from posteryard.worker import JPEG_QUALITY, Outcome, Worker, saved_leaving_days
 
 log = logging.getLogger("posteryard")
 # These libraries log full URLs, with tokens, or every image chunk at debug level.
@@ -163,7 +163,7 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
     return 1 if tally["failed"] else 0
 
 
-def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901, PLR0912
+def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
     if args.live_tv:
         return _preview_live_tv(cfg, args.out or cfg.preview_dir)
     if not args.title and not args.tmdb:
@@ -196,20 +196,50 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
             print(exc)
             return 1
     try:
+        store = _saved_state(cfg, plex)
+    except StoreError as exc:
+        print(exc)
+        return 2
+    try:
+        return _preview_jobs(
+            args, cfg, plex, store, [(k, None) for k in keys] + [(f"{kind}:{tid}", (kind, tid)) for kind, tid in refs]
+        )
+    finally:
+        if store is not None:
+            store.close()
+
+
+def _saved_state(cfg: config.Config, server: MediaServer | None) -> Store | None:
+    if server is None or not cfg.state_path.is_file():
+        return None
+    store = Store(cfg.state_path)
+    if (known := store.meta("server")) and known != server.server_id():
+        log.warning("saved choices skipped: the data folder belongs to another media server", extra={"server": known})
+        store.close()
+        return None
+    return store
+
+
+def _preview_jobs(
+    args: argparse.Namespace,
+    cfg: config.Config,
+    plex: MediaServer | None,
+    store: Store | None,
+    jobs: list[tuple[str, tuple[Kind, int] | None]],
+) -> int:
+    try:
         days = Maintainerr(cfg.maintainerr_url).action_days() if plex is not None else {}
     except (http.RequestError, ValueError) as exc:
-        log.warning("Maintainerr unavailable, rendering without leaving labels", extra={"reason": str(exc)})
-        days = {}
+        log.warning("Maintainerr unavailable, using its last known schedule", extra={"reason": str(exc)})
+        days = saved_leaving_days(store) if store is not None else {}
     settings = Settings.from_config(cfg, days, date.today())
-    sources = Sources.from_config(cfg, settings)
+    sources = Sources.from_config(cfg, settings, state=ReadOnlyState(store) if store is not None else None)
     ctx = pipeline.Context(settings, sources, plex)
     out_dir: Path = args.out or cfg.preview_dir
     out_dir.mkdir(parents=True, exist_ok=True)
     episodes = None if args.episodes < 0 else args.episodes
 
     failed = 0
-    jobs: list[tuple[str, tuple[Kind, int] | None]] = [(k, None) for k in keys]
-    jobs += [(f"{kind}:{tid}", (kind, tid)) for kind, tid in refs]
     for label, tmdb_ref in jobs:
         try:
             if tmdb_ref is None:
@@ -362,7 +392,7 @@ def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store:
     if item is None:
         print(f"{plex.name} has no item {match.rating_key}")
         return 1
-    worker.ctx.sources.choices = why.ReadOnlyChoices(store)
+    worker.ctx.sources.choices = ReadOnlyState(store)
     worker.ctx.sources.marks = None
     try:
         result = why.report(worker.ctx, item, store)

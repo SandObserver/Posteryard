@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from functools import lru_cache
-from typing import cast
+from typing import Any, Protocol, cast
 
 from PIL import Image
 
@@ -18,7 +18,6 @@ from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.render.layers import preferred_family
 from posteryard.settings import Settings
-from posteryard.store import Store
 from posteryard.tmdb import Images, Kind, RegionOffers, ShowSeasons, Tmdb, open_image
 
 log = logging.getLogger(__name__)
@@ -49,6 +48,26 @@ class Title:
     service_name: str = ""
 
 
+class State(ChoiceCache, Protocol):
+    def override(self, rating_key: str) -> Override | None: ...
+
+
+class ReadOnlyState:
+    """Reads the service's state. New choices stay in memory."""
+
+    def __init__(self, store: State) -> None:
+        self.store, self.memory = store, MemoryChoices()
+
+    def get_choice(self, key: str) -> Mapping[str, Any] | None:
+        return self.memory.get_choice(key) or self.store.get_choice(key)
+
+    def put_choice(self, key: str, value: Mapping[str, Any]) -> None:
+        self.memory.put_choice(key, value)
+
+    def override(self, rating_key: str) -> Override | None:
+        return self.store.override(rating_key)
+
+
 @dataclass
 class Sources:
     tmdb: Tmdb
@@ -76,7 +95,7 @@ class Sources:
         settings: Settings,
         *,
         tmdb: Tmdb | None = None,
-        state: Store | None = None,
+        state: State | None = None,
         marks: bool = True,
     ) -> "Sources":
         choices: ChoiceCache = state if state is not None else MemoryChoices()
