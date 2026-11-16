@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 
-from posteryard import maintainerr
+from posteryard import status
 from posteryard.config import Config, EpisodeMode
 from posteryard.quality import Badge, QualityMinimums
 
@@ -36,7 +36,5 @@ class Settings:
         )
 
     def leaving(self, *rating_keys: str) -> str | None:
-        found = [
-            d for key in rating_keys if (d := maintainerr.days_left(self.action_days.get(key), self.today)) is not None
-        ]
-        return maintainerr.label(min(found)) if found else None
+        found = [d for key in rating_keys if (d := status.days_left(self.action_days.get(key), self.today)) is not None]
+        return status.leaving(min(found)) if found else None

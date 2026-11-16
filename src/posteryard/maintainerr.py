@@ -57,20 +57,6 @@ def _collection_days(collection: Mapping[str, Any], zone: tzinfo | None) -> list
     return found
 
 
-def days_left(action_day: date | None, today: date) -> int | None:
-    if action_day is None or action_day < today:
-        return None
-    return (action_day - today).days
-
-
-def label(days: int) -> str:
-    if days == 0:
-        return "LEAVING TODAY"
-    if days == 1:
-        return "LEAVING TOMORROW"
-    return f"LEAVING IN {days} DAYS"
-
-
 class Maintainerr:
     def __init__(self, url: str) -> None:
         self.url = url

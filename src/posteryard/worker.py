@@ -1,4 +1,3 @@
-import io
 import json
 import logging
 import time
@@ -9,11 +8,12 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import http, memory, ocr, overrides, pipeline, service_collections
+from posteryard import custom_art, http, memory, ocr, overrides, pipeline, service_collections
 from posteryard.config import Config, EpisodeMode
+from posteryard.encode import JPEG_QUALITY, jpeg, made_here
 from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
-from posteryard.server import MADE_BY, Item, MediaServer, Target, is_target, label_tag, labels, made_here
+from posteryard.server import Item, MediaServer, Target, is_target, label_tag, labels
 from posteryard.settings import Settings
 from posteryard.sources import Sources
 from posteryard.store import Record, Status, Store
@@ -24,7 +24,6 @@ SUPPORTED = frozenset({"movie", "show", "season", "episode", "collection"})
 ALERT_AFTER = 3
 LEAVING_CACHE_SECONDS = 600
 ITEM_TARGET = "item"
-JPEG_QUALITY = 90
 FANART = "fanart.tv"
 NOUNS = {"poster": "poster", "art": "background", "thumb": "thumbnail"}
 
@@ -50,12 +49,6 @@ class Restored:
 class Leaving:
     days: dict[str, date]
     fetched: float
-
-
-def jpeg(image: Image.Image) -> bytes:
-    buffer = io.BytesIO()
-    image.convert("RGB").save(buffer, "JPEG", quality=JPEG_QUALITY, optimize=True, comment=MADE_BY)
-    return buffer.getvalue()
 
 
 def saved_leaving_days(store: Store) -> dict[str, date]:
@@ -161,7 +154,7 @@ class Worker:
                 extra={"title": title, "reason": str(exc)},
             )
             return Outcome.SKIPPED
-        except (http.RequestError, pipeline.NotFoundError, overrides.ArtError, OSError, ValueError) as exc:
+        except (http.RequestError, pipeline.NotFoundError, custom_art.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
             return Outcome.FAILED
         except Exception as exc:
@@ -181,7 +174,7 @@ class Worker:
         ]
 
     def set_custom(self, rating_key: str, image: Image.Image) -> Outcome:
-        path = overrides.save(image, self.cfg.data_dir, rating_key)
+        path = custom_art.save(image, self.cfg.data_dir, rating_key)
         self.store.set_custom(rating_key, str(path), overrides.FROM_COMMAND)
         return self.process(rating_key, force=True)
 
@@ -246,7 +239,7 @@ class Worker:
         return str(poster.inputs["art"])
 
     def _skip(self, key: str, art: str) -> None:
-        if art.startswith(overrides.FILE_PREFIX):
+        if art.startswith(custom_art.FILE_PREFIX):
             self.store.reset_override(key)
         else:
             self.store.add_skip(key, art)
@@ -295,7 +288,7 @@ class Worker:
                 data = self.server.poster_bytes(item)
                 if made_here(data):
                     return redo
-                path = str(overrides.save(overrides.decode(data), self.cfg.data_dir, key))
+                path = str(custom_art.save(custom_art.decode(data), self.cfg.data_dir, key))
                 if current is None or current.custom != path:
                     self.store.set_custom(key, path, overrides.FROM_LABEL)
                     log.info("custom art taken from the server", extra={"title": item.get("title")})

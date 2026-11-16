@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from posteryard import overrides
+from posteryard import custom_art
 from posteryard.store import Store
 
 
@@ -15,35 +15,35 @@ def jpeg(colour: tuple[int, int, int] = (200, 30, 30), size: tuple[int, int] = (
 
 
 def test_decode_shrinks_and_rejects_garbage() -> None:
-    assert max(overrides.decode(jpeg()).size) <= 2160
-    with pytest.raises(overrides.ArtError):
-        overrides.decode(b"not an image")
+    assert max(custom_art.decode(jpeg()).size) <= 2160
+    with pytest.raises(custom_art.ArtError):
+        custom_art.decode(b"not an image")
 
 
 def test_decode_refuses_images_with_too_many_pixels() -> None:
     buffer = io.BytesIO()
     Image.new("L", (8000, 8000)).save(buffer, "PNG")
-    with pytest.raises(overrides.ArtError, match="too large"):
-        overrides.decode(buffer.getvalue())
+    with pytest.raises(custom_art.ArtError, match="too large"):
+        custom_art.decode(buffer.getvalue())
 
 
 def test_save_refuses_a_key_that_is_not_a_rating_key(tmp_path: Path) -> None:
-    with pytest.raises(overrides.ArtError):
-        overrides.save(Image.new("RGB", (4, 4)), tmp_path, "../1")
+    with pytest.raises(custom_art.ArtError):
+        custom_art.save(Image.new("RGB", (4, 4)), tmp_path, "../1")
 
 
 @pytest.mark.parametrize("url", ["ftp://example.org/a.jpg", "file:///etc/passwd", "nope", "http://[bad/a.jpg"])
 def test_only_http_addresses(url: str) -> None:
-    with pytest.raises(overrides.ArtError):
-        overrides.from_url(url)
+    with pytest.raises(custom_art.ArtError):
+        custom_art.from_url(url)
 
 
 def test_saved_art_is_named_by_content(tmp_path: Path) -> None:
-    image = overrides.decode(jpeg())
-    first = overrides.save(image, tmp_path, "7")
-    assert first == overrides.save(image, tmp_path, "7")
-    assert first != overrides.save(overrides.decode(jpeg((10, 200, 10))), tmp_path, "7")
-    assert overrides.load(overrides.FILE_PREFIX + str(first)).size == image.size
+    image = custom_art.decode(jpeg())
+    first = custom_art.save(image, tmp_path, "7")
+    assert first == custom_art.save(image, tmp_path, "7")
+    assert first != custom_art.save(custom_art.decode(jpeg((10, 200, 10))), tmp_path, "7")
+    assert custom_art.load(custom_art.FILE_PREFIX + str(first)).size == image.size
 
 
 def test_store_keeps_one_override_per_title(tmp_path: Path) -> None:
@@ -65,24 +65,24 @@ def test_store_keeps_one_override_per_title(tmp_path: Path) -> None:
 def test_a_file_over_the_limit_is_refused_before_it_is_read(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     big = tmp_path / "film.mkv"
     with big.open("wb") as file:
-        file.truncate(overrides.MAX_DOWNLOAD + 1)
+        file.truncate(custom_art.MAX_DOWNLOAD + 1)
     monkeypatch.setattr(Path, "read_bytes", lambda self: pytest.fail("the file was read"))
-    with pytest.raises(overrides.ArtError, match="larger than 40 MB"):
-        overrides.from_file(big)
+    with pytest.raises(custom_art.ArtError, match="larger than 40 MB"):
+        custom_art.from_file(big)
 
 
 def test_load_opens_only_saved_jpeg_art(tmp_path: Path) -> None:
-    saved = overrides.save(Image.new("RGB", (20, 30)), tmp_path, "1")
-    assert overrides.load(overrides.FILE_PREFIX + str(saved)).size == (20, 30)
+    saved = custom_art.save(Image.new("RGB", (20, 30)), tmp_path, "1")
+    assert custom_art.load(custom_art.FILE_PREFIX + str(saved)).size == (20, 30)
     other = tmp_path / "other.png"
     Image.new("RGB", (20, 30)).save(other)
     with pytest.raises(OSError, match="cannot identify"):
-        overrides.load(overrides.FILE_PREFIX + str(other))
+        custom_art.load(custom_art.FILE_PREFIX + str(other))
 
 
 def test_a_failed_save_keeps_the_saved_art(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     image = Image.new("RGB", (4, 4), "red")
-    path = overrides.save(image, tmp_path, "7")
+    path = custom_art.save(image, tmp_path, "7")
     before = path.read_bytes()
 
     def full(self: Path, data: bytes) -> int:
@@ -92,6 +92,6 @@ def test_a_failed_save_keeps_the_saved_art(tmp_path: Path, monkeypatch: pytest.M
 
     monkeypatch.setattr(Path, "write_bytes", full)
     with pytest.raises(OSError):
-        overrides.save(image, tmp_path, "7")
+        custom_art.save(image, tmp_path, "7")
     assert path.read_bytes() == before
     assert list(path.parent.glob("*.part")) == []

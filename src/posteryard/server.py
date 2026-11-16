@@ -5,24 +5,6 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypedDict, TypeGuard, get_args
 
-JPEG_COMMENT = 0xFE
-JPEG_SCAN = 0xDA
-MADE_BY = b"Posteryard"
-
-
-def made_here(data: bytes) -> bool:
-    if not data.startswith(b"\xff\xd8"):
-        return False
-    at = 2
-    while at + 4 <= len(data) and data[at] == 0xFF:
-        marker, size = data[at + 1], int.from_bytes(data[at + 2 : at + 4])
-        if marker == JPEG_SCAN or size < 2:
-            return False
-        if marker == JPEG_COMMENT and data[at + 4 : at + 2 + size] == MADE_BY:
-            return True
-        at += 2 + size
-    return False
-
 
 class Item(TypedDict, total=False):
     ratingKey: str

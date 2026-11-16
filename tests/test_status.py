@@ -63,3 +63,15 @@ def test_timestamps() -> None:
     assert status.from_timestamp(0) is None
     assert status.from_timestamp("x") is None
     assert status.from_timestamp(1789413501) is not None
+
+
+def test_days_left_and_leaving_label() -> None:
+    today = date(2026, 10, 1)
+    assert status.days_left(date(2026, 10, 13), today) == 12
+    assert status.days_left(date(2026, 9, 30), today) is None
+    assert status.days_left(None, today) is None
+    assert [status.leaving(0), status.leaving(1), status.leaving(12)] == [
+        "LEAVING TODAY",
+        "LEAVING TOMORROW",
+        "LEAVING IN 12 DAYS",
+    ]

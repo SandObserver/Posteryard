@@ -39,6 +39,9 @@ A title goes through these modules in order:
 | `artwork.py`, `ocr.py` | Choose TMDB art and logos; reject art with printed text. |
 | `render/` | Draw the designs: `designs.py` composes, `category.py` draws collection tiles, `lines.py` places the lines under the logo, `badges.py` and `layers.py` draw parts. `layers.font_for` picks a fallback font for scripts Inter lacks. |
 | `store.py` | SQLite state: what was uploaded, overrides, cached art choices. |
+| `overrides.py`, `custom_art.py` | Art set by hand: the override record and its labels; downloading, checking and saving custom art. |
+| `encode.py` | The JPEG Posteryard uploads, with the marker that tells its own images apart. |
+| `status.py` | Status labels such as JUST ADDED and LEAVING IN 3 DAYS. |
 | `plex.py`, `jellyfin.py` | The media servers, behind the `MediaServer` protocol in `server.py`. Jellyfin and Emby (`jellyfin.py`) answer with Plex-shaped items. |
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
 | `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |

@@ -10,12 +10,13 @@ import pytest
 from PIL import Image
 
 from posteryard import config, http, pipeline, similar
+from posteryard.encode import jpeg, made_here
 from posteryard.fanart import Fanart, FanartImages
 from posteryard.notify import Notifier
-from posteryard.server import Item, Target, made_here
+from posteryard.server import Item, Target
 from posteryard.store import Status, Store
 from posteryard.tmdb import Kind
-from posteryard.worker import Outcome, Worker, jpeg
+from posteryard.worker import Outcome, Worker
 from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
 
 MOVIE: Item = {

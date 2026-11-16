@@ -9,7 +9,7 @@ from typing import Any
 
 from PIL import Image
 
-from posteryard import apple, http, overrides, quality, services, similar, status
+from posteryard import apple, custom_art, http, quality, services, similar, status
 from posteryard.artwork import (
     LOGO_RULE,
     MAX_CANDIDATES,
@@ -64,7 +64,7 @@ def art_source(path: str) -> str:
         return "Apple TV"
     if is_fanart(path):
         return "fanart.tv"
-    if path.startswith(overrides.FILE_PREFIX):
+    if path.startswith(custom_art.FILE_PREFIX):
         return "custom file"
     return f"TMDB {path}" if path.startswith("/") else path
 
@@ -372,7 +372,7 @@ def _poster(  # noqa: PLR0913
     override = ctx.sources.overrides(key)
     extra: dict[str, Any] = {}
     if override and override.custom:
-        art_path, note = overrides.FILE_PREFIX + override.custom, "custom art"
+        art_path, note = custom_art.FILE_PREFIX + override.custom, "custom art"
         extra["override"] = Path(override.custom).name
     else:
         skip = override.skip if override else frozenset()

@@ -15,7 +15,8 @@ from typing import Any
 from xml.parsers import expat
 
 from posteryard import http
-from posteryard.server import SOURCES, Airing, AiringMedia, Guide, ImageEntry, Item, Target, made_here
+from posteryard.encode import made_here
+from posteryard.server import SOURCES, Airing, AiringMedia, Guide, ImageEntry, Item, Target
 
 TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "episode", "BoxSet": "collection"}
 INCLUDE = {kind: name for name, kind in TYPES.items()}
