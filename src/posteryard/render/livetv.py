@@ -4,6 +4,8 @@ from PIL import Image, ImageDraw, ImageFilter
 from posteryard.render import designs
 from posteryard.render.layers import cover, flatten, trim
 
+# Bump when a Live TV design changes. It is part of every Live TV fingerprint.
+LIVE_VERSION = "3"
 W, H = designs.POSTER
 CORNER = 0.12
 PICTURE_TOP = 0.18

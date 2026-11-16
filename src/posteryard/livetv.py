@@ -30,7 +30,6 @@ from posteryard.tmdb import Kind, open_image
 from posteryard.worker import JPEG_QUALITY, jpeg
 
 log = logging.getLogger(__name__)
-LIVE_VERSION = "3"
 WINDOW_SECONDS = 4 * 86400
 CHECK_SECONDS = 86400
 RETRY_SECONDS = 3600
@@ -416,7 +415,7 @@ class LiveTv:
         key = show.record_key(show.key)
         mark = self._image(fetch, show.logo, show, "logo")
         logo = show.logo if mark is not None else ""
-        base = {"live": LIVE_VERSION, "title": show.title}
+        base = {"live": livetv.LIVE_VERSION, "title": show.title}
         own_art = show.provider.startswith(OWN_ART)
         placeholder = norm(show.title) == norm(show.channel)
         tid = None if placeholder else self.match(show)
@@ -443,7 +442,7 @@ class LiveTv:
                 lambda: livetv.title_card(mark, designs.text_logo(shown(show.title), rows=3)),
                 [f"channel logo {http.redact(logo)}" if logo else "no channel logo"],
             )  # fmt: skip
-        plan.inputs.update(live=LIVE_VERSION, channel_logo=logo)
+        plan.inputs.update(live=livetv.LIVE_VERSION, channel_logo=logo)
         if mark is not None:
             draw = plan.draw
             plan.draw = lambda: livetv.with_channel(draw(), mark)
