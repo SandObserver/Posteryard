@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from posteryard import http, pipeline, services
 from posteryard.pipeline import Context
-from posteryard.server import Item, MediaServer
+from posteryard.server import Item, MediaServer, labels
 
 log = logging.getLogger(__name__)
 MANAGED_LABEL = "posteryard-collection"
@@ -152,7 +152,11 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
     groups, unknown, unmatched = _groups(server, ctx, section_keys)
     section_key = section_keys[0]
     choices = ctx.sources.choices
-    ours = {str(c["ratingKey"]): c for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)}
+    ours = {
+        str(c["ratingKey"]): c
+        for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)
+        if MANAGED_LABEL in labels(c)
+    }
     labelled = set(ours)
     owned = _owned(ctx, section_key, list(groups), ours)
     owned |= {} if choices.get_choice(_checked(section_key)) else _renamed_earlier(server, groups, owned, ours)

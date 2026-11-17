@@ -1,6 +1,5 @@
 import time
 from datetime import date
-from typing import Any
 
 import pytest
 
@@ -24,11 +23,11 @@ class FakePlex(FakeServer):
         self.members: dict[str, set[str]] = {"50": {"6", "9"}}
         self.calls: list[tuple[str, ...]] = []
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
         if kind == "show":
             return [{"ratingKey": k, "title": f"Show {k}", "Guid": [{"id": f"tmdb://{k}"}]} for k in SHOWS]
-        assert filters == {"label": service_collections.MANAGED_LABEL}
-        return self.ours
+        assert label == service_collections.MANAGED_LABEL
+        return [{"Label": [{"tag": label}], **i} for i in self.ours]
 
     def collection_children(self, rating_key: str) -> list[Item]:
         return [{"ratingKey": k} for k in sorted(self.members.get(rating_key, set()))]
@@ -79,8 +78,8 @@ def test_a_show_whose_lookup_fails_keeps_its_membership(monkeypatch: pytest.Monk
 
 
 class UnmatchedShow(FakePlex):
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-        items = super().section_items(section_key, kind, **filters)
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        items = super().section_items(section_key, kind, label=label)
         return [{**i, "Guid": []} if i["ratingKey"] == "8" else i for i in items]
 
 
@@ -99,6 +98,19 @@ def context() -> pipeline.Context:
         title = Title("tv", int(key), f"Show {key}", [], service, service_name=name)
         ctx.sources.titles[("tv", int(key))] = (float("inf"), title)
     return ctx
+
+
+class IgnoresLabelFilter(FakePlex):
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        items = super().section_items(section_key, kind, label=label)
+        return [*items, {"ratingKey": "70", "title": "Favourites"}] if kind == "collection" else items
+
+
+def test_a_collection_without_the_label_is_never_deleted() -> None:
+    plex = IgnoresLabelFilter([{"ratingKey": "51", "title": "Hulu"}])
+    service_collections.sync(plex, context(), ["4"])
+    assert ("delete", "51") in plex.calls
+    assert ("delete", "70") not in plex.calls
 
 
 def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
@@ -152,10 +164,10 @@ class LostAnswer(FakePlex):
         super().__init__(ours)
         self.made = made
 
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-        if kind == "collection" and not filters:
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        if kind == "collection" and label is None:
             return self.ours + self.made
-        return super().section_items(section_key, kind, **filters)
+        return super().section_items(section_key, kind, label=label)
 
     def create_collection(self, section_key: str, kind: str, title: str, rating_keys: list[str]) -> str:
         super().create_collection(section_key, kind, title, rating_keys)
@@ -218,8 +230,8 @@ def test_a_service_without_a_built_in_mark_gets_a_collection() -> None:
 
 
 class TwoLibraries(FakePlex):
-    def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-        items = super().section_items(section_key, kind, **filters)
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        items = super().section_items(section_key, kind, label=label)
         if kind != "show":
             return items
         half = {"4": {"1", "2", "4"}, "5": {"3", "5", "6", "7", "8"}}[section_key]
@@ -243,8 +255,10 @@ def test_an_outage_stops_the_show_lookups(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(pipeline, "resolve_tmdb", down)
 
     class Many(FakePlex):
-        def section_items(self, section_key: str, kind: str, **filters: Any) -> list[Item]:
-            return [{"ratingKey": str(n), "type": "show"} for n in range(10)] if kind == "show" and not filters else []
+        def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+            return (
+                [{"ratingKey": str(n), "type": "show"} for n in range(10)] if kind == "show" and label is None else []
+            )
 
     named, unknown, _ = service_collections._groups(Many([]), ctx, ["4"])
     assert named == {} and len(unknown) == 10
