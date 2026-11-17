@@ -69,6 +69,17 @@ def test_art_next_shows_the_skipped_art_and_the_wider_pool(store: Store) -> None
     assert "/textless.jpg  2000x3000  rated 5.0 (10 votes)  skipped by art next" in text
 
 
+def test_art_next_lists_candidates_in_the_order_art_next_walks(store: Store) -> None:
+    posters = [ref(f"/textless-{n}.jpg", None) for n in range(8)]
+    ctx = context(posters)
+    ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset(r.path for r in posters[:7]))
+    result = why.report(ctx, MOVIE, store)
+    assert result.art == "/textless-7.jpg"
+    [(group, candidates)] = result.groups
+    assert group == "TMDB posters"
+    assert [c.ref.path for c in candidates] == [r.path for r in posters]
+
+
 def test_custom_art_lists_no_candidates(store: Store, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     custom = tmp_path / "custom.jpg"

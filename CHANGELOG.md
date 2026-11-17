@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- List art in `why` in the order `art next` walks it after `art next` was used.
+
 ### Fixed
 
 - Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.

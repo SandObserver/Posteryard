@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from PIL import Image
 
-from posteryard import apple, custom_art, http, quality, services, similar, status
+from posteryard import custom_art, http, quality, services, similar, status
 from posteryard.artwork import (
     LOGO_RULE,
     MAX_CANDIDATES,
@@ -19,13 +19,12 @@ from posteryard.artwork import (
     remember,
 )
 from posteryard.config import EpisodeMode
-from posteryard.fanart import is_fanart
 from posteryard.measures import Measures
 from posteryard.render import category, designs, lines
 from posteryard.render.layers import NEAR_BLACK, WHITE, family_for, trim
 from posteryard.server import Item, MediaServer, Target, external_ids, tmdb_id
 from posteryard.settings import Settings
-from posteryard.sources import Sources, Title
+from posteryard.sources import APPLE, TMDB, ArtGroup, Sources, Title, source_of
 from posteryard.titles import plain
 from posteryard.tmdb import Episode, ImageRef, Kind
 
@@ -60,12 +59,11 @@ class UnmatchedError(NotFoundError):
 
 
 def art_source(path: str) -> str:
-    if apple.is_apple(path):
-        return "Apple TV"
-    if is_fanart(path):
-        return "fanart.tv"
     if path.startswith(custom_art.FILE_PREFIX):
         return "custom file"
+    source = source_of(path)
+    if source != TMDB:
+        return source
     return f"TMDB {path}" if path.startswith("/") else path
 
 
@@ -256,20 +254,55 @@ def _art_in_order(ctx: Context, title: Title, season: int | None = None) -> Iter
     if season is not None:
         refs = _season_refs(ctx, title, season)
         yield from ctx.sources.picker.textless_pool(f"{base}:s{season}:pool", refs, title.all_titles)
-    images = ctx.sources.images(title.kind, title.tmdb_id)
-    posters = {r.path for r in images.textless_posters()}
-    apple_checked = False
-    for path in ctx.sources.picker.textless_pool(f"{base}:pool", images.textless_art(), title.all_titles):
-        if not apple_checked and path not in posters:
-            apple_checked = True
-            if apple_art := ctx.sources.apple_picked(title):
-                yield apple_art.path
-        yield path
-    if not apple_checked and (apple_art := ctx.sources.apple_picked(title)):
-        yield apple_art.path
-    if ctx.sources.fanart is not None:
-        extra = ctx.sources.fanart_images(title.kind, title.tmdb_id).images
-        yield from ctx.sources.picker.textless_pool(f"{base}:fanart:pool", extra.textless_art(), title.all_titles)
+    yield from _walk(ctx, title, ctx.sources.art_order(title))
+
+
+def _pool_refs(order: list[ArtGroup], pool: str) -> tuple[list[ImageRef], dict[str, int]]:
+    refs: list[ImageRef] = []
+    owner: dict[str, int] = {}
+    for at, group in enumerate(order):
+        if group.pool == pool:
+            for ref in group.refs():
+                owner.setdefault(ref.path, at)
+                refs.append(ref)
+    return refs, owner
+
+
+def _walk(ctx: Context, title: Title, order: list[ArtGroup]) -> Iterator[str]:
+    """Each pool is read as one list. Apple TV art comes when the walk passes its place in the order."""
+    pending = next((at for at, group in enumerate(order) if group.key == APPLE), None)
+    pools = list(dict.fromkeys(group.pool for group in order if group.pool))
+    starts = [next(at for at, group in enumerate(order) if group.pool == pool) for pool in pools] + [len(order)]
+
+    def apple_before(at: int) -> Iterator[str]:
+        nonlocal pending
+        if pending is not None and pending < at:
+            pending = None
+            if picked := ctx.sources.apple_picked(title):
+                yield picked.path
+
+    base = f"{title.kind}:{title.tmdb_id}"
+    for number, pool in enumerate(pools):
+        yield from apple_before(starts[number])
+        refs, owner = _pool_refs(order, pool)
+        for path in ctx.sources.picker.textless_pool(f"{base}:{pool}", refs, title.all_titles):
+            yield from apple_before(owner[path])
+            yield path
+        yield from apple_before(starts[number + 1])
+    yield from apple_before(len(order) + 1)
+
+
+def _next_art_groups(order: list[ArtGroup]) -> list[tuple[str, list[ImageRef]]]:
+    """The groups as art next walks them: each pool holds at most POOL_SIZE images."""
+    pooled: dict[str, list[tuple[int, ImageRef]]] = {}
+    for at, group in enumerate(order):
+        if group.pool:
+            pooled.setdefault(group.pool, []).extend((at, ref) for ref in group.refs())
+    kept = {(at, ref.path) for members in pooled.values() for at, ref in members[:POOL_SIZE]}
+    return [
+        (group.name, [ref for ref in group.refs() if (at, ref.path) in kept] if group.pool else group.refs())
+        for at, group in enumerate(order)
+    ]
 
 
 def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True) -> bool:
@@ -662,20 +695,10 @@ def art_candidates(ctx: Context, item: Item, *, next_art: bool = False) -> list[
         raise NotFoundError(f"{item.get('title')} is not a movie, show or season")
     tmdb_kind: Kind = "movie" if kind == "movie" else "tv"
     title = ctx.sources.title(tmdb_kind, _require_tmdb(ctx, item, tmdb_kind), str(item.get("title", "")))
-    images = ctx.sources.images(tmdb_kind, title.tmdb_id)
-    groups: list[tuple[str, list[ImageRef]]] = [("TMDB posters", images.textless_posters()[:MAX_CANDIDATES])]
-    if (url := ctx.sources.apple_art(title)) is not None:
-        groups.append(("Apple TV art", [apple.tall_ref(url)]))
-    groups.append(("TMDB backdrops", images.textless_backdrops()[:MAX_CANDIDATES]))
-    if ctx.sources.fanart is not None:
-        extra = ctx.sources.fanart_images(tmdb_kind, title.tmdb_id).images
-        groups += [
-            ("fanart.tv posters", extra.textless_posters()[:MAX_CANDIDATES]),
-            ("fanart.tv backdrops", extra.textless_backdrops()[:MAX_CANDIDATES]),
-        ]
+    order = ctx.sources.art_order(title)
     if next_art:
-        groups.append(("TMDB art for art next", images.textless_art()[:POOL_SIZE]))
-    return groups
+        return _next_art_groups(order)
+    return [(group.name, group.refs()[:MAX_CANDIDATES]) for group in order]
 
 
 def plan_preview(ctx: Context, rating_key: str, episodes: int | None = 0) -> list[Plan]:

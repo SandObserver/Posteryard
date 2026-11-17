@@ -18,7 +18,7 @@ from posteryard.fanart import Fanart, FanartImages, is_fanart
 from posteryard.overrides import Override
 from posteryard.render.layers import preferred_family
 from posteryard.settings import Settings
-from posteryard.tmdb import Images, Kind, RegionOffers, ShowSeasons, Tmdb, open_image
+from posteryard.tmdb import ImageRef, Images, Kind, RegionOffers, ShowSeasons, Tmdb, open_image
 
 log = logging.getLogger(__name__)
 TITLE_CACHE_SECONDS = 600
@@ -30,10 +30,30 @@ FETCH_CACHE = 8
 FIND_RETRY = timedelta(days=30)
 
 
-def fetch_art(path: str) -> Image.Image:
+APPLE = "apple"
+APPLE_TV, FANART, TMDB = "Apple TV", "fanart.tv", "TMDB"
+
+
+def source_of(path: str) -> str:
     if apple.is_apple(path):
+        return APPLE_TV
+    return FANART if is_fanart(path) else TMDB
+
+
+def fetch_art(path: str) -> Image.Image:
+    source = source_of(path)
+    if source == APPLE_TV:
         return open_image(http.request("GET", path, timeout=60, redirects=False))
-    return Fanart.image(path) if is_fanart(path) else Tmdb.image(path)
+    return Fanart.image(path) if source == FANART else Tmdb.image(path)
+
+
+@dataclass(frozen=True)
+class ArtGroup:
+    name: str
+    key: str
+    # Art next reads the groups of one pool together. The Apple TV group is in no pool.
+    pool: str
+    refs: Callable[[], list[ImageRef]]
 
 
 @dataclass(frozen=True)
@@ -142,13 +162,13 @@ class Sources:
     def load(self, path: str) -> Image.Image:
         if path.startswith(custom_art.FILE_PREFIX):
             return custom_art.load(path)
-        if apple.is_apple(path) and time.monotonic() < self.apple_down_until:
+        if source_of(path) == APPLE_TV and time.monotonic() < self.apple_down_until:
             self._drop_apple(path, gone=False)
             raise http.RequestError("Apple TV art is paused", path)
         try:
             return self.fetch(path)
         except http.RequestError as exc:
-            if apple.is_apple(path):
+            if source_of(path) == APPLE_TV:
                 if not http.gone(exc):
                     self.apple_down_until = time.monotonic() + APPLE_RETRY_SECONDS
                 self._drop_apple(path, gone=http.gone(exc))
@@ -235,18 +255,44 @@ class Sources:
             self.apple_unavailable = True
             return None
 
+    def art_order(self, title: Title) -> list[ArtGroup]:
+        """Where poster art is looked for, in order. Apple TV and fanart.tv are asked only when their group is read."""
+        kind, tid = title.kind, title.tmdb_id
+        images = self.images(kind, tid)
+
+        def apple_refs() -> list[ImageRef]:
+            url = self.apple_art(title)
+            return [apple.tall_ref(url)] if url else []
+
+        order = [
+            ArtGroup("TMDB posters", "posters", "pool", images.textless_posters),
+            ArtGroup("Apple TV art", APPLE, "", apple_refs),
+            ArtGroup("TMDB backdrops", "backdrops", "pool", images.textless_backdrops),
+        ]
+        if self.fanart is not None:
+
+            def fanart_posters() -> list[ImageRef]:
+                return self.fanart_images(kind, tid).images.textless_posters()
+
+            def fanart_backdrops() -> list[ImageRef]:
+                return self.fanart_images(kind, tid).images.textless_backdrops()
+
+            order += [
+                ArtGroup("fanart.tv posters", "fanart:posters", "fanart:pool", fanart_posters),
+                ArtGroup("fanart.tv backdrops", "fanart:backdrops", "fanart:pool", fanart_backdrops),
+            ]
+        return order
+
     def art(self, title: Title) -> Picked | None:
         base = f"{title.kind}:{title.tmdb_id}"
-        images = self.images(title.kind, title.tmdb_id)
-        picked = (
-            self.picker.textless(f"{base}:posters", images.textless_posters(), title.all_titles)
-            or self.apple_picked(title)
-            or self.picker.textless(f"{base}:backdrops", images.textless_backdrops(), title.all_titles)
-        )
-        if picked is None and self.fanart is not None:
-            extra = self.fanart_images(title.kind, title.tmdb_id).images
-            picked = self.picker.textless_art(f"{base}:fanart", extra, title.all_titles)
-        return picked
+        for group in self.art_order(title):
+            if group.key == APPLE:
+                picked = self.apple_picked(title)
+            else:
+                picked = self.picker.textless(f"{base}:{group.key}", group.refs(), title.all_titles)
+            if picked is not None:
+                return picked
+        return None
 
     def logo(self, title: Title, *, dark: bool = False) -> str | None:
         base = f"{title.kind}:{title.tmdb_id}"
