@@ -347,6 +347,23 @@ def test_run_leaves_a_poster_someone_else_uploaded(tmp_path: Path) -> None:
     assert plex.uploads == []
 
 
+def test_an_upload_stopped_halfway_is_not_taken_for_a_change_by_hand(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    upload = plex.guide_upload
+
+    def stopped(provider: str, key: str, jpeg: bytes) -> str:
+        upload(provider, key, jpeg)
+        raise http.TemporaryError("ReadTimeoutError", "http://plex.example/library/metadata/a/posters")
+
+    monkeypatch.setattr(plex, "guide_upload", stopped)
+    assert live.run(now=1000)["failed"] == 1
+    monkeypatch.setattr(plex, "guide_upload", upload)
+    plex.refreshed = 2
+    assert live.run(now=2000)["uploaded"] == 1
+
+
 def test_run_uploads_again_when_the_design_changes(tmp_path: Path) -> None:
     live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
     live.run(now=1000)
