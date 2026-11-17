@@ -478,6 +478,13 @@ class Jellyfin:
     def guide_select(self, provider: str, key: str, image_key: str) -> None:
         raise ValueError(f"{self.name} keeps no earlier upload to select")
 
+    def guide_by_hand(self, selected: str, ours: str) -> bool:
+        """An image set by hand looks the same as the guide's own image. The guide replaces both."""
+        return False
+
+    def guide_keeps(self, image_key: str) -> bool:
+        return False
+
 
 def _unzip(data: bytes) -> bytes:
     with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:

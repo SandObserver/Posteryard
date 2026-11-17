@@ -35,6 +35,7 @@ CHECK_SECONDS = 86400
 RETRY_SECONDS = 3600
 FORGET_SECONDS = 14 * 86400
 MATCH_PREFIX = "livetv-match:"
+UPLOADING = "uploading:"
 MATCH_HIT_SECONDS = 30 * 86400
 MATCH_MISS_SECONDS = 7 * 86400
 # Several exact matches: the most voted one wins only with this many times the votes of the next.
@@ -306,7 +307,7 @@ class LiveTv:
                 continue
             tally[outcome] += 1
             record = self.store.guide(show.record_key(target))
-            if outcome in CONFIRMED and direct and record and record.image_key.startswith("upload://"):
+            if outcome in CONFIRMED and direct and record and self.server.guide_keeps(record.image_key):
                 self._confirmed.append(record.key)
         if tally["uploaded"]:
             log.info("live TV poster uploaded", extra={"title": show.title, "using": "; ".join(plan.notes)})
@@ -325,7 +326,9 @@ class LiveTv:
         images = self.server.guide_images(show.provider, where)
         selected = next((str(i.get("ratingKey")) for i in images if i.get("selected")), "")
         ours = record.image_key if record else ""
-        if selected.startswith("upload://") and selected != ours:
+        uploading = ours.startswith(UPLOADING)
+        ours = ours.removeprefix(UPLOADING)
+        if not uploading and self.server.guide_by_hand(selected, ours):
             return "manual"
         stored = {str(i.get("ratingKey")) for i in images}
         if record and ours in stored and record.fingerprint == plan.fingerprint:
@@ -339,8 +342,11 @@ class LiveTv:
             drawn.append(jpeg(plan.draw()))
         if self.server.guide_target(show.provider, where, show.guid) != where:
             return "skipped"
+        key = show.record_key(target)
+        # Mark the upload before it starts. A container stopped during it must not look like a change by hand.
+        self.store.guide_uploaded(key, show.title, "", UPLOADING + ours, show.guide_picture)
         image_key = self.server.guide_upload(show.provider, where, drawn[0])
-        self.store.guide_uploaded(show.record_key(target), show.title, plan.fingerprint, image_key, show.guide_picture)
+        self.store.guide_uploaded(key, show.title, plan.fingerprint, image_key, show.guide_picture)
         return "uploaded"
 
     def _preview(self, show: GuideShow, plan: pipeline.Plan, record: GuideRecord | None) -> str:

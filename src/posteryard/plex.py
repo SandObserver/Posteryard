@@ -18,6 +18,7 @@ ENDPOINTS: dict[Target, tuple[str, str, str]] = {
 }
 TYPE_IDS = {"movie": 1, "show": 2, "season": 3, "episode": 4, "collection": 18}
 PAGE = 200
+UPLOAD = "upload://"
 JSON = {"Accept": "application/json"}
 GUIDE_PROVIDER = re.compile(r"^tv\.plex\.providers\.epg\.[a-z0-9]+:\d{1,9}$")
 GUIDE_KEY = re.compile(r"^[A-Za-z0-9%._~-]{1,2000}$")
@@ -203,7 +204,7 @@ class Plex:
         )
         after = [str(i.get("ratingKey")) for i in self.images(rating_key, target)]
         # Plex names an upload after the SHA-1 of its bytes. Uploading the same bytes again adds no entry.
-        same = [k for k in after if k.startswith("upload://") and k.endswith(f"/{digest}")]
+        same = [k for k in after if k.startswith(UPLOAD) and k.endswith(f"/{digest}")]
         image_key = next(iter(same or [k for k in after if k not in before]), None)
         if not image_key:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/library/metadata/{rating_key}"))
@@ -215,7 +216,7 @@ class Plex:
         _, select, field = ENDPOINTS[target]
         listed = [str(i.get("ratingKey", "")) for i in self.images(rating_key, target)]
         if original not in listed:
-            original = next((key for key in listed if key and not key.startswith("upload://")), None)
+            original = next((key for key in listed if key and not key.startswith(UPLOAD)), None)
         self._send(
             "PUT",
             f"/library/sections/{_key(str(item['librarySectionID']))}/all",
@@ -352,7 +353,7 @@ class Plex:
         path = f"/{_provider(provider)}/metadata/{_guide_key(key)}/posters"
         self._send("POST", path, data=jpeg, headers={"Content-Type": "image/jpeg"}, timeout=120)
         digest = hashlib.sha1(jpeg, usedforsecurity=False).hexdigest()
-        image_key = f"upload://posters/{digest}"
+        image_key = f"{UPLOAD}posters/{digest}"
         if image_key not in {str(i.get("ratingKey")) for i in self.guide_images(provider, key)}:
             raise http.RequestError("upload left no poster to select", self._url(path))
         self.guide_select(provider, key, image_key)
@@ -360,6 +361,13 @@ class Plex:
 
     def guide_select(self, provider: str, key: str, image_key: str) -> None:
         self._send("PUT", f"/{_provider(provider)}/metadata/{_guide_key(key)}/poster", {"url": image_key})
+
+    def guide_by_hand(self, selected: str, ours: str) -> bool:
+        return self.guide_keeps(selected) and selected != ours
+
+    def guide_keeps(self, image_key: str) -> bool:
+        """An upload survives a guide refresh and can be selected again."""
+        return image_key.startswith(UPLOAD)
 
 
 def _provider(provider: str) -> str:
