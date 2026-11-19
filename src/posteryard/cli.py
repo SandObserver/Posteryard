@@ -2,11 +2,14 @@ import argparse
 import logging
 import re
 import shlex
+import sys
 import tempfile
 import urllib.error
 import urllib.request
 from datetime import date
 from pathlib import Path
+
+from PIL import features
 
 from posteryard import __version__, config, custom_art, http, livetv, logfmt, lookup, memory, pipeline, titles, why
 from posteryard.encode import JPEG_QUALITY
@@ -28,8 +31,16 @@ QUIET_LOGGERS = ("urllib3", "apprise", "requests", "PIL")
 TMDB_REF = re.compile(r"^(movie|tv):(\d+)$")
 TITLE_HELP = 'a movie or show name such as "The Office" or "Dune 2021", or a rating key'
 SEASON_HELP = "season N of the show instead of the show itself"
+NO_SHAPING = (
+    "Warning: Pillow cannot load FriBiDi, so Arabic, Hebrew, Persian and Indic titles render wrongly here. "
+    "Install libfribidi0 (Debian, Ubuntu) or fribidi (Homebrew). The image has it."
+)
 DRY_RUN_NOTE = " (DRY_RUN is on: saved to the previews folder, the server was not changed)"
 ITEM_ERRORS = (pipeline.NotFoundError, custom_art.ArtError, OSError, ValueError)
+
+
+def _error(message: object) -> None:
+    print(message, file=sys.stderr)
 
 
 def _set_log_level(level: config.LogLevel) -> None:
@@ -140,11 +151,11 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
     try:
         config.require_server(cfg)
     except config.ConfigError as exc:
-        print(exc)
+        _error(exc)
         return 2
     server = _server(cfg)
     if not with_guide(server):
-        print(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
+        _error(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
         return 2
     sources = Sources.from_config(cfg, Settings.from_config(cfg, {}, date.today()), marks=False)
     with tempfile.TemporaryDirectory(prefix="posteryard-live-tv-") as scratch:
@@ -155,7 +166,7 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
             )
             tally = guide.run()
         except (http.RequestError, ValueError) as exc:
-            print(exc)
+            _error(exc)
             return 1
         finally:
             store.close()
@@ -163,24 +174,30 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
     return 1 if tally["failed"] else 0
 
 
+def _warn_without_shaping() -> None:
+    if not features.check("raqm"):
+        _error(NO_SHAPING)
+
+
 def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
+    _warn_without_shaping()
     if args.live_tv:
         return _preview_live_tv(cfg, args.out or cfg.preview_dir)
     if not args.title and not args.tmdb:
-        print("Give a title or --tmdb KIND:ID.")
+        _error("Give a title or --tmdb KIND:ID.")
         return 2
     refs: list[tuple[Kind, int]] = []
     for ref in args.tmdb:
         match = TMDB_REF.match(ref)
         if not match:
-            print(f"--tmdb takes movie:ID or tv:ID, not {ref}")
+            _error(f"--tmdb takes movie:ID or tv:ID, not {ref}")
             return 2
         refs.append(("movie" if match.group(1) == "movie" else "tv", int(match.group(2))))
     if args.title:
         try:
             config.require_server(cfg)
         except config.ConfigError as exc:
-            print(exc)
+            _error(exc)
             return 2
 
     plex = _server(cfg) if args.title else None
@@ -190,15 +207,15 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
             found = lookup.resolve(plex, cfg.libraries, " ".join(args.title))
             keys = [lookup.season(plex, found, n).rating_key for n in args.season] or [found.rating_key]
         except lookup.TitleError as exc:
-            print(exc.explain("preview", _options(args)))
+            _error(exc.explain("preview", _options(args)))
             return 1
         except (ValueError, http.RequestError) as exc:
-            print(exc)
+            _error(exc)
             return 1
     try:
         store = _saved_state(cfg, plex)
     except StoreError as exc:
-        print(exc)
+        _error(exc)
         return 2
     try:
         return _preview_jobs(
@@ -252,7 +269,7 @@ def _preview_jobs(
                 print(f"{path}  {plan.name}  ({'; '.join(plan.notes)})")
             memory.release()
         except (*ITEM_ERRORS, http.RequestError) as exc:
-            print(f"{label}: {exc}")
+            _error(f"{label}: {exc}")
             failed += 1
     return 1 if failed else 0
 
@@ -262,7 +279,7 @@ def _find(args: argparse.Namespace, cfg: config.Config) -> int:
     query = " ".join(args.words)
     matches = lookup.search(lookup.library_titles(plex, cfg.libraries), query)
     if not matches:
-        print(f'Nothing in {", ".join(cfg.libraries)} matches "{query}".')
+        _error(f'Nothing in {", ".join(cfg.libraries)} matches "{query}".')
         return 1
     width = max(len(m.rating_key) for m in matches)
     for m in matches:
@@ -294,21 +311,21 @@ def _health(cfg: config.Config) -> int:
         with urllib.request.urlopen(f"http://127.0.0.1:{cfg.listen_port}/healthz", timeout=4):
             return 0
     except urllib.error.HTTPError as exc:
-        print(f"unhealthy: HTTP {exc.code}")
+        _error(f"unhealthy: HTTP {exc.code}")
     except OSError as exc:
-        print(f"not reachable on port {cfg.listen_port}: {exc}")
+        _error(f"not reachable on port {cfg.listen_port}: {exc}")
     return 1
 
 
 def _test_alert(cfg: config.Config) -> int:
     notifier = Notifier(cfg.notify_urls)
     if not notifier.configured:
-        print("No notification service is set up. Set NOTIFY_URLS.")
+        _error("No notification service is set up. Set NOTIFY_URLS.")
         return 1
     if notifier.send("test", "Alerts from Posteryard reach you."):
         print("Test alert sent.")
         return 0
-    print("A notification service did not accept the test alert. The log above has the details.")
+    _error("A notification service did not accept the test alert. The log above has the details.")
     return 1
 
 
@@ -323,7 +340,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
         elif args.command in ("art", "forget", "find", "restore", "why"):
             config.require_server(cfg)
     except config.ConfigError as exc:
-        print(exc)
+        _error(exc)
         return 2
     if args.command == "health":
         return _health(cfg)
@@ -337,14 +354,14 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
         plex = _server(cfg)
         store = Store(cfg.state_path)
     except http.RequestError as exc:
-        print(exc)
+        _error(exc)
         return 1
     except StoreError as exc:
-        print(exc)
+        _error(exc)
         return 2
     try:
         if args.command != "serve" and (problem := other_server(plex, store)):
-            print(problem)
+            _error(problem)
             return 2
         # Only the service keeps alert state. A command run beside it would overwrite the service's copy.
         state = store if args.command == "serve" else None
@@ -357,7 +374,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
             return _why(args, cfg, plex, store, worker)
         return _change(args, cfg, plex, store, worker)
     except http.RequestError as exc:
-        print(exc)
+        _error(exc)
         return 1
     finally:
         store.close()
@@ -369,7 +386,7 @@ def _restore(worker: Worker) -> int:
     if counts.kept:
         print(f"Left {counts.kept} images that were changed by hand.")
     if counts.failed:
-        print(f"{counts.failed} images could not be restored. The log above has the details. Run the command again.")
+        _error(f"{counts.failed} images could not be restored. The log above has the details. Run the command again.")
         return 1
     return 0
 
@@ -378,21 +395,21 @@ def _why(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, store:
     try:
         match = _resolve(plex, cfg, args)
     except lookup.TitleError as exc:
-        print(exc.explain("why", _options(args)))
+        _error(exc.explain("why", _options(args)))
         return 1
     except ValueError as exc:
-        print(exc)
+        _error(exc)
         return 1
     item = plex.item(match.rating_key)
     if item is None:
-        print(f"{plex.name} has no item {match.rating_key}")
+        _error(f"{plex.name} has no item {match.rating_key}")
         return 1
     worker.ctx.sources.choices = ReadOnlyState(store)
     worker.ctx.sources.marks = None
     try:
         result = why.report(worker.ctx, item, store)
     except ITEM_ERRORS as exc:
-        print(f"{match.label}: {exc}")
+        _error(f"{match.label}: {exc}")
         return 1
     print("\n".join(why.lines(match.label, result)))
     return 0
@@ -402,10 +419,10 @@ def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, sto
     try:
         match = _resolve(plex, cfg, args)
     except lookup.TitleError as exc:
-        print(exc.explain(_command(args), _options(args)))
+        _error(exc.explain(_command(args), _options(args)))
         return 1
     except ValueError as exc:
-        print(exc)
+        _error(exc)
         return 1
     key = match.rating_key
     try:
@@ -420,7 +437,7 @@ def _change(args: argparse.Namespace, cfg: config.Config, plex: MediaServer, sto
         else:
             outcome = worker.reset_art(key)
     except ITEM_ERRORS as exc:
-        print(f"{match.label}: {exc}")
+        _error(f"{match.label}: {exc}")
         return 1
     print(f"{match.label}: {outcome}{DRY_RUN_NOTE if cfg.dry_run and outcome == Outcome.PREVIEW else ''}")
     return 1 if outcome == Outcome.FAILED else 0

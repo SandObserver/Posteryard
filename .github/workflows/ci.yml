@@ -34,8 +34,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
-      - run: uvx --from actionlint-py==1.7.12.25 actionlint
-      - run: uvx zizmor==1.30.1 --offline .github
+      - run: uv run --locked --only-group workflows actionlint
+      - run: uv run --locked --only-group workflows zizmor --offline .github
 
   site:
     runs-on: ubuntu-24.04

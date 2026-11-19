@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - List art in `why` in the order `art next` walks it after `art next` was used.
+- Print command errors to stderr, so they stay out of output you redirect.
 
 ### Fixed
 
@@ -17,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Make `preview TITLE` show the art set with `art set`, `art next` or the `posteryard-custom` label, and use the last known Maintainerr schedule when Maintainerr is down.
 - Draw each title's own name when two library items share a TMDB id, such as one movie in two libraries under different names.
 - Stop treating a Plex guide poster as changed by hand after a restart cut its upload short.
+- Report a taken webhook port in one log line before `serve` starts, instead of logging "service ready" and crashing.
 
 ## [0.10.4] - 2026-11-14
 
