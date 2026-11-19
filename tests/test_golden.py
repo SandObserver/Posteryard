@@ -106,11 +106,13 @@ def difference(name: str, render: Callable[[], Image.Image]) -> float:
 @pytest.mark.parametrize("name", sorted(RENDERS))
 def test_rendered_output_changes_only_with_design_version(name: str) -> None:
     recorded = (GOLDEN / "DESIGN_VERSION").read_text().strip()
-    assert recorded == DESIGN_VERSION, "DESIGN_VERSION changed: run UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py"
+    assert recorded == DESIGN_VERSION, (
+        "DESIGN_VERSION changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
+    )
     changed = difference(name, RENDERS[name])
     assert changed <= TOLERANCE, (
         f"{name} renders differently ({changed:.2f}). Bump DESIGN_VERSION in pipeline.py, "
-        "then run UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py"
+        "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
 
 
@@ -118,12 +120,12 @@ def test_rendered_output_changes_only_with_design_version(name: str) -> None:
 def test_live_tv_output_changes_only_with_a_version(name: str) -> None:
     recorded = ((GOLDEN / "DESIGN_VERSION").read_text().strip(), (GOLDEN / "LIVE_VERSION").read_text().strip())
     assert recorded == (DESIGN_VERSION, livetv.LIVE_VERSION), (
-        "A version changed: run UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py"
+        "A version changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
     changed = difference(name, LIVE_RENDERS[name])
     assert changed <= TOLERANCE, (
         f"{name} renders differently ({changed:.2f}). Bump LIVE_VERSION in render/livetv.py, "
-        "then run UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py"
+        "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
 
 
@@ -134,5 +136,5 @@ def test_drawing_data_changes_only_with_design_version() -> None:
     changed = sorted(name for name, value in recorded.items() if current.get(name) != value)
     assert not changed, (
         f"{', '.join(changed)} changed or went away. Bump DESIGN_VERSION in pipeline.py, "
-        "then run UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py"
+        "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )

@@ -10,7 +10,7 @@ from types import SimpleNamespace
 from typing import Any, ClassVar
 
 import pytest
-from PIL import Image
+from PIL import Image, features
 
 from posteryard import cli, http, pipeline, why
 from posteryard.jellyfin import Emby
@@ -78,14 +78,14 @@ def test_art_reset_a_season(run: Any, capsys: pytest.CaptureFixture[str]) -> Non
 def test_an_ambiguous_name_changes_nothing(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["art", "set", "Dune", "--url", "https://example.org/a.jpg"]) == 1
     assert FakeWorker.calls == []
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert 'posteryard art set "Dune 2021" --url https://example.org/a.jpg   or 8120' in out
 
 
 def test_a_missing_season_changes_nothing(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["forget", "The Office", "--season", "7"]) == 1
     assert FakeWorker.calls == []
-    assert "has no season 7" in capsys.readouterr().out
+    assert "has no season 7" in capsys.readouterr().err
 
 
 def test_forget_hands_the_title_back_and_renders_it(run: Any) -> None:
@@ -104,7 +104,7 @@ def test_commands_that_change_plex_need_plex_settings(
 ) -> None:
     monkeypatch.delenv("PLEX_TOKEN")
     assert run(["art", "next", "The Office"]) == 2
-    assert "PLEX_URL and PLEX_TOKEN" in capsys.readouterr().out
+    assert "PLEX_URL and PLEX_TOKEN" in capsys.readouterr().err
 
 
 def test_preview_needs_something_to_render(run: Any) -> None:
@@ -112,9 +112,18 @@ def test_preview_needs_something_to_render(run: Any) -> None:
     assert run(["preview", "--tmdb", "film:1"]) == 2
 
 
+@pytest.mark.parametrize("shaping", [True, False])
+def test_preview_warns_when_text_shaping_is_missing(
+    run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], shaping: bool
+) -> None:
+    monkeypatch.setattr(features, "check", lambda feature: shaping)
+    assert run(["preview"]) == 2
+    assert ("cannot load FriBiDi" in capsys.readouterr().err) is not shaping
+
+
 def test_test_alert_needs_a_service(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["test-alert"]) == 1
-    assert "NOTIFY_URLS" in capsys.readouterr().out
+    assert "NOTIFY_URLS" in capsys.readouterr().err
 
 
 def test_health_asks_the_service_on_its_port(
@@ -137,12 +146,12 @@ def test_health_asks_the_service_on_its_port(
         assert run(["health"]) == 0
         status[0] = 503
         assert run(["health"]) == 1
-        assert "HTTP 503" in capsys.readouterr().out
+        assert "HTTP 503" in capsys.readouterr().err
     finally:
         server.shutdown()
         server.server_close()
     assert run(["health"]) == 1
-    assert "not reachable" in capsys.readouterr().out
+    assert "not reachable" in capsys.readouterr().err
 
 
 def test_a_database_from_a_newer_release_stops_the_command(
@@ -151,7 +160,7 @@ def test_a_database_from_a_newer_release_stops_the_command(
     with closing(sqlite3.connect(tmp_path / "state.db")) as db:
         db.execute("PRAGMA user_version=999")
     assert run(["forget", "5646"]) == 2
-    assert "newer than this Posteryard supports" in capsys.readouterr().out
+    assert "newer than this Posteryard supports" in capsys.readouterr().err
 
 
 def test_restore_needs_all(run: Any) -> None:
@@ -176,7 +185,7 @@ def test_a_data_folder_from_another_server_stops_the_command(
     monkeypatch.setattr(cli, "Plex", lambda url, token: other)
     FakeWorker.calls = []
     assert run(["forget", "5646"]) == 2
-    assert "belongs to another media server (plex:example)" in capsys.readouterr().out
+    assert "belongs to another media server (plex:example)" in capsys.readouterr().err
     assert FakeWorker.calls == []
 
 
@@ -197,7 +206,7 @@ def test_preview_from_tmdb_saves_each_plan_and_counts_failures(
     assert run(["preview", "--tmdb", "movie:603", "--out", str(out)]) == 0
     assert [p.name for p in out.iterdir()] == ["movie-603-poster-example.jpg"]
     assert run(["preview", "--tmdb", "movie:603", "--tmdb", "movie:404", "--out", str(out)]) == 1
-    assert "movie:404: TMDB has no movie 404" in capsys.readouterr().out
+    assert "movie:404: TMDB has no movie 404" in capsys.readouterr().err
 
 
 def test_preview_of_a_title_renders_without_maintainerr(
@@ -269,7 +278,7 @@ def test_preview_skips_the_saved_state_of_another_server(
 
 def test_preview_of_an_unknown_title_renders_nothing(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
     assert run(["preview", "zzyzx"]) == 1
-    assert "zzyzx" in capsys.readouterr().out
+    assert "zzyzx" in capsys.readouterr().err
 
 
 def test_preview_reports_an_image_that_cannot_be_read(
@@ -280,7 +289,7 @@ def test_preview_reports_an_image_that_cannot_be_read(
 
     monkeypatch.setattr(pipeline, "plan_preview", gone)
     assert run(["preview", "5646", "--out", str(tmp_path / "out")]) == 1
-    assert "5646: No such file" in capsys.readouterr().out
+    assert "5646: No such file" in capsys.readouterr().err
 
 
 def test_live_tv_preview_needs_plex_or_jellyfin(
@@ -292,7 +301,7 @@ def test_live_tv_preview_needs_plex_or_jellyfin(
     monkeypatch.setenv("EMBY_URL", "http://emby.example:8096")
     monkeypatch.setenv("EMBY_API_KEY", "example")
     assert run(["preview", "--live-tv"]) == 2
-    assert "not Emby" in capsys.readouterr().out
+    assert "not Emby" in capsys.readouterr().err
     monkeypatch.delenv("EMBY_URL")
     assert run(["preview", "--live-tv"]) == 2
 
@@ -308,18 +317,18 @@ def test_live_tv_is_left_out_on_emby(caplog: pytest.LogCaptureFixture) -> None:
 @pytest.mark.parametrize(
     "case",
     [
-        (Restored(restored=3), 0, "Gave 3 images back to Plex."),
-        (Restored(restored=2, kept=1), 0, "Left 1 images that were changed by hand."),
-        (Restored(restored=1, failed=2), 1, "2 images could not be restored."),
+        (Restored(restored=3), 0, "out", "Gave 3 images back to Plex."),
+        (Restored(restored=2, kept=1), 0, "out", "Left 1 images that were changed by hand."),
+        (Restored(restored=1, failed=2), 1, "err", "2 images could not be restored."),
     ],
 )
 def test_restore_reports_what_it_did(
-    run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], case: tuple[Restored, int, str]
+    run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], case: tuple[Restored, int, str, str]
 ) -> None:
-    counts, code, text = case
+    counts, code, stream, text = case
     monkeypatch.setattr(FakeWorker, "restored", counts)
     assert run(["restore", "--all"]) == code
-    assert text in capsys.readouterr().out
+    assert text in getattr(capsys.readouterr(), stream)
 
 
 def test_a_refused_test_alert_fails(
@@ -328,7 +337,7 @@ def test_a_refused_test_alert_fails(
     monkeypatch.setenv("NOTIFY_URLS", "json://alerts.example/hook")
     monkeypatch.setattr(Notifier, "send", lambda self, *args, **kwargs: False)
     assert run(["test-alert"]) == 1
-    assert "did not accept" in capsys.readouterr().out
+    assert "did not accept" in capsys.readouterr().err
     monkeypatch.setattr(Notifier, "send", lambda self, *args, **kwargs: True)
     assert run(["test-alert"]) == 0
 
@@ -338,7 +347,7 @@ def test_art_set_from_a_missing_file_changes_nothing(
 ) -> None:
     assert run(["art", "set", "5646", "--file", str(tmp_path / "missing.jpg")]) == 1
     assert FakeWorker.calls == []
-    assert "no such file" in capsys.readouterr().out
+    assert "no such file" in capsys.readouterr().err
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
@@ -353,7 +362,7 @@ def test_art_set_from_an_unreadable_file_reports_it(
     finally:
         locked.chmod(0o600)
     assert FakeWorker.calls == []
-    assert "Permission denied" in capsys.readouterr().out
+    assert "Permission denied" in capsys.readouterr().err
 
 
 def test_why_explains_or_reports_what_it_could_not_read(
@@ -369,6 +378,6 @@ def test_why_explains_or_reports_what_it_could_not_read(
 
     monkeypatch.setattr(why, "report", gone)
     assert run(["why", "8120"]) == 1
-    assert "Dune (2021, movie): No such file" in capsys.readouterr().out
+    assert "Dune (2021, movie): No such file" in capsys.readouterr().err
     assert run(["why", "Dune"]) == 1
     assert run(["why", "zzyzx"]) == 1

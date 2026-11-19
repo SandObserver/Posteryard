@@ -4,6 +4,7 @@ Run after changing a source or commit: uv run python tools/build_fonts.py
 """
 
 import io
+import tempfile
 import urllib.parse
 from pathlib import Path
 
@@ -50,24 +51,31 @@ def report(path: Path) -> None:
     print(f"built {path.name}: {path.stat().st_size / 1_048_576:.1f} MB")
 
 
-def main() -> None:
-    OUT.mkdir(parents=True, exist_ok=True)
+def build(out: Path) -> None:
     for family, (pattern, licence, weights) in STATIC.items():
         for weight in weights:
-            path = OUT / f"{family}-{weight}{Path(pattern).suffix}"
+            path = out / f"{family}-{weight}{Path(pattern).suffix}"
             path.write_bytes(fetch(pattern.format(weight=weight)))
             report(path)
-        (OUT / f"OFL-{family}.txt").write_bytes(fetch(licence))
+        (out / f"OFL-{family}.txt").write_bytes(fetch(licence))
     for family, (folder, name, weights) in VARIABLE.items():
         source = fetch(f"{GOOGLE}/{folder}/{urllib.parse.quote(name)}")
         for weight in weights:
             font = TTFont(io.BytesIO(source))
             axes = {axis.axisTag for axis in font["fvar"].axes}
             limits = {"wght": WEIGHTS[weight], **({"wdth": 100.0} if "wdth" in axes else {})}
-            path = OUT / f"{family}-{weight}.ttf"
+            path = out / f"{family}-{weight}.ttf"
             instancer.instantiateVariableFont(font, limits).save(path)
             report(path)
-        (OUT / f"OFL-{family}.txt").write_bytes(fetch(f"{GOOGLE}/{folder}/OFL.txt"))
+        (out / f"OFL-{family}.txt").write_bytes(fetch(f"{GOOGLE}/{folder}/OFL.txt"))
+
+
+def main() -> None:
+    OUT.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(dir=OUT.parent) as scratch:
+        build(Path(scratch))
+        for path in Path(scratch).iterdir():
+            path.replace(OUT / path.name)
 
 
 if __name__ == "__main__":

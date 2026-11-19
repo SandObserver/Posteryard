@@ -82,8 +82,12 @@ def candidates(name: str) -> list[str]:
     return keys
 
 
-def main() -> None:
-    tmdb = Tmdb(os.environ["TMDB_API_KEY"])
+def main() -> int:
+    key = os.environ.get("TMDB_API_KEY", "").strip()
+    if not key:
+        print("Set TMDB_API_KEY to a TMDB API key or read access token.", file=sys.stderr)
+        return 2
+    tmdb = Tmdb(key)
     by_key: dict[str, list[list[Any]]] = {}
     for n in sorted(all_networks(tmdb), key=lambda n: int(n["id"])):
         by_key.setdefault(network_key(str(n["name"])), []).append([int(n["id"]), str(n.get("origin_country") or "")])
@@ -98,7 +102,8 @@ def main() -> None:
     by_provider = provider_networks(table, offers)
     PROVIDERS_OUT.write_text(json.dumps(by_provider, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
     print(f"{len(table)} providers matched to networks, {len(by_provider)} by provider id", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

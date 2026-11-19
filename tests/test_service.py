@@ -1362,3 +1362,18 @@ def test_an_item_reaching_its_date_does_not_hide_titles_when_the_server_is_behin
     plex.rows["2"] = date - 540
     service.sweep()
     assert queued(service).count("2") == 1
+
+
+def test_serve_stops_before_starting_when_the_port_is_taken(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    with socket.socket() as taken:
+        taken.bind(("0.0.0.0", 0))
+        taken.listen()
+        port = str(taken.getsockname()[1])
+        cfg = config.load(
+            {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example", "LISTEN_PORT": port}
+        )
+        service = start(cfg, FakePlex())
+        assert service.run() == 1
+    assert service.threads == []
+    assert "webhook port unavailable" in caplog.text
+    assert "service ready" not in caplog.text

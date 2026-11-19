@@ -1,25 +1,43 @@
 repos:
   - repo: local
     hooks:
+      - id: uv-lock
+        name: uv lock --check
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
       - id: ruff-format
         name: ruff format
-        entry: uv run ruff format
+        entry: uv run --locked ruff format
         language: system
         types: [python]
       - id: ruff-check
         name: ruff check
-        entry: uv run ruff check --fix
+        entry: uv run --locked ruff check --fix
         language: system
         types: [python]
       - id: mypy
         name: mypy
-        entry: uv run mypy
+        entry: uv run --locked mypy
         language: system
+        files: (\.py|^pyproject\.toml|^uv\.lock)$
         pass_filenames: false
-        types: [python]
+      - id: actionlint
+        name: actionlint
+        entry: uv run --locked --only-group workflows actionlint
+        language: system
+        files: ^\.github/workflows/
+        pass_filenames: false
+      - id: zizmor
+        name: zizmor
+        entry: uv run --locked --only-group workflows zizmor --offline .github
+        language: system
+        files: ^\.github/
+        pass_filenames: false
       - id: pytest
         name: pytest
-        entry: uv run pytest -n auto
+        entry: uv run --locked pytest -n auto
         language: system
         pass_filenames: false
         always_run: true

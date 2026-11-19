@@ -8,23 +8,27 @@ uv sync
 
 Python 3.13. `onnxruntime` has no Python 3.14 wheels for Intel Macs, and none at all after 1.23, so Intel Macs stay on `onnxruntime` 1.23 while Linux and the image get the latest.
 
+Pillow shapes Arabic, Hebrew, Persian and Indic text only when it can load FriBiDi. Install `libfribidi0` on Debian and Ubuntu, or `fribidi` with Homebrew. `uv run python -c "from PIL import features; print(features.check('raqm'))"` prints `True` when it works. Without it, `preview` prints a warning and draws those titles wrongly. The image always has it.
+
 ## Run it locally
 
-Put your settings in `.env` (ignored by git), then:
+Put your settings in `.env` (ignored by git), one `NAME=value` per line. Quote a value that has spaces: `LIBRARIES="Movies,TV Shows"`. Then:
 
 ```sh
-set -a && . ./.env && set +a
-DATA_DIR=./data uv run posteryard preview "The Office"
-DATA_DIR=./data uv run posteryard serve
+uv run --env-file .env posteryard preview "The Office"
+uv run --env-file .env posteryard serve
 ```
 
-`preview` never writes to the server. Keep `DRY_RUN=true` for `serve` unless you test uploads on a server you own.
+`--env-file` passes the settings to that one command only, and warns about a line it cannot read. `DATA_DIR` defaults to `./data`. `preview` never writes to the server. Keep `DRY_RUN=true` for `serve` unless you test uploads on a server you own.
 
 To run the checks before each commit and the tests before each push:
 
 ```sh
-uvx pre-commit install --hook-type pre-commit --hook-type pre-push
+uv tool install pre-commit
+pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
+
+The hooks also check that `uv.lock` matches `pyproject.toml`. After changing a dependency, run `uv lock`.
 
 ## How it fits together
 
@@ -44,7 +48,7 @@ A title goes through these modules in order:
 | `status.py` | Status labels such as JUST ADDED and LEAVING IN 3 DAYS. |
 | `plex.py`, `jellyfin.py` | The media servers, behind the `MediaServer` protocol in `server.py`. Jellyfin and Emby (`jellyfin.py`) answer with Plex-shaped items. |
 | `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
-| `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `assets/networks.json` (and `assets/provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
+| `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `src/posteryard/assets/networks.json` (and `provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
 | `cli.py`, `config.py` | Commands and settings. |
 | `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the title, frosted and guide picture cards, and puts the channel logo in the corner of TMDB posters. |
 | `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
@@ -58,7 +62,7 @@ Log a short fixed message and put the values in `extra`: `log.info("poster uploa
 | --- | --- | --- |
 | `build_marks.py` | Turns `assets/marks-src` into the white marks in `src/posteryard/assets/marks`. | |
 | `build_fonts.py` | Fetches the fallback fonts for scripts Inter lacks. | Internet |
-| `build_networks.py` | Rebuilds `assets/networks.json` and `assets/provider_networks.json` from TMDB. | `TMDB_API_KEY` |
+| `build_networks.py` | Rebuilds `networks.json` and `provider_networks.json` in `src/posteryard/assets` from TMDB. | `TMDB_API_KEY` |
 | `ocr_readings.py` | Adds real OCR readings to `tests/ocr_readings.json`. | `TMDB_API_KEY` |
 | `unraid_template.py` | Writes the settings help and `<Changes>` in `templates/posteryard.xml` from `README.md` and `CHANGELOG.md`. `--check` exits 1 when the settings are out of date. | |
 | `dockerhub_description.py` | Prints `README.md` as the Docker Hub overview. | |
@@ -78,10 +82,10 @@ Run each with `uv run python tools/<script>`.
 CI runs the same checks:
 
 ```sh
-uv run ruff format . && uv run ruff check . && uv run mypy && uv run pytest -n auto
+uv run --locked ruff format . && uv run --locked ruff check . && uv run --locked mypy && uv run --locked pytest -n auto
 ```
 
-The tests need no API keys and no internet connection. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with actionlint and zizmor, and scans the image with Grype; a fixable critical vulnerability fails the build.
+The tests need no API keys and no internet connection. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
 Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
 
@@ -92,7 +96,7 @@ A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/live
 `tests/test_golden.py` compares every design with the reference images in `tests/golden`. It fails when the output changes and `DESIGN_VERSION` (or `LIVE_VERSION` for a Live TV design) does not. It also fails when a channel band, brand colour, category palette or built-in mark changes without a `DESIGN_VERSION` bump: these are drawn, but not part of the fingerprint. A new mark passes. After bumping, write the references again and commit them:
 
 ```sh
-UPDATE_GOLDEN=1 uv run pytest tests/test_golden.py
+UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py
 ```
 
 `tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. A change to the rule that changes past decisions bumps `TEXTLESS_RULE` in `artwork.py`, so cached choices are made again. A change to the logo choice bumps `LOGO_RULE`. `serve` deletes cached rows from older versions at start.
@@ -115,7 +119,7 @@ cd site && npm ci && npm run build
 
 The build fails if a section it reads is missing from `README.md`.
 
-The Plex preview shows either 12 random movies or 12 random shows from `site/posters.json` on each visit, as one Plex library. Each entry needs an image at `site/public/img/posters/<id>.webp`, 400 x 600, rendered with `posteryard preview --tmdb` and `STREAMING_REGIONS=US`.
+The Plex preview shows either 12 random movies or 12 random shows from `site/posters.json` on each visit, as one Plex library. Each entry needs two WebP images in `site/public/img/posters`: `<id>.webp` at 400 x 600 and `<id>-240.webp` at 240 x 360, both converted from a `posteryard preview --tmdb` render made with `STREAMING_REGIONS=US`.
 
 ## Branches and PRs
 
@@ -125,4 +129,4 @@ The Plex preview shows either 12 random movies or 12 random shows from `site/pos
 
 ## Releases
 
-Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, then pushes `X.Y.Z`, `X.Y` and `latest` to `ghcr.io/sandobserver/posteryard`, copies the same image to `docker.io/sandobserver/posteryard`, publishes a GitHub release with the version's CHANGELOG section, and rewrites the Docker Hub page from `README.md` with `tools/dockerhub_description.py`, and opens a pull request that copies the release notes into the Unraid template and merges when its checks pass. That pull request needs the release GitHub App, through the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`. Docker Hub needs the repository secret `DOCKERHUB_TOKEN`, an access token with Read, Write and Delete. Docker Hub refuses to move an `X.Y.Z` tag, so a version cannot be published twice. If the Docker Hub copy fails, use Re-run failed jobs. The copy skips tags that already point at the image. The `Docker Hub page` workflow updates the page by hand. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. The image carries an SBOM and build provenance. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.
+Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, run `uv lock`, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, then pushes `X.Y.Z`, `X.Y` and `latest` to `ghcr.io/sandobserver/posteryard`, copies the same image to `docker.io/sandobserver/posteryard`, publishes a GitHub release with the version's CHANGELOG section, and rewrites the Docker Hub page from `README.md` with `tools/dockerhub_description.py`, and opens a pull request that copies the release notes into the Unraid template and merges when its checks pass. That pull request needs the release GitHub App, through the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`. Docker Hub needs the repository secret `DOCKERHUB_TOKEN`, an access token with Read, Write and Delete. Docker Hub refuses to move an `X.Y.Z` tag, so a version cannot be published twice. If the Docker Hub copy fails, use Re-run failed jobs. The copy skips tags that already point at the image. The `Docker Hub page` workflow updates the page by hand. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. The image carries an SBOM and build provenance. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.

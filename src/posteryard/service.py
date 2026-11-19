@@ -818,6 +818,14 @@ class Service:
             log.info("old cached choices deleted", extra={"rows": dropped})
 
     def run(self) -> int:
+        try:
+            server = WebhookServer(("0.0.0.0", self.cfg.listen_port), self.handler())
+        except OSError as exc:
+            log.error(
+                "webhook port unavailable. Stop what uses it or set LISTEN_PORT",
+                extra={"port": self.cfg.listen_port, "reason": exc.strerror or str(exc)},
+            )
+            return 1
         print(self.banner(), flush=True)
         self.drop_old_choices()
         log.info(
@@ -831,7 +839,6 @@ class Service:
         ]
         for thread in self.threads:
             thread.start()
-        server = WebhookServer(("0.0.0.0", self.cfg.listen_port), self.handler())
 
         def stop(signum: int, _frame: object) -> None:
             log.info("shutting down", extra={"signal": signal.Signals(signum).name})
