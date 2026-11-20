@@ -1472,9 +1472,7 @@ def test_the_schedule_runs_the_daily_pass_once_per_day(tmp_path: Path, monkeypat
     assert service.store.meta("last_full") == "2026-11-20"
 
 
-def test_a_stop_signal_ends_the_service_before_docker_kills_it(tmp_path: Path) -> None:
-    service = make_service(tmp_path)
-    service.cfg = replace(service.cfg, listen_port=0)
+def stop_by_signal(service: Service) -> int:
     handlers = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
 
     def send_stop() -> None:
@@ -1485,11 +1483,43 @@ def test_a_stop_signal_ends_the_service_before_docker_kills_it(tmp_path: Path) -
             os.kill(os.getpid(), signal.SIGTERM)
 
     threading.Thread(target=send_stop, daemon=True).start()
-    started = time.monotonic()
     try:
-        assert service.run() == 0
+        return service.run()
     finally:
         signal.signal(signal.SIGTERM, handlers[0])
         signal.signal(signal.SIGINT, handlers[1])
+
+
+def test_a_stop_signal_ends_the_service_before_docker_kills_it(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.cfg = replace(service.cfg, listen_port=0)
+    started = time.monotonic()
+    assert stop_by_signal(service) == 0
     assert time.monotonic() - started < 10
     assert not any(thread.is_alive() for thread in service.threads)
+
+
+def test_a_title_still_drawing_does_not_hold_up_the_stop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr("posteryard.service.STOP_SECONDS", 0.5)
+    service = make_service(tmp_path)
+    service.cfg = replace(service.cfg, listen_port=0)
+    drawing, release = threading.Event(), threading.Event()
+
+    def process(key: str) -> Outcome:
+        drawing.set()
+        release.wait(30)
+        return Outcome.UNCHANGED
+
+    monkeypatch.setattr(service.worker, "process", process)
+    service.server_checked.set()
+    service.enqueue(["7"], "webhook")
+    started = time.monotonic()
+    try:
+        assert stop_by_signal(service) == 0
+    finally:
+        release.set()
+    assert drawing.is_set()
+    assert time.monotonic() - started < 5
+    assert "stopped before the current title finished" in caplog.text
