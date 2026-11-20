@@ -33,6 +33,8 @@ log = logging.getLogger(__name__)
 MAX_BODY = 2 * 1024 * 1024
 MAX_CONNECTIONS = 16
 REQUEST_SECONDS = 15
+# Docker kills the container 10 seconds after SIGTERM by default.
+STOP_SECONDS = 8
 NEW_EVENTS = frozenset({"library.new"})
 JELLYFIN_EVENTS = frozenset({"ItemAdded"})
 KINDS = {"movie": ("movie",), "show": ("show", "season", "episode")}
@@ -225,7 +227,7 @@ class Service:
             log.warning("pending titles not saved", extra={"reason": str(exc)})
 
     def stop(self) -> None:
-        """Wake the worker. It must not sleep through a stop: Docker kills the container after 10 seconds."""
+        """Wake the worker. It must not sleep through a stop: see STOP_SECONDS."""
         self._stop.set()
         self.queue.put((-1, next(self._order), "", STOP))
 
@@ -854,6 +856,12 @@ class Service:
         threading.Thread(target=self._watch, args=(server,), daemon=True, name="watch").start()
         server.serve_forever()
         server.server_close()
+        deadline = time.monotonic() + STOP_SECONDS
         for thread in self.threads:
-            thread.join(timeout=20)
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        if busy := [thread.name for thread in self.threads if thread.is_alive()]:
+            log.warning(
+                "stopped before the current title finished. The next sweep or daily check draws it again",
+                extra={"threads": ", ".join(busy)},
+            )
         return self.exit_code

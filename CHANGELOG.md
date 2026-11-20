@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Stop within 8 seconds of `docker stop`, before Docker kills the container, even while a poster is being drawn.
 - Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.
 - Hold less memory on Jellyfin and Emby when a sweep finds many changed items.
 - Make `preview TITLE` show the art set with `art set`, `art next` or the `posteryard-custom` label, and use the last known Maintainerr schedule when Maintainerr is down.
