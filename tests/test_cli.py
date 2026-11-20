@@ -258,6 +258,40 @@ def test_preview_of_a_title_reads_the_saved_state_without_changing_it(
         assert store.get_choice("tv:2316:posters") == {"path": "/saved.jpg"}
 
 
+def test_preview_renders_without_saved_choices_from_a_newer_release(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with closing(sqlite3.connect(tmp_path / "state.db")) as db:
+        db.execute("PRAGMA user_version=999")
+    monkeypatch.setattr(pipeline, "plan_preview", lambda ctx, key, episodes: [plan(key)])
+    assert run(["preview", "5646", "--out", str(tmp_path / "out")]) == 0
+    assert "saved choices skipped" in capsys.readouterr().out
+    with closing(sqlite3.connect(tmp_path / "state.db")) as db:
+        assert db.execute("PRAGMA user_version").fetchone()[0] == 999
+
+
+def test_preview_reads_saved_choices_from_a_folder_it_cannot_write(
+    run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with closing(Store(tmp_path / "state.db")) as store:
+        store.set_custom("5646", str(tmp_path / "custom" / "5646-abc.jpg"), "command")
+    seen: list[Any] = []
+
+    def plan_preview(ctx: Any, key: str, episodes: int | None) -> list[pipeline.Plan]:
+        seen.append(ctx.sources.overrides(key))
+        return [plan(key)]
+
+    monkeypatch.setattr(pipeline, "plan_preview", plan_preview)
+    before = sorted(p.name for p in tmp_path.iterdir())
+    tmp_path.chmod(0o555)
+    try:
+        assert run(["preview", "5646", "--out", str(tmp_path.parent / f"{tmp_path.name}-out")]) == 0
+    finally:
+        tmp_path.chmod(0o755)
+    assert seen[0].custom == str(tmp_path / "custom" / "5646-abc.jpg")
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
+
+
 def test_preview_skips_the_saved_state_of_another_server(
     run: Any, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

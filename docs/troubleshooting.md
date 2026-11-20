@@ -20,6 +20,7 @@ Set `LOG_LEVEL=debug` to see every item Posteryard checks.
 | `NewConnectionError for http://.../library/sections`, or `ConnectTimeoutError` or `NameResolutionError` |  Posteryard cannot reach Plex. Check `PLEX_URL` from inside the container: `docker exec posteryard python -c "import urllib.request; urllib.request.urlopen('http://192.168.1.10:32400/identity')"`. |
 | `HTTP 401` from Plex | `PLEX_TOKEN` is wrong or expired. |
 | `refused a redirect (HTTP 301)` from Plex | `PLEX_URL` points at an address that redirects, often `http://` where Plex or a proxy wants `https://`. Set `PLEX_URL` to the address the redirect goes to. Posteryard does not follow redirects, so the token never goes to another host. |
+| `saved choices skipped: the state database could not be read` | `preview` could not read `state.db`, often because it comes from a newer release. The preview renders without art set by hand and the last known Maintainerr dates. `preview` never changes `state.db`. |
 | `stopped before the current title finished` | Normal after `docker stop` while a poster was being drawn. Posteryard stops within 8 seconds so Docker does not kill it. The next sweep or daily check draws that title again. |
 | A poster has art you do not expect | Run `why TITLE`. It lists the art checked in order and why each was used or not. `art next` switches to the next one. |
 | A poster you set by hand is not replaced | Expected: Posteryard leaves hand-made changes alone. Run `forget TITLE` to hand it back. |

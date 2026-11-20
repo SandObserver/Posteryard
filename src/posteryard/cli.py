@@ -1,7 +1,9 @@
 import argparse
+import contextlib
 import logging
 import re
 import shlex
+import sqlite3
 import sys
 import tempfile
 import urllib.error
@@ -212,24 +214,47 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
         except (ValueError, http.RequestError) as exc:
             _error(exc)
             return 1
-    try:
-        store = _saved_state(cfg, plex)
-    except StoreError as exc:
-        _error(exc)
-        return 2
-    try:
-        return _preview_jobs(
-            args, cfg, plex, store, [(k, None) for k in keys] + [(f"{kind}:{tid}", (kind, tid)) for kind, tid in refs]
-        )
-    finally:
-        if store is not None:
-            store.close()
+    with tempfile.TemporaryDirectory(prefix="posteryard-preview-") as scratch:
+        store = _saved_state(cfg, plex, Path(scratch))
+        try:
+            return _preview_jobs(
+                args,
+                cfg,
+                plex,
+                store,
+                [(k, None) for k in keys] + [(f"{kind}:{tid}", (kind, tid)) for kind, tid in refs],
+            )
+        finally:
+            if store is not None:
+                store.close()
 
 
-def _saved_state(cfg: config.Config, server: MediaServer | None) -> Store | None:
+def _copy_database(source: Path, copy: Path) -> None:
+    """A folder the service owns can refuse this user the shared-memory file. Then read the file as it is."""
+    for flags in ("mode=ro", "mode=ro&immutable=1"):
+        try:
+            with (
+                contextlib.closing(sqlite3.connect(f"{source.as_uri()}?{flags}", uri=True)) as live,
+                contextlib.closing(sqlite3.connect(copy)) as target,
+            ):
+                live.backup(target)
+            return
+        except sqlite3.OperationalError:
+            if flags.endswith("immutable=1"):
+                raise
+
+
+def _saved_state(cfg: config.Config, server: MediaServer | None, scratch: Path) -> Store | None:
+    """Preview reads a copy. The service's own database must never be written or migrated by it."""
     if server is None or not cfg.state_path.is_file():
         return None
-    store = Store(cfg.state_path)
+    copy = scratch / "state.db"
+    try:
+        _copy_database(cfg.state_path, copy)
+        store = Store(copy)
+    except (sqlite3.Error, StoreError) as exc:
+        log.warning("saved choices skipped: the state database could not be read", extra={"reason": str(exc)})
+        return None
     if (known := store.meta("server")) and known != server.server_id():
         log.warning("saved choices skipped: the data folder belongs to another media server", extra={"server": known})
         store.close()
