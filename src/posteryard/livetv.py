@@ -52,7 +52,7 @@ OWN_ART = ("tv.plex.providers.epg.cloud:",)
 
 
 class LeftAloneError(Exception):
-    """The guide's own image stays."""
+    pass
 
 
 @dataclass(frozen=True)
@@ -156,7 +156,6 @@ def guide_shows(
 
 
 def _released(result: Mapping[str, Any]) -> int | None:
-    """A guide's year can be a year off from TMDB's: release dates differ by country."""
     found = str(result.get("release_date") or result.get("first_air_date") or "")[:4]
     return int(found) if found.isdigit() else None
 
@@ -383,6 +382,7 @@ class LiveTv:
             for r in results
             if r.get("id") and name in {norm(str(r.get(label) or "")), norm(str(r.get(original) or ""))}
         ]
+        # Release years differ by country. Allow one year either way.
         dated = [r for r in exact if show.year and abs((_released(r) or 0) - show.year) <= 1]
         exact = dated if show.year else exact
         exact.sort(key=lambda r: -int(r.get("vote_count") or 0))
