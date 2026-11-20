@@ -39,6 +39,7 @@ class DatedPlex(FakeServer):
 ITEM: Item = {"ratingKey": "1", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}], "Media": []}
 
 
+@pytest.mark.slow
 def test_movie_uses_textless_art_that_shows_no_title() -> None:
     plans = pipeline.movie(context([ref("/english.jpg", None), ref("/textless.jpg", None)]), ITEM)
     assert [p.target for p in plans] == ["poster", "art"]
@@ -48,6 +49,7 @@ def test_movie_uses_textless_art_that_shows_no_title() -> None:
     assert plans[0].draw().size == (1000, 1500)
 
 
+@pytest.mark.slow
 def test_seasons_get_their_own_art_then_unused_series_art_then_the_show_art() -> None:
     ctx = context([ref("/textless.jpg", None)])
     title = ctx.sources.title("tv", 42, "Example Show")
@@ -62,6 +64,7 @@ def test_seasons_get_their_own_art_then_unused_series_art_then_the_show_art() ->
     assert len(set(art.values())) == 4
 
 
+@pytest.mark.slow
 def test_seasons_with_their_own_art_read_no_series_art() -> None:
     ctx = context([ref("/textless.jpg", None)])
     reads: list[str] = []
@@ -78,6 +81,7 @@ def test_seasons_with_their_own_art_read_no_series_art() -> None:
     assert reads == ["/season1.jpg", "/season3.jpg"]
 
 
+@pytest.mark.slow
 def test_the_same_picture_under_another_name_is_not_reused() -> None:
     ctx = context([ref("/textless.jpg", None)])
     real = ctx.sources.fetch
@@ -87,6 +91,7 @@ def test_the_same_picture_under_another_name_is_not_reused() -> None:
     assert art == "/backdrop2.jpg"
 
 
+@pytest.mark.slow
 def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
     ctx = context([ref("/textless.jpg", None)], seasons=7)
     title = ctx.sources.title("tv", 42, "Example Show")
@@ -96,6 +101,7 @@ def test_a_season_falls_back_to_the_show_art_when_nothing_is_left() -> None:
     assert plan.inputs["service"] is None
 
 
+@pytest.mark.slow
 def test_specials_keep_a_caption_and_no_number() -> None:
     ctx = context([ref("/textless.jpg", None)])
     title = ctx.sources.title("tv", 42, "Example Show")
@@ -118,6 +124,7 @@ class SpecialsPlex(DatedPlex):
         return [{"ratingKey": "50", "index": 0, "addedAt": new}, {"ratingKey": "51", "index": 1, "addedAt": old}]
 
 
+@pytest.mark.slow
 def test_a_first_special_is_a_new_episode_not_a_new_season() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.server = SpecialsPlex()
@@ -131,6 +138,7 @@ def test_a_first_special_is_a_new_episode_not_a_new_season() -> None:
     assert plan.inputs["label"] == Label("NEW EPISODE", APPLE_BLUE)
 
 
+@pytest.mark.slow
 def test_a_season_shows_the_sooner_of_its_own_and_its_shows_leaving_date() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.settings.action_days = {"1": date(2026, 10, 4), "11": date(2026, 10, 11)}
@@ -142,6 +150,7 @@ def test_a_season_shows_the_sooner_of_its_own_and_its_shows_leaving_date() -> No
     assert plan.inputs["label"] == Label("LEAVING IN 3 DAYS", APPLE_RED)
 
 
+@pytest.mark.slow
 def test_labels_can_be_turned_off_but_leaving_stays() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.settings.labels = False
@@ -192,6 +201,7 @@ def test_custom_art_works_when_no_source_has_clean_art(tmp_path: Path) -> None:
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == f"file:{custom}"
 
 
+@pytest.mark.slow
 def test_next_art_skips_the_current_picture() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/textless.jpg"}))
@@ -267,6 +277,7 @@ def test_a_detail_match_is_stored_under_the_current_match_settings() -> None:
     assert key.startswith(pipeline.CHOICE_FAMILIES["same-details:"])
 
 
+@pytest.mark.slow
 def test_without_overrides_fingerprints_stay_the_same() -> None:
     plan = pipeline.movie(context([ref("/textless.jpg", None)]), ITEM)[0]
     assert "override" not in plan.inputs
@@ -296,6 +307,7 @@ class FakePlex(FakeServer):
         return self.kids.get(rating_key, [])
 
 
+@pytest.mark.slow
 def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.server = FakePlex()
@@ -432,6 +444,7 @@ def test_preview_of_a_missing_item_fails() -> None:
         pipeline.plan_preview(ctx, "99")
 
 
+@pytest.mark.slow
 def test_tmdb_preview_without_plex() -> None:
     ctx = context([ref("/textless.jpg", None)])
     assert [p.target for p in pipeline.plan_tmdb(ctx, "movie", 42)] == ["poster", "art"]
@@ -490,6 +503,7 @@ class CollectionPlex(FakeServer):
         )
 
 
+@pytest.mark.slow
 def test_collections_take_art_from_their_newest_member() -> None:
     ctx = context([ref("/textless.jpg", None)])
     ctx.server = CollectionPlex()
@@ -516,6 +530,7 @@ class FakeFanart(Fanart):
         return FanartImages(Images([poster], [], [logo]))
 
 
+@pytest.mark.slow
 def test_fanart_is_used_only_when_tmdb_has_nothing_usable() -> None:
     ctx = context([ref("/english.jpg", "en")])
     tmdb = tmdb_of(ctx)
@@ -623,6 +638,7 @@ def test_a_collection_named_after_a_service_with_an_automatic_mark_gets_the_chan
     assert crunchyroll.inputs["band"] == "#{:02x}{:02x}{:02x}".format(*designs.channel_band(["crunchyroll"])[0])
 
 
+@pytest.mark.slow
 def test_apple_art_comes_before_backdrops_and_art_next_steps_past_it(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
@@ -795,6 +811,7 @@ def test_an_apple_outage_keeps_apple_art_already_picked(monkeypatch: pytest.Monk
     assert after.fingerprint == before.fingerprint
 
 
+@pytest.mark.slow
 def test_a_paused_apple_fails_the_draw_at_once_and_the_retry_uses_other_art(monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
@@ -815,6 +832,7 @@ def test_a_paused_apple_fails_the_draw_at_once_and_the_retry_uses_other_art(monk
     assert pipeline.movie(ctx, ITEM)[0].inputs["art"] == "/backdrop.jpg"
 
 
+@pytest.mark.slow
 def test_apple_art_that_is_gone_does_not_pause_apple_for_other_titles(monkeypatch: pytest.MonkeyPatch) -> None:
     clock = Clock()
     monkeypatch.setattr(sources, "time", clock)
@@ -865,6 +883,7 @@ def test_a_candidate_on_an_overloaded_server_fails_the_item() -> None:
         pipeline.movie(ctx, ITEM)
 
 
+@pytest.mark.slow
 def test_titles_drawn_in_a_fallback_font_name_it(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     monkeypatch.setattr(ctx.sources, "logo", lambda title, dark=False: None)
@@ -889,6 +908,7 @@ def test_measurements_are_keyed_by_the_design_version() -> None:
     assert f"measured:{pipeline.DESIGN_VERSION}:" == pipeline.MEASURED
 
 
+@pytest.mark.slow
 def test_a_design_change_measures_the_art_again(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None)])
     measured: list[str] = []
@@ -945,6 +965,7 @@ def test_a_season_with_its_own_art_needs_no_show_art() -> None:
         season_art(ctx, 2)
 
 
+@pytest.mark.slow
 def test_art_next_on_a_show_avoids_the_art_of_its_seasons() -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     seasons = season_art(ctx, 1, 2, 3, 4)
@@ -984,6 +1005,7 @@ def test_a_season_or_episode_without_a_number_is_left_alone() -> None:
     assert pipeline.plan_item(ctx, {**episode, "parentIndex": 1}) != []
 
 
+@pytest.mark.slow
 def test_a_new_season_missing_from_the_remembered_list_gets_its_own_art() -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     server = SeasonsPlex([1, 2])
@@ -995,6 +1017,7 @@ def test_a_new_season_missing_from_the_remembered_list_gets_its_own_art() -> Non
     assert item is not None and pipeline.plan_item(ctx, item)[0].inputs["art"] == "/season3.jpg"
 
 
+@pytest.mark.slow
 def test_a_new_season_steps_around_the_art_next_pick_of_its_show() -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     server = SeasonsPlex([1, 2, 3, 4])
@@ -1013,6 +1036,7 @@ def test_a_new_season_steps_around_the_art_next_pick_of_its_show() -> None:
     assert art("16") not in {picked, *seasons.values()}
 
 
+@pytest.mark.slow
 def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     season_posters = Images([ref("/season1-a.jpg", None), ref("/season1-b.jpg", None)], [], [])
@@ -1022,6 +1046,7 @@ def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
     assert season_art(ctx, 1) == {1: "/season1-b.jpg"}
 
 
+@pytest.mark.slow
 def test_seasons_keep_their_art_when_a_season_is_added_or_removed() -> None:
     ctx = context([ref(f"/textless{n}.jpg", None) for n in range(6)])
     title = ctx.sources.title("tv", 42, "Example Show")

@@ -63,7 +63,8 @@ Log a short fixed message and put the values in `extra`: `log.info("poster uploa
 | `build_marks.py` | Turns `assets/marks-src` into the white marks in `src/posteryard/assets/marks`. | |
 | `build_fonts.py` | Fetches the fallback fonts for scripts Inter lacks. | Internet |
 | `build_networks.py` | Rebuilds `networks.json` and `provider_networks.json` in `src/posteryard/assets` from TMDB. | `TMDB_API_KEY` |
-| `ocr_readings.py` | Adds real OCR readings to `tests/ocr_readings.json`. | `TMDB_API_KEY` |
+| `ocr_readings.py` | Adds real OCR readings to `tests/ocr_readings.json`. `--check` reads every saved image again and exits 1 when a decision got worse. | `TMDB_API_KEY` |
+| `record_answers.py` | Records real TMDB, fanart.tv, Wikidata and Apple TV answers in `tests/recorded_answers.json`, without credentials. `--check` reads the live services and exits 1 when an answer changed shape. | `TMDB_API_KEY`, optional `FANART_API_KEY` |
 | `unraid_template.py` | Writes the settings help and `<Changes>` in `templates/posteryard.xml` from `README.md` and `CHANGELOG.md`. `--check` exits 1 when the settings are out of date. | |
 | `dockerhub_description.py` | Prints `README.md` as the Docker Hub overview. | |
 
@@ -85,7 +86,7 @@ CI runs the same checks:
 uv run --locked ruff format . && uv run --locked ruff check . && uv run --locked mypy && uv run --locked pytest -n auto
 ```
 
-The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
+The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. While you work, `uv run --locked pytest -n auto -m "not slow" --no-cov` skips the tests marked `slow`, about two thirds of the test time. Mark a new test that takes 3 seconds or more with `@pytest.mark.slow`. CI runs every test. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
 Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
 
@@ -99,7 +100,9 @@ A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/live
 UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py
 ```
 
-`tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. A change to the rule that changes past decisions bumps `TEXTLESS_RULE` in `artwork.py`, so cached choices are made again. A change to the logo choice bumps `LOGO_RULE`. `serve` deletes cached rows from older versions at start.
+`tests/test_recorded_answers.py` reads the recorded answers through the real clients. After an outside service changes, run `uv run python tools/record_answers.py --check`, then record again.
+
+`tests/test_ocr_readings.py` checks the text rule against what OCR read on real TMDB art, kept as text in `tests/ocr_readings.json`. Add art the rule judges wrongly with `TMDB_API_KEY=... uv run python tools/ocr_readings.py movie:ID:/path.jpg=clean`, or `=text` for art with printed text. After a `rapidocr` or `onnxruntime` update, run `tools/ocr_readings.py --check` on Linux or an Apple silicon Mac. Intel Macs use an older `onnxruntime` than the image. A change to the rule that changes past decisions bumps `TEXTLESS_RULE` in `artwork.py`, so cached choices are made again. A change to the logo choice bumps `LOGO_RULE`. `serve` deletes cached rows from older versions at start.
 
 A change to the database schema adds a new entry at the end of `MIGRATIONS` in `src/posteryard/store.py`. Never edit an entry that was released.
 

@@ -14,6 +14,7 @@ def jpeg(colour: tuple[int, int, int] = (200, 30, 30), size: tuple[int, int] = (
     return buffer.getvalue()
 
 
+@pytest.mark.slow
 def test_decode_shrinks_and_rejects_garbage() -> None:
     assert max(custom_art.decode(jpeg()).size) <= 2160
     with pytest.raises(custom_art.ArtError):
@@ -38,6 +39,7 @@ def test_only_http_addresses(url: str) -> None:
         custom_art.from_url(url)
 
 
+@pytest.mark.slow
 def test_saved_art_is_named_by_content(tmp_path: Path) -> None:
     image = custom_art.decode(jpeg())
     first = custom_art.save(image, tmp_path, "7")

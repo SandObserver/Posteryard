@@ -106,6 +106,7 @@ def test_rest_frees_images_and_keeps_results(tmp_path: Path) -> None:
     assert worker.process("1") == Outcome.UNCHANGED
 
 
+@pytest.mark.slow
 def test_upload_then_leave_a_manual_change_alone(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     assert worker.process("1") == Outcome.UPLOADED
@@ -118,6 +119,7 @@ def test_upload_then_leave_a_manual_change_alone(tmp_path: Path) -> None:
     assert len(plex.uploads) == 2
 
 
+@pytest.mark.slow
 def test_a_dry_run_and_going_live_again_leave_a_hand_change_alone(tmp_path: Path) -> None:
     worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
     assert worker.process("1") == Outcome.UPLOADED
@@ -130,6 +132,7 @@ def test_a_dry_run_and_going_live_again_leave_a_hand_change_alone(tmp_path: Path
     assert len(plex.uploads) == 2
 
 
+@pytest.mark.slow
 def test_a_dry_run_preview_of_an_uploaded_title_keeps_its_record(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
@@ -145,6 +148,7 @@ def test_a_dry_run_preview_of_an_uploaded_title_keeps_its_record(tmp_path: Path)
     assert plex.uploads.count(("1", "art")) == 1
 
 
+@pytest.mark.slow
 def test_an_upload_stopped_halfway_is_redone_and_restored(tmp_path: Path) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
@@ -161,6 +165,7 @@ def test_an_upload_stopped_halfway_is_redone_and_restored(tmp_path: Path) -> Non
     assert ("2", "poster") in plex.restored
 
 
+@pytest.mark.slow
 def test_a_changed_input_renders_again(tmp_path: Path) -> None:
     worker, plex, _, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
@@ -422,6 +427,7 @@ def test_removing_the_next_label_counts_a_later_one_as_new(tmp_path: Path) -> No
     assert store.relabel("posteryard-next", {"1"}) == ({"1"}, set())
 
 
+@pytest.mark.slow
 def test_art_commands(tmp_path: Path) -> None:
     worker, _, store, _ = make(tmp_path, DRY_RUN="false")
     worker.process("1")
