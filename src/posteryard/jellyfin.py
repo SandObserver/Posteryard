@@ -566,7 +566,6 @@ class Emby(Jellyfin):
 
     name = "Emby"
     collections_per_library = True
-    # Emby Live TV needs Emby Premiere. Emby is not supported.
     has_guide = False
     item_id = NUMERIC_ID
 

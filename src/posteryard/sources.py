@@ -73,8 +73,6 @@ class State(ChoiceCache, Protocol):
 
 
 class ReadOnlyState:
-    """Reads the service's state. New choices stay in memory."""
-
     def __init__(self, store: State) -> None:
         self.store, self.memory = store, MemoryChoices()
 
@@ -256,7 +254,7 @@ class Sources:
             return None
 
     def art_order(self, title: Title) -> list[ArtGroup]:
-        """Where poster art is looked for, in order. Apple TV and fanart.tv are asked only when their group is read."""
+        """Apple TV and fanart.tv are asked only when their group is read."""
         kind, tid = title.kind, title.tmdb_id
         images = self.images(kind, tid)
 
