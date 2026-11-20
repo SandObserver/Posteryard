@@ -24,8 +24,12 @@ SECRET_PARAMS = frozenset(
     {"x-plex-token", "api_key", "token", "apikey", "username", "user", "password", "pass", "passwd", "pwd", "key"}
 )
 NAMES = frozenset({"username", "user"})
+# A name that contains one of these is a credential, whatever service sends it.
+SECRET_PARTS = (
+    "token", "secret", "password", "passwd", "apikey", "api_key", "api-key", "auth", "credential", "private",
+    "signature", "session", "bearer", "cookie",
+)  # fmt: skip
 SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
-CROSS_HOST_DROPPED = SECRET_HEADERS | {"cookie", "proxy-authorization"}
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 ERROR_EXCERPT = 4096
@@ -253,6 +257,16 @@ def temporary(exc: RequestError) -> bool:
     )
 
 
+def secret_param(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in SECRET_PARAMS or any(part in lowered for part in SECRET_PARTS)
+
+
+def secret_header(name: str) -> bool:
+    lowered = name.lower()
+    return lowered in SECRET_HEADERS or any(part in lowered for part in SECRET_PARTS)
+
+
 def redact(url: str) -> str:
     """Pass every URL through this before it reaches a log or an error. It hides credentials."""
     try:
@@ -260,8 +274,7 @@ def redact(url: str) -> str:
     except ValueError:
         return UNREADABLE
     query = [
-        (k, "***" if k.lower() in SECRET_PARAMS else v)
-        for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
+        (k, "***" if secret_param(k) else v) for k, v in urllib.parse.parse_qsl(parts.query, keep_blank_values=True)
     ]
     netloc = "***@" + parts.netloc.rpartition("@")[2] if "@" in parts.netloc else parts.netloc
     return urllib.parse.urlunsplit(parts._replace(netloc=netloc, query=urllib.parse.urlencode(query)))
@@ -269,10 +282,10 @@ def redact(url: str) -> str:
 
 def secrets(url: str, headers: dict[str, str]) -> set[str]:
     parts = urllib.parse.urlsplit(url)
-    found = {v for k, v in urllib.parse.parse_qsl(parts.query) if k.lower() in SECRET_PARAMS - NAMES}
+    found = {v for k, v in urllib.parse.parse_qsl(parts.query) if secret_param(k) and k.lower() not in NAMES}
     found.add(parts.password or "")
     for name, value in headers.items():
-        if name.lower() in SECRET_HEADERS:
+        if secret_header(name):
             last = (value.split() or [value])[-1]
             found |= {value, last, last.removeprefix("Token=").strip('"')}
     return {s for s in found if s}
@@ -338,7 +351,7 @@ def _call(hop: _Hop, timeout: float, retries: int, *, redirects: bool, check_red
                 raise RedirectError(status, hop.url, location)
             headers = hop.headers
             if origin != _origin(hop.url):
-                headers = {k: v for k, v in headers.items() if k.lower() not in CROSS_HOST_DROPPED}
+                headers = {k: v for k, v in headers.items() if not secret_header(k)}
             method, data = ("GET", None) if status == HTTPStatus.SEE_OTHER else (hop.method, hop.data)
             hop = _Hop(method, target, headers, data, hop.untrusted or check_redirects)
         raise RequestError("too many redirects", hop.url)

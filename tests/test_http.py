@@ -24,6 +24,22 @@ def test_redact_hides_credentials() -> None:
     assert "type=1" in http.redact(url)
 
 
+@pytest.mark.parametrize(
+    "name", ["access_token", "refresh_token", "client_secret", "X-Amz-Signature", "sessionKey", "apiKey", "PASSWORD"]
+)
+def test_redact_hides_any_credential_by_name(name: str) -> None:
+    redacted = http.redact(f"https://api.example/v1/items?{name}={SECRET}&title=Up&page=2")
+    assert SECRET not in redacted
+    assert "title=Up" in redacted and "page=2" in redacted
+
+
+def test_credential_headers_of_any_service_are_hidden_in_errors() -> None:
+    headers = {"X-Api-Key": SECRET, "X-Emby-Token": "other-secret", "Accept": "application/json"}
+    hidden = http.secrets("https://api.example/v1", headers)
+    assert hidden == {SECRET, "other-secret"}
+    assert http.hide(f"echo {SECRET} other-secret application/json", hidden) == "echo *** *** application/json"
+
+
 def test_a_malformed_url_error_never_carries_the_token() -> None:
     with pytest.raises(http.RequestError) as caught:
         http.request("GET", f"http://plex.example:32400/a b?X-Plex-Token={SECRET}", retries=1)
@@ -426,7 +442,10 @@ def test_redirects_can_be_refused(server: Server) -> None:
 def test_cross_host_redirects_drop_credentials(server: Server) -> None:
     other = Server()
     try:
-        credentials = {"api-key": SECRET, "Authorization": f"Bearer {SECRET}", "X-Plex-Token": SECRET}
+        credentials = {
+            "api-key": SECRET, "Authorization": f"Bearer {SECRET}", "X-Plex-Token": SECRET, "X-Api-Key": SECRET,
+            "Cookie": f"session={SECRET}",
+        }  # fmt: skip
         server.answers = [(302, {"Location": "/b"}, b""), (302, {"Location": f"{other.url}/c"}, b"")]
         other.answers = [(200, {}, b"moved")]
         assert http.request("GET", f"{server.url}/a", headers={**credentials, "Accept": "image/*"}) == b"moved"

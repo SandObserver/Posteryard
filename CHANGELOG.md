@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Stop treating a Plex guide poster as changed by hand after a restart cut its upload short.
 - Report a taken webhook port in one log line before `serve` starts, instead of logging "service ready" and crashing.
 
+### Security
+
+- Hide any address parameter or header whose name marks a credential, such as `access_token`, `client_secret` or `X-Api-Key`, in logs, errors and alerts, and drop such headers on a redirect to another host.
+
 ## [0.10.4] - 2026-11-14
 
 ### Changed
