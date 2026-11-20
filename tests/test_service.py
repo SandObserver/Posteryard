@@ -371,6 +371,9 @@ def test_a_failed_scheduled_run_waits_before_trying_again(tmp_path: Path, monkey
     service = make_service(tmp_path, plex)
     thread = threading.Thread(target=service._schedule, daemon=True)
     thread.start()
+    deadline = time.monotonic() + 5
+    while not plex.calls and time.monotonic() < deadline:
+        time.sleep(0.01)
     time.sleep(0.3)
     service.stop()
     thread.join(timeout=5)
@@ -521,7 +524,7 @@ def test_memory_is_released_after_a_drawn_item_or_every_few_items(
 
 def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.MAX_CONNECTIONS", 2)
-    monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 0.5)
+    monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 3)
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
     server = WebhookServer(("127.0.0.1", 0), start(cfg, FakePlex()).handler())
     threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -533,6 +536,11 @@ def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch:
         time.sleep(0.1)
         with socket.create_connection(address, timeout=5) as refused:
             assert refused.recv(1) == b""
+        for connection in slow:
+            connection.setblocking(False)
+            with pytest.raises(BlockingIOError):
+                connection.recv(1)
+            connection.settimeout(5)
         for connection in slow:
             assert connection.recv(1) == b""
         for _ in range(50):
@@ -1011,7 +1019,9 @@ def test_the_worker_waits_for_the_server_check(tmp_path: Path, monkeypatch: pyte
     service.worker_beat = 0.0
     thread = threading.Thread(target=service._work, daemon=True)
     thread.start()
-    time.sleep(0.1)
+    deadline = time.monotonic() + 5
+    while not service.worker_beat and time.monotonic() < deadline:
+        time.sleep(0.01)
     service._stop.set()
     thread.join(timeout=5)
     assert queued(service) == ["1"]
