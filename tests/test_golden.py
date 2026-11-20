@@ -17,8 +17,10 @@ from posteryard.render.layers import APPLE_GREEN, ASSETS
 
 GOLDEN = Path(__file__).parent / "golden"
 SIZE = (120, 180)
-# Mean absolute difference per channel, out of 255. Font rasteriser updates stay below it; layout changes do not.
+# Font rasteriser and raqm differences stay under PIXEL_STEP. A removed label moves 49 pixels past it.
 TOLERANCE = 1.0
+PIXEL_STEP = 64
+CHANGED_PIXELS = 10
 
 
 def art(width: int, height: int) -> Image.Image:
@@ -96,11 +98,11 @@ def test_write_golden_images() -> None:
     DATA.write_text(json.dumps(drawing_data(), indent=1, sort_keys=True) + "\n")
 
 
-def difference(name: str, render: Callable[[], Image.Image]) -> float:
+def difference(name: str, render: Callable[[], Image.Image]) -> tuple[float, int]:
     with Image.open(GOLDEN / f"{name}.png") as reference:
-        expected = np.asarray(reference.convert("RGB"), dtype=np.float32)
-    actual = np.asarray(small(render()), dtype=np.float32)
-    return float(np.abs(actual - expected).mean())
+        expected = np.asarray(reference.convert("RGB"), dtype=np.int16)
+    gap = np.abs(np.asarray(small(render()), dtype=np.int16) - expected)
+    return float(gap.mean()), int((gap.max(axis=-1) > PIXEL_STEP).sum())
 
 
 @pytest.mark.parametrize("name", sorted(RENDERS))
@@ -109,9 +111,9 @@ def test_rendered_output_changes_only_with_design_version(name: str) -> None:
     assert recorded == DESIGN_VERSION, (
         "DESIGN_VERSION changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
-    changed = difference(name, RENDERS[name])
-    assert changed <= TOLERANCE, (
-        f"{name} renders differently ({changed:.2f}). Bump DESIGN_VERSION in pipeline.py, "
+    mean, pixels = difference(name, RENDERS[name])
+    assert mean <= TOLERANCE and pixels <= CHANGED_PIXELS, (
+        f"{name} renders differently (mean {mean:.2f}, {pixels} pixels changed). Bump DESIGN_VERSION in pipeline.py, "
         "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
 
@@ -122,19 +124,38 @@ def test_live_tv_output_changes_only_with_a_version(name: str) -> None:
     assert recorded == (DESIGN_VERSION, livetv.LIVE_VERSION), (
         "A version changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
-    changed = difference(name, LIVE_RENDERS[name])
-    assert changed <= TOLERANCE, (
-        f"{name} renders differently ({changed:.2f}). Bump LIVE_VERSION in render/livetv.py, "
+    mean, pixels = difference(name, LIVE_RENDERS[name])
+    assert mean <= TOLERANCE and pixels <= CHANGED_PIXELS, (
+        f"{name} renders differently (mean {mean:.2f}, {pixels} pixels changed). "
+        "Bump LIVE_VERSION in render/livetv.py, "
         "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
+
+
+def test_a_removed_label_counts_as_a_change() -> None:
+    def without_label() -> Image.Image:
+        return designs.tile_poster(
+            art(2000, 3000),
+            designs.text_logo("Golden Example"),
+            lines_below=[
+                lines.Caption("Specials"),
+                lines.Badges((Badge.UHD, Badge.DOLBY_VISION, Badge.DOLBY_ATMOS)),
+                lines.Badges((Badge.SDH,)),
+            ],
+            number=2,
+            service="netflix",
+        )
+
+    assert difference("tile", without_label)[1] > CHANGED_PIXELS
 
 
 def test_drawing_data_changes_only_with_design_version() -> None:
     assert (GOLDEN / "DESIGN_VERSION").read_text().strip() == DESIGN_VERSION
     recorded: dict[str, str] = json.loads(DATA.read_text())
     current = drawing_data()
-    changed = sorted(name for name, value in recorded.items() if current.get(name) != value)
+    added = (name for name in current.keys() - recorded.keys() if not name.startswith("mark:"))
+    changed = sorted([*(name for name, value in recorded.items() if current.get(name) != value), *added])
     assert not changed, (
-        f"{', '.join(changed)} changed or went away. Bump DESIGN_VERSION in pipeline.py, "
+        f"{', '.join(changed)} changed, went away or is new. Bump DESIGN_VERSION in pipeline.py, "
         "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )

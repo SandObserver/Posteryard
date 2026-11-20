@@ -687,7 +687,6 @@ def test_a_long_retry_after_is_kept_for_the_next_calls(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(http.POOL, "request", fake)
     monkeypatch.setattr(http, "_answer", lambda response, hop, deadline: (429, b"", ""))
-    monkeypatch.setattr(http, "_holds", {})
     with pytest.raises(http.HttpError):
         http.request("GET", "http://limited.test/a")
     assert len(calls) == 1
@@ -698,7 +697,6 @@ def test_a_long_retry_after_is_kept_for_the_next_calls(monkeypatch: pytest.Monke
 
 def test_a_short_pause_is_waited_out_before_the_request(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
     waits: list[float] = []
-    monkeypatch.setattr(http, "_holds", {})
     monkeypatch.setattr(time, "sleep", waits.append)
     http._hold(server.url, 5)
     server.answers = [(200, {}, b"picture")]
