@@ -119,9 +119,12 @@ def read() -> None:
     ocr._process.pool.submit(time.sleep, 30).result()
 
 if __name__ == "__main__":
-    threading.Thread(target=read, daemon=True).start()
+    thread = threading.Thread(target=read, daemon=True)
+    thread.start()
     time.sleep(2)
     ocr.stop()
+    thread.join(5)
+    assert not thread.is_alive()
 """
 
 
