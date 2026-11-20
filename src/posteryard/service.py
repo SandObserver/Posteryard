@@ -21,7 +21,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 
-from posteryard import __version__, http, logfmt, memory, overrides, pipeline, service_collections
+from posteryard import __version__, http, logfmt, memory, ocr, overrides, pipeline, service_collections
 from posteryard.config import Config
 from posteryard.livetv import LiveTv
 from posteryard.notify import Event
@@ -859,6 +859,7 @@ class Service:
         deadline = time.monotonic() + STOP_SECONDS
         for thread in self.threads:
             thread.join(timeout=max(0.0, deadline - time.monotonic()))
+        ocr.stop()
         if busy := [thread.name for thread in self.threads if thread.is_alive()]:
             log.warning(
                 "stopped before the current title finished. The next sweep or daily check draws it again",

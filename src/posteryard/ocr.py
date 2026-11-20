@@ -70,8 +70,11 @@ class _Process:
     def __init__(self) -> None:
         self.pool: ProcessPoolExecutor | None = None
         self.last_read = float("-inf")
+        self.stopped = False
 
     def read(self, pixels: np.ndarray) -> list[TextLine]:
+        if self.stopped:
+            raise OSError("OCR is stopping")
         self.last_read = time.monotonic()
         if self.pool is None:
             self.pool = ProcessPoolExecutor(
@@ -86,7 +89,7 @@ class _Process:
             self.close()
             raise
 
-    def close(self, idle: float = 0) -> None:
+    def close(self, idle: float = 0, grace: float = STOP_SECONDS) -> None:
         """Do not wait for a running read. A stuck read would block the worker thread for good."""
         if self.pool is None or time.monotonic() - self.last_read < idle:
             return
@@ -94,7 +97,7 @@ class _Process:
         processes = list((pool._processes or {}).values())
         pool.shutdown(wait=False, cancel_futures=True)
         for process in processes:
-            process.join(STOP_SECONDS)
+            process.join(grace)
             if process.is_alive():
                 process.kill()
                 process.join()
@@ -106,6 +109,12 @@ atexit.register(_process.close)
 
 def close_idle() -> None:
     _process.close(IDLE_SECONDS)
+
+
+def stop() -> None:
+    """Python waits at exit for a running read. A service that must stop now ends the OCR process first."""
+    _process.stopped = True
+    _process.close(grace=0)
 
 
 def read(image: Image.Image) -> list[TextLine]:
