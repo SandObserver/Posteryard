@@ -47,7 +47,8 @@ A title goes through these modules in order:
 | `encode.py` | The JPEG Posteryard uploads, with the marker that tells its own images apart. |
 | `status.py` | Status labels such as JUST ADDED and LEAVING IN 3 DAYS. |
 | `plex.py`, `jellyfin.py` | The media servers, behind the `MediaServer` protocol in `server.py`. Jellyfin and Emby (`jellyfin.py`) answer with Plex-shaped items. |
-| `tmdb.py`, `maintainerr.py`, `notify.py`, `http.py` | Outside services. Every request goes through `http.request`, which redacts credentials. |
+| `tmdb.py`, `fanart.py`, `apple.py`, `maintainerr.py`, `http.py` | Outside services. Every request goes through `http.request`. It hides a parameter or header whose name marks a credential (`SECRET_PARTS` in `http.py`) in logs and errors. |
+| `notify.py` | Alerts. Apprise sends them with its own HTTP client, so the limits and redaction in `http.py` do not apply. Never put a credential in alert text. |
 | `services.py`, `automarks.py` | Streaming marks: built-in marks first, then TMDB network logos matched through `src/posteryard/assets/networks.json` (and `provider_networks.json` for a service with no network in the region), then a cut of the provider icon. |
 | `cli.py`, `config.py` | Commands and settings. |
 | `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the title, frosted and guide picture cards, and puts the channel logo in the corner of TMDB posters. |
@@ -77,6 +78,26 @@ Run each with `uv run python tools/<script>`.
 3. In `src/posteryard/services.py`, add the provider names TMDB uses to `SERVICE_PATTERNS` and the display name to `NAMES`.
 4. Add the provider names to `test_new_services_and_add_on_channels` in `tests/test_services.py`. `test_every_service_has_a_built_in_mark` fails when a key in `NAMES` has no mark file.
 5. Add the service to the "Built-in marks" list in `docs/how-it-works.md`.
+
+## Adding an art source
+
+1. Write a module such as `fanart.py`. Send every request through `http.request`. Put the credential in a parameter or header whose name holds `key`, `token`, `secret` or another part in `SECRET_PARTS` in `http.py`. Then logs, errors and alerts hide it. Open downloaded images with `tmdb.open_image`.
+2. Add its setting to `config.py`, and its name to `SECRETS` if it is a credential. Then add it everywhere a new setting goes, as "Before opening a PR" lists.
+3. In `sources.py`, make `source_of` and `fetch_art` know its addresses. An address they do not know is fetched as a TMDB path. Add it to `Sources.art_order`, and to `logo` or `backdrop` if it has logos or backgrounds.
+4. Name it where the texts list sources: `_no_art` and `_season_posters` in `pipeline.py`, and `_votes` in `why.py`.
+5. In `worker.py`, return its name from `_upstream` for its hosts, and add it to the `resolve` loop in `Worker.process`. Otherwise its outages alert as `rendering` and never clear.
+6. Add its switch to `Service.settings_signature`, so a change starts a full check, and to `Service.banner`.
+7. Add a test module that patches `http.request`, and describe the source in `docs/how-it-works.md`.
+
+## Adding a media server
+
+1. Write a class that implements `MediaServer` in `server.py`, and `GuideServer` if the server has a Live TV guide. Set `name`, `collections_per_library`, `has_guide`, and a `server_id` with its own prefix. Return items in the Plex shape, as `jellyfin.py` does.
+2. Add its settings to `config.py` and `SECRETS`, and the server to `require_server`. Then add it everywhere a new setting goes, as "Before opening a PR" lists.
+3. Build it in `_server` in `cli.py`. If it has a guide, name it in the Live TV messages there.
+4. Read its webhook in `parse_webhook` and in the event branches of `do_POST` in `service.py`.
+5. `Worker` treats a selected image that starts with `upload://` as Posteryard's own (`worker.py`). Check that the new server can tell its uploads apart the same way, or through `Store.is_upload`.
+6. Subclass `FakeServer` in tests that need only a few calls. Test the class itself against a fake `http.request`, as `tests/test_jellyfin.py` does.
+7. Add a docs page such as `docs/jellyfin-and-emby.md`, and link it from the README.
 
 ## Before opening a PR
 
