@@ -60,12 +60,14 @@ def test_display_text_is_large_text_only() -> None:
     assert not ocr.is_display(line("福", height=0.6, width=0.8))
 
 
+@pytest.mark.slow
 def test_engine_reads_rendered_text() -> None:
     image = Image.new("RGB", (1000, 1500), (12, 12, 14))
     ImageDraw.Draw(image).text((500, 700), "the office", font=font("Bold", 120), fill=(240, 240, 240), anchor="mm")
     assert ocr.shows_title(ocr.read(image), ["The Office"])
 
 
+@pytest.mark.slow
 def test_the_ocr_process_stops_when_idle_and_starts_again(monkeypatch: pytest.MonkeyPatch) -> None:
     image = Image.new("RGB", (1000, 1500), (12, 12, 14))
     ImageDraw.Draw(image).text((500, 700), "the office", font=font("Bold", 120), fill=(240, 240, 240), anchor="mm")
@@ -84,6 +86,7 @@ def stuck(pixels: np.ndarray) -> list[TextLine]:
     return []
 
 
+@pytest.mark.slow
 def test_a_stuck_read_stops_the_ocr_process(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ocr, "_read_pixels", stuck)
     monkeypatch.setattr(ocr, "READ_TIMEOUT", 1)

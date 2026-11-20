@@ -611,6 +611,7 @@ def test_a_remembered_picture_is_used_only_while_plex_shows_the_upload(tmp_path:
     assert live.store.guide(f"{GUIDE}/a").picture == ""  # type: ignore[union-attr]
 
 
+@pytest.mark.slow
 def test_a_guide_name_never_reaches_a_library_poster(tmp_path: Path) -> None:
     clean = pipeline.plan_tmdb(fake_context([ref("/poster.jpg", None)]), "movie", 5)[0]
     live, _, _ = build(tmp_path, [])
@@ -640,6 +641,7 @@ def test_a_plex_show_on_several_channels_gets_no_channel_logo() -> None:
     assert {s.title: s.logo for s in shows} == {"Bulletin": "", "Night": LOGO}
 
 
+@pytest.mark.slow
 def test_plex_own_guide_gets_only_tmdb_posters(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     own = "tv.plex.providers.epg.cloud:20"
     live, plex, tmdb = build(tmp_path, [])
@@ -765,6 +767,7 @@ def test_a_show_that_failed_in_an_outage_is_tried_again_within_the_hour(tmp_path
     assert live.due(now=100000.0 + 3600)
 
 
+@pytest.mark.slow
 def test_a_picture_host_that_stops_answering_stops_the_run(tmp_path: Path) -> None:
     shows = [airing(f"Show {i}", str(i), thumb=f"https://img.example/{i}.jpg") for i in range(10)]
     live, _, _ = build(tmp_path, shows)
@@ -789,6 +792,7 @@ def test_a_title_with_only_invisible_characters_in_the_part_drawn_fails_alone(tm
     assert len(plex.uploads) == 1
 
 
+@pytest.mark.slow
 def test_an_apple_outage_keeps_the_uploaded_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     live, plex, tmdb = build(tmp_path, [airing("Example Movie", "k1")])
     tmdb.results["Example Movie"] = [{"id": 5, "name": "Example Movie"}]
@@ -828,6 +832,7 @@ class GuideJellyfin(GuidePlex):
         return False
 
 
+@pytest.mark.slow
 def test_a_jellyfin_guide_refresh_uploads_again_and_never_selects(tmp_path: Path) -> None:
     live, _, _ = build(tmp_path, [airing("Bulletin", "a")])
     jellyfin = GuideJellyfin([airing("Bulletin", "a")])

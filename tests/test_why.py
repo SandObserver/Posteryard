@@ -69,6 +69,7 @@ def test_art_next_shows_the_skipped_art_and_the_wider_pool(store: Store) -> None
     assert "/textless.jpg  2000x3000  rated 5.0 (10 votes)  skipped by art next" in text
 
 
+@pytest.mark.slow
 def test_art_next_lists_candidates_in_the_order_art_next_walks(store: Store) -> None:
     posters = [ref(f"/textless-{n}.jpg", None) for n in range(8)]
     ctx = context(posters)
@@ -129,6 +130,7 @@ def test_why_command_prints_the_report(run: Any, monkeypatch: pytest.MonkeyPatch
     assert out.startswith("Blade Runner 2049 (2017, movie)\n  Uses: art from TMDB /a.jpg\n  Logo: the name in text")
 
 
+@pytest.mark.slow
 def test_without_the_text_check_the_first_candidate_is_used_and_kept_apart(store: Store) -> None:
     posters = [ref("/english.jpg", None), ref("/textless.jpg", None)]
     checked = context(posters)

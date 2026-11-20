@@ -522,6 +522,7 @@ def test_a_full_pass_keeps_the_items_of_a_show_together(tmp_path: Path) -> None:
     assert queued(service) == ["b", "c", "1", "d", "e", "0", "a"]
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(("outcome", "expected"), [(Outcome.UNCHANGED, 2), (Outcome.UPLOADED, 7)])
 def test_memory_is_released_after_a_drawn_item_or_every_few_items(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, outcome: Outcome, expected: int
@@ -554,6 +555,7 @@ def test_memory_is_released_after_a_drawn_item_or_every_few_items(
     assert len(released) == expected
 
 
+@pytest.mark.slow
 def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.MAX_CONNECTIONS", 2)
     monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 3)

@@ -79,6 +79,7 @@ def test_titles_and_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "append_to_response=images%2Calternative_titles%2Cwatch%2Fproviders" in calls[0]
 
 
+@pytest.mark.slow
 def test_images_are_shrunk(monkeypatch: pytest.MonkeyPatch) -> None:
     buffer = io.BytesIO()
     Image.new("RGB", (4000, 6000)).save(buffer, "JPEG")
