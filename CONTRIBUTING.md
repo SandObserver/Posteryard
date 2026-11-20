@@ -81,7 +81,7 @@ Run each with `uv run python tools/<script>`.
 
 ## Adding an art source
 
-1. Write a module such as `fanart.py`. Send every request through `http.request`. Put the credential in a parameter or header whose name holds `key`, `token`, `secret` or another part in `SECRET_PARTS` in `http.py`. Then logs, errors and alerts hide it. Open downloaded images with `tmdb.open_image`.
+1. Write a module such as `fanart.py`. Send every request through `http.request`. Put the credential in a parameter or header whose name holds a part in `SECRET_PARTS` in `http.py`, such as `token`, `secret` or `apikey`, or is named exactly `key`. Then logs and errors hide it. A name such as `access_key` is not hidden: add its exact name to `SECRET_PARAMS` or `SECRET_HEADERS`. Open downloaded images with `tmdb.open_image`.
 2. Add its setting to `config.py`, and its name to `SECRETS` if it is a credential. Then add it everywhere a new setting goes, as "Before opening a PR" lists.
 3. In `sources.py`, make `source_of` and `fetch_art` know its addresses. An address they do not know is fetched as a TMDB path. Add it to `Sources.art_order`, and to `logo` or `backdrop` if it has logos or backgrounds.
 4. Name it where the texts list sources: `_no_art` and `_season_posters` in `pipeline.py`, and `_votes` in `why.py`.
