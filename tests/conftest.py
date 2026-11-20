@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from posteryard import config, http
+from posteryard import config, http, ocr
 from posteryard.render import layers
 from posteryard.store import Store
 
@@ -49,6 +49,7 @@ def close_stores(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def fresh_module_state(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setattr(http, "_holds", {})
     monkeypatch.setattr(layers, "MARK_DIRS", [])
+    monkeypatch.setattr(ocr._process, "stopped", False)
     layers._mark.cache_clear()
     yield
     layers._mark.cache_clear()

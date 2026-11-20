@@ -1,6 +1,9 @@
 import multiprocessing
 import os
+import subprocess
+import sys
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -104,3 +107,34 @@ def test_a_stuck_read_stops_the_ocr_process(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_onnxruntime_telemetry_is_off() -> None:
     assert os.environ["ORT_DISABLE_TELEMETRY"] == "1"
+
+
+EXIT_SCRIPT = """
+import multiprocessing, threading, time
+from concurrent.futures import ProcessPoolExecutor
+from posteryard import ocr
+
+def read() -> None:
+    ocr._process.pool = ProcessPoolExecutor(max_workers=1, mp_context=multiprocessing.get_context("spawn"))
+    ocr._process.pool.submit(time.sleep, 30).result()
+
+if __name__ == "__main__":
+    threading.Thread(target=read, daemon=True).start()
+    time.sleep(2)
+    ocr.stop()
+"""
+
+
+@pytest.mark.slow
+def test_a_stop_ends_the_process_while_a_read_runs(tmp_path: Path) -> None:
+    script = tmp_path / "stop.py"
+    script.write_text(EXIT_SCRIPT)
+    started = time.monotonic()
+    subprocess.run([sys.executable, str(script)], check=True, timeout=60)
+    assert time.monotonic() - started < 10
+
+
+def test_no_read_starts_after_a_stop() -> None:
+    ocr.stop()
+    with pytest.raises(OSError, match="stopping"):
+        ocr.read(Image.new("RGB", (480, 720)))
