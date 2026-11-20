@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Draw each title's own name when two library items share a TMDB id, such as one movie in two libraries under different names.
 - Stop treating a Plex guide poster as changed by hand after a restart cut its upload short.
 - Report a taken webhook port in one log line before `serve` starts, instead of logging "service ready" and crashing.
+- Draw `´` and `` ` `` between letters in Live TV guide titles as an apostrophe instead of dropping them, so "Grey´s Anatomy" no longer shows as "Greys Anatomy". Live TV posters are uploaded again once.
 
 ### Security
 
