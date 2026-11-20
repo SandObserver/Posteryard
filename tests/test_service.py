@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import config, service_collections
+from posteryard import config, ocr, service_collections
 from posteryard import http as posteryard_http
 from posteryard.notify import Notifier
 from posteryard.server import Item
@@ -1525,3 +1525,24 @@ def test_a_title_still_drawing_does_not_hold_up_the_stop(
     assert drawing.is_set()
     assert time.monotonic() - started < 5
     assert "stopped before the current title finished" in caplog.text
+
+
+def test_a_title_waiting_on_ocr_ends_before_the_service_exits(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.service.STOP_SECONDS", 0.5)
+    service = make_service(tmp_path)
+    service.cfg = replace(service.cfg, listen_port=0)
+    drawing = threading.Event()
+
+    def process(key: str) -> Outcome:
+        drawing.set()
+        while not ocr._process.stopped:
+            time.sleep(0.01)
+        time.sleep(0.2)
+        return Outcome.UNCHANGED
+
+    monkeypatch.setattr(service.worker, "process", process)
+    service.server_checked.set()
+    service.enqueue(["7"], "webhook")
+    assert stop_by_signal(service) == 0
+    assert drawing.is_set()
+    assert not any(thread.is_alive() for thread in service.threads)

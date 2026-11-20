@@ -33,8 +33,9 @@ log = logging.getLogger(__name__)
 MAX_BODY = 2 * 1024 * 1024
 MAX_CONNECTIONS = 16
 REQUEST_SECONDS = 15
-# Docker kills the container 10 seconds after SIGTERM by default.
+# STOP_SECONDS plus OCR_STOP_SECONDS must stay below Docker's 10-second stop timeout.
 STOP_SECONDS = 8
+OCR_STOP_SECONDS = 1
 NEW_EVENTS = frozenset({"library.new"})
 JELLYFIN_EVENTS = frozenset({"ItemAdded"})
 KINDS = {"movie": ("movie",), "show": ("show", "season", "episode")}
@@ -860,6 +861,10 @@ class Service:
         for thread in self.threads:
             thread.join(timeout=max(0.0, deadline - time.monotonic()))
         ocr.stop()
+        # A thread that still writes while Python exits aborts the process.
+        deadline = time.monotonic() + OCR_STOP_SECONDS
+        for thread in self.threads:
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
         if busy := [thread.name for thread in self.threads if thread.is_alive()]:
             log.warning(
                 "stopped before the current title finished. The next sweep or daily check draws it again",
