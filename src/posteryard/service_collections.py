@@ -141,6 +141,14 @@ def _adopt(server: MediaServer, ctx: Context, section_key: str, name: str, label
     return key
 
 
+def _managed(server: MediaServer, collection: Item) -> bool:
+    """Plex lists collections without their labels. Read the collection itself then."""
+    if "Label" in collection:
+        return MANAGED_LABEL in labels(collection)
+    full = server.item(str(collection["ratingKey"]))
+    return full is not None and MANAGED_LABEL in labels(full)
+
+
 def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str]:  # noqa: C901
     """Returns the kept keys.
 
@@ -155,7 +163,7 @@ def sync(server: MediaServer, ctx: Context, section_keys: list[str]) -> list[str
     ours = {
         str(c["ratingKey"]): c
         for c in server.section_items(section_key, "collection", label=MANAGED_LABEL)
-        if MANAGED_LABEL in labels(c)
+        if _managed(server, c)
     }
     labelled = set(ours)
     owned = _owned(ctx, section_key, list(groups), ours)

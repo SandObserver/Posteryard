@@ -113,6 +113,25 @@ def test_a_collection_without_the_label_is_never_deleted() -> None:
     assert ("delete", "70") not in plex.calls
 
 
+class ListsWithoutLabels(IgnoresLabelFilter):
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        if kind == "collection":
+            return [*self.ours, {"ratingKey": "70", "title": "Favourites"}]
+        return super().section_items(section_key, kind, label=label)
+
+    def item(self, rating_key: str) -> Item | None:
+        found = next((i for i in self.ours if i["ratingKey"] == rating_key), None)
+        return {"Label": [{"tag": "Posteryard-Collection"}], **found} if found else {"ratingKey": rating_key}
+
+
+def test_collections_listed_without_labels_are_read_one_by_one() -> None:
+    plex = ListsWithoutLabels([{"ratingKey": "50", "title": "Apple TV"}, {"ratingKey": "51", "title": "Hulu"}])
+    assert service_collections.sync(plex, context(), ["4"]) == ["50", "60"]
+    assert not any(call[:2] == ("create", "Apple TV") for call in plex.calls)
+    assert ("delete", "51") in plex.calls
+    assert ("delete", "70") not in plex.calls
+
+
 def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
     ours: list[Item] = [
         {"ratingKey": "50", "title": "Apple TV"},
