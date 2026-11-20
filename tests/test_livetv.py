@@ -1,5 +1,6 @@
 import hashlib
 import io
+import json
 import time
 from collections.abc import Sequence
 from dataclasses import replace
@@ -12,6 +13,7 @@ from PIL import Image, ImageDraw
 from posteryard import http, pipeline
 from posteryard.livetv import (
     FORGET_SECONDS,
+    MATCH_MISS_SECONDS,
     LeftAloneError,
     LiveTv,
     fetch_image,
@@ -844,3 +846,89 @@ def test_a_jellyfin_guide_refresh_uploads_again_and_never_selects(tmp_path: Path
     tally = live.run(now=3000)
     assert (tally["uploaded"], tally["failed"]) == (1, 0)
     assert jellyfin.uploads == ["a", "a"]
+
+
+def test_two_airings_of_one_show_share_one_drawing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    airings: list[Airing] = [{**airing("Some Show", "k1"), "targetKey": t} for t in ("a", "b")]
+    live, plex, _ = build(tmp_path, airings)
+    plex.mixed |= {"a": "k1", "b": "k1"}
+    plan, draws = live.plan, []
+
+    def counted(show: Any, fetch: Any) -> pipeline.Plan:
+        made = plan(show, fetch)
+        draw = made.draw
+
+        def drawn() -> Image.Image:
+            draws.append(1)
+            return draw()
+
+        made.draw = drawn
+        return made
+
+    monkeypatch.setattr(live, "plan", counted)
+    assert live.run()["uploaded"] == 2
+    assert plex.uploads == ["a", "b"]
+    assert len(draws) == 1
+    assert plex.posters["a"][1]["ratingKey"] == plex.posters["b"][1]["ratingKey"]
+
+
+def test_a_server_error_while_checking_uploads_is_raised(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, plex, _ = build(tmp_path, [airing("Bulletin", "a")])
+    live.run(now=1000)
+
+    def fails(status: int) -> Any:
+        def guide_images(provider: str, key: str) -> list[ImageEntry]:
+            raise http.HttpError(status, "http://plex.example/x")
+
+        return guide_images
+
+    monkeypatch.setattr(plex, "guide_images", fails(404))
+    assert not live._upload_gone()
+    monkeypatch.setattr(plex, "guide_images", fails(500))
+    with pytest.raises(http.HttpError):
+        live._upload_gone()
+
+
+def test_a_confirmed_upload_without_a_record_is_passed_over(tmp_path: Path) -> None:
+    live, _, _ = build(tmp_path, [])
+    live.store.set_meta("livetv_confirmed", json.dumps([f"{GUIDE}/gone"]))
+    assert not live._upload_gone()
+
+
+def test_a_logo_outage_is_tried_once_per_channel(tmp_path: Path) -> None:
+    live, plex, _ = build(tmp_path, [airing("Morning", "a"), airing("Evening", "b")])
+    assert live.run(now=1000)["uploaded"] == 2
+    tries: list[str] = []
+
+    def down(url: str) -> Image.Image:
+        tries.append(url)
+        raise http.TemporaryError("ConnectTimeoutError", url)
+
+    live._fetch = down
+    plex.refreshed = 2
+    assert live.run(now=2000)["kept"] == 2
+    assert tries == [LOGO]
+
+
+def test_a_match_is_searched_again_after_it_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    show = guide_shows(GUIDE, [airing("Unknown Show", "a")])[0]
+    clock = [1000.0]
+    monkeypatch.setattr("posteryard.livetv.time.time", lambda: clock[0])
+    assert live.match(show) is None
+    assert live.match(show) is None
+    assert len(tmdb.searches) == 1
+    clock[0] += MATCH_MISS_SECONDS
+    live.match(show)
+    assert len(tmdb.searches) == 2
+
+
+def test_a_title_that_is_only_a_note_is_never_searched(tmp_path: Path) -> None:
+    live, _, tmdb = build(tmp_path, [])
+    assert live.match(guide_shows(GUIDE, [airing("(Tekrar)", "a")])[0]) is None
+    assert tmdb.searches == []
+
+
+def test_only_web_addresses_are_fetched() -> None:
+    with pytest.raises(ValueError, match="not a web address"):
+        fetch_image("file:///etc/hosts")
