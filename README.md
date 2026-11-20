@@ -196,7 +196,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and releases. Changes a
 
 <a href="https://www.themoviedb.org"><img src="docs/tmdb.svg" alt="TMDB" height="12"></a>
 
-Artwork and metadata come from [TMDB](https://www.themoviedb.org), and with `FANART_API_KEY` also from [fanart.tv](https://fanart.tv). Posteryard uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Streaming availability comes from [JustWatch](https://www.justwatch.com) through TMDB. Service and Dolby marks: see [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Fonts, all under the SIL Open Font License: Inter, and for other scripts Vazirmatn (Persian, Arabic), Pretendard (Korean, Japanese) and Noto Sans (Chinese, Hebrew, Thai, Devanagari); licences in `src/posteryard/assets/fonts/`.
+Artwork and metadata come from [TMDB](https://www.themoviedb.org), and with `FANART_API_KEY` also from [fanart.tv](https://fanart.tv). Posteryard uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB. Streaming availability comes from [JustWatch](https://www.justwatch.com) through TMDB. Service and Dolby marks belong to their owners; sources in [assets/marks-src/SOURCES.md](assets/marks-src/SOURCES.md). Posteryard is not affiliated with TMDB, fanart.tv, JustWatch, Apple, Dolby, Plex, Jellyfin, Emby or any service whose mark it shows. Fonts, all under the SIL Open Font License: Inter, and for other scripts Vazirmatn (Persian, Arabic), Pretendard (Korean, Japanese) and Noto Sans (Chinese, Hebrew, Thai, Devanagari); licences in `src/posteryard/assets/fonts/`.
 
 ## License
 

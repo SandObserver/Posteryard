@@ -9,5 +9,24 @@ derivative works are welcome, but must use a different name and must not present
 themselves as the original project.
 
 The Inter, Vazirmatn, Pretendard and Noto Sans fonts are licensed under the SIL
-Open Font License 1.1; see the OFL files in src/posteryard/assets/fonts. Service and Dolby marks are listed with
-their sources in assets/marks-src/SOURCES.md and belong to their owners.
+Open Font License 1.1; see the OFL files in src/posteryard/assets/fonts.
+
+Service and Dolby marks belong to their owners. Their sources are listed in
+https://github.com/SandObserver/Posteryard/blob/main/assets/marks-src/SOURCES.md.
+Posteryard is not affiliated with, endorsed or sponsored by TMDB, fanart.tv,
+JustWatch, Apple, Dolby, Plex, Jellyfin, Emby or any service whose mark it
+shows.
+
+Third-party components in the Docker image
+
+Each Python package keeps its licence files in its .dist-info folder under
+/app/.venv/lib/python3.13/site-packages.
+
+The text recognition models come from PaddleOCR through RapidOCR and are
+licensed under the Apache License, Version 2.0.
+
+These shared libraries are licensed under the GNU Lesser General Public
+License 2.1. They are linked dynamically and can be replaced.
+- GEOS, bundled in the shapely package. Source: https://libgeos.org
+- FFmpeg, bundled in the opencv-python-headless package. Source:
+  https://ffmpeg.org, build scripts: https://github.com/opencv/opencv-python
