@@ -40,8 +40,10 @@ MATCH_HIT_SECONDS = 30 * 86400
 MATCH_MISS_SECONDS = 7 * 86400
 # Several exact matches: the most voted one wins only with this many times the votes of the next.
 VOTE_LEAD = 3
-# Emoji and pictographs have no glyph in the poster fonts. The zero-width non-joiner stays: Persian needs it.
-SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
+# Emoji, pictographs and skin tones have no glyph in the poster fonts.
+# The zero-width non-joiner stays: Persian needs it.
+SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d\U0001f3fb-\U0001f3ff]")
+ACCENT_APOSTROPHE = re.compile(r"(?<=\w)[\u00b4`](?=\w)")
 LOGO_CACHE = 16
 MAX_NETWORK_FAILURES = 3
 HTTP_NOT_FOUND = 404
@@ -75,8 +77,11 @@ class GuideShow:
 
 
 def shown(text: str) -> str:
-    """A guide title as drawn: without emoji, which the fonts lack, and with single spaces."""
-    kept = "".join(ch for ch in SYMBOLS.sub("", text) if unicodedata.category(ch) not in ("So", "Sk", "Cs"))
+    """A guide title as drawn: without emoji, which the fonts lack, and with single spaces.
+
+    An accent between letters becomes an apostrophe. Guides write "Grey\u00b4s" for "Grey's"."""
+    text = ACCENT_APOSTROPHE.sub("\u2019", text)
+    kept = "".join(ch for ch in SYMBOLS.sub("", text) if unicodedata.category(ch) not in ("So", "Cs"))
     return " ".join(kept.split()) or " ".join(text.split())
 
 

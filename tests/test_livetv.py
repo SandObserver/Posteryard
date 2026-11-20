@@ -627,6 +627,9 @@ def test_titles_are_drawn_without_emoji_and_matched_without_notes() -> None:
     assert shown("خبر 📰 ویژه") == "خبر ویژه"
     assert shown("چشم‌انداز") == "چشم‌انداز"
     assert shown("🐠") == "🐠"
+    assert shown("Grey\u00b4s Anatomy") == "Grey\u2019s Anatomy"
+    assert shown("Rock\u00b4n`Roll 👍🏽") == "Rock\u2019n\u2019Roll"
+    assert shown("Tom ^ Jerry \u00b4") == "Tom ^ Jerry \u00b4"
     assert norm("Inception (1080p) [HD]") == norm("inception")
 
 
