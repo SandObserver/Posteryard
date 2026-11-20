@@ -809,3 +809,33 @@ def test_colour_under_transparent_pixels_stays_off_a_guide_picture() -> None:
     image = Image.effect_noise((400, 600), 60).convert("RGBA")
     image.paste((255, 0, 0, 0), (150, 250, 250, 350))
     assert cards.guide_picture(image).getpixel((200, 300)) == (0, 0, 0)
+
+
+class GuideJellyfin(GuidePlex):
+    def guide_upload(self, provider: str, key: str, jpeg: bytes) -> str:
+        self.uploads.append(key)
+        tag = hashlib.sha1(jpeg).hexdigest()[:8]
+        self.posters[key] = [{"ratingKey": tag, "selected": True}]
+        return tag
+
+    def guide_select(self, provider: str, key: str, image_key: str) -> None:
+        raise ValueError("Jellyfin keeps no earlier upload to select")
+
+    def guide_by_hand(self, selected: str, ours: str) -> bool:
+        return False
+
+    def guide_keeps(self, image_key: str) -> bool:
+        return False
+
+
+def test_a_jellyfin_guide_refresh_uploads_again_and_never_selects(tmp_path: Path) -> None:
+    live, _, _ = build(tmp_path, [airing("Bulletin", "a")])
+    jellyfin = GuideJellyfin([airing("Bulletin", "a")])
+    live.server = jellyfin
+    assert live.run(now=1000)["uploaded"] == 1
+    assert live.run(now=2000)["unchanged"] == 1
+    jellyfin.posters["a"] = [{"ratingKey": "guide", "selected": True}]
+    jellyfin.refreshed = 2
+    tally = live.run(now=3000)
+    assert (tally["uploaded"], tally["failed"]) == (1, 0)
+    assert jellyfin.uploads == ["a", "a"]

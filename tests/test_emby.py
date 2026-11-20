@@ -120,3 +120,25 @@ def test_a_season_without_a_folder_takes_the_library_of_its_show(served: tuple[E
     season = emby.item("14")
     assert season is not None
     assert season["librarySectionTitle"] == "Shows"
+
+
+def test_a_background_upload_clears_the_old_ones_and_selects_through_the_user_route(
+    served: tuple[Emby, Server],
+) -> None:
+    emby, fake = served
+    fake.routes[f"GET /Users/{USER}/Items/12"] = {**UPGRADE, "BackdropImageTags": ["b1", "b2"]}
+    fake.routes["DELETE /Items/12/Images/Backdrop"] = b""
+    fake.routes["POST /Items/12/Images/Backdrop"] = b""
+    assert emby.upload("12", "art", b"jpeg") == "b1"
+    sent = [(method, path) for method, path, _, _ in fake.calls if not path.startswith(("/Users", "/Library"))]
+    assert sent == [("DELETE", "/Items/12/Images/Backdrop")] * 2 + [("POST", "/Items/12/Images/Backdrop")]
+    assert all(path != "/Items/12" for _, path, _, _ in fake.calls)
+
+
+def test_a_poster_upload_reads_the_new_tag_through_the_user_route(served: tuple[Emby, Server]) -> None:
+    emby, fake = served
+    fake.routes[f"GET /Users/{USER}/Items/12"] = {**UPGRADE, "ImageTags": {"Primary": "p9"}}
+    fake.routes["POST /Items/12/Images/Primary"] = b""
+    assert emby.upload("12", "poster", b"jpeg") == "p9"
+    assert emby.selected("12", "poster") == "p9"
+    assert emby.selected("12", "art") is None

@@ -1,19 +1,23 @@
 import http.client
+import io
 import json
 import logging
+import os
+import signal
 import socket
 import sqlite3
 import threading
 import time
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
 from datetime import time as dt_time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL import Image
 
 from posteryard import config, service_collections
 from posteryard import http as posteryard_http
@@ -25,6 +29,7 @@ from posteryard.service import (
     WORKER_RESTART,
     Service,
     WebhookServer,
+    daily_due,
     other_server,
     parse_webhook,
     related_keys,
@@ -44,6 +49,33 @@ def test_multipart_webhook_payload() -> None:
         f"{json.dumps(payload)}\r\n--{boundary}--\r\n"
     ).encode()
     assert parse_webhook(f"multipart/form-data; boundary={boundary}", body) == payload
+
+
+def plex_part(boundary: str, name: str, headers: str, content: bytes) -> bytes:
+    disposition = f'Content-Disposition: form-data; name="{name}"' + (
+        '; filename="image.jpg"' if name == "thumb" else ""
+    )
+    return f"--{boundary}\r\n{disposition}\r\n{headers}\r\n\r\n".encode() + content + b"\r\n"
+
+
+@pytest.mark.parametrize("thumb_first", [False, True])
+def test_a_plex_webhook_with_a_thumb_image_reads_the_payload(thumb_first: bool) -> None:
+    payload = {"event": "library.new", "Metadata": {"ratingKey": "7", "type": "movie"}}
+    picture = io.BytesIO()
+    Image.new("RGB", (60, 90), (200, 30, 30)).save(picture, "JPEG")
+    boundary = "------------------------9c8d0b0ae0d4c1f2"
+    parts = [
+        plex_part(boundary, "payload", "Content-Type: application/json", json.dumps(payload).encode()),
+        plex_part(boundary, "thumb", "Content-Type: image/jpeg", picture.getvalue()),
+    ]
+    body = b"".join(parts[::-1] if thumb_first else parts) + f"--{boundary}--\r\n".encode()
+    assert parse_webhook(f"multipart/form-data; boundary={boundary}", body) == payload
+
+
+def test_a_multipart_webhook_without_a_payload_is_ignored() -> None:
+    boundary = "XyZ"
+    body = plex_part(boundary, "thumb", "Content-Type: image/jpeg", b"\xff\xd8\xff") + f"--{boundary}--\r\n".encode()
+    assert parse_webhook(f"multipart/form-data; boundary={boundary}", body) is None
 
 
 def test_emby_multipart_webhook_payload() -> None:
@@ -1387,3 +1419,77 @@ def test_serve_stops_before_starting_when_the_port_is_taken(tmp_path: Path, capl
     assert service.threads == []
     assert "webhook port unavailable" in caplog.text
     assert "service ready" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("last_full", "now", "due"),
+    [
+        (None, "2026-11-19 01:00", True),
+        ("2026-11-19", "2026-11-19 05:00", False),
+        ("2026-11-18", "2026-11-19 02:59", False),
+        ("2026-11-18", "2026-11-19 03:00", True),
+        ("2026-11-10", "2026-11-19 23:59", True),
+        ("2026-11-20", "2026-11-19 04:00", True),
+    ],
+)
+def test_the_daily_pass_is_due_once_a_day_after_daily_at(last_full: str | None, now: str, due: bool) -> None:
+    assert daily_due(last_full, datetime.fromisoformat(now), dt_time(3, 0)) is due
+
+
+class Ticks(threading.Event):
+    def __init__(self, count: int) -> None:
+        super().__init__()
+        self.count, self.limit = 0, count
+
+    def wait(self, timeout: float | None = None) -> bool:
+        self.count += 1
+        if self.count >= self.limit:
+            self.set()
+        return self.is_set()
+
+
+def test_the_schedule_runs_the_daily_pass_once_per_day(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    moments = ["2026-11-19 01:00", "2026-11-19 03:00", "2026-11-19 03:30", "2026-11-20 02:59", "2026-11-20 03:01"]
+    service = make_service(tmp_path)
+    service.cfg = replace(service.cfg, daily_at=dt_time(3, 0))
+    service.store.set_meta("settings_signature", service.settings_signature())
+    service.store.set_meta("last_full", "2026-11-18")
+    ticks = Ticks(len(moments))
+    passes: list[str] = []
+    full = service.full
+    monkeypatch.setattr(service, "_stop", ticks)
+    monkeypatch.setattr(service, "now", lambda: datetime.fromisoformat(moments[min(ticks.count, len(moments) - 1)]))
+
+    def counted(reason: str) -> None:
+        passes.append(f"{reason} {service.now()}")
+        full(reason)
+
+    monkeypatch.setattr(service, "full", counted)
+    monkeypatch.setattr(service, "sweep", lambda lookback=60: None)
+    monkeypatch.setattr(service, "check_live_tv", lambda: None)
+    service._schedule()
+    assert passes == ["daily 2026-11-19 03:00:00", "daily 2026-11-20 03:01:00"]
+    assert service.store.meta("last_full") == "2026-11-20"
+
+
+def test_a_stop_signal_ends_the_service_before_docker_kills_it(tmp_path: Path) -> None:
+    service = make_service(tmp_path)
+    service.cfg = replace(service.cfg, listen_port=0)
+    handlers = signal.getsignal(signal.SIGTERM), signal.getsignal(signal.SIGINT)
+
+    def send_stop() -> None:
+        deadline = time.monotonic() + 10
+        while signal.getsignal(signal.SIGTERM) is handlers[0] and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if signal.getsignal(signal.SIGTERM) is not handlers[0]:
+            os.kill(os.getpid(), signal.SIGTERM)
+
+    threading.Thread(target=send_stop, daemon=True).start()
+    started = time.monotonic()
+    try:
+        assert service.run() == 0
+    finally:
+        signal.signal(signal.SIGTERM, handlers[0])
+        signal.signal(signal.SIGINT, handlers[1])
+    assert time.monotonic() - started < 10
+    assert not any(thread.is_alive() for thread in service.threads)

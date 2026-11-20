@@ -12,8 +12,9 @@ import sys
 import threading
 import time
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from datetime import date, datetime
+from datetime import time as dt_time
 from email import policy
 from email.parser import BytesParser
 from http import HTTPStatus
@@ -120,6 +121,10 @@ def related_keys(item: object) -> list[str]:
     return [str(k) for k in keys if k and is_item_key(str(k))]
 
 
+def daily_due(last_full: str | None, now: datetime, daily_at: dt_time) -> bool:
+    return not last_full or (last_full != now.date().isoformat() and now.time() >= daily_at)
+
+
 def _hang_up(request: socket.socket) -> None:
     with contextlib.suppress(OSError):
         request.shutdown(socket.SHUT_RDWR)
@@ -163,6 +168,7 @@ class Service:
         self, cfg: Config, server: MediaServer, store: Store, worker: Worker, live_tv: LiveTv | None = None
     ) -> None:
         self.cfg, self.server, self.store, self.worker, self.live_tv = cfg, server, store, worker, live_tv
+        self.now: Callable[[], datetime] = datetime.now
         self.queue: queue.PriorityQueue[tuple[int, int, str, str]] = queue.PriorityQueue()
         self._queued: dict[str, int] = {}
         self._order = itertools.count()
@@ -567,7 +573,7 @@ class Service:
         self.store.set_meta("full_pending", "1")
         if reason != RESUMED:
             self.store.set_meta("full_reason", reason)
-        self.store.set_meta("last_full", datetime.now().date().isoformat())
+        self.store.set_meta("last_full", self.now().date().isoformat())
         self._tally, self._full_started = Counter(), time.monotonic()
         log.info("full check started", extra={"reason": reason, "items": len(seen), "missing": len(unlisted)})
 
@@ -630,9 +636,7 @@ class Service:
                 if self.store.meta("settings_signature") != signature:
                     self.full("version or settings changed" if self.store.meta("settings_signature") else "first run")
                     self.store.set_meta("settings_signature", signature)
-                now = datetime.now()
-                last_full = self.store.meta("last_full")
-                if not last_full or (last_full != now.date().isoformat() and now.time() >= self.cfg.daily_at):
+                if daily_due(self.store.meta("last_full"), self.now(), self.cfg.daily_at):
                     self.full("daily")
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
