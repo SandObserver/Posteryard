@@ -26,6 +26,8 @@ from posteryard.server import Item
 from posteryard.service import (
     MAX_AHEAD,
     NEW_REASONS,
+    OCR_STOP_SECONDS,
+    STOP_SECONDS,
     WORKER_RESTART,
     Service,
     WebhookServer,
@@ -1499,6 +1501,10 @@ def test_a_stop_signal_ends_the_service_before_docker_kills_it(tmp_path: Path) -
     assert stop_by_signal(service) == 0
     assert time.monotonic() - started < 10
     assert not any(thread.is_alive() for thread in service.threads)
+
+
+def test_the_longest_stop_stays_within_the_documented_nine_seconds() -> None:
+    assert 0.5 + STOP_SECONDS + OCR_STOP_SECONDS <= 9
 
 
 def test_a_title_still_drawing_does_not_hold_up_the_stop(
