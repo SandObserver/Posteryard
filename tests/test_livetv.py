@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import time
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
@@ -23,7 +24,7 @@ from posteryard.livetv import (
     without_notes,
 )
 from posteryard.plex import Plex
-from posteryard.render import designs
+from posteryard.render import designs, layers
 from posteryard.render import livetv as cards
 from posteryard.server import Airing, AiringMedia, Guide, ImageEntry, Item
 from posteryard.store import Store
@@ -630,7 +631,14 @@ def test_titles_are_drawn_without_emoji_and_matched_without_notes() -> None:
     assert shown("Grey\u00b4s Anatomy") == "Grey\u2019s Anatomy"
     assert shown("Rock\u00b4n`Roll 👍🏽") == "Rock\u2019n\u2019Roll"
     assert shown("Tom ^ Jerry \u00b4") == "Tom ^ Jerry \u00b4"
+    assert shown("Star Trek\ua789 Picard \uff3e") == "Star Trek Picard"
     assert norm("Inception (1080p) [HD]") == norm("inception")
+
+
+def test_every_kept_modifier_symbol_is_drawn_in_inter() -> None:
+    kept = [chr(c) for c in range(0x30000) if unicodedata.category(chr(c)) == "Sk" and shown(f"a{chr(c)}b") != "ab"]
+    assert kept
+    assert all(layers.family_for(ch) == "Inter" for ch in kept)
 
 
 def test_long_live_titles_may_take_three_lines() -> None:

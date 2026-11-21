@@ -40,9 +40,11 @@ MATCH_HIT_SECONDS = 30 * 86400
 MATCH_MISS_SECONDS = 7 * 86400
 # Several exact matches: the most voted one wins only with this many times the votes of the next.
 VOTE_LEAD = 3
-# Emoji, pictographs and skin tones have no glyph in the poster fonts.
+# Emoji and pictographs have no glyph in the poster fonts.
 # The zero-width non-joiner stays: Persian needs it.
-SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d\U0001f3fb-\U0001f3ff]")
+SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
+# Modifier symbols Inter draws. Any other one, such as a skin tone, moves the title to a fallback font.
+ACCENTS = frozenset("^`\u00a8\u00af\u00b4\u00b8\u02d8\u02d9\u02da\u02db\u02dc\u02dd")
 ACCENT_APOSTROPHE = re.compile(r"(?<=\w)[\u00b4`](?=\w)")
 LOGO_CACHE = 16
 MAX_NETWORK_FAILURES = 3
@@ -81,8 +83,13 @@ def shown(text: str) -> str:
 
     An accent between letters becomes an apostrophe. Guides write "Grey\u00b4s" for "Grey's"."""
     text = ACCENT_APOSTROPHE.sub("\u2019", text)
-    kept = "".join(ch for ch in SYMBOLS.sub("", text) if unicodedata.category(ch) not in ("So", "Cs"))
+    kept = "".join(ch for ch in SYMBOLS.sub("", text) if _drawn(ch))
     return " ".join(kept.split()) or " ".join(text.split())
+
+
+def _drawn(ch: str) -> bool:
+    category = unicodedata.category(ch)
+    return category not in ("So", "Cs") and (category != "Sk" or ch in ACCENTS)
 
 
 def without_notes(text: str) -> str:
