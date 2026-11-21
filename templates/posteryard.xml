@@ -13,37 +13,29 @@
   <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
   <Requires>A free TMDB API key and a Plex, Jellyfin or Emby server.</Requires>
   <Changes>
-### 0.10.4 - 2026-11-14
+### 0.10.5 - 2026-11-21
 
 #### Changed
 
-- Open landing page menus faster, shorten size changes, and add a short poster entrance to the hero.
-- Keep fades and colour changes on the landing page under Reduce Motion and honour Increase Contrast.
-- Match titles without regard to accents everywhere, so a guide's "Amelie" finds TMDB's "Amélie" and an episode title matches with or without accents.
-- Save `preview` images at the quality Posteryard uploads.
-- Read a show once per listing on Jellyfin and Emby, instead of once for each season without its own folder.
+- List art in `why` in the order `art next` walks it after `art next` was used.
+- Print command errors to stderr, so they stay out of output you redirect.
+- Show the landing page's missing address on its 404 page and link the closest page, Home and Back.
 
 #### Fixed
 
-- Stop iPhones zooming the landing page when a settings text box is tapped.
-- Keep the pill shape of landing page buttons under keyboard focus.
-- Stop hover styles sticking after a tap, and wrap long words instead of widening the page.
-- Answer Jellyfin and Emby webhooks at once, so a burst of new items on a slow server no longer blocks the health check.
-- Log a failed webhook request as one line instead of a traceback.
-- Remember the chosen logo when one of a title's logo files is broken, instead of downloading every logo again on each check.
-- Name the TLS reason when a secure connection fails, and stop retrying a refused certificate.
-- Alert fanart.tv outages as fanart.tv instead of rendering, and say when fanart.tv works again.
-- Send a "works again" message again after 10 minutes when the first one was not delivered.
-- Fall back to other art when Wikidata sends an answer Posteryard cannot read.
-- Show a clear message instead of a traceback when the state database cannot be updated for a new release, or when `art set --file` cannot read the file.
-- Keep the schedule running when the heartbeat cannot read the health state.
-- Call `HEARTBEAT_URL` every minute during long checks too, so a push monitor no longer reports a healthy Posteryard as down.
-- Process a removed label, a removed `posteryard-ignore` or a new Maintainerr date after a restart, instead of waiting for the daily check.
-- Stop retrying a failed title once it is ignored or out of scope.
-- Write custom art to a new file first, so a full disk cannot damage the art a title already uses.
-- Keep the schedule running when the data folder cannot be written, and restart reliably when a thread stops, instead of staying up and doing nothing.
-- Keep a `posteryard-custom` or `posteryard-next` request on a poster changed by hand when the first try fails, instead of dropping it.
-- Say in `why` whether custom art came from the `posteryard-custom` label or `art set`, instead of naming Plex on every server.
+- Stop within 9 seconds of `docker stop`, before Docker kills the container, even while a poster is being drawn.
+- Exit cleanly when stopped while a title is being read for text, instead of aborting with a fatal Python error or counting the title as failed.
+- Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.
+- Hold less memory on Jellyfin and Emby when a sweep finds many changed items.
+- Make `preview TITLE` show the art set with `art set`, `art next` or the `posteryard-custom` label, and use the last known Maintainerr schedule when Maintainerr is down.
+- Draw each title's own name when two library items share a TMDB id, such as one movie in two libraries under different names.
+- Stop treating a Plex guide poster as changed by hand after a restart cut its upload short.
+- Report a taken webhook port in one log line before `serve` starts, instead of logging "service ready" and crashing.
+- Draw `´` and `` ` `` between letters in Live TV guide titles as an apostrophe instead of dropping them, so "Grey´s Anatomy" no longer shows as "Greys Anatomy". Live TV posters are uploaded again once.
+
+#### Security
+
+- Hide any address parameter or header whose name marks a credential, such as `access_token`, `client_secret` or `X-Api-Key`, in logs, errors and alerts, and drop such headers on a redirect to another host.
   </Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>
   <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
