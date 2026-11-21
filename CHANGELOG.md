@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - List art in `why` in the order `art next` walks it after `art next` was used.
 - Print command errors to stderr, so they stay out of output you redirect.
+- Show the landing page's missing address on its 404 page and link the closest page, Home and Back.
 
 ### Fixed
 
