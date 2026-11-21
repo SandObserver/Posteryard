@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-11-21
+
 ### Changed
 
 - List art in `why` in the order `art next` walks it after `art next` was used.
@@ -522,7 +524,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.10.4...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.10.5...HEAD
+[0.10.5]: https://github.com/SandObserver/Posteryard/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/SandObserver/Posteryard/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/SandObserver/Posteryard/compare/v0.10.2...v0.10.3
 [0.10.2]: https://github.com/SandObserver/Posteryard/compare/v0.10.1...v0.10.2
