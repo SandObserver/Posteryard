@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Marked } from 'marked';
 import * as installer from './public/setup.mjs';
+import { writeYard404 } from './yard-404/build.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -190,7 +191,7 @@ cpSync(join(here, 'public'), dist, { recursive: true });
 cpSync(join(root, 'docs', 'logo.svg'), join(dist, 'logo.svg'));
 cpSync(join(root, 'docs', 'social-card.png'), join(dist, 'img', 'social-card.png'));
 writeFileSync(join(dist, 'index.html'), fill('template.html'));
-writeFileSync(join(dist, '404.html'), fill('404.html'));
+writeYard404('posteryard', dist);
 writeFileSync(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${site}/sitemap.xml\n`);
 writeFileSync(
   join(dist, 'sitemap.xml'),
