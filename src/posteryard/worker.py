@@ -109,7 +109,7 @@ class Worker:
         related = {str(item.get(k, "")) for k in ("ratingKey", "parentRatingKey", "grandparentRatingKey")}
         return not only or bool(only & related)
 
-    def process(self, rating_key: str, *, force: bool = False) -> Outcome:  # noqa: C901
+    def process(self, rating_key: str, *, force: bool = False) -> Outcome:  # noqa: C901, PLR0912
         self._rested = False
         self.fresh = []
         self.ctx.sources.apple_unavailable = False
@@ -153,6 +153,9 @@ class Worker:
                 f"not matched to TMDB, match it in {self.server.name} to get a poster",
                 extra={"title": title, "reason": str(exc)},
             )
+            return Outcome.SKIPPED
+        except ocr.StoppedError:
+            log.info("stopped while reading text. The next sweep or daily check draws it again", extra={"title": title})
             return Outcome.SKIPPED
         except (http.RequestError, pipeline.NotFoundError, custom_art.ArtError, OSError, ValueError) as exc:
             self._failed(rating_key, title, exc)
