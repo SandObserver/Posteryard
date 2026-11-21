@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Stop within 8 seconds of `docker stop`, before Docker kills the container, even while a poster is being drawn.
+- Stop within 9 seconds of `docker stop`, before Docker kills the container, even while a poster is being drawn.
 - Exit cleanly when stopped while a title is being read for text, instead of aborting with a fatal Python error.
 - Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.
 - Hold less memory on Jellyfin and Emby when a sweep finds many changed items.

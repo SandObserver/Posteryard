@@ -33,8 +33,8 @@ log = logging.getLogger(__name__)
 MAX_BODY = 2 * 1024 * 1024
 MAX_CONNECTIONS = 16
 REQUEST_SECONDS = 15
-# STOP_SECONDS plus OCR_STOP_SECONDS must stay below Docker's 10-second stop timeout.
-STOP_SECONDS = 8
+# The server's 0.5-second poll, STOP_SECONDS and OCR_STOP_SECONDS must stay below 9 seconds. Docker kills at 10.
+STOP_SECONDS = 7
 OCR_STOP_SECONDS = 1
 NEW_EVENTS = frozenset({"library.new"})
 JELLYFIN_EVENTS = frozenset({"ItemAdded"})
