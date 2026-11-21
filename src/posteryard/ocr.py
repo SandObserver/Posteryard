@@ -64,6 +64,10 @@ def _engine() -> Any:
     )
 
 
+class StoppedError(OSError):
+    pass
+
+
 class _Process:
     """One OCR process, so the onnxruntime engine never lives in the service process."""
 
@@ -74,7 +78,7 @@ class _Process:
 
     def read(self, pixels: np.ndarray) -> list[TextLine]:
         if self.stopped:
-            raise OSError("OCR is stopping")
+            raise StoppedError("OCR is stopping")
         self.last_read = time.monotonic()
         if self.pool is None:
             self.pool = ProcessPoolExecutor(

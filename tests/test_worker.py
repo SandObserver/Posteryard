@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from posteryard import config, http, pipeline, similar
+from posteryard import config, http, ocr, pipeline, similar
 from posteryard.encode import jpeg, made_here
 from posteryard.fanart import Fanart, FanartImages
 from posteryard.notify import Notifier
@@ -499,6 +499,19 @@ def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path, monkeypatch: py
     record = store.get("1", "item")
     assert record is not None and record.failures == 3
     assert store.retry_due(now=record.updated_at + 10**6) == ["1"]
+
+
+def test_a_stop_during_a_text_read_is_not_a_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    worker, _, store, alerts = make(tmp_path)
+
+    def stopped(*_: object) -> list[Outcome]:
+        raise ocr.StoppedError("OCR is stopping")
+
+    monkeypatch.setattr(worker, "_apply_all", stopped)
+    for _ in range(3):
+        assert worker.process("1") == Outcome.SKIPPED
+    assert alerts.sent == []
+    assert store.get("1", "item") is None
 
 
 def test_items_outside_the_libraries_are_skipped(tmp_path: Path) -> None:

@@ -139,5 +139,5 @@ def test_a_stop_ends_the_process_while_a_read_runs(tmp_path: Path) -> None:
 
 def test_no_read_starts_after_a_stop() -> None:
     ocr.stop()
-    with pytest.raises(OSError, match="stopping"):
+    with pytest.raises(ocr.StoppedError, match="stopping"):
         ocr.read(Image.new("RGB", (480, 720)))
