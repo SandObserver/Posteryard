@@ -164,7 +164,7 @@ def test_fingerprints_depend_on_the_design_version_not_the_package_version() -> 
     plan = pipeline.Plan(
         "1", "poster", "Example", {"design": "tile", "art": "/a.jpg"}, lambda: Image.new("RGB", (1, 1))
     )
-    assert plan.fingerprint == "d9725431849bc589f1e483a93c55afea"
+    assert plan.fingerprint == "49083f3be95febceb9cb4b9641d9b255"
 
 
 def test_fingerprints_of_labels_and_lines_stay_the_same() -> None:
@@ -176,7 +176,7 @@ def test_fingerprints_of_labels_and_lines_stay_the_same() -> None:
     }
     plan = pipeline.Plan("1", "poster", "Example", inputs, lambda: Image.new("RGB", (1, 1)))
     # A changed fingerprint uploads every labelled poster again.
-    assert plan.fingerprint == "e62934c21cad99aebcc142ac9cf06939"
+    assert plan.fingerprint == "2dffbd65ad6edc8053bda314eefe0f61"
 
 
 def test_custom_art_replaces_the_chosen_art(tmp_path: Path) -> None:
@@ -733,6 +733,32 @@ def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.Mon
     poster = pipeline.movie(ctx, ITEM)[0]
     assert poster.inputs["logo"] == "/dark.png"
     assert "logo_ink" not in poster.inputs
+
+
+def test_a_black_one_colour_logo_on_dark_art_is_drawn_white() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    tmdb_of(ctx).logos = [ref("/logo.png", "en")]
+    ctx.sources.fetch = lambda path: (
+        Image.new("RGBA", (600, 120), (10, 10, 10, 255))
+        if path.endswith(".png")
+        else Image.new("RGB", (200, 300), "black")
+    )
+    poster = pipeline.movie(ctx, ITEM)[0]
+    assert poster.inputs["logo_ink"] == "light"
+    assert "ink" not in poster.inputs
+    drawn = poster.draw().convert("L")
+    assert max(drawn.crop((0, drawn.height // 2, drawn.width, drawn.height)).tobytes()) > 200
+
+
+def test_a_white_logo_on_dark_art_keeps_its_inputs() -> None:
+    ctx = context([ref("/textless.jpg", None)])
+    tmdb_of(ctx).logos = [ref("/logo.png", "en")]
+    ctx.sources.fetch = lambda path: (
+        Image.new("RGBA", (600, 120), (255, 255, 255, 255))
+        if path.endswith(".png")
+        else Image.new("RGB", (200, 300), "black")
+    )
+    assert "logo_ink" not in pipeline.movie(ctx, ITEM)[0].inputs
 
 
 class DownFanart(Fanart):

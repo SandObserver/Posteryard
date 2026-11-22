@@ -242,6 +242,11 @@ def test_one_colour_logos_can_be_recoloured() -> None:
     assert dark.convert("RGB").getpixel((dark.width // 2, dark.height // 2)) == NEAR_BLACK
 
 
+def test_a_logo_drawn_in_black_is_native_dark() -> None:
+    assert designs.native_ink_dark(designs.recolour(logo(), NEAR_BLACK))
+    assert not designs.native_ink_dark(logo())
+
+
 def test_dark_ink_drops_the_fade_and_draws_dark() -> None:
     light = tile(colour=(250, 250, 250), ink=NEAR_BLACK, corner_ink=NEAR_BLACK, number=2, service="netflix")
     pixels = np.asarray(light.convert("L"))

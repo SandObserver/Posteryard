@@ -31,7 +31,7 @@ from posteryard.tmdb import Episode, ImageRef, Kind
 log = logging.getLogger(__name__)
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.4.1"
+DESIGN_VERSION = "0.4.2"
 MEASURED = f"measured:{DESIGN_VERSION}:"
 # Each cache key family, with the prefixes still in use. Rows of a family under any other prefix are deleted at start.
 CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
@@ -417,6 +417,14 @@ def _poster(  # noqa: PLR0913
     number = season or None
     service = title.service if season is None else None
     logo_path, dark_bottom, recoloured = _bottom_ink(ctx, title, art_path, logo, below, label=label)
+    # A one-colour logo TMDB drew in black must be redrawn in the poster's ink, or it vanishes on dark art.
+    redraw = (
+        logo_path is not None
+        and not recoloured
+        and not dark_bottom
+        and ctx.measures.one_colour(logo_path)
+        and ctx.measures.native_dark(logo_path)
+    )
     corner = "mark" if service else "number" if number is not None else None
     dark_corner = corner is not None and ctx.measures.corner_dark(art_path, corner)
     ink = NEAR_BLACK if dark_bottom else WHITE
@@ -432,7 +440,7 @@ def _poster(  # noqa: PLR0913
             mark = designs.text_logo(title.name, ink, title.font)
         else:
             mark = trim(ctx.sources.fetch(logo_path))
-            mark = designs.recolour(mark, ink) if recoloured else mark
+            mark = designs.recolour(mark, ink) if recoloured or redraw else mark
         return designs.tile_poster(
             ctx.sources.load(art_path), mark, lines_below=below, label=label, number=number, service=service,
             ink=ink, corner_ink=corner_ink, fade=fade,
@@ -440,6 +448,8 @@ def _poster(  # noqa: PLR0913
 
     if recoloured:
         extra["logo_ink"] = "dark"
+    elif redraw:
+        extra["logo_ink"] = "light"
     if service and not dark_corner:
         extra["corner"] = "light"
     extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade, title.font))

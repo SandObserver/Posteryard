@@ -163,6 +163,13 @@ def one_colour(logo: Image.Image) -> bool:
     return float(luminance(ink).std()) <= ONE_COLOUR_SPREAD and spread <= ONE_COLOUR_CHROMA
 
 
+def native_ink_dark(logo: Image.Image) -> bool:
+    """A one-colour logo drawn in black. Left as it is, it vanishes on dark art."""
+    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32)
+    ink = rgba[rgba[..., 3] > 200][:, :3]
+    return len(ink) >= 50 and float(luminance(ink).mean()) < 0.18
+
+
 def recolour(logo: Image.Image, ink: RGB) -> Image.Image:
     out = Image.new("RGBA", logo.size, (*ink, 255))
     out.putalpha(logo.convert("RGBA").getchannel("A"))

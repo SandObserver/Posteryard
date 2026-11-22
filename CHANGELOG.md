@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Draw a one-colour title logo that TMDB made in black in the poster's own ink, so it no longer disappears on dark art. Posters are drawn and uploaded again once.
+
 ## [0.10.5] - 2026-11-21
 
 ### Changed
