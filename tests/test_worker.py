@@ -367,7 +367,7 @@ def test_custom_art_from_an_older_release_ends_when_the_label_goes(tmp_path: Pat
     assert store.override("1") is None
 
 
-def custom_poster(tmp_path: Path) -> tuple[Worker, FakePlex, Store, str]:
+def custom_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Worker, FakePlex, Store, str]:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     images: dict[str, bytes] = {}
     upload = plex.upload
@@ -379,8 +379,8 @@ def custom_poster(tmp_path: Path) -> tuple[Worker, FakePlex, Store, str]:
     def selected_bytes(item: Item) -> bytes:
         return images.get(plex.selected_keys[(str(item["ratingKey"]), "poster")]) or FakePlex.poster_bytes(plex, item)
 
-    plex.upload = keep  # type: ignore[method-assign,assignment]
-    plex.poster_bytes = selected_bytes  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "upload", keep)
+    monkeypatch.setattr(plex, "poster_bytes", selected_bytes)
     worker.process("1")
     plex.selected_keys[("1", "poster")] = "uploaded-by-hand"
     plex.items["1"]["Label"] = [{"tag": "posteryard-custom"}]
@@ -390,8 +390,8 @@ def custom_poster(tmp_path: Path) -> tuple[Worker, FakePlex, Store, str]:
     return worker, plex, store, override.custom
 
 
-def test_custom_art_is_kept_after_forget(tmp_path: Path) -> None:
-    worker, _, store, custom = custom_poster(tmp_path)
+def test_custom_art_is_kept_after_forget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    worker, _, store, custom = custom_poster(tmp_path, monkeypatch)
     store.forget("1")
     assert worker.process("1") == Outcome.UPLOADED
     override = store.override("1")
@@ -399,8 +399,10 @@ def test_custom_art_is_kept_after_forget(tmp_path: Path) -> None:
     assert Path(custom).exists()
 
 
-def test_custom_art_ignores_a_poster_posteryard_made_with_another_database(tmp_path: Path) -> None:
-    worker, _, store, custom = custom_poster(tmp_path)
+def test_custom_art_ignores_a_poster_posteryard_made_with_another_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    worker, _, store, custom = custom_poster(tmp_path, monkeypatch)
     store.forget("1")
     store.drop_uploads("1")
     worker.process("1")
@@ -629,7 +631,9 @@ def test_restore_all_finds_uploads_whose_record_was_forgotten(tmp_path: Path) ->
     assert plex.restored == [("1", "poster")]
 
 
-def test_a_dry_run_after_an_interrupted_first_upload_keeps_it_restorable(tmp_path: Path) -> None:
+def test_a_dry_run_after_an_interrupted_first_upload_keeps_it_restorable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     upload = plex.upload
 
@@ -637,7 +641,7 @@ def test_a_dry_run_after_an_interrupted_first_upload_keeps_it_restorable(tmp_pat
         upload(rating_key, target, data)
         raise http.RequestError("ConnectionError", "http://plex.example:32400/library/metadata/1/posters")
 
-    plex.upload = stopped  # type: ignore[method-assign, assignment]
+    monkeypatch.setattr(plex, "upload", stopped)
     assert worker.process("1") == Outcome.FAILED
     worker.cfg = config.load({**_env(tmp_path), "DRY_RUN": "true"})
     assert worker.process("1") == Outcome.PREVIEW
@@ -647,7 +651,7 @@ def test_a_dry_run_after_an_interrupted_first_upload_keeps_it_restorable(tmp_pat
     assert ("1", "poster") in plex.restored
 
 
-def test_a_failed_lock_is_retried(tmp_path: Path) -> None:
+def test_a_failed_lock_is_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     locks: list[str] = []
 
@@ -656,7 +660,7 @@ def test_a_failed_lock_is_retried(tmp_path: Path) -> None:
         if len(locks) == 1:
             raise http.HttpError(500, "http://plex.example:32400/library/sections/3/all")
 
-    plex.lock = lock  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "lock", lock)
     assert worker.process("1") == Outcome.FAILED
     record = store.get("1", plex.uploads[0][1])
     assert record is not None and record.image_key == plex.selected_keys[("1", plex.uploads[0][1])]
@@ -693,7 +697,9 @@ def test_episode_thumbnails_changed_by_hand_stay_after_turning_thumbnails_on(tmp
     assert record is not None and record.status == Status.MANUAL
 
 
-def test_a_404_from_something_other_than_the_server_erases_nothing(tmp_path: Path) -> None:
+def test_a_404_from_something_other_than_the_server_erases_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     assert worker.process("1") == Outcome.UPLOADED
     store.manual("1", "art", "Example Movie")
@@ -702,7 +708,7 @@ def test_a_404_from_something_other_than_the_server_erases_nothing(tmp_path: Pat
     def down() -> str:
         raise http.HttpError(404, "http://plex.example:32400/identity")
 
-    plex.server_id = down  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "server_id", down)
     assert worker.process("1") == Outcome.FAILED
     record = store.get("1", "art")
     assert record is not None and record.status == Status.MANUAL
@@ -727,7 +733,7 @@ def test_a_title_the_server_says_is_gone_is_forgotten(tmp_path: Path) -> None:
     assert store.get("1", "poster") is None
 
 
-def test_restore_goes_on_after_a_malformed_answer(tmp_path: Path) -> None:
+def test_restore_goes_on_after_a_malformed_answer(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     plex.items["2"] = Item(**{**MOVIE, "ratingKey": "2"})
     store.uploaded("1", "poster", "A", "f", "upload-a")
@@ -740,17 +746,17 @@ def test_restore_goes_on_after_a_malformed_answer(tmp_path: Path) -> None:
             raise AttributeError("'str' object has no attribute 'get'")
         return real(key, target)
 
-    plex.selected = broken  # type: ignore[assignment]
+    monkeypatch.setattr(plex, "selected", broken)
     counts = worker.restore_all()
     assert (counts.failed, counts.restored) == (1, 1)
     assert store.get("1", "poster") is not None
 
 
-def test_a_new_tag_on_our_own_image_is_not_a_change_by_hand(tmp_path: Path) -> None:
+def test_a_new_tag_on_our_own_image_is_not_a_change_by_hand(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     assert worker.process("1") == Outcome.UPLOADED
     plex.selected_keys[("1", "poster")] = "new-tag"
-    plex.still_ours = lambda item, target: True  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "still_ours", lambda item, target: True)
     assert worker.process("1") == Outcome.UNCHANGED
     record = store.get("1", "poster")
     assert record is not None and record.status == Status.UPLOADED and record.image_key == "new-tag"
@@ -825,7 +831,7 @@ def test_a_failed_lock_is_locked_again_during_an_apple_outage(tmp_path: Path, mo
     def lock(item: Item, target: Target) -> None:
         locks.append(target)
 
-    plex.lock = lock  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "lock", lock)
     real = pipeline.plan_item
 
     def plan(ctx: pipeline.Context, item: Item) -> Any:

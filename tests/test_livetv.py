@@ -14,6 +14,7 @@ from PIL import Image, ImageDraw
 from posteryard import http, pipeline
 from posteryard.livetv import (
     FORGET_SECONDS,
+    MATCH_HIT_SECONDS,
     MATCH_MISS_SECONDS,
     LeftAloneError,
     LiveTv,
@@ -303,7 +304,7 @@ def test_a_note_after_the_guide_title_is_left_out_of_the_tmdb_poster(tmp_path: P
     assert plan.name == "Example Movie"
 
 
-def test_guide_pictures_are_not_cached_but_channel_logos_are(tmp_path: Path) -> None:
+def test_guide_pictures_are_not_cached_but_channel_logos_are(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fetched: list[str] = []
 
     def counting(url: str) -> Image.Image:
@@ -312,7 +313,7 @@ def test_guide_pictures_are_not_cached_but_channel_logos_are(tmp_path: Path) -> 
 
     shows = [airing("Talk", "a", thumb="https://img.example/talk.jpg"), airing("Bulletin", "b"), airing("Night", "n")]
     live, _, _ = build(tmp_path, shows, dry_run=True)
-    live._fetch = counting
+    monkeypatch.setattr(live, "_fetch", counting)
     live.run()
     assert fetched.count(LOGO) == 1
     assert fetched.count("https://img.example/talk.jpg") == 1
@@ -478,7 +479,9 @@ def test_dry_run_saves_previews_once(tmp_path: Path) -> None:
     assert plex.uploads == []
 
 
-def test_unreadable_logos_and_pictures_are_left_out(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_unreadable_logos_and_pictures_are_left_out(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     def broken(url: str) -> Image.Image:
         raise http.RequestError("refused", url)
 
@@ -490,7 +493,7 @@ def test_unreadable_logos_and_pictures_are_left_out(tmp_path: Path, caplog: pyte
         calls.append(url)
         return broken(url)
 
-    live._fetch = counted
+    monkeypatch.setattr(live, "_fetch", counted)
     assert live.run()["uploaded"] == 3
     assert caplog.text.count("could not be read") == 2
     assert calls.count(LOGO) == 1
@@ -549,11 +552,13 @@ def test_the_channel_logo_sits_where_a_streaming_mark_does() -> None:
     assert poster.getpixel((500, 750)) == (0, 0, 0)
 
 
-def test_a_picture_too_thin_for_a_poster_gets_the_title_card(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+def test_a_picture_too_thin_for_a_poster_gets_the_title_card(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     live, _, _ = build(tmp_path, [])
     strip = Image.effect_noise((1920, 10), 60).convert("RGB")
     show = guide_shows(GUIDE, [airing("Talk", "b", thumb="https://img.example/strip.jpg")])[0]
-    live._fetch = lambda url: strip if url.endswith("strip.jpg") else fetch(url)
+    monkeypatch.setattr(live, "_fetch", lambda url: strip if url.endswith("strip.jpg") else fetch(url))
     plan = live.plan(show, fetch)
     assert plan.inputs["design"] == "live-frosted"
     assert any("too thin for a poster" in str(getattr(r, "reason", "")) for r in caplog.records)
@@ -726,7 +731,7 @@ def test_only_the_media_server_may_serve_guide_images_from_this_machine(
     assert seen["untrusted"] is untrusted
 
 
-def test_a_short_logo_outage_keeps_the_uploaded_poster(tmp_path: Path) -> None:
+def test_a_short_logo_outage_keeps_the_uploaded_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     live, plex, _ = build(tmp_path, [airing("Some Show", "k1")])
     assert live.run(now=1000.0)["uploaded"] == 1
     count = len(plex.uploads)
@@ -734,7 +739,7 @@ def test_a_short_logo_outage_keeps_the_uploaded_poster(tmp_path: Path) -> None:
     def down(url: str) -> Image.Image:
         raise http.TemporaryError("ConnectTimeoutError", url)
 
-    live._fetch = down
+    monkeypatch.setattr(live, "_fetch", down)
     assert live.run(now=2000.0)["kept"] == 1
     assert len(plex.uploads) == count
 
@@ -753,7 +758,7 @@ def test_an_outage_stops_after_the_first_airing(tmp_path: Path, monkeypatch: pyt
     assert calls == ["a"]
 
 
-def test_a_run_stops_after_repeated_network_failures(tmp_path: Path) -> None:
+def test_a_run_stops_after_repeated_network_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     live, _, tmdb = build(tmp_path, [airing(f"Show {i}", str(i)) for i in range(10)])
     calls: list[str] = []
 
@@ -761,27 +766,29 @@ def test_a_run_stops_after_repeated_network_failures(tmp_path: Path) -> None:
         calls.append(query)
         raise http.TemporaryError("ConnectionError", "https://api.themoviedb.org/3/search")
 
-    tmdb.search = down  # type: ignore[method-assign]
+    monkeypatch.setattr(tmdb, "search", down)
     assert live.run()["failed"] == 3
     assert len(calls) == 3
     live.run()
     assert len(set(calls)) == 6
 
 
-def test_a_show_that_failed_in_an_outage_is_tried_again_within_the_hour(tmp_path: Path) -> None:
+def test_a_show_that_failed_in_an_outage_is_tried_again_within_the_hour(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     live, _, tmdb = build(tmp_path, [airing("Some Show", "k1")])
 
     def down(kind: Kind, query: str) -> list[dict[str, Any]]:
         raise http.TemporaryError("ConnectionError", "https://api.themoviedb.org/3/search")
 
-    tmdb.search = down  # type: ignore[method-assign]
+    monkeypatch.setattr(tmdb, "search", down)
     assert live.run(now=100000.0)["failed"] == 1
     assert not live.due(now=100000.0 + 3599)
     assert live.due(now=100000.0 + 3600)
 
 
 @pytest.mark.slow
-def test_a_picture_host_that_stops_answering_stops_the_run(tmp_path: Path) -> None:
+def test_a_picture_host_that_stops_answering_stops_the_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     shows = [airing(f"Show {i}", str(i), thumb=f"https://img.example/{i}.jpg") for i in range(10)]
     live, _, _ = build(tmp_path, shows)
     pictures: list[str] = []
@@ -792,7 +799,7 @@ def test_a_picture_host_that_stops_answering_stops_the_run(tmp_path: Path) -> No
         pictures.append(url)
         raise http.TemporaryError("ConnectTimeoutError", url)
 
-    live._fetch = down
+    monkeypatch.setattr(live, "_fetch", down)
     live.run()
     assert len(pictures) == 3
     live.run()
@@ -873,7 +880,7 @@ def test_two_airings_of_one_show_share_one_drawing(tmp_path: Path, monkeypatch: 
             draws.append(1)
             return draw()
 
-        made.draw = drawn
+        monkeypatch.setattr(made, "draw", drawn)
         return made
 
     monkeypatch.setattr(live, "plan", counted)
@@ -906,7 +913,7 @@ def test_a_confirmed_upload_without_a_record_is_passed_over(tmp_path: Path) -> N
     assert not live._upload_gone()
 
 
-def test_a_logo_outage_is_tried_once_per_channel(tmp_path: Path) -> None:
+def test_a_logo_outage_is_tried_once_per_channel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     live, plex, _ = build(tmp_path, [airing("Morning", "a"), airing("Evening", "b")])
     assert live.run(now=1000)["uploaded"] == 2
     tries: list[str] = []
@@ -915,22 +922,27 @@ def test_a_logo_outage_is_tried_once_per_channel(tmp_path: Path) -> None:
         tries.append(url)
         raise http.TemporaryError("ConnectTimeoutError", url)
 
-    live._fetch = down
+    monkeypatch.setattr(live, "_fetch", down)
     plex.refreshed = 2
     assert live.run(now=2000)["kept"] == 2
     assert tries == [LOGO]
 
 
-def test_a_match_is_searched_again_after_it_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize(("found", "lasts"), [(None, MATCH_MISS_SECONDS), (7, MATCH_HIT_SECONDS)])
+def test_a_match_is_searched_again_after_it_expires(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, found: int | None, lasts: int
+) -> None:
     live, _, tmdb = build(tmp_path, [])
-    show = guide_shows(GUIDE, [airing("Unknown Show", "a")])[0]
+    tmdb.results["Known Show"] = [{"id": found, "name": "Known Show"}] if found else []
+    show = guide_shows(GUIDE, [airing("Known Show", "a")])[0]
     clock = [1000.0]
-    monkeypatch.setattr("posteryard.livetv.time.time", lambda: clock[0])
-    assert live.match(show) is None
-    assert live.match(show) is None
+    monkeypatch.setattr(live, "now", lambda: clock[0])
+    assert live.match(show) == found
+    clock[0] += lasts - 1
+    assert live.match(show) == found
     assert len(tmdb.searches) == 1
-    clock[0] += MATCH_MISS_SECONDS
-    live.match(show)
+    clock[0] += 1
+    assert live.match(show) == found
     assert len(tmdb.searches) == 2
 
 

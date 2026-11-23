@@ -28,6 +28,17 @@ def test_decode_refuses_images_with_too_many_pixels() -> None:
         custom_art.decode(buffer.getvalue())
 
 
+def test_cmyk_custom_art_is_decoded_to_rgb() -> None:
+    buffer = io.BytesIO()
+    Image.new("CMYK", (300, 450), (0, 200, 200, 0)).save(buffer, "JPEG")
+    image = custom_art.decode(buffer.getvalue())
+    assert (image.mode, image.size) == ("RGB", (300, 450))
+    pixel = image.getpixel((150, 225))
+    assert isinstance(pixel, tuple)
+    red, green, blue = pixel
+    assert red > 230 and green < 80 and blue < 80
+
+
 def test_save_refuses_a_key_that_is_not_a_rating_key(tmp_path: Path) -> None:
     with pytest.raises(custom_art.ArtError):
         custom_art.save(Image.new("RGB", (4, 4)), tmp_path, "../1")

@@ -63,6 +63,11 @@ def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
             plex.children(key)
 
 
+class QuietServer(ThreadingHTTPServer):
+    def handle_error(self, request: object, client_address: object) -> None:
+        pass
+
+
 class Server:
     """A local HTTP server that answers each request with the next queued (status, headers, body). Status 0 hangs up."""
 
@@ -91,8 +96,7 @@ class Server:
                 self.end_headers()
                 self.wfile.write(body)
 
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
+        self.httpd = QuietServer(("127.0.0.1", 0), Handler)
         self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
 

@@ -447,9 +447,9 @@ def test_large_collections_are_sent_in_batches(monkeypatch: pytest.MonkeyPatch) 
     assert sent == [("/Collections", 100), (f"/Collections/{SERIES}/Items", 100), (f"/Collections/{SERIES}/Items", 34)]
 
 
-def test_a_cached_user_that_is_gone_is_read_again(serve: Any) -> None:
+def test_a_cached_user_that_is_gone_is_read_again(serve: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     jellyfin, _ = serve({"/Items": {"Items": [FORD]}})
-    jellyfin._user = "9" * 32
+    monkeypatch.setattr(jellyfin, "_user", "9" * 32)
     answers = [http.HttpError(404, BASE), FORD]
 
     def raw(key: str) -> Any:
@@ -458,7 +458,7 @@ def test_a_cached_user_that_is_gone_is_read_again(serve: Any) -> None:
             raise answer
         return answer
 
-    jellyfin._raw = raw
+    monkeypatch.setattr(jellyfin, "_raw", raw)
     assert jellyfin.item(MOVIE) is not None
     assert jellyfin._user == USER
 
@@ -477,7 +477,7 @@ def test_a_proxy_404_on_every_path_is_not_a_missing_item(serve: Any) -> None:
 
 def test_a_listing_reads_a_cached_user_that_is_gone_again(serve: Any, monkeypatch: pytest.MonkeyPatch) -> None:
     jellyfin, _ = serve({"/Items": {"Items": [FORD], "TotalRecordCount": 1}})
-    jellyfin._user = "9" * 32
+    monkeypatch.setattr(jellyfin, "_user", "9" * 32)
     real = jellyfin._get
 
     def get(path: str, **params: Any) -> Any:

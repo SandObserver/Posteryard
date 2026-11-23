@@ -1037,10 +1037,10 @@ def test_a_new_season_steps_around_the_art_next_pick_of_its_show() -> None:
 
 
 @pytest.mark.slow
-def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
+def test_art_next_on_a_season_tries_its_own_other_posters_first(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     season_posters = Images([ref("/season1-a.jpg", None), ref("/season1-b.jpg", None)], [], [])
-    tmdb_of(ctx).season_images = lambda show_id, season: season_posters  # type: ignore[method-assign]
+    monkeypatch.setattr(tmdb_of(ctx), "season_images", lambda show_id, season: season_posters)
     assert season_art(ctx, 1) == {1: "/season1-a.jpg"}
     ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/season1-a.jpg"})) if key == "11" else None
     assert season_art(ctx, 1) == {1: "/season1-b.jpg"}
