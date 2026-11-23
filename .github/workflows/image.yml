@@ -9,6 +9,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: amd64
@@ -64,18 +65,23 @@ jobs:
         with:
           context: .
           platforms: linux/${{ matrix.arch }}
-          outputs: type=image,name=posteryard:rebuild,push=false
+          outputs: type=oci,dest=rebuild,tar=false
           provenance: mode=max
           sbom: true
           cache-from: type=gha,scope=${{ matrix.arch }}
       - name: Check a rebuild gives the tested image
         env:
-          TESTED: ${{ fromJSON(steps.build.outputs.metadata)['containerimage.config.digest'] }}
-          REBUILT: ${{ fromJSON(steps.rebuild.outputs.metadata)['containerimage.config.digest'] }}
+          TESTED: ${{ fromJSON(steps.build.outputs.metadata)['containerimage.digest'] }}
           ARCH: ${{ matrix.arch }}
         run: |
-          echo "tested $TESTED, rebuilt $REBUILT"
-          test -n "$TESTED" && test "$TESTED" = "$REBUILT"
+          platform() { jq -r --arg arch "$ARCH" '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' "$1"; }
+          rebuilt=$(platform rebuild/index.json)
+          if [ -z "$rebuilt" ]; then
+            index=$(jq -r '.manifests[0].digest' rebuild/index.json)
+            rebuilt=$(platform "rebuild/blobs/sha256/${index#sha256:}")
+          fi
+          echo "tested $TESTED, rebuilt $rebuilt"
+          test -n "$TESTED" && test "$TESTED" = "$rebuilt"
           mkdir tested && echo "$TESTED" > "tested/$ARCH"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
