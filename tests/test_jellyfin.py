@@ -140,6 +140,14 @@ def test_section_items_filters_and_pages(serve: Any) -> None:
     assert item_calls[1][2]["StartIndex"] == "1"
 
 
+def test_listings_show_items_inside_collections(serve: Any) -> None:
+    jellyfin, server = serve({"/Items": {"Items": [], "TotalRecordCount": 0}})
+    list(jellyfin.section_items(LIBRARY, "movie"))
+    jellyfin.newest_added(LIBRARY, "movie")
+    item_calls = [c for c in server.calls if c[1] == "/Items"]
+    assert [c[2]["CollapseBoxSetItems"] for c in item_calls] == ["false", "false"]
+
+
 def test_collections_are_listed_without_a_library(serve: Any) -> None:
     jellyfin, server = serve({"/Items": {"Items": [], "TotalRecordCount": 0}})
     assert list(jellyfin.section_items(LIBRARY, "collection")) == []

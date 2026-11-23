@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
+
 ### Security
 
 - Publish the exact images the release checks tested, and attest each one, so `gh attestation verify` can prove it came from this repository.
