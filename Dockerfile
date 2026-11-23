@@ -18,6 +18,11 @@ COPY --from=build /app/.venv /app/.venv
 RUN python -c "from PIL import features; assert features.check('raqm'), 'Pillow cannot shape text without libfribidi'" \
   && python -c "assert 'jemalloc' in open('/proc/self/maps').read(), 'jemalloc is not loaded'" \
   && mkdir /data && chown 1000:1000 /data
+LABEL org.opencontainers.image.title=Posteryard \
+  org.opencontainers.image.description="Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically" \
+  org.opencontainers.image.url=https://posteryard.sandobserver.com \
+  org.opencontainers.image.source=https://github.com/SandObserver/Posteryard \
+  org.opencontainers.image.licenses=Apache-2.0
 USER 1000:1000
 VOLUME /data
 EXPOSE 8000
