@@ -74,6 +74,7 @@ testpaths = ["tests"]
 strict = true
 addopts = ["-q", "--cov", "--cov-report=term-missing:skip-covered"]
 filterwarnings = ["error"]
+faulthandler_timeout = 120
 markers = ["slow: takes 3 seconds or more, mostly full-size renders. Skip with -m 'not slow' for a quick run."]
 
 [tool.coverage.run]

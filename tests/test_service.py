@@ -8,7 +8,7 @@ import socket
 import sqlite3
 import threading
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import date, datetime
 from datetime import time as dt_time
@@ -231,10 +231,14 @@ def test_a_label_is_queued_when_it_is_added_or_removed_and_after_a_restart(
 
     assert swept(service) == ["9"]
     assert swept(service) == []
-    plex.section_items = lambda *_a, **f: [] if f.get("label") else FakePlex.section_items(plex, "3", "movie", **f)  # type: ignore[method-assign]
-    service.store.uploaded("9", "poster", "Example", "fp", "upload-1")
-    assert swept(service) == ["9"]
-    del plex.section_items
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            plex,
+            "section_items",
+            lambda *_a, **f: [] if f.get("label") else FakePlex.section_items(plex, "3", "movie", **f),
+        )
+        service.store.uploaded("9", "poster", "Example", "fp", "upload-1")
+        assert swept(service) == ["9"]
     assert swept(service) == ["9"]
     restarted = make_service(tmp_path, plex)
     monkeypatch.setattr(restarted.worker, "leaving_days", dict)
@@ -245,6 +249,8 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     service = make_service(tmp_path)
+    clock = [datetime(2026, 10, 30, 23, 59)]
+    monkeypatch.setattr(service, "now", lambda: clock[0])
     days = {"20": date(2026, 11, 1), "21": date(2026, 11, 2)}
     monkeypatch.setattr(service.worker, "leaving_days", lambda: dict(days))
 
@@ -260,7 +266,7 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     days.pop("20")
     days["21"], days["22"] = date(2026, 11, 3), date(2026, 11, 4)
     assert swept() == ["20", "21", "22"]
-    service.store.set_meta("leaving_checked", "2000-01-01")
+    clock[0] = datetime(2026, 10, 31, 0, 1)
     assert swept() == ["21", "22"]
 
 
@@ -647,7 +653,7 @@ def test_status_explains_health(tmp_path: Path) -> None:
     assert status["ok"] is False and status["checks"]["sweep_recent"] is False
 
 
-def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
+def test_heartbeat_is_called_only_while_healthy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[str] = []
 
     class Receiver(BaseHTTPRequestHandler):
@@ -669,7 +675,7 @@ def test_heartbeat_is_called_only_while_healthy(tmp_path: Path) -> None:
         service.heartbeat()
         service.heartbeat()
         assert calls == ["/api/push/example?status=up"]
-        service._last_heartbeat = float("-inf")
+        monkeypatch.setattr(service, "_last_heartbeat", float("-inf"))
         service.last_sweep_ok -= 10_000
         service.heartbeat()
         assert len(calls) == 1
@@ -1213,7 +1219,7 @@ class StubLiveTv:
     def due(self) -> bool:
         return self.is_due
 
-    def run(self, tick: Any) -> None:
+    def run(self, tick: Callable[[], bool]) -> None:
         self.runs += 1
         assert tick()
         if self.error:
@@ -1229,7 +1235,7 @@ def test_live_tv_is_queued_when_due_and_run_by_the_worker(
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
     service = make_service(tmp_path)
     live = StubLiveTv(due=True, error=error)
-    service.live_tv = live  # type: ignore[assignment]
+    service.live_tv = live
     service.check_live_tv()
     assert queued(service) == ["live-tv"]
     monkeypatch.setattr(service.worker, "process", lambda *_a, **_k: pytest.fail("not a library item"))
@@ -1251,7 +1257,7 @@ def test_live_tv_is_queued_when_due_and_run_by_the_worker(
 
 def test_live_tv_is_not_queued_when_not_due(tmp_path: Path) -> None:
     service = make_service(tmp_path)
-    service.live_tv = StubLiveTv(due=False)  # type: ignore[assignment]
+    service.live_tv = StubLiveTv(due=False)
     service.check_live_tv()
     assert queued(service) == []
 
@@ -1261,12 +1267,12 @@ def test_a_waiting_webhook_pauses_live_tv_and_it_goes_on_after(tmp_path: Path) -
     stops: list[bool] = []
 
     class Paused(StubLiveTv):
-        def run(self, tick: Any) -> None:
+        def run(self, tick: Callable[[], bool]) -> None:
             self.runs += 1
             service.enqueue(["7"], "webhook")
             stops.append(tick())
 
-    service.live_tv = Paused(due=True)  # type: ignore[assignment]
+    service.live_tv = Paused(due=True)
     service._live_tv()
     assert stops == [False]
     assert queued(service) == ["7", "live-tv"]
@@ -1277,12 +1283,12 @@ def test_a_running_live_tv_pass_is_not_queued_again(tmp_path: Path) -> None:
     during: list[str] = []
 
     class Long(StubLiveTv):
-        def run(self, tick: Any) -> None:
+        def run(self, tick: Callable[[], bool]) -> None:
             self.runs += 1
             service.check_live_tv()
             during.extend(queued(service))
 
-    service.live_tv = Long(due=True)  # type: ignore[assignment]
+    service.live_tv = Long(due=True)
     service._live_tv()
     assert during == []
     service.check_live_tv()
@@ -1295,13 +1301,15 @@ def test_a_failing_guide_check_is_logged_and_skipped(tmp_path: Path, caplog: pyt
             raise posteryard_http.RequestError("refused", "http://plex.example")
 
     service = make_service(tmp_path)
-    service.live_tv = Broken(due=True)  # type: ignore[assignment]
+    service.live_tv = Broken(due=True)
     service.check_live_tv()
     assert queued(service) == []
     assert "live TV guide not checked" in caplog.text
 
 
-def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(tmp_path: Path) -> None:
+def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     service = make_service(tmp_path)
     service.store.set_meta("settings_signature", service.settings_signature())
     service.cfg = replace(service.cfg, daily_at=dt_time(0, 0))
@@ -1312,10 +1320,10 @@ def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(tmp_path: Path)
         service._stop.set()
         raise posteryard_http.HttpError(500, "http://plex.example:32400/library/sections/1/all")
 
-    service.full = full  # type: ignore[method-assign]
-    service.sweep = lambda lookback=60: swept.append(lookback)  # type: ignore[method-assign]
-    service.connect = lambda: None  # type: ignore[method-assign]
-    service.check_live_tv = lambda: None  # type: ignore[method-assign]
+    monkeypatch.setattr(service, "full", full)
+    monkeypatch.setattr(service, "sweep", lambda lookback=60: swept.append(lookback))
+    monkeypatch.setattr(service, "connect", lambda: None)
+    monkeypatch.setattr(service, "check_live_tv", lambda: None)
     service._schedule()
     assert len(swept) == 1
 

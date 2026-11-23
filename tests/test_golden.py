@@ -1,4 +1,7 @@
-"""Reference renders of every design. Set UPDATE_GOLDEN=1 to write them again after bumping DESIGN_VERSION."""
+"""Reference renders of every design.
+
+UPDATE_GOLDEN=1 writes every reference again. UPDATE_GOLDEN=tile,channel writes only those.
+"""
 
 import hashlib
 import json
@@ -88,48 +91,72 @@ def small(image: Image.Image) -> Image.Image:
     return image.convert("RGB").resize(SIZE if image.height > image.width else SIZE[::-1], Image.Resampling.BOX)
 
 
+def chosen() -> set[str]:
+    names = os.environ.get("UPDATE_GOLDEN", "")
+    return set(RENDERS | LIVE_RENDERS) if names == "1" else {name for name in names.split(",") if name}
+
+
 @pytest.mark.skipif(not os.environ.get("UPDATE_GOLDEN"), reason="UPDATE_GOLDEN is not set")
 def test_write_golden_images() -> None:
+    unknown = chosen() - set(RENDERS | LIVE_RENDERS)
+    assert not unknown, f"no design called {', '.join(sorted(unknown))}"
     GOLDEN.mkdir(exist_ok=True)
     for name, render in (RENDERS | LIVE_RENDERS).items():
-        small(render()).save(GOLDEN / f"{name}.png")
+        if name in chosen():
+            small(render()).save(GOLDEN / f"{name}.png")
     (GOLDEN / "DESIGN_VERSION").write_text(DESIGN_VERSION + "\n")
     (GOLDEN / "LIVE_VERSION").write_text(livetv.LIVE_VERSION + "\n")
     DATA.write_text(json.dumps(drawing_data(), indent=1, sort_keys=True) + "\n")
 
 
+def reference(name: str) -> Image.Image:
+    with Image.open(GOLDEN / f"{name}.png") as image:
+        return image.convert("RGB")
+
+
+def gap(name: str, image: Image.Image) -> np.ndarray:
+    return np.abs(np.asarray(image, dtype=np.int16) - np.asarray(reference(name), dtype=np.int16))
+
+
 def difference(name: str, render: Callable[[], Image.Image]) -> tuple[float, int]:
-    with Image.open(GOLDEN / f"{name}.png") as reference:
-        expected = np.asarray(reference.convert("RGB"), dtype=np.int16)
-    gap = np.abs(np.asarray(small(render()), dtype=np.int16) - expected)
-    return float(gap.mean()), int((gap.max(axis=-1) > PIXEL_STEP).sum())
+    found = gap(name, small(render()))
+    return float(found.mean()), int((found.max(axis=-1) > PIXEL_STEP).sum())
+
+
+def assert_unchanged(name: str, render: Callable[[], Image.Image], folder: Path, bump: str) -> None:
+    image = small(render())
+    found = gap(name, image)
+    mean, pixels = float(found.mean()), int((found.max(axis=-1) > PIXEL_STEP).sum())
+    if mean <= TOLERANCE and pixels <= CHANGED_PIXELS:
+        return
+    reference(name).save(folder / "expected.png")
+    image.save(folder / "actual.png")
+    strongest = found.max(axis=-1)
+    diff = np.repeat(np.clip(strongest * 4, 0, 255).astype(np.uint8)[..., None], 3, axis=-1)
+    diff[strongest > PIXEL_STEP] = (255, 0, 0)
+    Image.fromarray(diff, "RGB").save(folder / "diff.png")
+    pytest.fail(
+        f"{name} renders differently (mean {mean:.2f}, {pixels} pixels changed). Expected, actual and diff images "
+        f"are in {folder}. {bump}, then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
+    )
 
 
 @pytest.mark.parametrize("name", sorted(RENDERS))
-def test_rendered_output_changes_only_with_design_version(name: str) -> None:
+def test_rendered_output_changes_only_with_design_version(name: str, tmp_path: Path) -> None:
     recorded = (GOLDEN / "DESIGN_VERSION").read_text().strip()
     assert recorded == DESIGN_VERSION, (
         "DESIGN_VERSION changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
-    mean, pixels = difference(name, RENDERS[name])
-    assert mean <= TOLERANCE and pixels <= CHANGED_PIXELS, (
-        f"{name} renders differently (mean {mean:.2f}, {pixels} pixels changed). Bump DESIGN_VERSION in pipeline.py, "
-        "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
-    )
+    assert_unchanged(name, RENDERS[name], tmp_path, "Bump DESIGN_VERSION in pipeline.py")
 
 
 @pytest.mark.parametrize("name", sorted(LIVE_RENDERS))
-def test_live_tv_output_changes_only_with_a_version(name: str) -> None:
+def test_live_tv_output_changes_only_with_a_version(name: str, tmp_path: Path) -> None:
     recorded = ((GOLDEN / "DESIGN_VERSION").read_text().strip(), (GOLDEN / "LIVE_VERSION").read_text().strip())
     assert recorded == (DESIGN_VERSION, livetv.LIVE_VERSION), (
         "A version changed: run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
     )
-    mean, pixels = difference(name, LIVE_RENDERS[name])
-    assert mean <= TOLERANCE and pixels <= CHANGED_PIXELS, (
-        f"{name} renders differently (mean {mean:.2f}, {pixels} pixels changed). "
-        "Bump LIVE_VERSION in render/livetv.py, "
-        "then run UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py"
-    )
+    assert_unchanged(name, LIVE_RENDERS[name], tmp_path, "Bump LIVE_VERSION in render/livetv.py")
 
 
 def test_a_removed_label_counts_as_a_change() -> None:
@@ -147,6 +174,17 @@ def test_a_removed_label_counts_as_a_change() -> None:
         )
 
     assert difference("tile", without_label)[1] > CHANGED_PIXELS
+
+
+def test_a_failed_comparison_saves_the_images(tmp_path: Path) -> None:
+    def opposite() -> Image.Image:
+        return Image.eval(reference("tile"), lambda value: 0 if value > 127 else 255)
+
+    with pytest.raises(pytest.fail.Exception, match=str(tmp_path)):
+        assert_unchanged("tile", opposite, tmp_path, "Bump DESIGN_VERSION")
+    assert {path.name for path in tmp_path.iterdir()} == {"expected.png", "actual.png", "diff.png"}
+    with Image.open(tmp_path / "diff.png") as diff:
+        assert diff.getcolors() == [(SIZE[0] * SIZE[1], (255, 0, 0))]
 
 
 def test_drawing_data_changes_only_with_design_version() -> None:

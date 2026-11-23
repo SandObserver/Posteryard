@@ -107,9 +107,9 @@ CI runs the same checks:
 uv run --locked ruff format . && uv run --locked ruff check . && uv run --locked mypy && uv run --locked pytest -n auto
 ```
 
-The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. While you work, `uv run --locked pytest -n auto -m "not slow" --no-cov` skips the tests marked `slow`, about two thirds of the test time. Mark a new test that takes 3 seconds or more with `@pytest.mark.slow`. CI runs every test. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
+The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. While you work, `uv run --locked pytest -n auto -m "not slow" --no-cov` skips the tests marked `slow`, about two thirds of the test time. Mark a new test that takes 3 seconds or more with `@pytest.mark.slow`. A test still running after 120 seconds prints the stack of every thread. CI runs every test. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
-Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
+Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment. Code that reads the clock takes it from an attribute such as `Service.now` or `LiveTv.now`, so a test can set the time.
 
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. The bump also measures the fade and logo ink of every poster again.
 
@@ -120,6 +120,8 @@ A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/live
 ```sh
 UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py
 ```
+
+`UPDATE_GOLDEN=tile,channel` writes only the named references, for a new design. A failed comparison saves `expected.png`, `actual.png` and `diff.png` and prints their folder. Red pixels in the diff are the ones that count as changed.
 
 `tests/test_recorded_answers.py` reads the recorded answers through the real clients. After an outside service changes, run `uv run python tools/record_answers.py --check`, then record again.
 
