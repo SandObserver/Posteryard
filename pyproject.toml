@@ -40,6 +40,7 @@ requires = ["uv_build>=0.12,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv]
+required-version = ">=0.13,<0.14"
 # rapidocr depends on the GUI build of OpenCV. Both builds install the same cv2 module, so only the headless one is kept.
 # onnxruntime depends on sympy only for its model tools. Inference does not import it.
 override-dependencies = ["opencv-python; sys_platform == 'never'", "sympy; sys_platform == 'never'"]
@@ -67,9 +68,11 @@ files = ["src", "tests", "tools"]
 module = ["cv2", "fontTools.*", "rapidocr", "resvg_py"]
 ignore_missing_imports = true
 
-[tool.pytest.ini_options]
+[tool.pytest]
+minversion = "9.0"
 testpaths = ["tests"]
-addopts = "-q --strict-markers --cov --cov-report=term-missing:skip-covered"
+strict = true
+addopts = ["-q", "--cov", "--cov-report=term-missing:skip-covered"]
 filterwarnings = ["error"]
 markers = ["slow: takes 3 seconds or more, mostly full-size renders. Skip with -m 'not slow' for a quick run."]
 
