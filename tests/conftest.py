@@ -22,6 +22,23 @@ SETTINGS = sorted(
     set(re.findall(r'"([A-Z][A-Z0-9_]+)"', Path(config.__file__).read_text(encoding="utf-8")))
     | {f"{name}_FILE" for name in config.SECRETS}
 )
+LIVE_ENV = (
+    {name: os.environ[name] for name in SETTINGS if name in os.environ}
+    if os.environ.get("POSTERYARD_LIVE") == "1"
+    else {}
+)
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    skip = pytest.mark.skip(reason="set POSTERYARD_LIVE=1 and the server settings to read a real server")
+    for item in items:
+        if not LIVE_ENV and item.get_closest_marker("live"):
+            item.add_marker(skip)
+
+
+@pytest.fixture
+def live_env() -> dict[str, str]:
+    return dict(LIVE_ENV)
 
 
 @pytest.fixture(autouse=True)
@@ -66,7 +83,10 @@ def _address(host: object) -> ipaddress.IPv4Address | ipaddress.IPv6Address | No
 
 
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def no_network(monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> Iterator[None]:
+    if request.node.get_closest_marker("live"):
+        yield
+        return
     reached: list[str] = []
     lookup, connect = socket.getaddrinfo, socket.socket.connect
 
