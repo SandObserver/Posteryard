@@ -11,9 +11,7 @@ from posteryard.server import Item
 from posteryard.sources import ReadOnlyState
 from posteryard.store import Store
 from posteryard.tmdb import Images
-from tests.fakes import FakeServer, context, ref, tmdb_of
-from tests.test_cli import run  # noqa: F401
-from tests.test_pipeline import APPLE_URL
+from tests.fakes import APPLE_URL, FakeServer, cli_main, context, ref, tmdb_of
 
 MOVIE: Item = {"ratingKey": "1", "type": "movie", "title": "Example Movie", "Guid": [{"id": "tmdb://42"}]}
 
@@ -21,6 +19,11 @@ MOVIE: Item = {"ratingKey": "1", "type": "movie", "title": "Example Movie", "Gui
 @pytest.fixture
 def store(tmp_path: Path) -> Store:
     return Store(tmp_path / "state.db")
+
+
+@pytest.fixture
+def run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    return cli_main(tmp_path, monkeypatch)
 
 
 def test_rejection_names_the_title_or_the_large_text() -> None:
@@ -115,7 +118,7 @@ def test_choices_are_read_from_the_store_and_never_written(store: Store) -> None
     assert store.get_choice("new") is None
 
 
-def test_why_command_prints_the_report(run: Any, monkeypatch: pytest.MonkeyPatch, capsys: Any) -> None:  # noqa: F811
+def test_why_command_prints_the_report(run: Any, monkeypatch: pytest.MonkeyPatch, capsys: Any) -> None:
     seen: list[str] = []
 
     def report(ctx: pipeline.Context, item: Item, store: Store) -> why.Report:

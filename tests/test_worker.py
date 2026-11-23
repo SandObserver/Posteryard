@@ -12,12 +12,11 @@ from PIL import Image
 from posteryard import config, http, ocr, pipeline, similar
 from posteryard.encode import jpeg, made_here
 from posteryard.fanart import Fanart, FanartImages
-from posteryard.notify import Notifier
 from posteryard.server import Item, Target
 from posteryard.store import Status, Store
 from posteryard.tmdb import Kind
 from posteryard.worker import Outcome, Worker
-from tests.fakes import FakeServer, FakeTmdb, fetch, read, ref
+from tests.fakes import Alerts, FakeServer, FakeTmdb, fetch, read, ref
 
 MOVIE: Item = {
     "ratingKey": "1", "type": "movie", "title": "Example Movie", "librarySectionTitle": "Movies",
@@ -25,7 +24,7 @@ MOVIE: Item = {
 }  # fmt: skip
 
 
-class FakePlex(FakeServer):
+class MoviePlex(FakeServer):
     def __init__(self) -> None:
         self.items: dict[str, Item] = {"1": Item(**MOVIE)}
         self.selected_keys: dict[tuple[str, str], str] = {}
@@ -63,24 +62,15 @@ class FakePlex(FakeServer):
         return buffer.getvalue()
 
 
-class Alerts(Notifier):
-    def __init__(self) -> None:
-        super().__init__()
-        self.sent: list[str] = []
-
-    def alert(self, subject: str, message: str) -> None:
-        self.sent.append(subject)
-
-
 def _env(tmp_path: Path) -> dict[str, str]:
     return {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_URL": "http://plex.example:32400"}
 
 
-def make(tmp_path: Path, **env: str) -> tuple[Worker, FakePlex, Store, Alerts]:
+def make(tmp_path: Path, **env: str) -> tuple[Worker, MoviePlex, Store, Alerts]:
     cfg = config.load(
         {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_URL": "http://plex.example:32400", **env}
     )
-    plex, store, alerts = FakePlex(), Store(tmp_path / "state.db"), Alerts()
+    plex, store, alerts = MoviePlex(), Store(tmp_path / "state.db"), Alerts()
     worker = Worker(cfg, plex, store, alerts, FakeTmdb([ref("/english.jpg", "en")]))
     worker.ctx.sources.read, worker.ctx.sources.fetch = read, fetch
     return worker, plex, store, alerts
@@ -204,7 +194,7 @@ def test_failures_alert_once_per_upstream_after_three(tmp_path: Path) -> None:
     plex.fail = True
     for _ in range(3):
         assert worker.process("1") == Outcome.FAILED
-    assert alerts.sent == ["Plex"]
+    assert alerts.subjects == ["Plex"]
     plex.fail = False
     assert worker.process("1") == Outcome.PREVIEW
     assert store.get("1", "item") is None
@@ -237,7 +227,7 @@ def test_fanart_failures_alert_as_fanart_and_resolve_after_fanart_answers(
     monkeypatch.setattr(pipeline, "plan_item", plan_item)
     for _ in range(3):
         assert worker.process("1") == Outcome.FAILED
-    assert alerts.sent == ["fanart.tv"]
+    assert alerts.subjects == ["fanart.tv"]
     state[0] = "not asked"
     worker.process("1")
     assert "TMDB" in resolved
@@ -256,7 +246,7 @@ def test_an_unmatched_title_is_skipped_without_retries_or_alerts(
     with caplog.at_level(logging.INFO):
         for _ in range(3):
             assert worker.process("1") == Outcome.SKIPPED
-    assert alerts.sent == []
+    assert alerts.subjects == []
     assert store.get("1", "item") is None
     assert store.retry_due(now=float("inf")) == []
     assert caplog.records[-1].getMessage() == "not matched to TMDB, match it in Plex to get a poster"
@@ -321,7 +311,7 @@ def test_next_label_on_an_episode_is_removed_and_the_thumbnail_still_updates(tmp
     assert worker.process("5") == Outcome.UPLOADED
     assert plex.items["5"]["Label"] == []
     assert store.override("5") is None
-    assert alerts.sent == []
+    assert alerts.subjects == []
 
 
 def test_art_commands_leave_a_background_changed_by_hand(tmp_path: Path) -> None:
@@ -367,7 +357,7 @@ def test_custom_art_from_an_older_release_ends_when_the_label_goes(tmp_path: Pat
     assert store.override("1") is None
 
 
-def custom_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Worker, FakePlex, Store, str]:
+def custom_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Worker, MoviePlex, Store, str]:
     worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
     images: dict[str, bytes] = {}
     upload = plex.upload
@@ -377,7 +367,7 @@ def custom_poster(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Work
         return key
 
     def selected_bytes(item: Item) -> bytes:
-        return images.get(plex.selected_keys[(str(item["ratingKey"]), "poster")]) or FakePlex.poster_bytes(plex, item)
+        return images.get(plex.selected_keys[(str(item["ratingKey"]), "poster")]) or MoviePlex.poster_bytes(plex, item)
 
     monkeypatch.setattr(plex, "upload", keep)
     monkeypatch.setattr(plex, "poster_bytes", selected_bytes)
@@ -497,7 +487,7 @@ def test_an_unexpected_error_counts_as_a_failure(tmp_path: Path, monkeypatch: py
     monkeypatch.setattr(plex, "item", broken)
     for _ in range(3):
         assert worker.process("1") == Outcome.FAILED
-    assert alerts.sent == ["rendering"]
+    assert alerts.subjects == ["rendering"]
     record = store.get("1", "item")
     assert record is not None and record.failures == 3
     assert store.retry_due(now=record.updated_at + 10**6) == ["1"]
@@ -512,7 +502,7 @@ def test_a_stop_during_a_text_read_is_not_a_failure(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(worker, "_apply_all", stopped)
     for _ in range(3):
         assert worker.process("1") == Outcome.SKIPPED
-    assert alerts.sent == []
+    assert alerts.subjects == []
     assert store.get("1", "item") is None
 
 
@@ -606,7 +596,7 @@ def test_an_unreadable_maintainerr_answer_keeps_the_saved_schedule(
 
     monkeypatch.setattr(worker.maintainerr, "action_days", nested)
     assert worker.leaving_days() == {"1": date(2026, 11, 1)}
-    assert alerts.sent == ["Maintainerr"]
+    assert alerts.subjects == ["Maintainerr"]
 
 
 def test_restore_all_gives_back_the_image_shown_before_the_first_upload(tmp_path: Path) -> None:
@@ -774,7 +764,7 @@ def test_an_uploaded_poster_stays_while_apple_art_is_unavailable(tmp_path: Path)
     assert len(plex.uploads) == count
 
 
-def _fail_once(plex: FakePlex, name: str) -> None:
+def _fail_once(plex: MoviePlex, name: str) -> None:
     real, calls = getattr(plex, name), []
 
     def once(*args: Any) -> Any:

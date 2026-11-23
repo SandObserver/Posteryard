@@ -6,7 +6,7 @@ import pytest
 from posteryard import http
 from posteryard.jellyfin import Emby
 from posteryard.quality import AudioLevel, HdrLevel, QualityMinimums, VideoLevel, best
-from tests.test_jellyfin import Server
+from tests.fakes import MediaBrowserRoutes
 
 BASE = "http://emby.example:8096"
 USER = "f" * 32
@@ -30,8 +30,8 @@ SHOW = {"Id": "13", "Type": "Series", "Name": "The Office", "Path": "/media/tv/T
 
 
 @pytest.fixture
-def served(monkeypatch: pytest.MonkeyPatch) -> tuple[Emby, Server]:
-    server = Server(
+def served(monkeypatch: pytest.MonkeyPatch) -> tuple[Emby, MediaBrowserRoutes]:
+    server = MediaBrowserRoutes(
         {
             "/Users": [{"Id": USER, "Policy": {"IsAdministrator": True}}],
             "/Library/VirtualFolders": [
@@ -50,7 +50,7 @@ def served(monkeypatch: pytest.MonkeyPatch) -> tuple[Emby, Server]:
     return Emby(BASE, "example-key"), server
 
 
-def test_items_use_numeric_ids_and_the_user_route(served: tuple[Emby, Server]) -> None:
+def test_items_use_numeric_ids_and_the_user_route(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     movie = emby.item("12")
     assert movie is not None
@@ -71,7 +71,7 @@ def test_items_use_numeric_ids_and_the_user_route(served: tuple[Emby, Server]) -
         emby.children("a" * 32)
 
 
-def test_tags_are_saved_as_tag_items(served: tuple[Emby, Server]) -> None:
+def test_tags_are_saved_as_tag_items(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     emby.remove_label({"ratingKey": "12"}, "posteryard-ignore")
     saved = json.loads(fake.calls[-1][3] or b"{}")
@@ -79,14 +79,14 @@ def test_tags_are_saved_as_tag_items(served: tuple[Emby, Server]) -> None:
     assert "Tags" not in saved
 
 
-def test_collections_belong_to_a_library(served: tuple[Emby, Server]) -> None:
+def test_collections_belong_to_a_library(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     assert list(emby.section_items("8", "collection", label="posteryard-collection")) == []
     query = fake.calls[-1][2]
     assert (query["ParentId"], query["IncludeItemTypes"], query["Tags"]) == ("8", "BoxSet", "posteryard-collection")
 
 
-def test_dolby_vision_and_hdr10_plus(served: tuple[Emby, Server]) -> None:
+def test_dolby_vision_and_hdr10_plus(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     for kind, level in (("DolbyVision", HdrLevel.DOLBY_VISION), ("Hdr10Plus", HdrLevel.HDR10_PLUS)):
         video: dict[str, Any] = {"Type": "Video", "Width": 3840, "Height": 2160, "ExtendedVideoType": kind}
@@ -95,12 +95,12 @@ def test_dolby_vision_and_hdr10_plus(served: tuple[Emby, Server]) -> None:
         assert movie is not None and best(movie["Media"], QualityMinimums()).hdr == level
 
 
-def test_the_server_id_names_emby(served: tuple[Emby, Server]) -> None:
+def test_the_server_id_names_emby(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, _ = served
     assert emby.server_id() == "emby:36e979452bbf4fe2958b157ff8efccdd"
 
 
-def test_windows_library_paths_match(served: tuple[Emby, Server]) -> None:
+def test_windows_library_paths_match(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     fake.routes["/Library/VirtualFolders"] = [
         {"ItemId": "3", "Name": "Movies", "CollectionType": "movies", "Locations": ["D:\\Movies"]},
@@ -115,7 +115,7 @@ def test_windows_library_paths_match(served: tuple[Emby, Server]) -> None:
     assert movie is not None and movie["librarySectionTitle"] == "Films"
 
 
-def test_a_season_without_a_folder_takes_the_library_of_its_show(served: tuple[Emby, Server]) -> None:
+def test_a_season_without_a_folder_takes_the_library_of_its_show(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, _ = served
     season = emby.item("14")
     assert season is not None
@@ -123,7 +123,7 @@ def test_a_season_without_a_folder_takes_the_library_of_its_show(served: tuple[E
 
 
 def test_a_background_upload_clears_the_old_ones_and_selects_through_the_user_route(
-    served: tuple[Emby, Server],
+    served: tuple[Emby, MediaBrowserRoutes],
 ) -> None:
     emby, fake = served
     fake.routes[f"GET /Users/{USER}/Items/12"] = {**UPGRADE, "BackdropImageTags": ["b1", "b2"]}
@@ -135,7 +135,7 @@ def test_a_background_upload_clears_the_old_ones_and_selects_through_the_user_ro
     assert all(path != "/Items/12" for _, path, _, _ in fake.calls)
 
 
-def test_a_poster_upload_reads_the_new_tag_through_the_user_route(served: tuple[Emby, Server]) -> None:
+def test_a_poster_upload_reads_the_new_tag_through_the_user_route(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     fake.routes[f"GET /Users/{USER}/Items/12"] = {**UPGRADE, "ImageTags": {"Primary": "p9"}}
     fake.routes["POST /Items/12/Images/Primary"] = b""

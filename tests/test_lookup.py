@@ -1,54 +1,13 @@
 import pytest
 
 from posteryard import lookup
-from posteryard.server import Item
-from tests.fakes import FakeServer
+from tests.fakes import LookupPlex
 
 LIBRARIES = ("Movies", "TV Shows")
 
 
-class FakePlex(FakeServer):
-    identity = "plex:example"
-
-    def server_id(self) -> str:
-        return self.identity
-
-    def __init__(self) -> None:
-        self.titles: dict[str, list[Item]] = {
-            "movie": [
-                {"ratingKey": "4411", "title": "Dune", "year": 1984, "type": "movie"},
-                {"ratingKey": "8120", "title": "Dune", "year": 2021, "type": "movie"},
-                {"ratingKey": "300", "title": "1917", "year": 2019, "type": "movie"},
-                {"ratingKey": "301", "title": "Blade Runner 2049", "year": 2017, "type": "movie"},
-                {"ratingKey": "302", "title": "Thunderbolts*", "year": 2025, "type": "movie"},
-            ],
-            "show": [{"ratingKey": "5646", "title": "The Office", "year": 2005, "type": "show"}],
-        }
-        self.keys: dict[str, Item] = {"1917": {"ratingKey": "1917", "title": "Pilot", "type": "episode"}}
-
-    def sections(self) -> list[Item]:
-        return [
-            {"key": "3", "title": "Movies", "type": "movie"},
-            {"key": "4", "title": "TV Shows", "type": "show"},
-            {"key": "5", "title": "Music", "type": "artist"},
-        ]
-
-    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
-        return self.titles[kind]
-
-    def item(self, rating_key: str) -> Item | None:
-        every = [*self.titles["movie"], *self.titles["show"]]
-        return self.keys.get(rating_key) or next((i for i in every if i["ratingKey"] == rating_key), None)
-
-    def children(self, rating_key: str) -> list[Item]:
-        return [
-            {"ratingKey": "5647", "index": 1, "title": "Season 1"},
-            {"ratingKey": "5648", "index": 2, "title": "Season 2"},
-        ]
-
-
 def resolve(text: str) -> lookup.Match:
-    return lookup.resolve(FakePlex(), LIBRARIES, text)
+    return lookup.resolve(LookupPlex(), LIBRARIES, text)
 
 
 @pytest.mark.parametrize(
@@ -99,13 +58,13 @@ def test_nothing_close_points_to_find() -> None:
 
 
 def test_search_finds_parts_of_names() -> None:
-    titles = lookup.library_titles(FakePlex(), LIBRARIES)
+    titles = lookup.library_titles(LookupPlex(), LIBRARIES)
     assert [m.rating_key for m in lookup.search(titles, "dune")] == ["4411", "8120"]
     assert lookup.search(titles, "  ") == []
 
 
 def test_season_picks_a_child_or_explains() -> None:
-    plex = FakePlex()
+    plex = LookupPlex()
     show = resolve("The Office")
     season = lookup.season(plex, show, 2)
     assert season.rating_key == "5648"
