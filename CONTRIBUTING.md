@@ -21,6 +21,23 @@ uv run --env-file .env posteryard serve
 
 `--env-file` passes the settings to that one command only, and warns about a line it cannot read. `DATA_DIR` defaults to `./data`. `preview` never writes to the server. Keep `DRY_RUN=true` for `serve` unless you test uploads on a server you own.
 
+To send `serve` a test webhook, use the `WEBHOOK_SECRET` from `.env` and the key or id of a title on your server:
+
+```sh
+# Plex
+curl -F 'payload={"event":"library.new","Metadata":{"ratingKey":"12345"}}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+# Jellyfin
+curl -H 'Content-Type: text/plain' -d '{"NotificationType":"ItemAdded","ItemId":"ITEM-ID"}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+# Emby
+curl -F 'data={"Event":"library.new","Item":{"Id":"123"}}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+```
+
+`tests/test_live_server.py` reads your server and checks that its answers still have the shape Posteryard reads. It never writes. It runs only when you ask for it:
+
+```sh
+POSTERYARD_LIVE=1 uv run --env-file .env pytest -m live --no-cov
+```
+
 To run the checks before each commit and the tests before each push:
 
 ```sh
@@ -93,10 +110,10 @@ Run each with `uv run python tools/<script>`.
 
 1. Write a class that implements `MediaServer` in `server.py`, and `GuideServer` if the server has a Live TV guide. Set `name`, `collections_per_library`, `has_guide`, and a `server_id` with its own prefix. Return items in the Plex shape, as `jellyfin.py` does.
 2. Add its settings to `config.py` and `SECRETS`, and the server to `require_server`. Then add it everywhere a new setting goes, as "Before opening a PR" lists.
-3. Build it in `_server` in `cli.py`. If it has a guide, name it in the Live TV messages there.
+3. Build it in `media_server` in `cli.py`. If it has a guide, name it in the Live TV messages there.
 4. Read its webhook in `parse_webhook` and in the event branches of `do_POST` in `service.py`.
 5. `Worker` treats a selected image that starts with `upload://` as Posteryard's own (`worker.py`). Check that the new server can tell its uploads apart the same way, or through `Store.is_upload`.
-6. Subclass `FakeServer` in tests that need only a few calls. Test the class itself against a fake `http.request`, as `tests/test_jellyfin.py` does.
+6. Subclass `FakeServer` in tests that need only a few calls. Test the class itself against a fake `http.request`, as `tests/test_jellyfin.py` does. Run `tests/test_live_server.py` against a real server.
 7. Add a docs page such as `docs/jellyfin-and-emby.md`, and link it from the README.
 
 ## Before opening a PR
