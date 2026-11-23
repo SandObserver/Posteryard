@@ -51,11 +51,18 @@ def white_ink(png: Path) -> Image.Image:
     return out.resize((round(out.width * HEIGHT / out.height), HEIGHT), Image.Resampling.LANCZOS)
 
 
+def sources() -> list[Path]:
+    return sorted([*SRC.glob("*.svg"), *SRC.glob("*.png")])
+
+
+def build(source: Path) -> Image.Image:
+    return whiten(source) if source.suffix == ".svg" else white_ink(source)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    for source in sorted([*SRC.glob("*.svg"), *SRC.glob("*.png")]):
-        mark = whiten(source) if source.suffix == ".svg" else white_ink(source)
-        mark.save(OUT / f"{source.stem}.png", optimize=True)
+    for source in sources():
+        build(source).save(OUT / f"{source.stem}.png", optimize=True)
         print("built", source.stem)
 
 
