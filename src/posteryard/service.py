@@ -13,17 +13,16 @@ import threading
 import time
 from collections import Counter
 from collections.abc import Callable, Iterable
-from datetime import date, datetime
+from datetime import datetime
 from datetime import time as dt_time
 from email import policy
 from email.parser import BytesParser
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, Protocol
 
 from posteryard import __version__, http, logfmt, memory, ocr, overrides, pipeline, service_collections
 from posteryard.config import Config
-from posteryard.livetv import LiveTv
 from posteryard.notify import Event
 from posteryard.server import Item, MediaServer, is_item_key
 from posteryard.store import Store
@@ -166,9 +165,15 @@ class WebhookServer(ThreadingHTTPServer):
         log.warning("webhook request failed", extra={"reason": type(sys.exception()).__name__})
 
 
+class GuidePosters(Protocol):
+    def due(self) -> bool: ...
+
+    def run(self, *, tick: Callable[[], bool]) -> object: ...
+
+
 class Service:
     def __init__(
-        self, cfg: Config, server: MediaServer, store: Store, worker: Worker, live_tv: LiveTv | None = None
+        self, cfg: Config, server: MediaServer, store: Store, worker: Worker, live_tv: GuidePosters | None = None
     ) -> None:
         self.cfg, self.server, self.store, self.worker, self.live_tv = cfg, server, store, worker, live_tv
         self.now: Callable[[], datetime] = datetime.now
@@ -463,7 +468,7 @@ class Service:
         self.store.set_meta("ignored_keys", json.dumps(sorted(ignored)))
         previous: dict[str, str] = json.loads(self.store.meta("leaving_dates", "{}"))
         current = {key: day.isoformat() for key, day in self.worker.leaving_days().items()}
-        today = date.today().isoformat()
+        today = self.now().date().isoformat()
         new_day = self.store.meta("leaving_checked") != today
         leaving = self._scoped(
             sorted(k for k in previous.keys() | current.keys() if new_day or previous.get(k) != current.get(k))

@@ -155,7 +155,7 @@ def _preview_live_tv(cfg: config.Config, out_dir: Path) -> int:
     except config.ConfigError as exc:
         _error(exc)
         return 2
-    server = _server(cfg)
+    server = media_server(cfg)
     if not with_guide(server):
         _error(f"Live TV posters work with Plex and Jellyfin, not {server.name}.")
         return 2
@@ -202,7 +202,7 @@ def _preview(args: argparse.Namespace, cfg: config.Config) -> int:  # noqa: C901
             _error(exc)
             return 2
 
-    plex = _server(cfg) if args.title else None
+    plex = media_server(cfg) if args.title else None
     keys: list[str] = []
     if plex is not None:
         try:
@@ -300,7 +300,7 @@ def _preview_jobs(
 
 
 def _find(args: argparse.Namespace, cfg: config.Config) -> int:
-    plex = _server(cfg)
+    plex = media_server(cfg)
     query = " ".join(args.words)
     matches = lookup.search(lookup.library_titles(plex, cfg.libraries), query)
     if not matches:
@@ -323,7 +323,7 @@ def _live_tv(cfg: config.Config, server: MediaServer, store: Store, worker: Work
     return livetv.LiveTv(server, store, worker.ctx, dry_run=cfg.dry_run, preview_dir=cfg.preview_dir)
 
 
-def _server(cfg: config.Config) -> MediaServer:
+def media_server(cfg: config.Config) -> MediaServer:
     if cfg.jellyfin_url:
         return Jellyfin(cfg.jellyfin_url, cfg.jellyfin_api_key)
     if cfg.emby_url:
@@ -376,7 +376,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0912
     try:
         if args.command == "find":
             return _find(args, cfg)
-        plex = _server(cfg)
+        plex = media_server(cfg)
         store = Store(cfg.state_path)
     except http.RequestError as exc:
         _error(exc)

@@ -115,6 +115,8 @@ class Jellyfin:
     collections_per_library = False
     has_guide = True
     item_id = HEX_ID
+    # Without this, the server setting to group items into collections hides those items from every listing.
+    ungrouped: Mapping[str, str] = {"CollapseBoxSetItems": "false"}
 
     def __init__(self, url: str, api_key: str) -> None:
         self.url = url
@@ -271,7 +273,7 @@ class Jellyfin:
         start = 0
         shows: dict[str, str] = {}
         while True:
-            page = self._as_user("/Items", Fields=FIELDS, StartIndex=start, Limit=PAGE, **params)
+            page = self._as_user("/Items", Fields=FIELDS, StartIndex=start, Limit=PAGE, **self.ungrouped, **params)
             items = page.get("Items") or []
             yield from (self._shape(raw, shows) for raw in items)
             start += len(items)
@@ -314,6 +316,7 @@ class Jellyfin:
             SortOrder="Descending",
             Limit=1,
             Fields="DateCreated",
+            **self.ungrouped,
         )
         items = page.get("Items") or []
         return _timestamp(items[0].get("DateCreated")) if items else None
@@ -568,6 +571,7 @@ class Emby(Jellyfin):
     collections_per_library = True
     has_guide = False
     item_id = NUMERIC_ID
+    ungrouped: Mapping[str, str] = {"GroupItemsIntoCollections": "false"}
 
     def _raw(self, rating_key: str) -> dict[str, Any]:
         raw: dict[str, Any] = self._get(f"/Users/{self.user()}/Items/{self._id(rating_key)}")

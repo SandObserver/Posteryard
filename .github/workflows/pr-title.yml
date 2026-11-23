@@ -1,0 +1,22 @@
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  title:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: 'Check the title is "Type: description"'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(Fix|Feature|Add|Improve|Refactor|Security|Docs|Release): ([a-z0-9`]|[A-Z][A-Z0-9_]+( |$))'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::PR title \"$TITLE\" must be \"Type: short description\". See CONTRIBUTING.md, Branches and PRs."
+            exit 1
+          fi

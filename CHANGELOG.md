@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
-- Draw a one-colour title logo that TMDB made in black in the poster's own ink, so it no longer disappears on dark art. Posters are drawn and uploaded again once.
+- Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
+
+### Security
+
+- Publish the exact images the release checks tested, and attest each one, so `gh attestation verify` can prove it came from this repository.
 
 ## [0.10.5] - 2026-11-21
 

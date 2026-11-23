@@ -14,3 +14,4 @@ Only the latest release gets fixes.
 - The webhook URL contains `WEBHOOK_SECRET`. Use a long random value.
 - Keep port 8000 on your home network. Do not forward it to the internet.
 - To listen on one network only, put that address before the port, such as `"192.168.1.10:8000:8000"`. Docker otherwise publishes the port on every network the host is on.
+- Images released after 0.10.5 carry a GitHub attestation. Check one with `gh attestation verify oci://ghcr.io/sandobserver/posteryard:latest --owner SandObserver`. The Docker Hub image has the same digest and checks the same way.

@@ -1,11 +1,19 @@
 import hashlib
-from collections.abc import Iterable
+import json
+import threading
+import urllib.parse
+from collections.abc import Callable, Iterable
 from datetime import date
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, ClassVar
 
 import numpy as np
+import pytest
 from PIL import Image, ImageDraw
 
-from posteryard import pipeline
+from posteryard import cli, http, pipeline
 from posteryard.config import Config
 from posteryard.notify import Notifier
 from posteryard.ocr import TextLine
@@ -15,7 +23,7 @@ from posteryard.settings import Settings
 from posteryard.sources import Sources
 from posteryard.store import Store
 from posteryard.tmdb import Details, Episode, ImageRef, Images, Kind, RegionOffers, Tmdb
-from posteryard.worker import Worker
+from posteryard.worker import Outcome, Restored, Worker
 
 
 def ref(path: str, language: str | None) -> ImageRef:
@@ -166,3 +174,180 @@ def context(posters: list[ImageRef], seasons: int = 4) -> pipeline.Context:
 def tmdb_of(ctx: pipeline.Context) -> FakeTmdb:
     assert isinstance(ctx.sources.tmdb, FakeTmdb)
     return ctx.sources.tmdb
+
+
+APPLE_URL = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/1680x3636nr.jpg"
+
+
+class QuietServer(ThreadingHTTPServer):
+    def handle_error(self, request: object, client_address: object) -> None:
+        pass
+
+
+class LocalHttpServer:
+    """A local HTTP server that answers each request with the next queued (status, headers, body). Status 0 hangs up."""
+
+    def __init__(self) -> None:
+        self.answers: list[tuple[int, dict[str, str], bytes]] = []
+        self.connections: set[int] = set()
+        self.requests: list[tuple[str, dict[str, str]]] = []
+        server = self
+
+        class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def log_message(self, format: str, *args: Any) -> None:
+                pass
+
+            def do_GET(self) -> None:
+                server.connections.add(self.client_address[1])
+                server.requests.append((self.path, dict(self.headers)))
+                status, headers, body = server.answers.pop(0)
+                if not status:
+                    self.close_connection = True
+                    return
+                self.send_response(status)
+                for name, value in {"Content-Length": str(len(body)), **headers}.items():
+                    self.send_header(name, value)
+                self.end_headers()
+                self.wfile.write(body)
+
+        self.httpd = QuietServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
+        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self.httpd.shutdown()
+        self.httpd.server_close()
+
+
+def open_idle() -> int:
+    count = 0
+    for manager in (http.POOL, http.UNTRUSTED_POOL):
+        keys = manager.pools.keys()
+        for key in keys:
+            pool = manager.pools.get(key)
+            idle = pool.pool if pool else None
+            count += sum(conn is not None and conn.sock is not None for conn in (idle.queue if idle else []))
+    return count
+
+
+class MediaBrowserRoutes:
+    def __init__(self, routes: dict[str, Any]) -> None:
+        self.routes = routes
+        self.calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
+
+    def __call__(self, method: str, url: str, **kwargs: Any) -> bytes:
+        parts = urllib.parse.urlsplit(url)
+        assert kwargs["headers"]["Authorization"] == 'MediaBrowser Token="example-key"'
+        query = dict(urllib.parse.parse_qsl(parts.query))
+        self.calls.append((method, parts.path, query, kwargs.get("data")))
+        answer = self.routes.get(f"{method} {parts.path}", self.routes.get(parts.path))
+        if callable(answer):
+            answer = answer(query)
+        if answer is None:
+            raise http.HttpError(404, url)
+        return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
+
+
+class LookupPlex(FakeServer):
+    identity = "plex:example"
+
+    def server_id(self) -> str:
+        return self.identity
+
+    def __init__(self) -> None:
+        self.titles: dict[str, list[Item]] = {
+            "movie": [
+                {"ratingKey": "4411", "title": "Dune", "year": 1984, "type": "movie"},
+                {"ratingKey": "8120", "title": "Dune", "year": 2021, "type": "movie"},
+                {"ratingKey": "300", "title": "1917", "year": 2019, "type": "movie"},
+                {"ratingKey": "301", "title": "Blade Runner 2049", "year": 2017, "type": "movie"},
+                {"ratingKey": "302", "title": "Thunderbolts*", "year": 2025, "type": "movie"},
+            ],
+            "show": [{"ratingKey": "5646", "title": "The Office", "year": 2005, "type": "show"}],
+        }
+        self.keys: dict[str, Item] = {"1917": {"ratingKey": "1917", "title": "Pilot", "type": "episode"}}
+
+    def sections(self) -> list[Item]:
+        return [
+            {"key": "3", "title": "Movies", "type": "movie"},
+            {"key": "4", "title": "TV Shows", "type": "show"},
+            {"key": "5", "title": "Music", "type": "artist"},
+        ]
+
+    def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
+        return self.titles[kind]
+
+    def item(self, rating_key: str) -> Item | None:
+        every = [*self.titles["movie"], *self.titles["show"]]
+        return self.keys.get(rating_key) or next((i for i in every if i["ratingKey"] == rating_key), None)
+
+    def children(self, rating_key: str) -> list[Item]:
+        return [
+            {"ratingKey": "5647", "index": 1, "title": "Season 1"},
+            {"ratingKey": "5648", "index": 2, "title": "Season 2"},
+        ]
+
+
+CLI_ENV = {"TMDB_API_KEY": "example", "PLEX_URL": "http://plex.example:32400", "PLEX_TOKEN": "example"}
+
+
+class FakeWorker:
+    calls: ClassVar[list[tuple[str, str]]] = []
+
+    restored: ClassVar[Restored] = Restored()
+
+    def __init__(self, *args: Any) -> None:
+        FakeWorker.calls = []
+        self.server = args[1]
+        self.ctx = SimpleNamespace(sources=SimpleNamespace())
+
+    def process(self, key: str) -> Outcome:
+        self.calls.append(("process", key))
+        return Outcome.UPLOADED
+
+    def next_art(self, key: str) -> Outcome:
+        self.calls.append(("next", key))
+        return Outcome.PREVIEW
+
+    def reset_art(self, key: str) -> Outcome:
+        self.calls.append(("reset", key))
+        return Outcome.UPLOADED
+
+    def set_custom(self, key: str, image: Any) -> Outcome:
+        self.calls.append(("set", key))
+        return Outcome.UPLOADED
+
+    def restore_all(self) -> Restored:
+        return self.restored
+
+
+def cli_main(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Callable[[list[str]], int]:
+    for name, value in {**CLI_ENV, "DATA_DIR": str(tmp_path)}.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setattr(cli, "Plex", lambda url, token: LookupPlex())
+    monkeypatch.setattr(cli, "Worker", FakeWorker)
+    return cli.main
+
+
+def detailed(seed: int, size: tuple[int, int] = (600, 900)) -> Image.Image:
+    rng = np.random.default_rng(seed)
+    image = Image.new("RGB", size, tuple(int(c) for c in rng.integers(0, 120, 3)))
+    draw = ImageDraw.Draw(image)
+    for _ in range(400):
+        x, y = int(rng.integers(0, size[0])), int(rng.integers(0, size[1]))
+        w, h = int(rng.integers(6, 40)), int(rng.integers(6, 40))
+        draw.rectangle((x, y, x + w, y + h), fill=tuple(int(c) for c in rng.integers(0, 256, 3)))
+    return image
+
+
+class Alerts(Notifier):
+    def __init__(self) -> None:
+        super().__init__()
+        self.subjects: list[str] = []
+        self.messages: list[str] = []
+
+    def alert(self, subject: str, message: str) -> None:
+        self.subjects.append(subject)
+        self.messages.append(message)

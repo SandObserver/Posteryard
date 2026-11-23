@@ -17,7 +17,7 @@ SHOWS = {
 }  # fmt: skip
 
 
-class FakePlex(FakeServer):
+class CollectionsPlex(FakeServer):
     def __init__(self, ours: list[Item]) -> None:
         self.ours = ours
         self.members: dict[str, set[str]] = {"50": {"6", "9"}}
@@ -49,7 +49,7 @@ class FakePlex(FakeServer):
         self.calls.append(("delete", rating_key))
 
 
-class FailingLabel(FakePlex):
+class FailingLabel(CollectionsPlex):
     def set_label(self, section_key: str, kind: str, rating_key: str, label: str) -> None:
         raise http.RequestError("HTTP 500", "http://plex.example:32400/library/sections/4/all")
 
@@ -62,7 +62,7 @@ def test_a_collection_that_cannot_be_labelled_is_removed() -> None:
 
 
 def test_a_show_whose_lookup_fails_keeps_its_membership(monkeypatch: pytest.MonkeyPatch) -> None:
-    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    plex = CollectionsPlex([{"ratingKey": "50", "title": "Apple TV"}])
     ctx = context()
     real = ctx.sources.title
 
@@ -77,7 +77,7 @@ def test_a_show_whose_lookup_fails_keeps_its_membership(monkeypatch: pytest.Monk
     assert not any(c[0] in ("remove", "delete") for c in plex.calls)
 
 
-class UnmatchedShow(FakePlex):
+class UnmatchedShow(CollectionsPlex):
     def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
         items = super().section_items(section_key, kind, label=label)
         return [{**i, "Guid": []} if i["ratingKey"] == "8" else i for i in items]
@@ -100,7 +100,7 @@ def context() -> pipeline.Context:
     return ctx
 
 
-class IgnoresLabelFilter(FakePlex):
+class IgnoresLabelFilter(CollectionsPlex):
     def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
         items = super().section_items(section_key, kind, label=label)
         return [*items, {"ratingKey": "70", "title": "Favourites"}] if kind == "collection" else items
@@ -138,7 +138,7 @@ def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
         {"ratingKey": "51", "title": "Hulu"},
         {"ratingKey": "52", "title": "Peacock"},
     ]
-    plex = FakePlex(ours)
+    plex = CollectionsPlex(ours)
     kept = service_collections.sync(plex, context(), ["4"])
     assert kept == ["50", "60"]
     assert ("add", "50", "7", "8") in plex.calls
@@ -151,7 +151,7 @@ def test_sync_creates_fills_and_removes_only_its_own_collections() -> None:
 
 def test_a_renamed_collection_keeps_its_service_and_name() -> None:
     ctx = context()
-    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    plex = CollectionsPlex([{"ratingKey": "50", "title": "Apple TV"}])
     service_collections.sync(plex, ctx, ["4"])
     plex.ours = [{"ratingKey": "50", "title": "Apple Originals"}, {"ratingKey": "60", "title": "Netflix"}]
     plex.members["60"] = {"1", "2", "3"}
@@ -162,7 +162,7 @@ def test_a_renamed_collection_keeps_its_service_and_name() -> None:
 
 def test_a_collection_from_before_saved_owners_is_found_by_name_once() -> None:
     ctx = context()
-    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}])
+    plex = CollectionsPlex([{"ratingKey": "50", "title": "Apple TV"}])
     plex.ours.append({"ratingKey": "53", "title": "Apple TV"})
     service_collections.sync(plex, ctx, ["4"])
     assert ("delete", "53") in plex.calls and ("delete", "50") not in plex.calls
@@ -171,14 +171,14 @@ def test_a_collection_from_before_saved_owners_is_found_by_name_once() -> None:
 
 def test_a_collection_renamed_before_saved_owners_is_kept() -> None:
     ctx = context()
-    plex = FakePlex([{"ratingKey": "50", "title": "Apple Originals"}])
+    plex = CollectionsPlex([{"ratingKey": "50", "title": "Apple Originals"}])
     plex.members["50"] = {"6", "7", "8"}
     assert "50" in service_collections.sync(plex, ctx, ["4"])
     assert ("delete", "50") not in plex.calls
     assert not [call for call in plex.calls if call[:2] == ("create", "Apple TV")]
 
 
-class LostAnswer(FakePlex):
+class LostAnswer(CollectionsPlex):
     def __init__(self, ours: list[Item], made: list[Item]) -> None:
         super().__init__(ours)
         self.made = made
@@ -219,7 +219,7 @@ def test_a_collection_made_by_hand_long_before_is_not_taken_over() -> None:
 def test_a_show_tmdb_no_longer_has_keeps_its_collections_and_others_still_change(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    plex = FakePlex([{"ratingKey": "50", "title": "Apple TV"}, {"ratingKey": "51", "title": "Peacock"}])
+    plex = CollectionsPlex([{"ratingKey": "50", "title": "Apple TV"}, {"ratingKey": "51", "title": "Peacock"}])
     plex.members = {"50": {"6", "7", "8", "9"}, "51": set()}
     ctx = context()
     real = ctx.sources.title
@@ -237,7 +237,7 @@ def test_a_show_tmdb_no_longer_has_keeps_its_collections_and_others_still_change
 
 
 def test_a_service_without_a_built_in_mark_gets_a_collection() -> None:
-    plex = FakePlex([])
+    plex = CollectionsPlex([])
     ctx = context()
     for key, spelling in (("1", "Discovery+"), ("2", "Discovery +"), ("3", "Discovery+")):
         ctx.sources.titles[("tv", int(key))] = (
@@ -248,7 +248,7 @@ def test_a_service_without_a_built_in_mark_gets_a_collection() -> None:
     assert ("create", "Discovery+", "1", "2", "3") in plex.calls
 
 
-class TwoLibraries(FakePlex):
+class TwoLibraries(CollectionsPlex):
     def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
         items = super().section_items(section_key, kind, label=label)
         if kind != "show":
@@ -273,7 +273,7 @@ def test_an_outage_stops_the_show_lookups(monkeypatch: pytest.MonkeyPatch) -> No
 
     monkeypatch.setattr(pipeline, "resolve_tmdb", down)
 
-    class Many(FakePlex):
+    class Many(CollectionsPlex):
         def section_items(self, section_key: str, kind: str, *, label: str | None = None) -> list[Item]:
             return (
                 [{"ratingKey": str(n), "type": "show"} for n in range(10)] if kind == "show" and label is None else []

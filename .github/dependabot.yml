@@ -2,6 +2,8 @@ version: 2
 updates:
   - package-ecosystem: uv
     directory: /
+    commit-message:
+      prefix: Improve
     schedule:
       interval: weekly
     cooldown:
@@ -14,6 +16,8 @@ updates:
 
   - package-ecosystem: npm
     directory: /site
+    commit-message:
+      prefix: Improve
     schedule:
       interval: weekly
     cooldown:
@@ -26,6 +30,8 @@ updates:
 
   - package-ecosystem: docker
     directory: /
+    commit-message:
+      prefix: Improve
     schedule:
       interval: daily
     cooldown:
@@ -39,6 +45,8 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
+    commit-message:
+      prefix: Improve
     schedule:
       interval: weekly
     cooldown:

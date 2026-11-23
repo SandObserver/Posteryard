@@ -249,6 +249,23 @@ def test_art_in_another_colour_space_is_converted_to_srgb(monkeypatch: pytest.Mo
     assert "icc_profile" not in image.info
 
 
+def test_rotated_art_in_another_colour_space_is_converted_and_turned_upright(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("posteryard.tmdb.ImageCms.getProfileDescription", lambda profile: "Adobe RGB (1998)")
+    monkeypatch.setattr(
+        "posteryard.tmdb.ImageCms.profileToProfile",
+        lambda image, source, target, **_: Image.new("RGB", image.size, (255, 35, 35)),
+    )
+    exif = Image.Exif()
+    exif[0x0112] = 6
+    profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+    buffer = io.BytesIO()
+    Image.new("RGB", (300, 200), (200, 40, 40)).save(buffer, "JPEG", exif=exif, icc_profile=profile)
+    image = open_image(buffer.getvalue())
+    assert image.size == (200, 300)
+    assert image.getpixel((100, 150)) == (255, 35, 35)
+    assert "icc_profile" not in image.info
+
+
 def test_a_profile_that_cannot_be_read_leaves_the_art_alone(monkeypatch: pytest.MonkeyPatch) -> None:
     def broken(*args: object) -> None:
         raise ImageCms.PyCMSError("bad profile")

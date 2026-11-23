@@ -207,9 +207,10 @@ class LiveTv:
         self._done: set[str] = set()
         self._tally: Counter[str] = Counter()
         self._retry = False
+        self.now: Callable[[], float] = time.time
 
     def due(self, now: float | None = None) -> bool:
-        now = time.time() if now is None else now
+        now = self.now() if now is None else now
         known = json.loads(self.store.meta("livetv_refreshed", "{}"))
         current = {g.provider: g.refreshed_at for g in self.server.guides()}
         checked = float(self.store.meta("livetv_checked", "0"))
@@ -246,7 +247,7 @@ class LiveTv:
 
     def run(self, now: float | None = None, tick: Callable[[], bool] = lambda: True) -> Counter[str]:
         """`tick` runs before each show. When it returns False, the run stops; the next run goes on from there."""
-        now = time.time() if now is None else now
+        now = self.now() if now is None else now
         guides = self.server.guides()
         refreshed = {g.provider: g.refreshed_at for g in guides}
         if refreshed != self._cycle:
@@ -385,7 +386,7 @@ class LiveTv:
         hit = self.store.get_choice(cache_key)
         if hit is not None:
             found = int(hit.get("id") or 0)
-            if time.time() - float(hit.get("at") or 0) < (MATCH_HIT_SECONDS if found else MATCH_MISS_SECONDS):
+            if self.now() - float(hit.get("at") or 0) < (MATCH_HIT_SECONDS if found else MATCH_MISS_SECONDS):
                 return found or None
         results = self.ctx.sources.tmdb.search(show.kind, without_notes(show.title).strip())
         label, original = ("title", "original_title") if show.kind == "movie" else ("name", "original_name")
@@ -403,7 +404,7 @@ class LiveTv:
             and int(exact[0].get("vote_count") or 0) >= VOTE_LEAD * max(1, int(exact[1].get("vote_count") or 0))
         )
         found = int(exact[0]["id"]) if exact and lead else 0
-        self.store.put_choice(cache_key, {"id": found, "at": time.time()})
+        self.store.put_choice(cache_key, {"id": found, "at": self.now()})
         return found or None
 
     def _image(self, fetch: Callable[[str], Image.Image], url: str, show: GuideShow, what: str) -> Image.Image | None:

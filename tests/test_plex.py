@@ -14,7 +14,7 @@ from posteryard.server import Item, external_ids, is_target, labels, tmdb_id
 BASE = "http://plex.example:32400"
 
 
-class Server:
+class PlexRoutes:
     """Answers Plex requests from a table of path -> JSON, and records every call."""
 
     def __init__(self, routes: dict[str, Any]) -> None:
@@ -37,9 +37,9 @@ class Server:
 
 
 @pytest.fixture
-def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Plex, Server]]:
-    def start(routes: dict[str, Any]) -> tuple[Plex, Server]:
-        server = Server(routes)
+def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Plex, PlexRoutes]]:
+    def start(routes: dict[str, Any]) -> tuple[Plex, PlexRoutes]:
+        server = PlexRoutes(routes)
         monkeypatch.setattr(http, "request", server)
         return Plex(BASE, "example-token"), server
 
@@ -290,24 +290,24 @@ def test_guide_calls_refuse_other_paths(serve: Any, provider: str, key: str) -> 
 
 
 def guide_by_id(present: dict[int, str]) -> tuple[Plex, list[str]]:
-    plex, asked = Plex(BASE, "example-token"), []
+    asked: list[str] = []
 
-    def get(path: str, **_: Any) -> dict[str, Any]:
-        asked.append(path)
-        if path.endswith("/grid"):
-            return {"Metadata": []}
-        last = path.rsplit("/", 1)[1]
-        ids = [int(n) for n in last.split(",")] if last[0].isdigit() else []
-        guid = present.get(ids[0]) if len(ids) == 1 else None
-        if path.endswith(f"/{SHOW}"):
-            guid = "g/news-at-ten"
-        items = [{"guid": present[n]} for n in ids if n in present] if guid is None else [{"guid": guid}]
-        if not items:
-            raise http.HttpError(404, path)
-        return {"Metadata": items}
+    class GuidePlex(Plex):
+        def _get(self, path: str, **_: Any) -> dict[str, Any]:
+            asked.append(path)
+            if path.endswith("/grid"):
+                return {"Metadata": []}
+            last = path.rsplit("/", 1)[1]
+            ids = [int(n) for n in last.split(",")] if last[0].isdigit() else []
+            guid = present.get(ids[0]) if len(ids) == 1 else None
+            if path.endswith(f"/{SHOW}"):
+                guid = "g/news-at-ten"
+            items = [{"guid": present[n]} for n in ids if n in present] if guid is None else [{"guid": guid}]
+            if not items:
+                raise http.HttpError(404, path)
+            return {"Metadata": items}
 
-    plex._get = get  # type: ignore[method-assign]
-    return plex, asked
+    return GuidePlex(BASE, "example-token"), asked
 
 
 def test_guide_target_is_the_name_key_when_it_reaches_the_entry() -> None:
@@ -354,7 +354,9 @@ def test_guide_ids_past_the_limit_are_not_read(
     assert "more entries than are read" in caplog.text
 
 
-def test_guide_ids_are_not_read_again_after_an_error(caplog: pytest.LogCaptureFixture) -> None:
+def test_guide_ids_are_not_read_again_after_an_error(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
     plex, asked = guide_by_id({n: f"g/{n}" for n in range(1, 700)})
     get = plex._get
 
@@ -364,7 +366,7 @@ def test_guide_ids_are_not_read_again_after_an_error(caplog: pytest.LogCaptureFi
             raise http.HttpError(500, path)
         return get(path, **params)
 
-    plex._get = failing  # type: ignore[method-assign]
+    monkeypatch.setattr(plex, "_get", failing)
     assert plex.guide_target(GUIDE, SHOW, "g/100") == "100"
     asked.clear()
     assert plex.guide_target(GUIDE, SHOW, "g/450") is None
@@ -387,7 +389,7 @@ def test_a_collection_is_created_with_one_request(monkeypatch: pytest.MonkeyPatc
 
     monkeypatch.setattr(http, "request", request)
     plex = Plex(BASE, "example-token")
-    plex._machine_id = "abc"
+    monkeypatch.setattr(plex, "_machine_id", "abc")
     assert plex.create_collection("4", "show", "Netflix", ["1"]) == "60"
     assert sent == [("POST", 1)]
 

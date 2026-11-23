@@ -6,7 +6,6 @@ import threading
 import time
 import tracemalloc
 from collections.abc import Iterator
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, ClassVar
 
 import pytest
@@ -14,6 +13,7 @@ import urllib3
 
 from posteryard import __version__, http
 from posteryard.plex import Plex
+from tests.fakes import LocalHttpServer, open_idle
 
 SECRET = "example-secret-value"
 
@@ -63,52 +63,14 @@ def test_plex_rejects_anything_but_a_numeric_rating_key() -> None:
             plex.children(key)
 
 
-class Server:
-    """A local HTTP server that answers each request with the next queued (status, headers, body). Status 0 hangs up."""
-
-    def __init__(self) -> None:
-        self.answers: list[tuple[int, dict[str, str], bytes]] = []
-        self.connections: set[int] = set()
-        self.requests: list[tuple[str, dict[str, str]]] = []
-        server = self
-
-        class Handler(BaseHTTPRequestHandler):
-            protocol_version = "HTTP/1.1"
-
-            def log_message(self, format: str, *args: Any) -> None:
-                pass
-
-            def do_GET(self) -> None:
-                server.connections.add(self.client_address[1])
-                server.requests.append((self.path, dict(self.headers)))
-                status, headers, body = server.answers.pop(0)
-                if not status:
-                    self.close_connection = True
-                    return
-                self.send_response(status)
-                for name, value in {"Content-Length": str(len(body)), **headers}.items():
-                    self.send_header(name, value)
-                self.end_headers()
-                self.wfile.write(body)
-
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.httpd.handle_error = lambda request, client_address: None  # type: ignore[method-assign]
-        self.url = f"http://127.0.0.1:{self.httpd.server_address[1]}"
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
-
-    def close(self) -> None:
-        self.httpd.shutdown()
-        self.httpd.server_close()
-
-
 @pytest.fixture
-def server() -> Iterator[Server]:
-    running = Server()
+def server() -> Iterator[LocalHttpServer]:
+    running = LocalHttpServer()
     yield running
     running.close()
 
 
-def test_transient_failures_are_retried(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_transient_failures_are_retried(server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch) -> None:
     sleeps: list[float] = []
     monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
     server.answers = [(503, {}, b"busy"), (429, {"Retry-After": "30"}, b"slow down"), (200, {}, b"ok")]
@@ -117,7 +79,7 @@ def test_transient_failures_are_retried(server: Server, monkeypatch: pytest.Monk
 
 
 def test_a_dropped_connection_is_tried_again_at_once_without_a_warning(
-    server: Server, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     sleeps: list[float] = []
     monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
@@ -127,25 +89,14 @@ def test_a_dropped_connection_is_tried_again_at_once_without_a_warning(
     assert "retrying request" not in caplog.text
 
 
-def test_connections_are_reused(server: Server) -> None:
+def test_connections_are_reused(server: LocalHttpServer) -> None:
     server.answers = [(200, {}, b"one"), (200, {}, b"two")]
     assert http.request("GET", f"{server.url}/a") == b"one"
     assert http.request("GET", f"{server.url}/b") == b"two"
     assert len(server.connections) == 1
 
 
-def open_idle() -> int:
-    count = 0
-    for manager in (http.POOL, http.UNTRUSTED_POOL):
-        keys = manager.pools.keys()
-        for key in keys:
-            pool = manager.pools.get(key)
-            idle = pool.pool if pool else None
-            count += sum(conn is not None and conn.sock is not None for conn in (idle.queue if idle else []))
-    return count
-
-
-def test_idle_connections_are_closed_and_reopened_on_use(server: Server) -> None:
+def test_idle_connections_are_closed_and_reopened_on_use(server: LocalHttpServer) -> None:
     server.answers = [(200, {}, b"one"), (200, {}, b"two")]
     assert http.request("GET", f"{server.url}/a") == b"one"
     assert open_idle() >= 1
@@ -155,7 +106,7 @@ def test_idle_connections_are_closed_and_reopened_on_use(server: Server) -> None
     assert len(server.connections) == 2
 
 
-def test_a_connection_in_use_is_left_open(server: Server) -> None:
+def test_a_connection_in_use_is_left_open(server: LocalHttpServer) -> None:
     http.close_idle()
     server.answers = [(200, {}, b"body")]
     response = http.POOL.request("GET", f"{server.url}/a", preload_content=False, timeout=5)
@@ -165,26 +116,26 @@ def test_a_connection_in_use_is_left_open(server: Server) -> None:
     assert open_idle() == 1
 
 
-def test_requests_name_posteryard_its_version_and_its_home(server: Server) -> None:
+def test_requests_name_posteryard_its_version_and_its_home(server: LocalHttpServer) -> None:
     server.answers = [(200, {}, b"ok")]
     http.request("GET", f"{server.url}/a")
     [(_, headers)] = server.requests
     assert headers["User-Agent"] == f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 
 
-def test_responses_are_asked_for_gzip_and_read_unpacked(server: Server) -> None:
+def test_responses_are_asked_for_gzip_and_read_unpacked(server: LocalHttpServer) -> None:
     server.answers = [(200, {"Content-Encoding": "gzip"}, gzip.compress(b"{}" * 1000))]
     assert http.request("GET", f"{server.url}/a") == b"{}" * 1000
     [(_, headers)] = server.requests
     assert headers["Accept-Encoding"] == "gzip"
 
 
-def test_redirects_are_followed(server: Server) -> None:
+def test_redirects_are_followed(server: LocalHttpServer) -> None:
     server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"moved")]
     assert http.request("GET", f"{server.url}/a") == b"moved"
 
 
-def test_plex_sends_the_token_as_a_header_and_refuses_redirects(server: Server) -> None:
+def test_plex_sends_the_token_as_a_header_and_refuses_redirects(server: LocalHttpServer) -> None:
     server.answers = [(301, {"Location": "http://elsewhere.example/library/sections"}, b"")]
     with pytest.raises(http.RequestError, match="refused a redirect") as caught:
         Plex(server.url, SECRET).sections()
@@ -201,7 +152,9 @@ def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPa
     assert SECRET not in str(caught.value)
 
 
-def test_a_tls_failure_names_its_reason_and_hides_secrets(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_tls_failure_names_its_reason_and_hides_secrets(
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: None)
     server.answers = [(200, {}, b"")] * 3
     https = server.url.replace("http://", "https://")
@@ -220,7 +173,7 @@ def test_a_refused_tls_certificate_is_not_retried() -> None:
     assert not http.temporary(caught.value)
 
 
-def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:
+def test_client_errors_are_not_retried_and_hide_secrets(server: LocalHttpServer) -> None:
     server.answers = [(401, {}, b"denied")]
     with pytest.raises(http.HttpError) as caught:
         http.request("GET", f"{server.url}/a?X-Plex-Token={SECRET}")
@@ -228,14 +181,14 @@ def test_client_errors_are_not_retried_and_hide_secrets(server: Server) -> None:
     assert SECRET not in str(caught.value)
 
 
-def test_an_html_error_page_is_left_out_of_the_reason(server: Server) -> None:
+def test_an_html_error_page_is_left_out_of_the_reason(server: LocalHttpServer) -> None:
     server.answers = [(404, {}, b"<!DOCTYPE html>\n<html>\n<title>File Not Found</title>\n</html>")]
     with pytest.raises(http.HttpError) as caught:
         http.request("GET", f"{server.url}/t/p/original/gone.jpg")
     assert str(caught.value) == f"HTTP 404 for {server.url}/t/p/original/gone.jpg"
 
 
-def test_a_text_error_answer_is_kept_on_one_line(server: Server) -> None:
+def test_a_text_error_answer_is_kept_on_one_line(server: LocalHttpServer) -> None:
     server.answers = [(400, {}, b'{\n  "status_message": "Invalid id"\n}')]
     with pytest.raises(http.HttpError, match=r'HTTP 400: \{ "status_message": "Invalid id" \} for '):
         http.request("GET", f"{server.url}/a")
@@ -252,7 +205,7 @@ def test_a_text_error_answer_is_kept_on_one_line(server: Server) -> None:
     ],
 )
 def test_an_error_page_that_echoes_a_credential_never_carries_it(
-    server: Server, query: str, headers: dict[str, str]
+    server: LocalHttpServer, query: str, headers: dict[str, str]
 ) -> None:
     server.answers = [(401, {}, f"denied for {SECRET}, sent {headers}".encode())]
     with pytest.raises(http.HttpError) as caught:
@@ -261,7 +214,7 @@ def test_an_error_page_that_echoes_a_credential_never_carries_it(
     assert "denied for ***" in str(caught.value)
 
 
-def test_oversized_responses_are_refused(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_oversized_responses_are_refused(server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(http, "MAX_RESPONSE", 4)
     server.answers = [(200, {}, b"too long")]
     with pytest.raises(http.RequestError, match="larger than"):
@@ -354,7 +307,7 @@ GZIP_HEADER = gzip.compress(b"")[:10]
     ],
     ids=["members", "trailing junk", "empty"],
 )
-def test_gzip_responses_are_unpacked(server: Server, body: bytes, unpacked: bytes) -> None:
+def test_gzip_responses_are_unpacked(server: LocalHttpServer, body: bytes, unpacked: bytes) -> None:
     server.answers = [(200, {"Content-Encoding": "gzip"}, body)]
     assert http.request("GET", f"{server.url}/a") == unpacked
 
@@ -369,7 +322,7 @@ def test_gzip_responses_are_unpacked(server: Server, body: bytes, unpacked: byte
     ],
     ids=["brotli", "nested", "cut off", "broken"],
 )
-def test_bad_compressed_responses_are_refused(server: Server, encoding: str, body: bytes, error: str) -> None:
+def test_bad_compressed_responses_are_refused(server: LocalHttpServer, encoding: str, body: bytes, error: str) -> None:
     server.answers = [(200, {"Content-Encoding": encoding}, body)]
     with pytest.raises(http.RequestError, match=error):
         http.request("GET", f"{server.url}/a", retries=1)
@@ -381,7 +334,7 @@ def test_bad_compressed_responses_are_refused(server: Server, encoding: str, bod
     ids=["unpacked", "packed"],
 )
 def test_the_size_limit_counts_both_packed_and_unpacked_bytes(
-    server: Server, monkeypatch: pytest.MonkeyPatch, body: bytes
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch, body: bytes
 ) -> None:
     monkeypatch.setattr(http, "MAX_RESPONSE", 1000)
     server.answers = [(200, {"Content-Encoding": "gzip"}, body)]
@@ -427,20 +380,20 @@ def test_retry_after_is_read_as_seconds_or_a_date() -> None:
     assert http._asked("soon") == 0
 
 
-def test_a_bad_header_value_never_reaches_the_error(server: Server) -> None:
+def test_a_bad_header_value_never_reaches_the_error(server: LocalHttpServer) -> None:
     with pytest.raises(http.RequestError) as caught:
         http.request("GET", f"{server.url}/a", headers={"api-key": f"{SECRET}\nrest"})
     assert SECRET not in str(caught.value)
 
 
-def test_redirects_can_be_refused(server: Server) -> None:
+def test_redirects_can_be_refused(server: LocalHttpServer) -> None:
     server.answers = [(302, {"Location": "http://elsewhere.example/b"}, b"")]
     with pytest.raises(http.RequestError, match="refused a redirect"):
         http.request("GET", f"{server.url}/a", redirects=False)
 
 
-def test_cross_host_redirects_drop_credentials(server: Server) -> None:
-    other = Server()
+def test_cross_host_redirects_drop_credentials(server: LocalHttpServer) -> None:
+    other = LocalHttpServer()
     try:
         credentials = {
             "api-key": SECRET, "Authorization": f"Bearer {SECRET}", "X-Plex-Token": SECRET, "X-Api-Key": SECRET,
@@ -462,14 +415,14 @@ def test_cross_host_redirects_drop_credentials(server: Server) -> None:
     [("file:///etc/passwd", "refused a redirect"), ("/a", "too many redirects")],
     ids=["scheme", "loop"],
 )
-def test_bad_redirects_are_refused(server: Server, location: str, error: str) -> None:
+def test_bad_redirects_are_refused(server: LocalHttpServer, location: str, error: str) -> None:
     server.answers = [(302, {"Location": location}, b"")] * (http.MAX_REDIRECTS + 1)
     with pytest.raises(http.RequestError, match=error):
         http.request("GET", f"{server.url}/a")
 
 
-def test_a_redirect_python_reads_as_another_host_is_refused(server: Server) -> None:
-    other = Server()
+def test_a_redirect_python_reads_as_another_host_is_refused(server: LocalHttpServer) -> None:
+    other = LocalHttpServer()
     try:
         port = server.url.rsplit(":", 1)[1]
         server.answers = [(302, {"Location": f"{other.url}\\@127.0.0.1:{port}/b"}, b"")]
@@ -496,7 +449,7 @@ def test_one_origin_written_two_ways_is_the_same_host(one: str, other: str) -> N
 
 
 @pytest.mark.parametrize("location", ["http://example.test:abc/", "http://[::1/x"], ids=["port", "ipv6"])
-def test_an_unreadable_redirect_is_refused(server: Server, location: str) -> None:
+def test_an_unreadable_redirect_is_refused(server: LocalHttpServer, location: str) -> None:
     server.answers = [(302, {"Location": location}, b"")]
     with pytest.raises(http.RedirectError, match="refused a redirect"):
         http.request("GET", f"{server.url}/a")
@@ -525,7 +478,7 @@ def test_connecting_to_many_silent_addresses_stops_at_the_deadline(
     assert sum(waits) <= 0.25 * http.DEADLINE_FACTOR + 0.1
 
 
-def test_retries_stop_at_the_deadline(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_retries_stop_at_the_deadline(server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch) -> None:
     sleeps: list[float] = []
     monkeypatch.setattr("posteryard.http.time.sleep", sleeps.append)
     server.answers = [(503, {"Retry-After": "60"}, b"busy")]
@@ -534,7 +487,7 @@ def test_retries_stop_at_the_deadline(server: Server, monkeypatch: pytest.Monkey
     assert sleeps == []
 
 
-def test_a_large_error_answer_is_read_only_in_part(server: Server) -> None:
+def test_a_large_error_answer_is_read_only_in_part(server: LocalHttpServer) -> None:
     server.answers = [(404, {}, b"ab " * 1_000_000), (200, {}, b"ok")]
     tracemalloc.start()
     try:
@@ -548,7 +501,9 @@ def test_a_large_error_answer_is_read_only_in_part(server: Server) -> None:
     assert http.request("GET", f"{server.url}/b") == b"ok"
 
 
-def test_a_credential_cut_by_the_error_excerpt_never_shows(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_credential_cut_by_the_error_excerpt_never_shows(
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(http, "ERROR_EXCERPT", 12)
     server.answers = [(401, {}, f"denied for {SECRET}".encode())]
     with pytest.raises(http.HttpError) as caught:
@@ -593,7 +548,7 @@ def test_guide_content_may_name_lan_and_public_hosts_only(address: str, reason: 
 
 @pytest.mark.parametrize("path", ["/x", "\\@example.com/x"])
 def test_untrusted_addresses_never_reach_this_machine(
-    server: Server, monkeypatch: pytest.MonkeyPatch, path: str
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch, path: str
 ) -> None:
     monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: pytest.fail("retried a refused address"))
     with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
@@ -601,7 +556,7 @@ def test_untrusted_addresses_never_reach_this_machine(
     assert server.requests == []
 
 
-def test_untrusted_redirects_are_checked_too(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_untrusted_redirects_are_checked_too(server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(http, "refused", lambda address: "" if address == "127.0.0.1" else "a link-local address")
     server.answers = [(302, {"Location": "http://169.254.169.254/latest/meta-data"}, b"")]
     with pytest.raises(http.RequestError, match=r"refused 169\.254\.169\.254 as a link-local address"):
@@ -609,26 +564,26 @@ def test_untrusted_redirects_are_checked_too(server: Server, monkeypatch: pytest
     assert [path for path, _ in server.requests] == ["/a"]
 
 
-def test_a_trusted_address_on_this_machine_still_has_its_redirects_checked(server: Server) -> None:
+def test_a_trusted_address_on_this_machine_still_has_its_redirects_checked(server: LocalHttpServer) -> None:
     server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"unused")]
     with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
         http.get_checked_redirects(f"{server.url}/a", timeout=5)
     assert [path for path, _ in server.requests] == ["/a"]
 
 
-def test_a_redirect_without_an_address_is_refused(server: Server) -> None:
+def test_a_redirect_without_an_address_is_refused(server: LocalHttpServer) -> None:
     server.answers = [(302, {}, b"")]
     with pytest.raises(http.RedirectError, match="refused a redirect"):
         http.get_checked_redirects(f"{server.url}/a", timeout=5)
 
 
-def test_a_trusted_address_without_a_redirect_is_read_as_usual(server: Server) -> None:
+def test_a_trusted_address_without_a_redirect_is_read_as_usual(server: LocalHttpServer) -> None:
     server.answers = [(200, {}, b"guide")]
     assert http.get_checked_redirects(f"{server.url}/a", timeout=5) == b"guide"
 
 
 def test_untrusted_hosts_are_looked_up_once_and_connected_to_as_checked(
-    server: Server, monkeypatch: pytest.MonkeyPatch
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     real = socket.getaddrinfo
     port = int(server.url.rsplit(":", 1)[1])
@@ -649,7 +604,9 @@ def test_untrusted_hosts_are_looked_up_once_and_connected_to_as_checked(
     assert server.requests[0][1]["Host"] == f"guide.example:{port}"
 
 
-def test_untrusted_hosts_try_each_checked_address_in_turn(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_untrusted_hosts_try_each_checked_address_in_turn(
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
     real = socket.getaddrinfo
     port = int(server.url.rsplit(":", 1)[1])
     answers = {
@@ -672,7 +629,7 @@ def test_untrusted_hosts_try_each_checked_address_in_turn(server: Server, monkey
         http.request("GET", f"http://missing.example:{port}/a", untrusted=True, retries=1)
 
 
-def test_json_from_a_host_the_operator_does_not_run_has_its_redirects_checked(server: Server) -> None:
+def test_json_from_a_host_the_operator_does_not_run_has_its_redirects_checked(server: LocalHttpServer) -> None:
     server.answers = [(302, {"Location": "/b"}, b""), (200, {}, b"{}")]
     with pytest.raises(http.RequestError, match=r"refused 127\.0\.0\.1 as a loopback address"):
         http.get_json(f"{server.url}/a", check_redirects=True)
@@ -714,7 +671,9 @@ def test_a_long_retry_after_is_kept_for_the_next_calls(monkeypatch: pytest.Monke
     assert len(calls) == 1
 
 
-def test_a_short_pause_is_waited_out_before_the_request(server: Server, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_short_pause_is_waited_out_before_the_request(
+    server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
+) -> None:
     waits: list[float] = []
     monkeypatch.setattr(time, "sleep", waits.append)
     http._hold(server.url, 5)

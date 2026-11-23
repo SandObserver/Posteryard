@@ -23,8 +23,7 @@ from posteryard.render.lines import Badges, Caption, Label
 from posteryard.server import Item
 from posteryard.services import Offer
 from posteryard.tmdb import Images, Kind, RegionOffers, Tmdb
-from tests.fakes import FakeServer, context, fetch, ref, tmdb_of
-from tests.test_similar import detailed
+from tests.fakes import APPLE_URL, FakeServer, context, detailed, fetch, ref, tmdb_of
 
 
 class DatedPlex(FakeServer):
@@ -283,7 +282,7 @@ def test_without_overrides_fingerprints_stay_the_same() -> None:
     assert "override" not in plan.inputs
 
 
-class FakePlex(FakeServer):
+class TwoSeasonsPlex(FakeServer):
     """A show (1) with seasons 1 and 2 (11, 12), each with two episodes."""
 
     def __init__(self) -> None:
@@ -310,7 +309,7 @@ class FakePlex(FakeServer):
 @pytest.mark.slow
 def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
     ctx = context([ref("/textless.jpg", None)])
-    ctx.server = FakePlex()
+    ctx.server = TwoSeasonsPlex()
     plans = pipeline.plan_preview(ctx, "1", episodes=1)
     assert [(p.rating_key, p.target) for p in plans] == [
         ("1", "poster"), ("1", "art"), ("11", "poster"), ("111", "thumb"), ("12", "poster"), ("121", "thumb"),
@@ -322,7 +321,7 @@ def test_preview_of_a_show_covers_seasons_and_episodes() -> None:
 
 
 def test_episodes_of_one_show_read_the_show_once() -> None:
-    class Counting(FakePlex):
+    class Counting(TwoSeasonsPlex):
         def __init__(self) -> None:
             super().__init__()
             self.reads = 0
@@ -439,7 +438,7 @@ def test_preview_of_a_missing_item_fails() -> None:
     ctx = context([ref("/textless.jpg", None)])
     with pytest.raises(pipeline.NotFoundError, match="configured"):
         pipeline.plan_preview(ctx, "1")
-    ctx.server = FakePlex()
+    ctx.server = TwoSeasonsPlex()
     with pytest.raises(pipeline.NotFoundError, match="no item"):
         pipeline.plan_preview(ctx, "99")
 
@@ -585,9 +584,6 @@ def test_collections_use_imdb_ids_too() -> None:
     ctx.server = ImdbCollection()
     plans = pipeline.collection(ctx, {"ratingKey": "9", "type": "collection", "title": "Favourites"})
     assert plans[0].inputs["art"] == "/textless.jpg"
-
-
-APPLE_URL = "https://is1-ssl.mzstatic.com/image/thumb/Features/v4/ab/cd/art.jpg/1680x3636nr.jpg"
 
 
 def test_a_textless_tmdb_poster_comes_before_apple_art(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1063,10 +1059,10 @@ def test_a_new_season_steps_around_the_art_next_pick_of_its_show() -> None:
 
 
 @pytest.mark.slow
-def test_art_next_on_a_season_tries_its_own_other_posters_first() -> None:
+def test_art_next_on_a_season_tries_its_own_other_posters_first(monkeypatch: pytest.MonkeyPatch) -> None:
     ctx = context([ref("/textless.jpg", None), ref("/textless2.jpg", None)])
     season_posters = Images([ref("/season1-a.jpg", None), ref("/season1-b.jpg", None)], [], [])
-    tmdb_of(ctx).season_images = lambda show_id, season: season_posters  # type: ignore[method-assign]
+    monkeypatch.setattr(tmdb_of(ctx), "season_images", lambda show_id, season: season_posters)
     assert season_art(ctx, 1) == {1: "/season1-a.jpg"}
     ctx.sources.overrides = lambda key: overrides.Override(skip=frozenset({"/season1-a.jpg"})) if key == "11" else None
     assert season_art(ctx, 1) == {1: "/season1-b.jpg"}

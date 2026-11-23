@@ -21,6 +21,23 @@ uv run --env-file .env posteryard serve
 
 `--env-file` passes the settings to that one command only, and warns about a line it cannot read. `DATA_DIR` defaults to `./data`. `preview` never writes to the server. Keep `DRY_RUN=true` for `serve` unless you test uploads on a server you own.
 
+To send `serve` a test webhook, use the `WEBHOOK_SECRET` from `.env` and the key or id of a title on your server:
+
+```sh
+# Plex
+curl -F 'payload={"event":"library.new","Metadata":{"ratingKey":"12345"}}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+# Jellyfin
+curl -H 'Content-Type: text/plain' -d '{"NotificationType":"ItemAdded","ItemId":"ITEM-ID"}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+# Emby
+curl -F 'data={"Event":"library.new","Item":{"Id":"123"}}' http://localhost:8000/webhook/YOUR-WEBHOOK-SECRET
+```
+
+`tests/test_live_server.py` reads your server and checks that its answers still have the shape Posteryard reads. It never writes. It runs only when you ask for it:
+
+```sh
+POSTERYARD_LIVE=1 uv run --env-file .env pytest -m live --no-cov
+```
+
 To run the checks before each commit and the tests before each push:
 
 ```sh
@@ -93,10 +110,10 @@ Run each with `uv run python tools/<script>`.
 
 1. Write a class that implements `MediaServer` in `server.py`, and `GuideServer` if the server has a Live TV guide. Set `name`, `collections_per_library`, `has_guide`, and a `server_id` with its own prefix. Return items in the Plex shape, as `jellyfin.py` does.
 2. Add its settings to `config.py` and `SECRETS`, and the server to `require_server`. Then add it everywhere a new setting goes, as "Before opening a PR" lists.
-3. Build it in `_server` in `cli.py`. If it has a guide, name it in the Live TV messages there.
+3. Build it in `media_server` in `cli.py`. If it has a guide, name it in the Live TV messages there.
 4. Read its webhook in `parse_webhook` and in the event branches of `do_POST` in `service.py`.
 5. `Worker` treats a selected image that starts with `upload://` as Posteryard's own (`worker.py`). Check that the new server can tell its uploads apart the same way, or through `Store.is_upload`.
-6. Subclass `FakeServer` in tests that need only a few calls. Test the class itself against a fake `http.request`, as `tests/test_jellyfin.py` does.
+6. Subclass `FakeServer` in tests that need only a few calls. Test the class itself against a fake `http.request`, as `tests/test_jellyfin.py` does. Run `tests/test_live_server.py` against a real server.
 7. Add a docs page such as `docs/jellyfin-and-emby.md`, and link it from the README.
 
 ## Before opening a PR
@@ -107,9 +124,9 @@ CI runs the same checks:
 uv run --locked ruff format . && uv run --locked ruff check . && uv run --locked mypy && uv run --locked pytest -n auto
 ```
 
-The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. While you work, `uv run --locked pytest -n auto -m "not slow" --no-cov` skips the tests marked `slow`, about two thirds of the test time. Mark a new test that takes 3 seconds or more with `@pytest.mark.slow`. CI runs every test. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
+The tests need no API keys and no internet connection. `tests/conftest.py` fails a test that looks up or connects to anything but localhost, and runs every test in UTC. Ruff limits each function's complexity, branches and arguments. Split a new function that goes over a limit instead of adding a `noqa`. `pytest` measures coverage and fails below 85% or on any warning. While you work, `uv run --locked pytest -n auto -m "not slow" --no-cov` skips the tests marked `slow`, about two thirds of the test time. Mark a new test that takes 3 seconds or more with `@pytest.mark.slow`. A test still running after 120 seconds prints the stack of every thread. CI runs every test. CI also lints the workflows with `uv run --only-group workflows actionlint` and `uv run --only-group workflows zizmor --offline .github`, and scans the image with Grype; a fixable critical vulnerability fails the build.
 
-Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. Replace a method in a test with `monkeypatch.setattr`, not assignment.
+Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. A helper that more than one test module uses goes there too. Never import from another test module. Replace a method in a test with `monkeypatch.setattr`, not assignment. Code that reads the clock takes it from an attribute such as `Service.now` or `LiveTv.now`, so a test can set the time.
 
 Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. The bump also measures the fade and logo ink of every poster again.
 
@@ -120,6 +137,8 @@ A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/live
 ```sh
 UPDATE_GOLDEN=1 uv run pytest --no-cov tests/test_golden.py
 ```
+
+`UPDATE_GOLDEN=tile,channel` writes only the named references, for a new design. A failed comparison saves `expected.png`, `actual.png` and `diff.png` and prints their folder. Red pixels in the diff are the ones that count as changed.
 
 `tests/test_recorded_answers.py` reads the recorded answers through the real clients. After an outside service changes, run `uv run python tools/record_answers.py --check`, then record again.
 
@@ -148,9 +167,9 @@ The Plex preview shows either 12 random movies or 12 random shows from `site/pos
 ## Branches and PRs
 
 - Branch: `type/short-description`, where type is `feat`, `fix`, `perf`, `security`, `refactor`, `docs`, `chore` or `release`.
-- PR title: `Type: short description`, where Type is `Fix`, `Feature`, `Add`, `Improve`, `Refactor`, `Security` or `Docs`.
+- PR title: `Type: short description`, lowercase after the colon, where Type is `Fix`, `Feature`, `Add`, `Improve`, `Refactor`, `Security`, `Docs` or `Release`. `perf` and `chore` branches take `Improve`. The `PR title` check fails any other title.
 - User-visible changes go under `Unreleased` in [CHANGELOG.md](CHANGELOG.md), one line each.
 
 ## Releases
 
-Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, run `uv lock`, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, then pushes `X.Y.Z`, `X.Y` and `latest` to `ghcr.io/sandobserver/posteryard`, copies the same image to `docker.io/sandobserver/posteryard`, publishes a GitHub release with the version's CHANGELOG section, and rewrites the Docker Hub page from `README.md` with `tools/dockerhub_description.py`, and opens a pull request that copies the release notes into the Unraid template and merges when its checks pass. That pull request needs the release GitHub App, through the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`. Docker Hub needs the repository secret `DOCKERHUB_TOKEN`, an access token with Read, Write and Delete. Docker Hub refuses to move an `X.Y.Z` tag, so a version cannot be published twice. If the Docker Hub copy fails, use Re-run failed jobs. The copy skips tags that already point at the image. The `Docker Hub page` workflow updates the page by hand. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. The image carries an SBOM and build provenance. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.
+Semantic versioning. Move the `Unreleased` entries in [CHANGELOG.md](CHANGELOG.md) under the new version with its date, set `version` in `pyproject.toml`, run `uv lock`, merge, and push a `vX.Y.Z` tag. The tag runs the CI checks, which build and check each platform on its own native runner. The release then pushes those images by digest, stops if a pushed image differs from the checked one, tags them `X.Y.Z`, `X.Y` and `latest` on `ghcr.io/sandobserver/posteryard`, copies the same image to `docker.io/sandobserver/posteryard`, publishes a GitHub release with the version's CHANGELOG section, and rewrites the Docker Hub page from `README.md` with `tools/dockerhub_description.py`, and opens a pull request that copies the release notes into the Unraid template and merges when its checks pass. That pull request needs the release GitHub App, through the secrets `RELEASE_APP_CLIENT_ID` and `RELEASE_APP_PRIVATE_KEY`. Docker Hub needs the repository secret `DOCKERHUB_TOKEN`, an access token with Read, Write and Delete. Docker Hub refuses to move an `X.Y.Z` tag, so a version cannot be published twice. If the Docker Hub copy fails, use Re-run failed jobs. The copy skips tags that already point at the image. The `Docker Hub page` workflow updates the page by hand. The release stops if the tag, `pyproject.toml` and a dated CHANGELOG section do not agree. A failed push job is safe to re-run: nothing is tagged until both platforms pass. The image carries an SBOM, build provenance and a GitHub attestation. A tag with a suffix, such as `v1.0.0-rc.1`, publishes a prerelease: only the `1.0.0-rc.1` image tag, and a GitHub release marked as prerelease.
