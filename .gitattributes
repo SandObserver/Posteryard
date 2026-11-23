@@ -1,0 +1,20 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.ttf binary
+*.otf binary
+
+assets/marks-src/** -text
+
+uv.lock linguist-generated
+site/package-lock.json linguist-generated
+src/posteryard/assets/marks/** linguist-generated
+src/posteryard/assets/networks.json linguist-generated
+src/posteryard/assets/provider_networks.json linguist-generated
+tests/golden/*.png linguist-generated
+tests/golden/drawing-data.json linguist-generated
+tests/ocr_readings.json linguist-generated
+tests/recorded_answers.json linguist-generated
