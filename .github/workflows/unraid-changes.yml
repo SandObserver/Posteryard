@@ -15,6 +15,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       # A pull request opened with GITHUB_TOKEN starts no checks, and main requires them.
       - id: app

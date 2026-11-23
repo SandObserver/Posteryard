@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Publish the exact images the release checks tested, and attest each one, so `gh attestation verify` can prove it came from this repository.
+
 ## [0.10.5] - 2026-11-21
 
 ### Changed
