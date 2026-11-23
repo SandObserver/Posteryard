@@ -1,9 +1,10 @@
 import colorsys
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import pytest
-from PIL import Image, ImageChops, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 from posteryard.quality import Badge
 from posteryard.render import category, designs, lines
@@ -242,9 +243,67 @@ def test_one_colour_logos_can_be_recoloured() -> None:
     assert dark.convert("RGB").getpixel((dark.width // 2, dark.height // 2)) == NEAR_BLACK
 
 
-def test_a_logo_drawn_in_black_is_native_dark() -> None:
-    assert designs.native_ink_dark(designs.recolour(logo(), NEAR_BLACK))
-    assert not designs.native_ink_dark(logo())
+@pytest.mark.parametrize(("grey", "reads"), [(10, False), (60, False), (130, True), (255, True)])
+def test_a_one_colour_logo_keeps_its_colour_only_when_it_reads(grey: int, reads: bool) -> None:
+    art = Image.new("RGB", (2000, 3000), (20, 20, 20))
+    logo = Image.new("RGBA", (600, 120), (grey, grey, grey, 255))
+    assert designs.own_colour_reads(art, logo, [], None, designs.fade_strength(art, logo, [])) is reads
+
+
+def test_whether_a_logo_colour_reads_depends_on_the_art() -> None:
+    logo = Image.new("RGBA", (600, 120), (130, 130, 130, 255))
+    for colour, reads in [((20, 20, 20), True), ((90, 90, 90), False)]:
+        art = Image.new("RGB", (2000, 3000), colour)
+        assert designs.own_colour_reads(art, logo, [], None, designs.fade_strength(art, logo, [])) is reads
+
+
+def reads_on(art_colour: tuple[int, int, int], logo: Image.Image, below: list[lines.Line] | None = None) -> bool:
+    art = Image.new("RGB", (2000, 3000), art_colour)
+    return designs.own_colour_reads(art, logo, below or [], None, designs.fade_strength(art, logo, below or []))
+
+
+def soft_edged(grey: int) -> Image.Image:
+    logo = Image.new("RGBA", (600, 120), (grey, grey, grey, 0))
+    for inset, alpha in [(0, 60), (4, 120), (8, 190), (12, 255)]:
+        ImageDraw.Draw(logo).rectangle((inset, inset, 599 - inset, 119 - inset), fill=(grey, grey, grey, alpha))
+    return logo
+
+
+def ring(grey: int) -> Image.Image:
+    logo = Image.new("RGBA", (600, 600), (0, 0, 0, 0))
+    ImageDraw.Draw(logo).ellipse((0, 0, 599, 599), outline=(grey, grey, grey, 255), width=60)
+    return logo
+
+
+@pytest.mark.parametrize("shape", [soft_edged, ring])
+def test_soft_edges_and_holes_are_judged_by_the_logo_colour(shape: Callable[[int], Image.Image]) -> None:
+    assert not reads_on((20, 20, 20), shape(10))
+    assert reads_on((20, 20, 20), shape(255))
+
+
+def test_lines_below_do_not_count_as_the_logo() -> None:
+    below: list[lines.Line] = [lines.Caption("Specials"), lines.Badges((Badge.UHD,))]
+    assert reads_on((20, 20, 20), Image.new("RGBA", (600, 120), (130, 130, 130, 255)), below)
+    assert not reads_on((20, 20, 20), Image.new("RGBA", (600, 120), (10, 10, 10, 255)), below)
+
+
+def test_a_label_and_lines_that_raise_the_logo_do_not_change_the_judgement() -> None:
+    art = Image.new("RGB", (2000, 3000), (20, 20, 20))
+    below: list[lines.Line] = [lines.Caption("Specials"), lines.Badges((Badge.UHD,)), lines.Badges((Badge.SDH,))]
+    label = lines.Label("LEAVING IN 3 DAYS", APPLE_GREEN)
+    for grey, reads in [(10, False), (130, True)]:
+        logo = Image.new("RGBA", (600, 120), (grey, grey, grey, 255))
+        fade = designs.fade_strength(art, logo, below, label)
+        assert designs.own_colour_reads(art, logo, below, label, fade) is reads
+
+
+def test_the_logo_colour_reads_from_three_to_one_contrast() -> None:
+    art = Image.new("RGB", (2000, 3000), (20, 20, 20))
+    behind = float(luminance(np.array([[20, 20, 20]], dtype=np.float32))[0])
+    for grey in range(85, 111):
+        logo = Image.new("RGBA", (600, 120), (grey, grey, grey, 255))
+        ink = float(luminance(np.array([[grey, grey, grey]], dtype=np.float32))[0])
+        assert designs.own_colour_reads(art, logo, [], None, 0.0) is ((ink + 0.05) / (behind + 0.05) >= 3)
 
 
 def test_dark_ink_drops_the_fade_and_draws_dark() -> None:

@@ -12,7 +12,7 @@
 | Background | Textless art, no title. |
 | Collection poster | See [Collections](#collections). |
 
-The service mark and season number are black or white, whichever reads better where they sit, with no shadow behind the mark. When a dark logo reads on the art, like Apple TV's New Releases row, the logo and badges are dark and the fade is left off. A one-colour logo is drawn dark itself, so every poster of a show keeps one logo design. Everywhere else the logo is white. On dark art, where the logo, labels and badges already read, there is no fade. Otherwise the logo sits over the fade, deepened where needed so it always reads.
+The service mark and season number are black or white, whichever reads better where they sit, with no shadow behind the mark. When a dark logo reads on the art, like Apple TV's New Releases row, the logo and badges are dark and the fade is left off. A one-colour logo is drawn dark itself, so every poster of a show keeps one logo design. A one-colour logo whose own colour does not reach 3:1 contrast with the art behind it is drawn white. Everywhere else the logo is white. On dark art, where the logo, labels and badges already read, there is no fade. Otherwise the logo sits over the fade, deepened where needed so it always reads.
 
 ## Where the art comes from
 

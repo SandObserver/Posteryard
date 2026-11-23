@@ -80,11 +80,15 @@ class Measures:
 
         return bool(self._measured(f"logo-colour:{logo}", measure)["one"])
 
-    def native_dark(self, logo: str) -> bool:
-        def measure() -> Mapping[str, Any]:
-            return {"dark": designs.native_ink_dark(trim(self.sources.fetch(logo)))}
+    def own_colour_reads(self, art: str, logo: str, below: list[lines.Line], *, label: lines.Label | None) -> bool:
+        key = f"own-colour:{art}:{logo}:{below!r}:{label.text if label else ''}"
 
-        return bool(self._measured(f"logo-native-dark:{logo}", measure)["dark"])
+        def measure() -> Mapping[str, Any]:
+            image = trim(self.sources.fetch(logo))
+            fade = self.fade(art, logo, "", below, label=label)
+            return {"reads": designs.own_colour_reads(self.sources.load(art), image, below, label, fade)}
+
+        return bool(self._measured(key, measure)["reads"])
 
     def _measured(self, key: str, measure: Callable[[], Mapping[str, Any]]) -> Mapping[str, Any]:
         return remember(self.sources.choices, self.prefix + key, measure)

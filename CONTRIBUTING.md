@@ -128,7 +128,7 @@ The tests need no API keys and no internet connection. `tests/conftest.py` fails
 
 Shared test doubles live in `tests/fakes.py`. `FakeServer` and `FakeTmdb` subclass the real `MediaServer` and `Tmdb`, so mypy checks every override; a test overrides only the calls it needs. A helper that more than one test module uses goes there too. Never import from another test module. Replace a method in a test with `monkeypatch.setattr`, not assignment. Code that reads the clock takes it from an attribute such as `Service.now` or `LiveTv.now`, so a test can set the time.
 
-Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. The bump also measures the fade and logo ink of every poster again.
+Render a few titles with `uv run posteryard preview` and look at them. A change that alters rendered images must bump `DESIGN_VERSION` in `src/posteryard/pipeline.py`. Without it, unchanged fingerprints keep old images in Plex. A change that alters only some posters can instead record what it changes in the plan inputs, as `ink` and `logo_ink` do, so only those posters are drawn again. The bump also measures the fade and logo ink of every poster again.
 
 A change to a Live TV design bumps `LIVE_VERSION` in `src/posteryard/render/livetv.py` instead. It re-uploads only the guide posters.
 

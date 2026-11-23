@@ -31,6 +31,7 @@ NUMBER_AREA = (0.06, 0.045, 0.24, 0.18)
 ONE_COLOUR_SPREAD = 0.08
 ONE_COLOUR_CHROMA = 40.0
 LOGO_CONTRAST = 4.5
+OWN_COLOUR_CONTRAST = 3.0
 FADE_STEPS = (0.0, 1.0, 1.2, 1.4, 1.6, 1.8)
 FADE_MAX = 0.92
 WIDE = (1920, 1080)
@@ -163,13 +164,6 @@ def one_colour(logo: Image.Image) -> bool:
     return float(luminance(ink).std()) <= ONE_COLOUR_SPREAD and spread <= ONE_COLOUR_CHROMA
 
 
-def native_ink_dark(logo: Image.Image) -> bool:
-    """A one-colour logo drawn in black. Left as it is, it vanishes on dark art."""
-    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32)
-    ink = rgba[rgba[..., 3] > 200][:, :3]
-    return len(ink) >= 50 and float(luminance(ink).mean()) < 0.18
-
-
 def recolour(logo: Image.Image, ink: RGB) -> Image.Image:
     out = Image.new("RGBA", logo.size, (*ink, 255))
     out.putalpha(logo.convert("RGBA").getchannel("A"))
@@ -213,6 +207,23 @@ def _place_logo(
     )
     logo_bottom, centres = lines.stack(lines_below)
     return logo, ((w - logo.width) // 2, round(logo_bottom * h) - logo.height), centres
+
+
+def own_colour_reads(
+    art: Image.Image, logo: Image.Image, lines_below: list[lines.Line], label: lines.Label | None, fade: float
+) -> bool:
+    """A one-colour logo keeps its own colour only when it reads on the faded art behind it."""
+    canvas = cover(art, *POSTER).convert("RGBA")
+    placed, at, centres = _place_logo(canvas.size, logo, lines_below)
+    mask = _ink_alphas(canvas.size, placed, at, lines_below=lines_below, centres=centres, label=label)[0] > 127
+    if not mask.any():
+        return True
+    canvas.alpha_composite(_fade(canvas.size, fade))
+    behind = luminance(np.asarray(canvas.convert("RGB"), dtype=np.float32)[mask])
+    rgba = np.asarray(logo.convert("RGBA"), dtype=np.float32)
+    ink = float(np.median(luminance(rgba[rgba[..., 3] > 200][:, :3])))
+    ratio = (np.maximum(ink, behind) + 0.05) / (np.minimum(ink, behind) + 0.05)
+    return float(np.percentile(ratio, 10)) >= OWN_COLOUR_CONTRAST
 
 
 def _fade(size: tuple[int, int], strength: float) -> Image.Image:

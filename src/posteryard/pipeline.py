@@ -31,7 +31,7 @@ from posteryard.tmdb import Episode, ImageRef, Kind
 log = logging.getLogger(__name__)
 # Part of every fingerprint. Change it only when rendered output changes: every image is then re-rendered and
 # re-uploaded. A release that renders the same images keeps it.
-DESIGN_VERSION = "0.4.2"
+DESIGN_VERSION = "0.4.1"
 MEASURED = f"measured:{DESIGN_VERSION}:"
 # Each cache key family, with the prefixes still in use. Rows of a family under any other prefix are deleted at start.
 CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
@@ -312,15 +312,16 @@ def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True)
 def _bottom_ink(  # noqa: PLR0913
     ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line], *, label: lines.Label | None
 ) -> tuple[str | None, bool, bool]:
-    """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn dark.
+    """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn in the ink.
 
-    A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design.
+    A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design. One whose own colour
+    does not read on the art is drawn in the light ink.
     """
     if logo is None:
         return None, ctx.measures.dark_reads(art, None, title.name, below, label=label, prefer=title.font), False
     if ctx.measures.one_colour(logo):
         dark = ctx.measures.dark_reads(art, logo, title.name, below, label=label)
-        return logo, dark, dark
+        return logo, dark, dark or not ctx.measures.own_colour_reads(art, logo, below, label=label)
     dark_logo = ctx.sources.logo(title, dark=True)
     if dark_logo is not None and ctx.measures.dark_reads(art, dark_logo, title.name, below, label=label):
         return dark_logo, True, False
@@ -417,14 +418,6 @@ def _poster(  # noqa: PLR0913
     number = season or None
     service = title.service if season is None else None
     logo_path, dark_bottom, recoloured = _bottom_ink(ctx, title, art_path, logo, below, label=label)
-    # A one-colour logo TMDB drew in black must be redrawn in the poster's ink, or it vanishes on dark art.
-    redraw = (
-        logo_path is not None
-        and not recoloured
-        and not dark_bottom
-        and ctx.measures.one_colour(logo_path)
-        and ctx.measures.native_dark(logo_path)
-    )
     corner = "mark" if service else "number" if number is not None else None
     dark_corner = corner is not None and ctx.measures.corner_dark(art_path, corner)
     ink = NEAR_BLACK if dark_bottom else WHITE
@@ -440,16 +433,14 @@ def _poster(  # noqa: PLR0913
             mark = designs.text_logo(title.name, ink, title.font)
         else:
             mark = trim(ctx.sources.fetch(logo_path))
-            mark = designs.recolour(mark, ink) if recoloured or redraw else mark
+            mark = designs.recolour(mark, ink) if recoloured else mark
         return designs.tile_poster(
             ctx.sources.load(art_path), mark, lines_below=below, label=label, number=number, service=service,
             ink=ink, corner_ink=corner_ink, fade=fade,
         )  # fmt: skip
 
     if recoloured:
-        extra["logo_ink"] = "dark"
-    elif redraw:
-        extra["logo_ink"] = "light"
+        extra["logo_ink"] = "dark" if dark_bottom else "light"
     if service and not dark_corner:
         extra["corner"] = "light"
     extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade, title.font))

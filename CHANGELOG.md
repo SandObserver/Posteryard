@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
+- Draw a one-colour title logo in white when its own colour does not reach 3:1 contrast with the art, such as The Split's black logo. Reported by @asm0dey in #326.
 
 ### Security
 
