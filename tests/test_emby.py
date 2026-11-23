@@ -86,6 +86,14 @@ def test_collections_belong_to_a_library(served: tuple[Emby, MediaBrowserRoutes]
     assert (query["ParentId"], query["IncludeItemTypes"], query["Tags"]) == ("8", "BoxSet", "posteryard-collection")
 
 
+def test_listings_show_items_inside_collections(served: tuple[Emby, MediaBrowserRoutes]) -> None:
+    emby, fake = served
+    list(emby.section_items("3", "movie"))
+    query = fake.calls[-1][2]
+    assert query["GroupItemsIntoCollections"] == "false"
+    assert "CollapseBoxSetItems" not in query
+
+
 def test_dolby_vision_and_hdr10_plus(served: tuple[Emby, MediaBrowserRoutes]) -> None:
     emby, fake = served
     for kind, level in (("DolbyVision", HdrLevel.DOLBY_VISION), ("Hdr10Plus", HdrLevel.HDR10_PLUS)):
