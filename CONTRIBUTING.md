@@ -148,7 +148,7 @@ The Plex preview shows either 12 random movies or 12 random shows from `site/pos
 ## Branches and PRs
 
 - Branch: `type/short-description`, where type is `feat`, `fix`, `perf`, `security`, `refactor`, `docs`, `chore` or `release`.
-- PR title: `Type: short description`, where Type is `Fix`, `Feature`, `Add`, `Improve`, `Refactor`, `Security` or `Docs`.
+- PR title: `Type: short description`, lowercase after the colon, where Type is `Fix`, `Feature`, `Add`, `Improve`, `Refactor`, `Security`, `Docs` or `Release`. `perf` and `chore` branches take `Improve`. The `PR title` check fails any other title.
 - User-visible changes go under `Unreleased` in [CHANGELOG.md](CHANGELOG.md), one line each.
 
 ## Releases
