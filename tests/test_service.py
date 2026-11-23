@@ -39,8 +39,7 @@ from posteryard.service import (
 from posteryard.store import Store
 from posteryard.worker import Outcome
 from tests import fakes
-from tests.fakes import FakeServer
-from tests.test_http import Server, open_idle
+from tests.fakes import Alerts, FakeServer, LocalHttpServer, open_idle
 
 
 def test_multipart_webhook_payload() -> None:
@@ -111,7 +110,7 @@ def test_an_episode_brings_its_season_and_show() -> None:
     assert related_keys({"ratingKey": "../../x", "parentRatingKey": "6", "grandparentRatingKey": "5a"}) == ["6"]
 
 
-class FakePlex(FakeServer):
+class SweepPlex(FakeServer):
     def __init__(self) -> None:
         self.ignored: list[Item] = []
 
@@ -134,9 +133,9 @@ def queued(service: Service) -> list[str]:
         return [key for priority, _, key, _ in entries if service._queued.get(key) == priority]
 
 
-def make_service(tmp_path: Path, plex: FakePlex | None = None) -> Service:
+def make_service(tmp_path: Path, plex: SweepPlex | None = None) -> Service:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path)})
-    return start(cfg, plex or FakePlex())
+    return start(cfg, plex or SweepPlex())
 
 
 def start(
@@ -171,7 +170,7 @@ def test_a_restart_resumes_an_unfinished_full_pass(tmp_path: Path) -> None:
 
 def test_only_rating_keys_limits_what_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "2"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     monkeypatch.setattr(service.worker, "leaving_days", dict)
     service.full("daily")
     assert queued(service) == ["2"]
@@ -185,7 +184,7 @@ def test_only_rating_keys_limits_leaving_retried_and_unignored_titles(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "2"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     monkeypatch.setattr(service.worker, "leaving_days", lambda: {"2": date(2026, 11, 1), "7": date(2026, 11, 1)})
     service.store.set_meta("ignored_keys", '["8"]')
     service.store.failed("9", "poster", "Nine", "boom")
@@ -199,7 +198,7 @@ def test_a_season_released_from_ignore_is_queued_when_only_rating_keys_names_its
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "ONLY_RATING_KEYS": "10"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     monkeypatch.setattr(service.worker, "leaving_days", dict)
     service.store.set_meta("ignored_keys", '["11", "12"]')
     service.store.uploaded("11", "poster", "Example Show · Season 1", "abc", "upload-1")
@@ -218,7 +217,7 @@ def test_the_sweep_queues_labelled_items(tmp_path: Path, monkeypatch: pytest.Mon
 def test_a_label_is_queued_when_it_is_added_or_removed_and_after_a_restart(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    plex = FakePlex()
+    plex = SweepPlex()
     service = make_service(tmp_path, plex)
     monkeypatch.setattr(service.worker, "leaving_days", dict)
 
@@ -235,7 +234,7 @@ def test_a_label_is_queued_when_it_is_added_or_removed_and_after_a_restart(
         patch.setattr(
             plex,
             "section_items",
-            lambda *_a, **f: [] if f.get("label") else FakePlex.section_items(plex, "3", "movie", **f),
+            lambda *_a, **f: [] if f.get("label") else SweepPlex.section_items(plex, "3", "movie", **f),
         )
         service.store.uploaded("9", "poster", "Example", "fp", "upload-1")
         assert swept(service) == ["9"]
@@ -270,7 +269,7 @@ def test_the_sweep_queues_leaving_items_that_changed_and_all_of_them_once_a_day(
     assert swept() == ["21", "22"]
 
 
-class ShowPlex(FakePlex):
+class ShowPlex(SweepPlex):
     def item(self, rating_key: str) -> Item | None:
         return {"ratingKey": rating_key, "type": "movie" if rating_key == "22" else "show"}
 
@@ -295,7 +294,7 @@ def test_the_sweep_queues_the_seasons_of_a_leaving_show(
     assert "not readable" not in caplog.text
 
 
-class ClockPlex(FakePlex):
+class ClockPlex(SweepPlex):
     def __init__(self) -> None:
         super().__init__()
         self.now = int(time.time()) - 3600
@@ -368,7 +367,7 @@ def test_a_garbled_leaving_title_does_not_stop_the_sweep(
 
 
 def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    plex = FakePlex()
+    plex = SweepPlex()
     service = make_service(tmp_path, plex)
     monkeypatch.setattr(service.worker, "leaving_days", dict)
     plex.ignored = [{"ratingKey": "5"}]
@@ -381,21 +380,12 @@ def test_an_item_that_loses_the_ignore_label_is_queued(tmp_path: Path, monkeypat
     assert service.store.get("5", "poster") is None
 
 
-class Alerts(Notifier):
-    def __init__(self) -> None:
-        super().__init__()
-        self.sent: list[str] = []
-
-    def alert(self, subject: str, message: str) -> None:
-        self.sent.append(message)
-
-
-class BrokenPlex(FakePlex):
+class BrokenPlex(SweepPlex):
     def sections(self) -> list[Item]:
         raise AttributeError("unexpected answer")
 
 
-class UnreachablePlex(FakePlex):
+class UnreachablePlex(SweepPlex):
     def __init__(self) -> None:
         super().__init__()
         self.calls = 0
@@ -420,7 +410,7 @@ def test_a_failed_scheduled_run_waits_before_trying_again(tmp_path: Path, monkey
     assert plex.calls == 1
 
 
-class SlowPlex(FakePlex):
+class SlowPlex(SweepPlex):
     def __init__(self, url: str) -> None:
         super().__init__()
         self.url = url
@@ -436,7 +426,7 @@ class SlowPlex(FakePlex):
 
 def test_idle_connections_close_while_a_sweep_step_is_slow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("posteryard.service.TICK", 0.01)
-    plex = Server()
+    plex = LocalHttpServer()
     plex.answers = [(200, {}, b"{}")]
     slow = SlowPlex(plex.url)
     service = make_service(tmp_path, slow)
@@ -466,10 +456,10 @@ def test_the_schedule_survives_an_unexpected_error(tmp_path: Path) -> None:
     thread = threading.Thread(target=service._schedule, daemon=True)
     thread.start()
     deadline = time.monotonic() + 5
-    while not alerts.sent and time.monotonic() < deadline:
+    while not alerts.messages and time.monotonic() < deadline:
         time.sleep(0.05)
     assert thread.is_alive()
-    assert alerts.sent and "unexpected answer" in alerts.sent[0]
+    assert alerts.messages and "unexpected answer" in alerts.messages[0]
     service._stop.set()
     thread.join(timeout=5)
 
@@ -488,7 +478,7 @@ def test_no_matching_library_stops_the_pass_and_keeps_records(tmp_path: Path) ->
     store = Store(tmp_path / "state.db")
     store.manual("1", "poster", "Example")
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "PLEX_LIBRARIES": "Movie"})
-    service = start(cfg, FakePlex(), store)
+    service = start(cfg, SweepPlex(), store)
     with pytest.raises(LookupError, match="Movie"):
         service.full("daily")
     assert store.get("1", "poster") is not None
@@ -504,7 +494,7 @@ def test_a_full_pass_rechecks_unlisted_items_instead_of_forgetting_them(tmp_path
 
 
 def test_a_full_pass_keeps_the_items_of_a_show_together(tmp_path: Path) -> None:
-    class Shows(FakePlex):
+    class Shows(SweepPlex):
         def sections(self) -> list[Item]:
             return [{"key": "3", "title": "TV Shows", "type": "show"}]
 
@@ -568,7 +558,7 @@ def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch:
     monkeypatch.setattr("posteryard.service.MAX_CONNECTIONS", 2)
     monkeypatch.setattr("posteryard.service.REQUEST_SECONDS", 3)
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
-    server = WebhookServer(("127.0.0.1", 0), start(cfg, FakePlex()).handler())
+    server = WebhookServer(("127.0.0.1", 0), start(cfg, SweepPlex()).handler())
     threading.Thread(target=server.serve_forever, daemon=True).start()
     address = ("127.0.0.1", int(server.server_address[1]))
     slow = [socket.create_connection(address, timeout=5) for _ in range(2)]
@@ -606,7 +596,7 @@ def test_the_webhook_server_limits_slow_connections(tmp_path: Path, monkeypatch:
 
 def test_the_webhook_server_answers_malformed_requests(tmp_path: Path) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     server = ThreadingHTTPServer(("127.0.0.1", 0), service.handler())
     threading.Thread(target=server.serve_forever, daemon=True).start()
     port = server.server_address[1]
@@ -670,7 +660,7 @@ def test_heartbeat_is_called_only_while_healthy(tmp_path: Path, monkeypatch: pyt
     threading.Thread(target=receiver.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{receiver.server_address[1]}/api/push/example?status=up"
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": url})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     try:
         service.heartbeat()
         service.heartbeat()
@@ -691,7 +681,7 @@ def test_an_unexpected_heartbeat_error_leaves_the_schedule_running(
         raise ValueError("Port could not be cast to integer value")
 
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": "http://kuma.example/x"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     monkeypatch.setattr(posteryard_http, "request", broken)
     service.heartbeat()
     assert "HEARTBEAT_URL not reachable" in caplog.text
@@ -701,7 +691,7 @@ def test_an_unreadable_health_state_skips_the_heartbeat(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "HEARTBEAT_URL": "http://kuma.example/x"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
 
     def locked(*args: Any) -> str:
         raise sqlite3.OperationalError("database is locked")
@@ -729,7 +719,7 @@ def test_the_watchdog_stops_the_server_when_a_thread_dies(tmp_path: Path, monkey
     service._watch(type("S", (), {"shutdown": lambda self: stopped.append(True)})())
     assert stopped == [True]
     assert service.exit_code == 1
-    assert alerts.sent and "worker" in alerts.sent[0]
+    assert alerts.messages and "worker" in alerts.messages[0]
 
 
 def test_the_watchdog_stops_even_when_the_alert_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -750,7 +740,7 @@ def test_the_watchdog_stops_even_when_the_alert_fails(tmp_path: Path, monkeypatc
     assert service._stop.is_set()
 
 
-class LabelPlex(FakePlex):
+class LabelPlex(SweepPlex):
     def __init__(self) -> None:
         super().__init__()
         self.custom: list[Item] = [{"ratingKey": "9"}]
@@ -761,7 +751,7 @@ class LabelPlex(FakePlex):
             return self.custom
         if label == "posteryard-next":
             return []
-        return FakePlex.section_items(self, section_key, kind, label=label)
+        return SweepPlex.section_items(self, section_key, kind, label=label)
 
 
 def test_removed_labels_are_queued_after_a_restart(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -825,7 +815,7 @@ def test_the_watchdog_restarts_when_the_worker_is_stuck(tmp_path: Path, monkeypa
     service._watch(type("S", (), {"shutdown": lambda self: stopped.append(True)})())
     assert stopped == [True]
     assert service.exit_code == 1
-    assert alerts.sent and "30 minutes" in alerts.sent[0]
+    assert alerts.messages and "30 minutes" in alerts.messages[0]
 
 
 def test_the_worker_loop_processes_each_queued_key_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -898,7 +888,7 @@ def test_a_malformed_webhook_item_answer_still_queues_the_item(tmp_path: Path, m
 
 def test_a_webhook_answers_before_the_server_lookup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example-secret"})
-    service = start(cfg, FakePlex())
+    service = start(cfg, SweepPlex())
     looked_up: list[str] = []
     monkeypatch.setattr(service.server, "item", looked_up.append)
     server = WebhookServer(("127.0.0.1", 0), service.handler())
@@ -968,12 +958,12 @@ class FakeNotifier(Notifier):
         self.sent.append(f"resolved {cause}")
 
 
-class TwoShowLibraries(FakePlex):
+class TwoShowLibraries(SweepPlex):
     def sections(self) -> list[Item]:
         return [{"key": "4", "title": "TV Shows", "type": "show"}, {"key": "5", "title": "Anime", "type": "show"}]
 
 
-def collections_service(tmp_path: Path, plex: FakePlex, **env: str) -> tuple[Service, list[str], FakeNotifier]:
+def collections_service(tmp_path: Path, plex: SweepPlex, **env: str) -> tuple[Service, list[str], FakeNotifier]:
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "SERVICE_COLLECTIONS": "true",
                        "LIBRARIES": "TV Shows,Anime", **env})  # fmt: skip
     notifier = FakeNotifier()
@@ -1036,7 +1026,7 @@ def test_a_failed_collection_sync_does_not_stop_the_full_pass(
     assert service.store.meta("last_full")
 
 
-class OtherServer(FakePlex):
+class OtherServer(SweepPlex):
     def server_id(self) -> str:
         return "emby:other"
 
@@ -1051,7 +1041,7 @@ def test_the_service_stops_on_a_data_folder_from_another_server(tmp_path: Path) 
     service._schedule()
     assert service.exit_code == 2
     assert service._stop.is_set() and not service.server_checked.is_set()
-    assert alerts.sent and "plex:example" in alerts.sent[0]
+    assert alerts.messages and "plex:example" in alerts.messages[0]
 
 
 def test_the_worker_waits_for_the_server_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1086,7 +1076,7 @@ class Messages(Notifier):
 def messages_service(tmp_path: Path) -> tuple[Service, Messages]:
     notifier = Messages()
     cfg = config.load({"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "DRY_RUN": "false"})
-    return start(cfg, FakePlex(), notifier=notifier), notifier
+    return start(cfg, SweepPlex(), notifier=notifier), notifier
 
 
 def test_a_full_check_ends_with_a_summary(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
@@ -1185,7 +1175,7 @@ def test_one_failed_library_keeps_the_collections_problem_open(tmp_path: Path, m
     assert notifier.sent == ["collections", "resolved collections"]
 
 
-class ChangedSince(FakePlex):
+class ChangedSince(SweepPlex):
     def __init__(self) -> None:
         super().__init__()
         self.since: list[int] = []
@@ -1331,7 +1321,7 @@ def test_a_library_that_cannot_be_listed_does_not_stop_the_sweep(
 def test_leaving_seasons_stop_after_repeated_network_failures(tmp_path: Path) -> None:
     calls: list[str] = []
 
-    class Down(FakePlex):
+    class Down(SweepPlex):
         def item(self, rating_key: str) -> Item | None:
             calls.append(rating_key)
             raise posteryard_http.TemporaryError("ConnectTimeoutError", "http://plex.example:32400/x")
@@ -1341,7 +1331,7 @@ def test_leaving_seasons_stop_after_repeated_network_failures(tmp_path: Path) ->
     assert len(calls) == 3
 
 
-class DatedPlex(FakePlex):
+class DatedPlex(SweepPlex):
     def __init__(self, newest: int, rows: dict[str, int]) -> None:
         super().__init__()
         self.newest, self.rows = newest, rows
@@ -1426,7 +1416,7 @@ def test_serve_stops_before_starting_when_the_port_is_taken(tmp_path: Path, capl
         cfg = config.load(
             {"TMDB_API_KEY": "example", "DATA_DIR": str(tmp_path), "WEBHOOK_SECRET": "example", "LISTEN_PORT": port}
         )
-        service = start(cfg, FakePlex())
+        service = start(cfg, SweepPlex())
         assert service.run() == 1
     assert service.threads == []
     assert "webhook port unavailable" in caplog.text

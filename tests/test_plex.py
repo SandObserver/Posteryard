@@ -14,7 +14,7 @@ from posteryard.server import Item, external_ids, is_target, labels, tmdb_id
 BASE = "http://plex.example:32400"
 
 
-class Server:
+class PlexRoutes:
     """Answers Plex requests from a table of path -> JSON, and records every call."""
 
     def __init__(self, routes: dict[str, Any]) -> None:
@@ -37,9 +37,9 @@ class Server:
 
 
 @pytest.fixture
-def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Plex, Server]]:
-    def start(routes: dict[str, Any]) -> tuple[Plex, Server]:
-        server = Server(routes)
+def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Plex, PlexRoutes]]:
+    def start(routes: dict[str, Any]) -> tuple[Plex, PlexRoutes]:
+        server = PlexRoutes(routes)
         monkeypatch.setattr(http, "request", server)
         return Plex(BASE, "example-token"), server
 

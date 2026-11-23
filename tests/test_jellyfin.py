@@ -12,6 +12,7 @@ from posteryard import http, jellyfin
 from posteryard.jellyfin import LIBRARIES_MISS_SECONDS, LIBRARIES_SECONDS, Jellyfin, _xmltv_pictures
 from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
 from posteryard.server import CHANGE_FIELDS
+from tests.fakes import MediaBrowserRoutes
 
 BASE = "http://jellyfin.example:8096"
 MOVIE = "a" * 32
@@ -50,27 +51,9 @@ EPISODE_RAW = {
 }
 
 
-class Server:
-    def __init__(self, routes: dict[str, Any]) -> None:
-        self.routes = routes
-        self.calls: list[tuple[str, str, dict[str, str], bytes | None]] = []
-
-    def __call__(self, method: str, url: str, **kwargs: Any) -> bytes:
-        parts = urllib.parse.urlsplit(url)
-        assert kwargs["headers"]["Authorization"] == 'MediaBrowser Token="example-key"'
-        query = dict(urllib.parse.parse_qsl(parts.query))
-        self.calls.append((method, parts.path, query, kwargs.get("data")))
-        answer = self.routes.get(f"{method} {parts.path}", self.routes.get(parts.path))
-        if callable(answer):
-            answer = answer(query)
-        if answer is None:
-            raise http.HttpError(404, url)
-        return answer if isinstance(answer, bytes) else json.dumps(answer).encode()
-
-
 @pytest.fixture
-def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Jellyfin, Server]]:
-    def start(routes: dict[str, Any]) -> tuple[Jellyfin, Server]:
+def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[Jellyfin, MediaBrowserRoutes]]:
+    def start(routes: dict[str, Any]) -> tuple[Jellyfin, MediaBrowserRoutes]:
         base = {
             "/Users": [{"Id": "0" * 32, "Policy": {}}, {"Id": USER, "Policy": {"IsAdministrator": True}}],
             "/Library/VirtualFolders": [
@@ -79,7 +62,7 @@ def serve(monkeypatch: pytest.MonkeyPatch) -> Callable[[dict[str, Any]], tuple[J
                 {"ItemId": "2" * 32, "Name": "Music", "CollectionType": "music", "Locations": ["/media/music"]},
             ],
         }
-        server = Server({**base, **routes})
+        server = MediaBrowserRoutes({**base, **routes})
         monkeypatch.setattr(http, "request", server)
         return Jellyfin(BASE, "example-key"), server
 

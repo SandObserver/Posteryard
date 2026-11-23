@@ -7,7 +7,7 @@ from datetime import date
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, ClassVar
+from typing import Any
 
 import pytest
 from PIL import Image, features
@@ -18,49 +18,13 @@ from posteryard.maintainerr import Maintainerr
 from posteryard.notify import Notifier
 from posteryard.plex import Plex
 from posteryard.store import Store
-from posteryard.worker import Outcome, Restored
-from tests.test_lookup import FakePlex
-
-ENV = {"TMDB_API_KEY": "example", "PLEX_URL": "http://plex.example:32400", "PLEX_TOKEN": "example"}
-
-
-class FakeWorker:
-    calls: ClassVar[list[tuple[str, str]]] = []
-
-    restored: ClassVar[Restored] = Restored()
-
-    def __init__(self, *args: Any) -> None:
-        FakeWorker.calls = []
-        self.server = args[1]
-        self.ctx = SimpleNamespace(sources=SimpleNamespace())
-
-    def process(self, key: str) -> Outcome:
-        self.calls.append(("process", key))
-        return Outcome.UPLOADED
-
-    def next_art(self, key: str) -> Outcome:
-        self.calls.append(("next", key))
-        return Outcome.PREVIEW
-
-    def reset_art(self, key: str) -> Outcome:
-        self.calls.append(("reset", key))
-        return Outcome.UPLOADED
-
-    def set_custom(self, key: str, image: Any) -> Outcome:
-        self.calls.append(("set", key))
-        return Outcome.UPLOADED
-
-    def restore_all(self) -> Restored:
-        return self.restored
+from posteryard.worker import Restored
+from tests.fakes import FakeWorker, LookupPlex, cli_main
 
 
 @pytest.fixture
 def run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    for name, value in {**ENV, "DATA_DIR": str(tmp_path)}.items():
-        monkeypatch.setenv(name, value)
-    monkeypatch.setattr(cli, "Plex", lambda url, token: FakePlex())
-    monkeypatch.setattr(cli, "Worker", FakeWorker)
-    return cli.main
+    return cli_main(tmp_path, monkeypatch)
 
 
 def test_art_next_by_name_without_quotes(run: Any, capsys: pytest.CaptureFixture[str]) -> None:
@@ -180,7 +144,7 @@ def test_a_data_folder_from_another_server_stops_the_command(
     run: Any, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     assert run(["forget", "5646"]) == 0
-    other = FakePlex()
+    other = LookupPlex()
     other.identity = "emby:other"
     monkeypatch.setattr(cli, "Plex", lambda url, token: other)
     FakeWorker.calls = []
