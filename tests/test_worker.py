@@ -906,13 +906,27 @@ def test_a_setup_failure_shows_its_hint_once_then_a_count(tmp_path: Path, caplog
             assert worker.process(key) == Outcome.FAILED
         worker.report_repeats()
         worker.report_repeats()
-    lines = [(r.getMessage(), getattr(r, "hint", None), getattr(r, "titles", None)) for r in caplog.records]
+    lines = [
+        (r.getMessage(), getattr(r, "reason", None), getattr(r, "hint", None), getattr(r, "titles", None))
+        for r in caplog.records
+    ]
     assert lines == [
-        ("item failed", "Plex refused the key. Check PLEX_TOKEN", None),
-        ("more titles failed the same way", "Plex refused the key. Check PLEX_TOKEN", 2),
+        ("item failed", "HTTP 401", "Check PLEX_TOKEN", None),
+        ("more titles failed the same way", None, None, 2),
     ]
     assert len(store.retry_due(now=float("inf"))) == 3
     caplog.clear()
     with caplog.at_level(logging.INFO):
         worker.process("1")
-    assert getattr(caplog.records[-1], "hint", None) == "Plex refused the key. Check PLEX_TOKEN"
+    assert getattr(caplog.records[-1], "hint", None) == "Check PLEX_TOKEN"
+
+
+def test_an_alert_says_what_to_check(tmp_path: Path) -> None:
+    worker, _, _, alerts = make(tmp_path)
+    worker.server = RefusingPlex()
+    for _ in range(3):
+        worker.process("1")
+    assert alerts.messages == [
+        "1 failed 3 times: HTTP 401. Check PLEX_TOKEN."
+        " Help: https://github.com/SandObserver/Posteryard/blob/main/docs/troubleshooting.md"
+    ]

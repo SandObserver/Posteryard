@@ -90,7 +90,7 @@ class Worker:
     def report_repeats(self) -> None:
         """Call when the queue is empty. The next failure of each kind shows its hint again."""
         for kind, count in sorted(self._repeats.items()):
-            log.warning("more titles failed the same way", extra={"titles": count, **self._hints[kind].fields()})
+            log.warning("more titles failed the same way", extra={"error_type": kind, "titles": count})
         self._repeats.clear()
         self._hinted.clear()
 
@@ -405,21 +405,25 @@ class Worker:
 
     def _failed(self, rating_key: str, title: str, exc: Exception) -> None:
         failures = self.store.failed(rating_key, ITEM_TARGET, title, str(exc))
-        fields: dict[str, object] = {"title": title, "key": rating_key, "attempt": failures, "reason": str(exc)}
         found = hints.explain(exc, self.server.name, self.server.url)
+        reason = hints.short_reason(exc, found)
+        fields: dict[str, object] = {"title": title, "key": rating_key, "attempt": failures}
         if found is None:
-            log.warning("item failed", extra=fields)
+            log.warning("item failed", extra={**fields, "reason": reason})
         elif found.kind not in self._hinted:
             self._hinted.add(found.kind)
             self._hints[found.kind] = found
-            log.warning("item failed", extra={**fields, **found.fields()})
+            log.warning("item failed", extra={**fields, "error_type": found.kind, "reason": reason, "hint": found.text})
         elif found.shared:
             self._repeats[found.kind] += 1
-            log.debug("item failed", extra={**fields, "error_type": found.kind})
+            log.debug("item failed", extra={**fields, "error_type": found.kind, "reason": reason})
         else:
-            log.warning("item failed", extra={**fields, "error_type": found.kind})
+            log.warning("item failed", extra={**fields, "error_type": found.kind, "reason": reason})
+        if found is not None:
+            log.debug("failure detail", extra={"title": title, "reason": str(exc)})
         if failures >= ALERT_AFTER:
-            self.notifier.alert(_upstream(exc, self.server), f"{title} failed {failures} times: {exc}")
+            advice = f" {found.text}. Help: {hints.DOCS}" if found else ""
+            self.notifier.alert(_upstream(exc, self.server), f"{title} failed {failures} times: {reason}.{advice}")
 
 
 def _upstream(exc: Exception, server: MediaServer) -> str:

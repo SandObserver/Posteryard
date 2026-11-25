@@ -8,8 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- Add `error_type`, a `hint` with what to check and a link to the troubleshooting page to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change.
+- Add an `error_type` and a short `hint` to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change. The troubleshooting page explains each type, and the startup block links to it.
 - Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
+- Log the full reason and the request address of a known setup problem only at `LOG_LEVEL=debug`.
+- Add the hint and the troubleshooting link to alerts for a title that keeps failing.
+- Log only the message of a JSON error answer, such as TMDB's, in place of the whole answer.
 - Stop retrying a Jellyfin or Emby background delete that fails with a server error.
 - Say how to make a `WEBHOOK_SECRET` when it is missing.
 

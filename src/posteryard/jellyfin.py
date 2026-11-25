@@ -111,6 +111,12 @@ def _media(streams: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}
 
 
+class KeptOutsideError(http.RequestError):
+    def __init__(self, server: str, noun: str, url: str) -> None:
+        super().__init__(f"{server} kept the new {noun} in its metadata folder", url)
+        self.server, self.noun = server, noun
+
+
 def _tag(raw: Mapping[str, Any], target: Target) -> str | None:
     if target == "art":
         tags = raw.get("BackdropImageTags") or []
@@ -383,12 +389,8 @@ class Jellyfin:
         # The old backgrounds and their files were deleted before the upload.
         local_before = target != "art" and bool(before) and self._inside(before, library)
         if local_before or library.get("saves_locally"):
-            noun = NOUNS[target]
-            raise http.RequestError(
-                f"{self.name} kept the new {noun} in its metadata folder, so the {noun} file in the media folder"
-                f' comes back at the next library scan. Turn on "Save artwork into media folders" for the library'
-                f" and let {self.name} write to the media folder",
-                self._url(f"/Items/{rating_key}/Images/{IMAGE_TYPES[target]}"),
+            raise KeptOutsideError(
+                self.name, NOUNS[target], self._url(f"/Items/{rating_key}/Images/{IMAGE_TYPES[target]}")
             )
 
     @staticmethod

@@ -649,11 +649,7 @@ class Service:
                     self.full("daily")
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
-                found = hints.explain(exc, self.server.name, self.server.url)
-                log.warning(
-                    "scheduled run failed, trying again in 2 minutes",
-                    extra={"reason": str(exc), **(found.fields() if found else {})},
-                )
+                self._log_run_failure(exc)
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {exc}")
                 retry_at = time.monotonic() + RETRY_SECONDS
             except Exception as exc:  # The schedule thread must survive any error.
@@ -661,6 +657,16 @@ class Service:
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {type(exc).__name__}: {exc}")
                 retry_at = time.monotonic() + RETRY_SECONDS
             self._stop.wait(TICK)
+
+    def _log_run_failure(self, exc: Exception) -> None:
+        found = hints.explain(exc, self.server.name, self.server.url)
+        hinted = {"error_type": found.kind, "hint": found.text} if found else {}
+        log.warning(
+            "scheduled run failed, trying again in 2 minutes",
+            extra={**hinted, "reason": hints.short_reason(exc, found)},
+        )
+        if found is not None:
+            log.debug("failure detail", extra={"reason": str(exc)})
 
     def connect(self) -> None:
         found = [str(s.get("title")) for s in self._sections()]
@@ -820,6 +826,7 @@ class Service:
             ("Heartbeat", "on" if cfg.heartbeat_url else "off"),
             ("Webhook", f":{cfg.listen_port} in the container"),
             ("Data", str(cfg.data_dir)),
+            ("Help", hints.DOCS),
         ]
         if cfg.only_rating_keys:
             rows.append(("Only", f"{len(cfg.only_rating_keys)} items from ONLY_RATING_KEYS"))
