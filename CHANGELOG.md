@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
 - Log the full reason and the request address of a known setup problem only at `LOG_LEVEL=debug`.
 - Add the hint and the troubleshooting link to alerts for a title that keeps failing.
+- Stop retrying an `https://` address on a port that serves plain HTTP. Add a hint to a refused TLS certificate, and to a read-only media folder that Emby reports.
 - Log only the message of a JSON error answer, such as TMDB's, in place of the whole answer.
 - Stop retrying a Jellyfin or Emby background delete that fails with a server error.
 - Say how to make a `WEBHOOK_SECRET` when it is missing.

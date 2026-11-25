@@ -51,6 +51,8 @@ def _server(exc: http.RequestError, name: str) -> Hint | None:
     status = exc.status if isinstance(exc, http.HttpError) else 0
     if status in (HTTPStatus.UNAUTHORIZED, HTTPStatus.FORBIDDEN):
         return Hint("server_auth", f"Check {key}", shared=True)
+    if status >= HTTPStatus.INTERNAL_SERVER_ERROR and "Read-only file system" in exc.reason:
+        return Hint("server_image_change", f"Make the media folder writable for {name}", shared=False)
     if status >= HTTPStatus.INTERNAL_SERVER_ERROR and name != "Plex" and "/Images/" in urlsplit(exc.url).path:
         return Hint(
             "server_image_change", f"Read the {name} log. A read-only media folder is the usual cause", shared=False
@@ -65,6 +67,8 @@ def _server(exc: http.RequestError, name: str) -> Hint | None:
         )
     if exc.reason.startswith("SSLError WRONG_VERSION_NUMBER"):
         return Hint("server_tls", f"Use http:// in {address}", shared=True)
+    if exc.reason.startswith("TLS certificate refused"):
+        return Hint("server_tls", f"Use http:// in {address}, or an address the certificate is valid for", shared=True)
     if exc.reason.startswith(NO_ANSWER):
         return Hint("server_unreachable", f"Check the address and port in {address}", shared=True)
     return None
