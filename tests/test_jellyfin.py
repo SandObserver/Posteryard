@@ -570,3 +570,60 @@ def test_seasons_without_folders_read_their_show_once_per_listing(serve: Any) ->
     assert [c[1] for c in server.calls].count(f"/Items/{SERIES}") == 1
     jellyfin.children(SERIES)
     assert [c[1] for c in server.calls].count(f"/Items/{SERIES}") == 2
+
+
+LOCAL = "/media/movies/Ford v Ferrari (2019)/poster.jpg"
+KEPT = f"/config/metadata/library/aa/{MOVIE}/poster.jpg"
+
+
+def _kept(serve: Any, before: str, after: str, *, saves_locally: bool, target: Any = "poster") -> Jellyfin:
+    kind = "Backdrop" if target == "art" else "Primary"
+    paths = iter([before, after])
+    folders = [
+        {
+            "ItemId": LIBRARY,
+            "Name": "Movies",
+            "CollectionType": "movies",
+            "Locations": ["/media/movies"],
+            "LibraryOptions": {"SaveLocalMetadata": saves_locally},
+        }
+    ]
+    jellyfin, _ = serve(
+        {
+            "/Library/VirtualFolders": folders,
+            f"GET /Items/{MOVIE}": FORD,
+            f"GET /Items/{MOVIE}/Images": lambda q: [{"ImageType": kind, "Path": next(paths)}],
+            f"DELETE /Items/{MOVIE}/Images/Backdrop": b"",
+            f"POST /Items/{MOVIE}/Images/{kind}": b"",
+        }
+    )
+    assert isinstance(jellyfin, Jellyfin)
+    return jellyfin
+
+
+@pytest.mark.parametrize(
+    ("before", "saves_locally"),
+    [(LOCAL, False), (LOCAL, True), (KEPT, True)],
+    ids=["local-file", "unwritable", "again"],
+)
+def test_an_upload_a_media_folder_file_replaces_at_the_next_scan_is_an_error(
+    serve: Any, before: str, saves_locally: bool
+) -> None:
+    jellyfin = _kept(serve, before, KEPT, saves_locally=saves_locally)
+    with pytest.raises(http.RequestError, match="comes back at the next library scan"):
+        jellyfin.upload(MOVIE, "poster", b"\xff\xd8jpeg")
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "saves_locally", "target"),
+    [
+        (KEPT, KEPT, False, "poster"),
+        (LOCAL, "/media/movies/Ford v Ferrari (2019)/folder.jpg", True, "poster"),
+        ("/media/movies/Ford v Ferrari (2019)/backdrop.jpg", KEPT, False, "art"),
+    ],
+    ids=["metadata-only", "written-to-media", "background-deleted-first"],
+)
+def test_an_upload_that_stays_is_accepted(
+    serve: Any, before: str, after: str, saves_locally: bool, target: Any
+) -> None:
+    assert _kept(serve, before, after, saves_locally=saves_locally, target=target).upload(MOVIE, target, b"\xff\xd8")

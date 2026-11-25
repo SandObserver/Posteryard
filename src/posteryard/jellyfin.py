@@ -32,6 +32,7 @@ TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "epi
 INCLUDE = {kind: name for name, kind in TYPES.items()}
 LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
+NOUNS: dict[Target, str] = {"poster": "poster", "thumb": "thumbnail", "art": "background"}
 FIELDS = "ProviderIds,DateCreated,DateLastSaved,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
 LIBRARIES_SECONDS = 600
@@ -110,6 +111,14 @@ def _media(streams: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}
 
 
+def _tag(raw: Mapping[str, Any], target: Target) -> str | None:
+    if target == "art":
+        tags = raw.get("BackdropImageTags") or []
+        return str(tags[0]) if tags else None
+    tag = (raw.get("ImageTags") or {}).get("Primary")
+    return str(tag) if tag else None
+
+
 class Jellyfin:
     name = "Jellyfin"
     collections_per_library = False
@@ -173,6 +182,7 @@ class Jellyfin:
                     "title": str(folder["Name"]),
                     "type": LIBRARY_TYPES[str(folder.get("CollectionType"))],
                     "paths": [_folder(str(p)) for p in folder.get("Locations") or []],
+                    "saves_locally": bool((folder.get("LibraryOptions") or {}).get("SaveLocalMetadata")),
                 }
                 for folder in self._get("/Library/VirtualFolders")
                 if folder.get("CollectionType") in LIBRARY_TYPES
@@ -326,16 +336,12 @@ class Jellyfin:
         return raw
 
     def selected(self, rating_key: str, target: Target) -> str | None:
-        raw = self._raw(rating_key)
-        if target == "art":
-            tags = raw.get("BackdropImageTags") or []
-            return str(tags[0]) if tags else None
-        tag = (raw.get("ImageTags") or {}).get("Primary")
-        return str(tag) if tag else None
+        return _tag(self._raw(rating_key), target)
 
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         """Jellyfin takes the image as base64 text. Raw bytes answer HTTP 500."""
         image_type = IMAGE_TYPES[target]
+        before = self._image_path(rating_key, image_type)
         if target == "art":
             for _ in self._raw(rating_key).get("BackdropImageTags") or []:
                 self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", imageIndex=0)
@@ -347,10 +353,47 @@ class Jellyfin:
             # Each background sent is added to the list. The next run deletes them all first.
             retries=1 if target == "art" else 3,
         )
-        tag = self.selected(rating_key, target)
+        raw = self._raw(rating_key)
+        tag = _tag(raw, target)
         if not tag:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/Items/{rating_key}"))
+        self._check_kept(rating_key, raw, target, before)
         return tag
+
+    def _image_path(self, rating_key: str, image_type: str) -> str:
+        try:
+            images = self._get(f"/Items/{self._id(rating_key)}/Images") or []
+        except http.HttpError as exc:
+            if exc.status not in (400, 404):
+                raise
+            return ""
+        return next(
+            (str(i.get("Path") or "") for i in images if i.get("ImageType") == image_type and not i.get("ImageIndex")),
+            "",
+        )
+
+    def _check_kept(self, rating_key: str, raw: Mapping[str, Any], target: Target, before: str) -> None:
+        """An image file in the media folder replaces an upload kept in the metadata folder at the next library scan."""
+        library = self._library(_folder(self._path(raw, {})).rstrip("/"))
+        if library is None:
+            return
+        after = self._image_path(rating_key, IMAGE_TYPES[target])
+        if not after or self._inside(after, library):
+            return
+        # The old backgrounds and their files were deleted before the upload.
+        local_before = target != "art" and bool(before) and self._inside(before, library)
+        if local_before or library.get("saves_locally"):
+            noun = NOUNS[target]
+            raise http.RequestError(
+                f"{self.name} kept the new {noun} in its metadata folder, so the {noun} file in the media folder"
+                f' comes back at the next library scan. Turn on "Save artwork into media folders" for the library'
+                f" and let {self.name} write to the media folder",
+                self._url(f"/Items/{rating_key}/Images/{IMAGE_TYPES[target]}"),
+            )
+
+    @staticmethod
+    def _inside(path: str, library: Item) -> bool:
+        return any(_folder(path).startswith(p) for p in library["paths"])
 
     def poster_bytes(self, item: Item) -> bytes:
         return http.request(

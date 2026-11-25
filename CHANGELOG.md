@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.
 - Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
 
 ### Security
