@@ -237,4 +237,7 @@ def require_server(cfg: Config) -> None:
 def require_service(cfg: Config) -> None:
     require_server(cfg)
     if not cfg.webhook_secret:
-        raise ConfigError("WEBHOOK_SECRET is required to run the service")
+        raise ConfigError(
+            "WEBHOOK_SECRET is required to run the service. Set it to any long random text,"
+            " such as the output of openssl rand -hex 16"
+        )

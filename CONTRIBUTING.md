@@ -71,6 +71,7 @@ A title goes through these modules in order:
 | `livetv.py` | Live TV: reads the guide from Plex or Jellyfin (`GuideServer` in `server.py`), matches titles on TMDB, uploads guide posters and selects them again after a guide refresh. `render/livetv.py` draws the title, frosted and guide picture cards, and puts the channel logo in the corner of TMDB posters. |
 | `why.py` | The `why` command: checks a poster's art candidates again and names the reason for each. |
 | `logfmt.py` | The log format and the startup block. |
+| `hints.py` | The `error_type` and hint for a failure the user can fix. Add each new type to `docs/troubleshooting.md`. |
 
 Log a short fixed message and put the values in `extra`: `log.info("poster uploaded", extra={"title": name})`. Keys must not be `LogRecord` attribute names, such as `name`, `module` or `thread`: logging raises `KeyError`.
 

@@ -1,0 +1,55 @@
+import pytest
+
+from posteryard import http
+from posteryard.hints import explain
+
+JELLYFIN = "http://jellyfin.example:8096"
+ITEM = f"{JELLYFIN}/Items/{'a' * 32}"
+TMDB = "https://api.themoviedb.org/3/movie/42"
+
+
+@pytest.mark.parametrize(
+    ("exc", "server", "kind", "says"),
+    [
+        (http.HttpError(401, f"{JELLYFIN}/Library/VirtualFolders"), "Jellyfin", "server_auth", "JELLYFIN_API_KEY"),
+        (http.HttpError(403, "http://plex.example:32400/library/sections"), "Plex", "server_auth", "PLEX_TOKEN"),
+        (http.HttpError(500, f"{ITEM}/Images/Backdrop?imageIndex=0"), "Jellyfin", "server_image_change", "write"),
+        (http.HttpError(500, f"{ITEM}/Images/Primary"), "Emby", "server_image_change", "The Emby log"),
+        (http.HttpError(500, "http://plex.example:32400/library/metadata/1/posters"), "Plex", "server_error", "log"),
+        (http.TemporaryError("NameResolutionError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "name"),
+        (http.TemporaryError("NewConnectionError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "port"),
+        (http.TemporaryError("ConnectTimeoutError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "port"),
+        (
+            http.TemporaryError("SSLError WRONG_VERSION_NUMBER", "https://jellyfin.example:8096/System"),
+            "Jellyfin",
+            "server_tls",
+            "http://",
+        ),
+        (http.HttpError(401, TMDB), "Jellyfin", "tmdb_auth", "TMDB_API_KEY"),
+        (http.TemporaryError("NameResolutionError", TMDB), "Jellyfin", "tmdb_unreachable", "DNS"),
+    ],
+)
+def test_known_failures_say_what_to_check(exc: http.RequestError, server: str, kind: str, says: str) -> None:
+    url = "http://plex.example:32400" if server == "Plex" else JELLYFIN
+    found = explain(exc, server, url)
+    assert found is not None
+    assert found.kind == kind
+    assert says in found.text
+    assert found.fields()["docs"].endswith("troubleshooting.md")
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        http.HttpError(404, TMDB),
+        http.HttpError(502, "https://assets.fanart.tv/x.jpg"),
+        http.TemporaryError("response too slow", f"{JELLYFIN}/Items"),
+        ValueError("broken image"),
+    ],
+)
+def test_other_failures_have_no_hint(exc: Exception) -> None:
+    assert explain(exc, "Jellyfin", JELLYFIN) is None
+
+
+def test_a_server_error_from_another_host_is_not_the_server() -> None:
+    assert explain(http.HttpError(401, "http://other.example:8096/Items"), "Jellyfin", JELLYFIN) is None
