@@ -610,7 +610,7 @@ def test_an_upload_a_media_folder_file_replaces_at_the_next_scan_is_an_error(
     serve: Any, before: str, saves_locally: bool
 ) -> None:
     jellyfin = _kept(serve, before, KEPT, saves_locally=saves_locally)
-    with pytest.raises(http.RequestError, match="comes back at the next library scan"):
+    with pytest.raises(http.RequestError, match=r"^Jellyfin kept the new poster in its metadata folder for "):
         jellyfin.upload(MOVIE, "poster", b"\xff\xd8jpeg")
 
 

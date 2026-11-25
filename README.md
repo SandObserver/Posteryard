@@ -185,7 +185,7 @@ docker exec posteryard posteryard art next The Office
 - [Jellyfin and Emby](docs/jellyfin-and-emby.md): setup and differences from Plex.
 - [How it works](docs/how-it-works.md): what each image looks like, where the art comes from, when it runs, and what it changes.
 - [Alerts and monitoring](docs/alerts-and-monitoring.md): notifications, health check and Uptime Kuma.
-- [Troubleshooting](docs/troubleshooting.md): log messages and what to do.
+- [Troubleshooting](docs/troubleshooting.md): log messages, each `error_type`, and what to do.
 - [Upgrade, back up, uninstall](docs/maintenance.md)
 
 ## Contributing

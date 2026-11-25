@@ -33,6 +33,7 @@ SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 ERROR_EXCERPT = 4096
+ERROR_MESSAGE_KEYS = ("status_message", "detail", "title", "message", "error")
 MAX_REDIRECTS = 5
 DEFAULT_PORTS = {"http": 80, "https": 443}
 RETRY_AFTER_MAX = 60.0
@@ -236,9 +237,23 @@ class TemporaryError(RequestError):
 
 class HttpError(RequestError):
     def __init__(self, status: int, url: str, body: str = "") -> None:
-        detail = "" if body.lstrip().startswith("<") else " ".join(body.split())[:200]
+        detail = _detail(body)
         super().__init__(f"HTTP {status}: {detail}" if detail else f"HTTP {status}", url)
         self.status = status
+
+
+def _detail(body: str) -> str:
+    """The message of a JSON error, or the text on one line. RFC 9457 calls it `detail` or `title`."""
+    text = body.strip()
+    if text.startswith("<"):
+        return ""
+    try:
+        data = json.loads(text) if text.startswith("{") else None
+    except ValueError:
+        data = None
+    if isinstance(data, dict):
+        text = next((data[k] for k in ERROR_MESSAGE_KEYS if isinstance(data.get(k), str) and data[k].strip()), text)
+    return " ".join(text.split())[:200]
 
 
 class RedirectError(RequestError):

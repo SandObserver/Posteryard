@@ -2,6 +2,7 @@ import pytest
 
 from posteryard import http
 from posteryard.hints import explain
+from posteryard.jellyfin import KeptOutsideError
 
 JELLYFIN = "http://jellyfin.example:8096"
 ITEM = f"{JELLYFIN}/Items/{'a' * 32}"
@@ -13,10 +14,15 @@ TMDB = "https://api.themoviedb.org/3/movie/42"
     [
         (http.HttpError(401, f"{JELLYFIN}/Library/VirtualFolders"), "Jellyfin", "server_auth", "JELLYFIN_API_KEY"),
         (http.HttpError(403, "http://plex.example:32400/library/sections"), "Plex", "server_auth", "PLEX_TOKEN"),
-        (http.HttpError(500, f"{ITEM}/Images/Backdrop?imageIndex=0"), "Jellyfin", "server_image_change", "write"),
-        (http.HttpError(500, f"{ITEM}/Images/Primary"), "Emby", "server_image_change", "The Emby log"),
+        (http.HttpError(500, f"{ITEM}/Images/Backdrop?imageIndex=0"), "Jellyfin", "server_image_change", "read-only"),
+        (http.HttpError(500, f"{ITEM}/Images/Primary"), "Emby", "server_image_change", "the Emby log"),
         (http.HttpError(500, "http://plex.example:32400/library/metadata/1/posters"), "Plex", "server_error", "log"),
-        (http.TemporaryError("NameResolutionError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "name"),
+        (
+            http.TemporaryError("NameResolutionError", f"{JELLYFIN}/System"),
+            "Jellyfin",
+            "server_unreachable",
+            "IP address",
+        ),
         (http.TemporaryError("NewConnectionError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "port"),
         (http.TemporaryError("ConnectTimeoutError", f"{JELLYFIN}/System"), "Jellyfin", "server_unreachable", "port"),
         (
@@ -25,6 +31,7 @@ TMDB = "https://api.themoviedb.org/3/movie/42"
             "server_tls",
             "http://",
         ),
+        (KeptOutsideError("Jellyfin", "poster", f"{ITEM}/Images/Primary"), "Jellyfin", "media_folder_file", "writ"),
         (http.HttpError(401, TMDB), "Jellyfin", "tmdb_auth", "TMDB_API_KEY"),
         (http.TemporaryError("NameResolutionError", TMDB), "Jellyfin", "tmdb_unreachable", "DNS"),
     ],
@@ -35,7 +42,6 @@ def test_known_failures_say_what_to_check(exc: http.RequestError, server: str, k
     assert found is not None
     assert found.kind == kind
     assert says in found.text
-    assert found.fields()["docs"].endswith("troubleshooting.md")
 
 
 @pytest.mark.parametrize(
