@@ -59,3 +59,22 @@ def test_other_failures_have_no_hint(exc: Exception) -> None:
 
 def test_a_server_error_from_another_host_is_not_the_server() -> None:
     assert explain(http.HttpError(401, "http://other.example:8096/Items"), "Jellyfin", JELLYFIN) is None
+
+
+def test_a_refused_certificate_says_what_to_use() -> None:
+    exc = http.RequestError("TLS certificate refused: IP address mismatch", "https://192.0.2.5:32400/identity")
+    found = explain(exc, "Plex", "https://192.0.2.5:32400")
+    assert found is not None
+    assert (found.kind, found.text) == (
+        "server_tls",
+        "Use http:// in PLEX_URL, or an address the certificate is valid for",
+    )
+
+
+def test_a_server_that_names_a_read_only_folder_gets_a_direct_hint() -> None:
+    exc = http.HttpError(
+        500, "http://emby.example:8096/Items/7/Images/Primary", "Read-only file system : '/media/x.jpg'"
+    )
+    found = explain(exc, "Emby", "http://emby.example:8096")
+    assert found is not None
+    assert (found.kind, found.text) == ("server_image_change", "Make the media folder writable for Emby")

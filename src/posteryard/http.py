@@ -42,6 +42,8 @@ HOLD_STATUSES = frozenset({429, 503})
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
 GZIP = frozenset({"gzip", "x-gzip"})
+# TLS reason codes for a server that answers plain HTTP. Trying again changes nothing.
+PLAIN_HTTP = frozenset({"WRONG_VERSION_NUMBER"})
 UNREADABLE = "***"
 METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
 
@@ -543,6 +545,8 @@ def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *
         raise RequestError(f"TLS certificate refused: {tls.verify_message or tls.reason}", url) from None
     # Only the class name and the TLS reason code. urllib3's message can hold the full URL with a credential.
     reason = f"{type(cause).__name__} {tls.reason}" if tls is not None and tls.reason else type(cause).__name__
+    if tls is not None and tls.reason in PLAIN_HTTP:
+        raise RequestError(reason, url) from None
     if last:
         raise TemporaryError(reason, url) from None
     if first and isinstance(cause, urllib3.exceptions.ProtocolError):

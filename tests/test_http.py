@@ -152,15 +152,18 @@ def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPa
     assert SECRET not in str(caught.value)
 
 
-def test_a_tls_failure_names_its_reason_and_hides_secrets(
+def test_https_to_a_plain_http_port_is_not_retried_and_hides_secrets(
     server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: None)
+    slept: list[float] = []
+    monkeypatch.setattr("posteryard.http.time.sleep", slept.append)
     server.answers = [(200, {}, b"")] * 3
     https = server.url.replace("http://", "https://")
-    with pytest.raises(http.TemporaryError, match="SSLError WRONG_VERSION_NUMBER") as caught:
+    with pytest.raises(http.RequestError, match="SSLError WRONG_VERSION_NUMBER") as caught:
         http.request("GET", f"{https}/a?X-Plex-Token={SECRET}", retries=2)
     assert SECRET not in str(caught.value)
+    assert not http.temporary(caught.value)
+    assert slept == []
 
 
 def test_a_refused_tls_certificate_is_not_retried() -> None:
