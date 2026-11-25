@@ -117,6 +117,12 @@ class KeptOutsideError(http.RequestError):
         self.server, self.noun = server, noun
 
 
+class MediaFileError(KeptOutsideError):
+    def __init__(self, server: str, noun: str, url: str) -> None:
+        http.RequestError.__init__(self, f"{server} keeps the old {noun} as a file in the media folder", url)
+        self.server, self.noun = server, noun
+
+
 def _tag(raw: Mapping[str, Any], target: Target) -> str | None:
     if target == "art":
         tags = raw.get("BackdropImageTags") or []
@@ -347,9 +353,10 @@ class Jellyfin:
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         """Jellyfin takes the image as base64 text. Raw bytes answer HTTP 500."""
         image_type = IMAGE_TYPES[target]
-        before = self._image_path(rating_key, image_type)
+        current = self._raw(rating_key)
+        self._check_no_media_files(rating_key, current, target)
         if target == "art":
-            for _ in self._raw(rating_key).get("BackdropImageTags") or []:
+            for _ in current.get("BackdropImageTags") or []:
                 self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", retries=1, imageIndex=0)
         self._send(
             "POST",
@@ -363,32 +370,45 @@ class Jellyfin:
         tag = _tag(raw, target)
         if not tag:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/Items/{rating_key}"))
-        self._check_kept(rating_key, raw, target, before)
+        self._check_kept(rating_key, raw, target)
         return tag
 
-    def _image_path(self, rating_key: str, image_type: str) -> str:
+    def _images(self, rating_key: str, image_type: str) -> list[Mapping[str, Any]]:
         try:
             images = self._get(f"/Items/{self._id(rating_key)}/Images") or []
         except http.HttpError as exc:
             if exc.status not in (400, 404):
                 raise
-            return ""
-        return next(
-            (str(i.get("Path") or "") for i in images if i.get("ImageType") == image_type and not i.get("ImageIndex")),
-            "",
-        )
+            return []
+        return [i for i in images if i.get("ImageType") == image_type]
 
-    def _check_kept(self, rating_key: str, raw: Mapping[str, Any], target: Target, before: str) -> None:
-        """An image file in the media folder replaces an upload kept in the metadata folder at the next library scan."""
+    def _image_path(self, rating_key: str, image_type: str) -> str:
+        first = (i for i in self._images(rating_key, image_type) if not i.get("ImageIndex"))
+        return str(next(first, {}).get("Path") or "")
+
+    def _check_no_media_files(self, rating_key: str, raw: Mapping[str, Any], target: Target) -> None:
+        """Emby deletes an image file in the media folder that an upload replaces. Jellyfin brings it back later.
+
+        Only the server's own artwork saving, with the library setting on, may change those files.
+        """
         library = self._library(_folder(self._path(raw, {})).rstrip("/"))
-        if library is None:
+        if library is None or library.get("saves_locally"):
+            return
+        image_type = IMAGE_TYPES[target]
+        paths = [str(i.get("Path") or "") for i in self._images(rating_key, image_type)]
+        if any(path and self._inside(path, library) for path in paths):
+            raise MediaFileError(self.name, NOUNS[target], self._url(f"/Items/{rating_key}/Images/{image_type}"))
+
+    def _check_kept(self, rating_key: str, raw: Mapping[str, Any], target: Target) -> None:
+        """A library that saves artwork in the media folder keeps an upload elsewhere only when it cannot write there.
+
+        Jellyfin then brings the old file in the media folder back at the next library scan.
+        """
+        library = self._library(_folder(self._path(raw, {})).rstrip("/"))
+        if library is None or not library.get("saves_locally"):
             return
         after = self._image_path(rating_key, IMAGE_TYPES[target])
-        if not after or self._inside(after, library):
-            return
-        # The old backgrounds and their files were deleted before the upload.
-        local_before = target != "art" and bool(before) and self._inside(before, library)
-        if local_before or library.get("saves_locally"):
+        if after and not self._inside(after, library):
             raise KeptOutsideError(
                 self.name, NOUNS[target], self._url(f"/Items/{rating_key}/Images/{IMAGE_TYPES[target]}")
             )

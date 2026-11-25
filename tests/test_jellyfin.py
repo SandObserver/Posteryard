@@ -574,11 +574,20 @@ def test_seasons_without_folders_read_their_show_once_per_listing(serve: Any) ->
 
 LOCAL = "/media/movies/Ford v Ferrari (2019)/poster.jpg"
 KEPT = f"/config/metadata/library/aa/{MOVIE}/poster.jpg"
+BACKDROP = "/media/movies/Ford v Ferrari (2019)/backdrop.jpg"
 
 
 def _kept(serve: Any, before: str, after: str, *, saves_locally: bool, target: Any = "poster") -> Jellyfin:
     kind = "Backdrop" if target == "art" else "Primary"
-    paths = iter([before, after])
+    sent: list[bool] = []
+
+    def images(_: dict[str, str]) -> list[dict[str, str]]:
+        return [{"ImageType": kind, "Path": after if sent else before}]
+
+    def post(_: dict[str, str]) -> bytes:
+        sent.append(True)
+        return b""
+
     folders = [
         {
             "ItemId": LIBRARY,
@@ -592,24 +601,32 @@ def _kept(serve: Any, before: str, after: str, *, saves_locally: bool, target: A
         {
             "/Library/VirtualFolders": folders,
             f"GET /Items/{MOVIE}": FORD,
-            f"GET /Items/{MOVIE}/Images": lambda q: [{"ImageType": kind, "Path": next(paths)}],
+            f"GET /Items/{MOVIE}/Images": images,
             f"DELETE /Items/{MOVIE}/Images/Backdrop": b"",
-            f"POST /Items/{MOVIE}/Images/{kind}": b"",
+            f"POST /Items/{MOVIE}/Images/{kind}": post,
         }
     )
     assert isinstance(jellyfin, Jellyfin)
     return jellyfin
 
 
-@pytest.mark.parametrize(
-    ("before", "saves_locally"),
-    [(LOCAL, False), (LOCAL, True), (KEPT, True)],
-    ids=["local-file", "unwritable", "again"],
-)
-def test_an_upload_a_media_folder_file_replaces_at_the_next_scan_is_an_error(
-    serve: Any, before: str, saves_locally: bool
-) -> None:
-    jellyfin = _kept(serve, before, KEPT, saves_locally=saves_locally)
+def _changes() -> list[Any]:
+    calls = http.request.calls  # type: ignore[attr-defined]
+    return [c for c in calls if c[0] in ("DELETE", "POST")]
+
+
+@pytest.mark.parametrize(("target", "before"), [("poster", LOCAL), ("art", BACKDROP)])
+def test_an_image_file_in_the_media_folder_is_never_replaced(serve: Any, target: Any, before: str) -> None:
+    jellyfin = _kept(serve, before, KEPT, saves_locally=False, target=target)
+    noun = "background" if target == "art" else "poster"
+    with pytest.raises(http.RequestError, match=rf"^Jellyfin keeps the old {noun} as a file in the media folder"):
+        jellyfin.upload(MOVIE, target, b"\xff\xd8jpeg")
+    assert _changes() == []
+
+
+@pytest.mark.parametrize("before", [LOCAL, KEPT], ids=["first", "again"])
+def test_an_upload_kept_outside_a_media_folder_that_saves_artwork_is_an_error(serve: Any, before: str) -> None:
+    jellyfin = _kept(serve, before, KEPT, saves_locally=True)
     with pytest.raises(http.RequestError, match=r"^Jellyfin kept the new poster in its metadata folder for "):
         jellyfin.upload(MOVIE, "poster", b"\xff\xd8jpeg")
 
@@ -619,9 +636,10 @@ def test_an_upload_a_media_folder_file_replaces_at_the_next_scan_is_an_error(
     [
         (KEPT, KEPT, False, "poster"),
         (LOCAL, "/media/movies/Ford v Ferrari (2019)/folder.jpg", True, "poster"),
-        ("/media/movies/Ford v Ferrari (2019)/backdrop.jpg", KEPT, False, "art"),
+        (BACKDROP, BACKDROP, True, "art"),
+        (KEPT, KEPT, False, "art"),
     ],
-    ids=["metadata-only", "written-to-media", "background-deleted-first"],
+    ids=["metadata-only", "written-to-media", "background-replaced-by-jellyfin", "background-in-metadata"],
 )
 def test_an_upload_that_stays_is_accepted(
     serve: Any, before: str, after: str, saves_locally: bool, target: Any
