@@ -21,7 +21,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Protocol
 
-from posteryard import __version__, http, logfmt, memory, ocr, overrides, pipeline, service_collections
+from posteryard import __version__, hints, http, logfmt, memory, ocr, overrides, pipeline, service_collections
 from posteryard.config import Config
 from posteryard.notify import Event
 from posteryard.server import Item, MediaServer, is_item_key
@@ -287,6 +287,7 @@ class Service:
                 self.worker_beat = time.monotonic()
                 if self._stop.is_set():
                     return
+                self.worker.report_repeats()
                 self.idle()
                 self.announce_new(idle=True)
                 self.worker.rest()
@@ -648,7 +649,11 @@ class Service:
                     self.full("daily")
                 self.worker.notifier.resolve("schedule", "Scheduled runs work again.")
             except (http.RequestError, OSError, ValueError, LookupError) as exc:
-                log.warning("scheduled run failed, trying again in 2 minutes", extra={"reason": str(exc)})
+                found = hints.explain(exc, self.server.name, self.server.url)
+                log.warning(
+                    "scheduled run failed, trying again in 2 minutes",
+                    extra={"reason": str(exc), **(found.fields() if found else {})},
+                )
                 self.worker.notifier.alert("schedule", f"A scheduled run failed: {exc}")
                 retry_at = time.monotonic() + RETRY_SECONDS
             except Exception as exc:  # The schedule thread must survive any error.

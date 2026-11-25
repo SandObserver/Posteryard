@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Add `error_type`, a `hint` with what to check and a link to the troubleshooting page to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change.
+- Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
+- Stop retrying a Jellyfin or Emby background delete that fails with a server error.
+- Say how to make a `WEBHOOK_SECRET` when it is missing.
+
 ### Fixed
 
 - Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.

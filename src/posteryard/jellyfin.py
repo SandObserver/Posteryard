@@ -344,7 +344,7 @@ class Jellyfin:
         before = self._image_path(rating_key, image_type)
         if target == "art":
             for _ in self._raw(rating_key).get("BackdropImageTags") or []:
-                self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", imageIndex=0)
+                self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", retries=1, imageIndex=0)
         self._send(
             "POST",
             f"/Items/{self._id(rating_key)}/Images/{image_type}",

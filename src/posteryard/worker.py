@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from collections import Counter
 from dataclasses import dataclass
 from datetime import date
 from enum import StrEnum
@@ -8,7 +9,7 @@ from urllib.parse import urlsplit
 
 from PIL import Image
 
-from posteryard import custom_art, http, memory, ocr, overrides, pipeline, service_collections
+from posteryard import custom_art, hints, http, memory, ocr, overrides, pipeline, service_collections
 from posteryard.config import Config, EpisodeMode
 from posteryard.encode import JPEG_QUALITY, jpeg, made_here
 from posteryard.maintainerr import Maintainerr
@@ -68,6 +69,9 @@ class Worker:
         self._leaving: Leaving | None = None
         self._rested = True
         self.fresh: list[tuple[str, bytes]] = []
+        self._hinted: set[str] = set()
+        self._repeats: Counter[str] = Counter()
+        self._hints: dict[str, hints.Hint] = {}
 
     def leaving_days(self) -> dict[str, date]:
         if self._leaving and time.monotonic() - self._leaving.fetched < LEAVING_CACHE_SECONDS:
@@ -82,6 +86,13 @@ class Worker:
             days = saved_leaving_days(self.store)
         self._leaving = Leaving(days, time.monotonic())
         return days
+
+    def report_repeats(self) -> None:
+        """Call when the queue is empty. The next failure of each kind shows its hint again."""
+        for kind, count in sorted(self._repeats.items()):
+            log.warning("more titles failed the same way", extra={"titles": count, **self._hints[kind].fields()})
+        self._repeats.clear()
+        self._hinted.clear()
 
     def rest(self) -> None:
         if not self._rested:
@@ -394,7 +405,19 @@ class Worker:
 
     def _failed(self, rating_key: str, title: str, exc: Exception) -> None:
         failures = self.store.failed(rating_key, ITEM_TARGET, title, str(exc))
-        log.warning("item failed", extra={"title": title, "key": rating_key, "attempt": failures, "reason": str(exc)})
+        fields: dict[str, object] = {"title": title, "key": rating_key, "attempt": failures, "reason": str(exc)}
+        found = hints.explain(exc, self.server.name, self.server.url)
+        if found is None:
+            log.warning("item failed", extra=fields)
+        elif found.kind not in self._hinted:
+            self._hinted.add(found.kind)
+            self._hints[found.kind] = found
+            log.warning("item failed", extra={**fields, **found.fields()})
+        elif found.shared:
+            self._repeats[found.kind] += 1
+            log.debug("item failed", extra={**fields, "error_type": found.kind})
+        else:
+            log.warning("item failed", extra={**fields, "error_type": found.kind})
         if failures >= ALERT_AFTER:
             self.notifier.alert(_upstream(exc, self.server), f"{title} failed {failures} times: {exc}")
 

@@ -227,6 +227,7 @@ class RequestError(Exception):
     def __init__(self, message: str, url: str) -> None:
         super().__init__(f"{message} for {redact(url)}")
         self.url = redact(url)
+        self.reason = message
 
 
 class TemporaryError(RequestError):
