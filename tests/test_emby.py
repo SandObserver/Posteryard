@@ -138,7 +138,7 @@ def test_a_background_upload_clears_the_old_ones_and_selects_through_the_user_ro
     fake.routes["DELETE /Items/12/Images/Backdrop"] = b""
     fake.routes["POST /Items/12/Images/Backdrop"] = b""
     assert emby.upload("12", "art", b"jpeg") == "b1"
-    sent = [(method, path) for method, path, _, _ in fake.calls if not path.startswith(("/Users", "/Library"))]
+    sent = [(method, path) for method, path, _, _ in fake.calls if method != "GET"]
     assert sent == [("DELETE", "/Items/12/Images/Backdrop")] * 2 + [("POST", "/Items/12/Images/Backdrop")]
     assert all(path != "/Items/12" for _, path, _, _ in fake.calls)
 

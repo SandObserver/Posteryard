@@ -18,6 +18,8 @@ Differences from Plex:
 
 - The [labels](commands.md#plex-labels) are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
+- A poster file in the media folder, such as `poster.jpg` from Radarr or Sonarr, replaces an uploaded poster at the next library scan. To prevent this, turn on **Save artwork into media folders** for the library and let Jellyfin write to the media folder. Jellyfin then replaces the file. Until then, Posteryard reports these titles as failed.
+- Posteryard deletes the old backgrounds before it uploads a new one. Jellyfin deletes a background file in the media folder with it.
 - Live TV posters (`LIVE_TV`) go on every airing. See [Live TV](how-it-works.md#live-tv).
 - A season without a season number, such as Jellyfin's **Season Unknown**, and its episodes keep their server images.
 - Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps one set for all TV libraries in `LIBRARIES`.
