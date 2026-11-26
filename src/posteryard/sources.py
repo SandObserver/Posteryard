@@ -305,10 +305,10 @@ class Sources:
                 else []
             )
             images = Images([], [], logos)
-        path = self.picker.logo(base, images, languages, wordmark, dark=dark)
+        path = self.picker.logo(base, images, languages, wordmark, dark=dark, titles=title.all_titles)
         if path is None and self.fanart is not None:
             extra = self.fanart_images(title.kind, title.tmdb_id).images
-            path = self.picker.logo(f"{base}:fanart", extra, languages, wordmark, dark=dark)
+            path = self.picker.logo(f"{base}:fanart", extra, languages, wordmark, dark=dark, titles=title.all_titles)
         return path
 
     def backdrop(self, title: Title) -> Picked | None:
