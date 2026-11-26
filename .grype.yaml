@@ -1,0 +1,13 @@
+# Posteryard decodes no video, so this ffmpeg code never runs.
+# Remove these rules when opencv-python-headless bundles ffmpeg 9.1 or later.
+ignore:
+  - vulnerability: CVE-2026-135736
+    package:
+      type: binary
+      name: ffmpeg
+      location: "/app/.venv/lib/python3.13/site-packages/opencv_python_headless.libs/**"
+  - vulnerability: CVE-2026-135743
+    package:
+      type: binary
+      name: ffmpeg
+      location: "/app/.venv/lib/python3.13/site-packages/opencv_python_headless.libs/**"
