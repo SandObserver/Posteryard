@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Skip a title logo with a promotion printed on it, such as "Stan exclusives." or "Watch at Home on Digital", for the next logo in order. Before, the white promotion text made it the preferred light logo.
 - Leave poster and background files in a Jellyfin or Emby media folder in place while "Save artwork into media folders" is off. Before, Emby deleted the old poster file, and replacing a background on Jellyfin deleted its file. The title now fails with what to change.
 - Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.
 - Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.

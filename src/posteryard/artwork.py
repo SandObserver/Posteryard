@@ -8,6 +8,7 @@ from PIL import Image
 
 from posteryard import http, ocr
 from posteryard.render.layers import mean_luminance, trim
+from posteryard.titles import plain
 from posteryard.tmdb import ImageRef, Images
 
 MAX_CANDIDATES = 6
@@ -22,7 +23,12 @@ DARK_LUMINANCE = 0.3
 # Part of the cache keys of art and logo choices. Change one when its rule decides differently: choices made under
 # the old version are then made again. The old rows are deleted at start.
 TEXTLESS_RULE = 2
-LOGO_RULE = 3
+LOGO_RULE = 4
+# Write each phrase in lowercase without spaces or punctuation. A phrase written otherwise never matches.
+PROMOTION_PHRASES = (
+    "exclusive", "onlyon", "onlyin", "watchathome", "watchnow", "nowstreaming", "streaming", "intheaters",
+    "intheatres", "incinemas", "ondigital", "comingsoon", "nowplaying", "premieres", "ondemand", "availablenow",
+)  # fmt: skip
 
 UNREADABLE = "not a usable image"
 # A broken file and a filter's page look the same. A pick made past one is checked again after this time.
@@ -171,7 +177,7 @@ class Picker:
         refs = sorted(images.textless_backdrops(), key=lambda r: r.width < MIN_BACKDROP_WIDTH)
         return self.textless(f"{key}:background", refs, titles)
 
-    def logo(
+    def logo(  # noqa: PLR0913
         self,
         key: str,
         images: Images,
@@ -179,10 +185,13 @@ class Picker:
         prefer_wordmark: bool = True,
         *,
         dark: bool = False,
+        titles: Sequence[str] = (),
     ) -> str | None:
         refs = images.logos_in(languages)[:MAX_CANDIDATES]
         candidates = [r.path for r in refs]
-        cache_key = f"logo{LOGO_RULE}:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        cache_key = (
+            f"{self.prefix}logo{LOGO_RULE}:{key}:{','.join(languages)}:{'wordmark' if prefer_wordmark else 'any'}"
+        )
         if dark:
             cache_key += ":dark"
         hit = self.cache.get_choice(cache_key)
@@ -192,23 +201,44 @@ class Picker:
         logos = {r.path: image for r in refs if (image := readable(self.fetch, r.path, unsure)) is not None}
         refs = [r for r in refs if r.path in logos]
         brightness = {path: mean_luminance(trim(image)) for path, image in logos.items()}
-        if dark:
-            dark_refs = [r for r in refs if brightness[r.path] <= DARK_LUMINANCE]
-            wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
-            chosen = (wide_dark if prefer_wordmark and wide_dark else dark_refs)[:1]
-            path = chosen[0].path if chosen else None
-            _keep(
-                self.cache, cache_key, {"candidates": candidates, "path": path}, found=path is not None, unsure=unsure
-            )
-            return path
-        visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
-        light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
-        wide = [r for r in visible if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
-        wide_light = [r for r in wide if r in light]
-        pool = wide_light or wide or light or visible or refs
-        path = pool[0].path if pool else None
+        path = None
+        while (chosen := _preferred_logo(refs, brightness, prefer_wordmark, dark=dark)) is not None:
+            image = logos[chosen.path]
+            if image.height > image.width * MAX_ASPECT or promotion(self.read(image), titles) is None:
+                path = chosen.path
+                break
+            refs = [r for r in refs if r is not chosen]
         _keep(self.cache, cache_key, {"candidates": candidates, "path": path}, found=path is not None, unsure=unsure)
         return path
+
+
+def _preferred_logo(
+    refs: Sequence[ImageRef], brightness: Mapping[str, float], prefer_wordmark: bool, *, dark: bool
+) -> ImageRef | None:
+    if dark:
+        dark_refs = [r for r in refs if brightness[r.path] <= DARK_LUMINANCE]
+        wide_dark = [r for r in dark_refs if r.height and r.width / r.height >= WORDMARK_ASPECT]
+        chosen = wide_dark if prefer_wordmark and wide_dark else dark_refs
+        return chosen[0] if chosen else None
+    visible = [r for r in refs if brightness[r.path] >= VISIBLE_LUMINANCE]
+    light = [r for r in visible if brightness[r.path] >= LIGHT_LUMINANCE]
+    wide = [r for r in visible if r.height and r.width / r.height >= WORDMARK_ASPECT] if prefer_wordmark else []
+    wide_light = [r for r in wide if r in light]
+    pool = wide_light or wide or light or visible or list(refs)
+    return pool[0] if pool else None
+
+
+def promotion(lines: Sequence[ocr.TextLine], titles: Sequence[str]) -> str | None:
+    """The line of promotion printed on a logo, or None when it has none. Words of the title never count."""
+    names = [plain(t) for t in titles]
+    phrases = [p for p in PROMOTION_PHRASES if not any(p in name for name in names)]
+    for line in lines:
+        text = plain(line.text)
+        if line.score < ocr.MIN_SCORE or any(text in name for name in names):
+            continue
+        if any(p in text for p in phrases):
+            return line.text
+    return None
 
 
 def rejection(lines: Sequence[ocr.TextLine], titles: Sequence[str]) -> str | None:

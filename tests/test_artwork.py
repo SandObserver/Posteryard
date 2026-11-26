@@ -4,7 +4,7 @@ import pytest
 from PIL import Image
 
 from posteryard import http
-from posteryard.artwork import TEXTLESS_RULE, UNSURE_RECHECK, MemoryChoices, Picker
+from posteryard.artwork import TEXTLESS_RULE, UNCHECKED, UNSURE_RECHECK, MemoryChoices, Picker, promotion
 from posteryard.ocr import TextLine
 from posteryard.tmdb import ImageRef, Images
 
@@ -22,7 +22,7 @@ def make() -> tuple[Picker, list[str]]:
     def read(image: Image.Image) -> list[TextLine]:
         path = str(image.info["path"])
         reads.append(path)
-        return [TextLine(TEXT[path], 0.99, 0.06, 0.6)] if TEXT[path] else []
+        return [TextLine(TEXT[path], 0.99, 0.06, 0.6)] if TEXT.get(path) else []
 
     return Picker(MemoryChoices(), fetch, read), reads
 
@@ -95,6 +95,57 @@ def test_a_white_wordmark_beats_a_coloured_one() -> None:
     red = ImageRef("/red-wide.png", "en", 1000, 300, 9, 9)
     white = ImageRef("/white-wide.png", "en", 1000, 300, 1, 1)
     assert picker.logo("movie:1", Images([], [], [red, white])) == "/white-wide.png"
+
+
+STAN = ["Stanexclusives.", "BETTTTER", "CALL", "au"]
+MINIONS = ["ILLUMINATION'S", "minions", "&monsters", "Watch at Home on Digital 8/11", "Also In Theaters"]
+
+
+def lines(*texts: str) -> list[TextLine]:
+    return [TextLine(text, 0.99, 0.2, 0.6) for text in texts]
+
+
+def promo_picker(read_texts: dict[str, list[str]], cache: MemoryChoices | None = None, prefix: str = "") -> Picker:
+    colours = {"/promo.png": (250, 250, 250, 255), "/clean.png": (220, 40, 30, 255), "/other.png": (240, 200, 30, 255)}
+
+    def fetch(path: str) -> Image.Image:
+        image = Image.new("RGBA", (40, 20), colours[path])
+        image.info["path"] = path
+        return image
+
+    def read(image: Image.Image) -> list[TextLine]:
+        return lines(*read_texts.get(str(image.info["path"]), []))
+
+    return Picker(cache or MemoryChoices(), fetch, read, prefix)
+
+
+def test_a_logo_with_promotion_gives_way_to_the_next_logo_in_order() -> None:
+    promo = ImageRef("/promo.png", "en", 1000, 400, 0, 0)
+    clean = ImageRef("/clean.png", "en", 1000, 400, 9, 8)
+    picker = promo_picker({"/promo.png": STAN, "/clean.png": ["BETTER", "CALL", "aul"]})
+    assert picker.logo("tv:1", Images([], [], [clean, promo]), titles=["Better Call Saul"]) == "/clean.png"
+    assert picker.logo("tv:2", Images([], [], [promo]), titles=["Better Call Saul"]) is None
+
+
+def test_promotion_is_found_and_title_words_or_studio_lines_are_not() -> None:
+    assert promotion(lines(*STAN), ["Better Call Saul"]) == "Stanexclusives."
+    assert promotion(lines(*MINIONS), ["Minions & Monsters"]) == "Watch at Home on Digital 8/11"
+    assert promotion(lines("ONLY IN THEATERS OCTOBER 2"), ["Verity"]) == "ONLY IN THEATERS OCTOBER 2"
+    assert promotion(lines("WATCHMEN", "DC", "A HBOORIGINAL S E RIES"), ["Watchmen"]) is None
+    assert promotion(lines("ONLYMURDERS", "IN THE", "BUILDING"), ["Only Murders in the Building"]) is None
+    assert promotion(lines("COMING SOON"), ["Coming Soon"]) is None
+    assert promotion(lines("MARVELSTUDIOS", "IRON MAN"), ["Iron Man"]) is None
+    assert promotion([TextLine("Stanexclusives.", 0.3, 0.2, 0.6)], ["Better Call Saul"]) is None
+
+
+def test_a_logo_chosen_without_the_text_check_is_not_reused_with_it() -> None:
+    cache = MemoryChoices()
+    logos = [ImageRef("/promo.png", "en", 1000, 400, 0, 0), ImageRef("/clean.png", "en", 1000, 400, 9, 8)]
+    images = Images([], [], logos)
+    unchecked = promo_picker({}, cache, UNCHECKED)
+    assert unchecked.logo("tv:1", images, titles=["Better Call Saul"]) == "/promo.png"
+    checked = promo_picker({"/promo.png": STAN}, cache)
+    assert checked.logo("tv:1", images, titles=["Better Call Saul"]) == "/clean.png"
 
 
 def test_the_pool_passes_over_a_missing_image() -> None:
