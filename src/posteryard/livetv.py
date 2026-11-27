@@ -40,7 +40,6 @@ MATCH_HIT_SECONDS = 30 * 86400
 MATCH_MISS_SECONDS = 7 * 86400
 # Several exact matches: the most voted one wins only with this many times the votes of the next.
 VOTE_LEAD = 3
-# Emoji and pictographs have no glyph in the poster fonts.
 # The zero-width non-joiner stays: Persian needs it.
 SYMBOLS = re.compile("[\ufe0e\ufe0f\u200d]")
 # Modifier symbols Inter draws. Any other one, such as a skin tone, moves the title to a fallback font.

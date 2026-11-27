@@ -20,7 +20,6 @@ NO_ANSWER = ("NewConnectionError", "ConnectTimeoutError")
 class Hint:
     kind: str
     text: str
-    # Every title fails the same way until the setup changes.
     shared: bool
 
 
@@ -44,7 +43,7 @@ def explain(exc: BaseException, server_name: str, server_url: str) -> Hint | Non
 
 
 def short_reason(exc: BaseException, found: Hint | None) -> str:
-    """The reason without the request address. The error type already names the service."""
+    """The reason without the request address."""
     return exc.reason if found is not None and isinstance(exc, http.RequestError) else str(exc)
 
 
