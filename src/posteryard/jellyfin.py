@@ -350,6 +350,9 @@ class Jellyfin:
     def selected(self, rating_key: str, target: Target) -> str | None:
         return _tag(self._raw(rating_key), target)
 
+    def check_upload(self, rating_key: str, target: Target) -> None:
+        self._check_no_media_files(rating_key, self._raw(rating_key), target)
+
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         """Jellyfin takes the image as base64 text. Raw bytes answer HTTP 500."""
         image_type = IMAGE_TYPES[target]

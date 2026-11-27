@@ -5,7 +5,7 @@ from http import HTTPStatus
 from urllib.parse import urlsplit
 
 from posteryard import http
-from posteryard.jellyfin import KeptOutsideError
+from posteryard.jellyfin import KeptOutsideError, MediaFileError
 
 DOCS = "https://github.com/SandObserver/Posteryard/blob/main/docs/troubleshooting.md"
 SETTINGS = {
@@ -25,12 +25,14 @@ class Hint:
 
 
 def explain(exc: BaseException, server_name: str, server_url: str) -> Hint | None:
-    if isinstance(exc, KeptOutsideError):
+    if isinstance(exc, MediaFileError):
         return Hint(
             "media_folder_file",
             f'Turn on "Save artwork into media folders" and make the media folder writable for {exc.server}',
             shared=False,
         )
+    if isinstance(exc, KeptOutsideError):
+        return Hint("media_folder_file", f"Make the media folder writable for {exc.server}", shared=False)
     if not isinstance(exc, http.RequestError):
         return None
     host = (urlsplit(exc.url).hostname or "").lower()

@@ -351,6 +351,8 @@ class Worker:
                 self.store.previewed(key, target, plan.name, plan.fingerprint)
             log.info(f"{noun} preview saved", extra={"title": plan.name, "using": "; ".join(plan.notes)})
             return Outcome.PREVIEW
+        # Check before the mark. Restore treats a marked target as ours and deletes the image the server shows.
+        self.server.check_upload(key, target)
         data = jpeg(image)
         self._remember_shown(key, target, record)
         # Mark the upload before it starts. A container killed during it must not look like a change by hand.

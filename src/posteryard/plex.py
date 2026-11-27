@@ -191,6 +191,9 @@ class Plex:
     def selected(self, rating_key: str, target: Target) -> str | None:
         return next((str(i.get("ratingKey")) for i in self.images(rating_key, target) if i.get("selected")), None)
 
+    def check_upload(self, rating_key: str, target: Target) -> None:
+        pass
+
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         listing, select, _ = ENDPOINTS[target]
         before = {str(i.get("ratingKey")) for i in self.images(rating_key, target)}

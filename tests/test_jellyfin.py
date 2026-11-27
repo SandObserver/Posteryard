@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from posteryard import http, jellyfin
-from posteryard.jellyfin import LIBRARIES_MISS_SECONDS, LIBRARIES_SECONDS, Jellyfin, _xmltv_pictures
+from posteryard.jellyfin import LIBRARIES_MISS_SECONDS, LIBRARIES_SECONDS, Jellyfin, MediaFileError, _xmltv_pictures
 from posteryard.quality import AudioLevel, Badge, HdrLevel, QualityMinimums, VideoLevel, accessibility, best
 from posteryard.server import CHANGE_FIELDS
 from tests.fakes import MediaBrowserRoutes
@@ -624,6 +624,20 @@ def test_an_image_file_in_the_media_folder_is_never_replaced(serve: Any, target:
     assert _changes() == []
 
 
+@pytest.mark.parametrize(("target", "before"), [("poster", LOCAL), ("art", BACKDROP)])
+def test_the_check_before_an_upload_finds_an_image_file_in_the_media_folder(
+    serve: Any, target: Any, before: str
+) -> None:
+    jellyfin = _kept(serve, before, KEPT, saves_locally=False, target=target)
+    with pytest.raises(MediaFileError):
+        jellyfin.check_upload(MOVIE, target)
+    assert _changes() == []
+
+
+def test_the_check_before_an_upload_passes_when_the_library_saves_artwork(serve: Any) -> None:
+    _kept(serve, LOCAL, KEPT, saves_locally=True).check_upload(MOVIE, "poster")
+
+
 @pytest.mark.parametrize("before", [LOCAL, KEPT], ids=["first", "again"])
 def test_an_upload_kept_outside_a_media_folder_that_saves_artwork_is_an_error(serve: Any, before: str) -> None:
     jellyfin = _kept(serve, before, KEPT, saves_locally=True)
@@ -645,3 +659,20 @@ def test_an_upload_that_stays_is_accepted(
     serve: Any, before: str, after: str, saves_locally: bool, target: Any
 ) -> None:
     assert _kept(serve, before, after, saves_locally=saves_locally, target=target).upload(MOVIE, target, b"\xff\xd8")
+
+
+def test_a_failed_background_delete_is_tried_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, int]] = []
+    answers = iter([{**FORD, "BackdropImageTags": ["old"]}, {**FORD, "BackdropImageTags": ["new"]}])
+
+    def request(method: str, url: str, **kwargs: Any) -> bytes:
+        sent.append((method, kwargs.get("retries", 3)))
+        return b""
+
+    monkeypatch.setattr(http, "request", request)
+    monkeypatch.setattr(Jellyfin, "_raw", lambda *_args: next(answers))
+    monkeypatch.setattr(Jellyfin, "_check_no_media_files", lambda *_args: None)
+    monkeypatch.setattr(Jellyfin, "_check_kept", lambda *_args: None)
+    Jellyfin(BASE, "example-key").upload(MOVIE, "art", b"\xff\xd8jpeg")
+    assert ("DELETE", 1) in sent
+    assert all(retries == 1 for method, retries in sent if method == "DELETE")

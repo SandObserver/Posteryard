@@ -743,7 +743,8 @@ def solid_logo(colour: tuple[int, int, int]) -> Image.Image:
 
 
 def one_colour_logo_on_dark_art(colour: tuple[int, int, int]) -> pipeline.Plan:
-    return pipeline.movie(logo_context(solid_logo(colour)), ITEM)[0]
+    # Item 2 has no leaving date. A bright leaving label would pass the light ink pixel check.
+    return pipeline.movie(logo_context(solid_logo(colour)), {**ITEM, "ratingKey": "2"})[0]
 
 
 @pytest.mark.parametrize("colour", [(10, 10, 10), (60, 60, 60), (80, 60, 60)])

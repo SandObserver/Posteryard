@@ -12,7 +12,7 @@ Read the log first: `docker logs --tail 100 posteryard`. After a start, Posterya
 When Posteryard knows the cause, the line also has an `error_type` and a short `hint`. The table below explains each `error_type`. The startup block links to this page under **Help**.
 
 ```text
-2026-11-25T02:52:13.104Z WRN msg="item failed" title="2 Guns" key=06e1a127fc0151ae3c0bfeaf03915e93 attempt=1 error_type=media_folder_file reason="Jellyfin kept the new poster in its metadata folder" hint="Turn on \"Save artwork into media folders\" and make the media folder writable for Jellyfin"
+2026-11-25T02:52:13.104Z WRN msg="item failed" title="2 Guns" key=06e1a127fc0151ae3c0bfeaf03915e93 attempt=1 error_type=media_folder_file reason="Jellyfin kept the new poster in its metadata folder" hint="Make the media folder writable for Jellyfin"
 ```
 
 Only the first title with a cause shows the hint. When many titles fail for the same setup problem, one `more titles failed the same way` line gives the count. `LOG_LEVEL=debug` adds a `failure detail` line with the full reason and the address of the request.
