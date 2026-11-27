@@ -731,6 +731,60 @@ def test_a_coloured_logo_on_light_art_uses_the_dark_logo(monkeypatch: pytest.Mon
     assert "logo_ink" not in poster.inputs
 
 
+def logo_context(logo: Image.Image | None, art: tuple[int, int, int] = (0, 0, 0)) -> pipeline.Context:
+    ctx = context([ref("/textless.jpg", None)])
+    tmdb_of(ctx).logos = [ref("/logo.png", "en")] if logo is not None else []
+    ctx.sources.fetch = lambda path: logo if path.endswith(".png") and logo else Image.new("RGB", (200, 300), art)
+    return ctx
+
+
+def solid_logo(colour: tuple[int, int, int]) -> Image.Image:
+    return Image.new("RGBA", (600, 120), (*colour, 255))
+
+
+def one_colour_logo_on_dark_art(colour: tuple[int, int, int]) -> pipeline.Plan:
+    return pipeline.movie(logo_context(solid_logo(colour)), ITEM)[0]
+
+
+@pytest.mark.parametrize("colour", [(10, 10, 10), (60, 60, 60), (80, 60, 60)])
+def test_a_one_colour_logo_that_does_not_read_on_dark_art_is_drawn_in_the_light_ink(
+    colour: tuple[int, int, int],
+) -> None:
+    poster = one_colour_logo_on_dark_art(colour)
+    assert poster.inputs["logo_ink"] == "light"
+    assert "ink" not in poster.inputs
+    drawn = poster.draw().convert("L")
+    assert max(drawn.crop((0, drawn.height // 2, drawn.width, drawn.height)).tobytes()) > 200
+
+
+@pytest.mark.parametrize("colour", [(255, 255, 255), (130, 130, 130)])
+def test_a_one_colour_logo_that_reads_on_dark_art_keeps_its_colour(colour: tuple[int, int, int]) -> None:
+    assert "logo_ink" not in one_colour_logo_on_dark_art(colour).inputs
+
+
+def test_a_grey_logo_on_grey_art_where_neither_ink_reads_is_drawn_light() -> None:
+    poster = pipeline.movie(logo_context(solid_logo((130, 130, 130)), art=(110, 110, 110)), ITEM)[0]
+    assert poster.inputs["logo_ink"] == "light"
+    assert "ink" not in poster.inputs
+
+
+def test_a_black_one_colour_logo_on_light_art_still_takes_the_dark_ink() -> None:
+    poster = pipeline.movie(logo_context(solid_logo((10, 10, 10)), art=(250, 250, 250)), ITEM)[0]
+    assert poster.inputs["logo_ink"] == "dark"
+    assert poster.inputs["ink"] == "dark"
+
+
+def test_a_title_without_a_logo_is_not_recoloured() -> None:
+    assert "logo_ink" not in pipeline.movie(logo_context(None), ITEM)[0].inputs
+
+
+def test_season_and_live_tv_posters_redraw_a_black_logo_too() -> None:
+    ctx = logo_context(solid_logo((10, 10, 10)))
+    title = ctx.sources.title("tv", 42, "Example Show")
+    assert pipeline.season(ctx, title, {"ratingKey": "12", "index": 2})[0].inputs["logo_ink"] == "light"
+    assert pipeline.live_poster(ctx, "movie", 42, "guide/x", "Example Movie").inputs["logo_ink"] == "light"
+
+
 class DownFanart(Fanart):
     def images(self, kind: Kind, tmdb_id: int, tvdb_id: int | None) -> FanartImages:
         raise posteryard_http.HttpError(503, "https://webservice.fanart.tv/v3/movies/42")

@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Leave poster and background files in a Jellyfin or Emby media folder in place while "Save artwork into media folders" is off. Before, Emby deleted the old poster file, and replacing a background on Jellyfin deleted its file. The title now fails with what to change.
 - Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.
 - Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
+- Draw a one-colour title logo in white when its own colour does not reach 3:1 contrast with the art, such as The Split's black logo. Reported by @asm0dey in #326.
 
 ### Security
 

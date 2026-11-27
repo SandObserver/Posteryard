@@ -316,15 +316,16 @@ def _seen(ctx: Context, path: str, used: Sequence[str], *, redrawn: bool = True)
 def _bottom_ink(  # noqa: PLR0913
     ctx: Context, title: Title, art: str, logo: str | None, below: list[lines.Line], *, label: lines.Label | None
 ) -> tuple[str | None, bool, bool]:
-    """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn dark.
+    """The logo to draw, whether it is dark with no fade, and whether a one-colour logo is drawn in the ink.
 
-    A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design.
+    A one-colour logo is drawn dark itself, so every poster of a title keeps one logo design. One whose own colour
+    does not read on the art is drawn in the light ink.
     """
     if logo is None:
         return None, ctx.measures.dark_reads(art, None, title.name, below, label=label, prefer=title.font), False
     if ctx.measures.one_colour(logo):
         dark = ctx.measures.dark_reads(art, logo, title.name, below, label=label)
-        return logo, dark, dark
+        return logo, dark, dark or not ctx.measures.own_colour_reads(art, logo, below, label=label)
     dark_logo = ctx.sources.logo(title, dark=True)
     if dark_logo is not None and ctx.measures.dark_reads(art, dark_logo, title.name, below, label=label):
         return dark_logo, True, False
@@ -443,7 +444,7 @@ def _poster(  # noqa: PLR0913
         )  # fmt: skip
 
     if recoloured:
-        extra["logo_ink"] = "dark"
+        extra["logo_ink"] = "dark" if dark_bottom else "light"
     if service and not dark_corner:
         extra["corner"] = "light"
     extra.update(_drawn_with(None if logo_path else title.name, dark_bottom, dark_corner, fade, title.font))
