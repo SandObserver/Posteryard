@@ -12,6 +12,7 @@ from PIL import Image
 from posteryard import config, http, ocr, pipeline, similar
 from posteryard.encode import jpeg, made_here
 from posteryard.fanart import Fanart, FanartImages
+from posteryard.jellyfin import MediaFileError
 from posteryard.server import Item, Target
 from posteryard.store import Status, Store
 from posteryard.tmdb import Kind
@@ -930,3 +931,19 @@ def test_an_alert_says_what_to_check(tmp_path: Path) -> None:
         "1 failed 3 times: HTTP 401. Check PLEX_TOKEN."
         " Help: https://github.com/SandObserver/Posteryard/blob/main/docs/troubleshooting.md"
     ]
+
+
+def test_a_refused_upload_leaves_the_server_image_to_restore(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    worker, plex, store, _ = make(tmp_path, DRY_RUN="false")
+    refused = MediaFileError("Jellyfin", "poster", "http://jellyfin.example:8096/Items/1/Images/Primary")
+
+    def check_upload(rating_key: str, target: Target) -> None:
+        raise refused
+
+    monkeypatch.setattr(plex, "check_upload", check_upload)
+    plex.selected_keys[("1", "poster")] = "media-folder-file"
+    assert worker.process("1") == Outcome.FAILED
+    assert plex.uploads == []
+    assert store.get("1", "poster") is None
+    assert worker.restore_all().restored == 0
+    assert plex.restored == []

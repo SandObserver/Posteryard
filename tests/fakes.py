@@ -64,6 +64,9 @@ class FakeServer(MediaServer):
     def selected(self, rating_key: str, target: Target) -> str | None:
         return None
 
+    def check_upload(self, rating_key: str, target: Target) -> None:
+        pass
+
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         return f"upload://posters/{rating_key}-{target}"
 

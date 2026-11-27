@@ -2,7 +2,7 @@ import pytest
 
 from posteryard import http
 from posteryard.hints import explain
-from posteryard.jellyfin import KeptOutsideError
+from posteryard.jellyfin import KeptOutsideError, MediaFileError
 
 JELLYFIN = "http://jellyfin.example:8096"
 ITEM = f"{JELLYFIN}/Items/{'a' * 32}"
@@ -32,6 +32,7 @@ TMDB = "https://api.themoviedb.org/3/movie/42"
             "http://",
         ),
         (KeptOutsideError("Jellyfin", "poster", f"{ITEM}/Images/Primary"), "Jellyfin", "media_folder_file", "writ"),
+        (MediaFileError("Emby", "poster", f"{ITEM}/Images/Primary"), "Emby", "media_folder_file", "Turn on"),
         (http.HttpError(401, TMDB), "Jellyfin", "tmdb_auth", "TMDB_API_KEY"),
         (http.TemporaryError("NameResolutionError", TMDB), "Jellyfin", "tmdb_unreachable", "DNS"),
     ],
@@ -78,3 +79,9 @@ def test_a_server_that_names_a_read_only_folder_gets_a_direct_hint() -> None:
     found = explain(exc, "Emby", "http://emby.example:8096")
     assert found is not None
     assert (found.kind, found.text) == ("server_image_change", "Make the media folder writable for Emby")
+
+
+def test_an_upload_kept_outside_asks_only_for_a_writable_folder() -> None:
+    found = explain(KeptOutsideError("Jellyfin", "poster", f"{ITEM}/Images/Primary"), "Jellyfin", JELLYFIN)
+    assert found is not None
+    assert found.text == "Make the media folder writable for Jellyfin"
