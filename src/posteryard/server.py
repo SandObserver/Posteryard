@@ -26,6 +26,7 @@ class Item(TypedDict, total=False):
     key: str
     year: int
     paths: list[str]
+    saves_locally: bool
 
 
 class AiringMedia(TypedDict, total=False):

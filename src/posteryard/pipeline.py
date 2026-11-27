@@ -41,7 +41,11 @@ CHOICE_FAMILIES: dict[str, tuple[str, ...]] = {
     "same-thumb:": (f"same-thumb:{similar.THUMB_RULE}:",),
     "logo": (f"logo{LOGO_RULE}:",),
     "textless": (f"textless{TEXTLESS_RULE}:", f"textless-all{TEXTLESS_RULE}:"),
-    UNCHECKED: (f"{UNCHECKED}textless{TEXTLESS_RULE}:", f"{UNCHECKED}textless-all{TEXTLESS_RULE}:"),
+    UNCHECKED: (
+        f"{UNCHECKED}textless{TEXTLESS_RULE}:",
+        f"{UNCHECKED}textless-all{TEXTLESS_RULE}:",
+        f"{UNCHECKED}logo{LOGO_RULE}:",
+    ),
     "titled:": (),
     "automark:": (),
 }

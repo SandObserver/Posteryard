@@ -891,3 +891,42 @@ def test_an_ignored_title_drops_its_failure(tmp_path: Path) -> None:
     plex.items["1"]["Label"] = [{"tag": "posteryard-ignore"}]
     assert worker.process("1") == Outcome.SKIPPED
     assert store.retry_due(time.time() + 30 * 86400) == []
+
+
+class RefusingPlex(MoviePlex):
+    def item(self, rating_key: str) -> Item | None:
+        raise http.HttpError(401, f"http://plex.example:32400/library/metadata/{rating_key}")
+
+
+def test_a_setup_failure_shows_its_hint_once_then_a_count(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    worker, _, store, _ = make(tmp_path)
+    worker.server = RefusingPlex()
+    with caplog.at_level(logging.INFO):
+        for key in ("1", "2", "3"):
+            assert worker.process(key) == Outcome.FAILED
+        worker.report_repeats()
+        worker.report_repeats()
+    lines = [
+        (r.getMessage(), getattr(r, "reason", None), getattr(r, "hint", None), getattr(r, "titles", None))
+        for r in caplog.records
+    ]
+    assert lines == [
+        ("item failed", "HTTP 401", "Check PLEX_TOKEN", None),
+        ("more titles failed the same way", None, None, 2),
+    ]
+    assert len(store.retry_due(now=float("inf"))) == 3
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        worker.process("1")
+    assert getattr(caplog.records[-1], "hint", None) == "Check PLEX_TOKEN"
+
+
+def test_an_alert_says_what_to_check(tmp_path: Path) -> None:
+    worker, _, _, alerts = make(tmp_path)
+    worker.server = RefusingPlex()
+    for _ in range(3):
+        worker.process("1")
+    assert alerts.messages == [
+        "1 failed 3 times: HTTP 401. Check PLEX_TOKEN."
+        " Help: https://github.com/SandObserver/Posteryard/blob/main/docs/troubleshooting.md"
+    ]

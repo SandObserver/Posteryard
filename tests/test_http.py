@@ -152,15 +152,18 @@ def test_unreachable_servers_fail_after_the_retries(monkeypatch: pytest.MonkeyPa
     assert SECRET not in str(caught.value)
 
 
-def test_a_tls_failure_names_its_reason_and_hides_secrets(
+def test_https_to_a_plain_http_port_is_not_retried_and_hides_secrets(
     server: LocalHttpServer, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("posteryard.http.time.sleep", lambda seconds: None)
+    slept: list[float] = []
+    monkeypatch.setattr("posteryard.http.time.sleep", slept.append)
     server.answers = [(200, {}, b"")] * 3
     https = server.url.replace("http://", "https://")
-    with pytest.raises(http.TemporaryError, match="SSLError WRONG_VERSION_NUMBER") as caught:
+    with pytest.raises(http.RequestError, match="SSLError WRONG_VERSION_NUMBER") as caught:
         http.request("GET", f"{https}/a?X-Plex-Token={SECRET}", retries=2)
     assert SECRET not in str(caught.value)
+    assert not http.temporary(caught.value)
+    assert slept == []
 
 
 def test_a_refused_tls_certificate_is_not_retried() -> None:
@@ -190,8 +193,23 @@ def test_an_html_error_page_is_left_out_of_the_reason(server: LocalHttpServer) -
 
 def test_a_text_error_answer_is_kept_on_one_line(server: LocalHttpServer) -> None:
     server.answers = [(400, {}, b'{\n  "status_message": "Invalid id"\n}')]
-    with pytest.raises(http.HttpError, match=r'HTTP 400: \{ "status_message": "Invalid id" \} for '):
+    with pytest.raises(http.HttpError, match=r"^HTTP 400: Invalid id for "):
         http.request("GET", f"{server.url}/a")
+
+
+@pytest.mark.parametrize(
+    ("body", "detail"),
+    [
+        ('{"status_code": 7, "status_message": "Invalid API key", "success": false}', "Invalid API key"),
+        ('{"type": "about:blank", "title": "Forbidden", "detail": "Key expired"}', "Key expired"),
+        ('{"error": {"code": 5}, "message": "Not here"}', "Not here"),
+        ('{"code": 5}', '{"code": 5}'),
+        ('{"cut off', '{"cut off'),
+        ("plain\ntext", "plain text"),
+    ],
+)
+def test_an_error_answer_keeps_its_message(body: str, detail: str) -> None:
+    assert str(http.HttpError(400, "http://example.test/a", body)) == f"HTTP 400: {detail} for http://example.test/a"
 
 
 @pytest.mark.parametrize(

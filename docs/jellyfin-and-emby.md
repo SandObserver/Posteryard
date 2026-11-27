@@ -18,6 +18,7 @@ Differences from Plex:
 
 - The [labels](commands.md#plex-labels) are Jellyfin **tags**. Add them in **Edit metadata > Tags**.
 - Jellyfin has no image lock. It keeps an uploaded image unless you refresh with **Replace existing images**.
+- Posteryard never replaces a poster or background file in the media folder, such as `poster.jpg` or `backdrop.jpg` from Radarr or Sonarr, while **Save artwork into media folders** is off. Jellyfin would bring the old file back at the next library scan. Posteryard reports such a title as failed. With the setting on and the media folder writable for Jellyfin, Jellyfin replaces the files itself.
 - Live TV posters (`LIVE_TV`) go on every airing. See [Live TV](how-it-works.md#live-tv).
 - A season without a season number, such as Jellyfin's **Season Unknown**, and its episodes keep their server images.
 - Jellyfin collections belong to no library. `COLLECTION_POSTERS` covers all of them, and `SERVICE_COLLECTIONS` keeps one set for all TV libraries in `LIBRARIES`.
@@ -36,6 +37,7 @@ Differences from Plex:
 
 - The [labels](commands.md#plex-labels) are Emby **tags**. Add them in **Edit metadata > Tags**.
 - Emby keeps an uploaded image unless you refresh with **Replace existing images**. Posteryard does not lock items, because a locked item gets no metadata updates.
+- Posteryard never replaces a poster or background file in the media folder, such as `poster.jpg` or `backdrop.jpg`, while **Save artwork into media folders** is off. Emby would delete the file. Posteryard reports such a title as failed. With the setting on and the media folder writable for Emby, Emby replaces the files itself.
 - A refresh with **Replace all metadata** removes tags, including Posteryard's labels.
 - Live TV posters (`LIVE_TV`) are not supported on Emby. Emby Live TV needs Emby Premiere.
 

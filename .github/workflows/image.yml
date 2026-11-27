@@ -59,6 +59,7 @@ jobs:
           severity-cutoff: critical
           only-fixed: true
           output-format: table
+          config: .grype.yaml
       # Keep these settings equal to the push job in release.yml.
       - id: rebuild
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0

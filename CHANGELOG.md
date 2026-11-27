@@ -6,8 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Add an `error_type` and a short `hint` to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change. The troubleshooting page explains each type, and the startup block links to it.
+- Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
+- Log the full reason and the request address of a known setup problem only at `LOG_LEVEL=debug`.
+- Add the hint and the troubleshooting link to alerts for a title that keeps failing.
+- Stop retrying an `https://` address on a port that serves plain HTTP. Add a hint to a refused TLS certificate, and to a read-only media folder that Emby reports.
+- Log only the message of a JSON error answer, such as TMDB's, in place of the whole answer.
+- Stop retrying a Jellyfin or Emby background delete that fails with a server error.
+- Say how to make a `WEBHOOK_SECRET` when it is missing.
+
 ### Fixed
 
+- Skip a title logo with a promotion printed on it, such as "Stan exclusives." or "Watch at Home on Digital", for the next logo in order. Before, the white promotion text made it the preferred light logo.
+- Leave poster and background files in a Jellyfin or Emby media folder in place while "Save artwork into media folders" is off. Before, Emby deleted the old poster file, and replacing a background on Jellyfin deleted its file. The title now fails with what to change.
+- Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.
 - Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
 - Draw a one-colour title logo in white when its own colour does not reach 3:1 contrast with the art, such as The Split's black logo. Reported by @asm0dey in #326.
 

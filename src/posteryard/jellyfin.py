@@ -32,6 +32,7 @@ TYPES = {"Movie": "movie", "Series": "show", "Season": "season", "Episode": "epi
 INCLUDE = {kind: name for name, kind in TYPES.items()}
 LIBRARY_TYPES = {"movies": "movie", "tvshows": "show"}
 IMAGE_TYPES: dict[Target, str] = {"poster": "Primary", "thumb": "Primary", "art": "Backdrop"}
+NOUNS: dict[Target, str] = {"poster": "poster", "thumb": "thumbnail", "art": "background"}
 FIELDS = "ProviderIds,DateCreated,DateLastSaved,Tags,Path,MediaStreams,Width,Height,ProductionYear"
 PAGE = 200
 LIBRARIES_SECONDS = 600
@@ -110,6 +111,26 @@ def _media(streams: list[Mapping[str, Any]]) -> dict[str, Any]:
     return {"videoResolution": resolution, "Part": [{"Stream": _streams(streams)}]}
 
 
+class KeptOutsideError(http.RequestError):
+    def __init__(self, server: str, noun: str, url: str) -> None:
+        super().__init__(f"{server} kept the new {noun} in its metadata folder", url)
+        self.server, self.noun = server, noun
+
+
+class MediaFileError(KeptOutsideError):
+    def __init__(self, server: str, noun: str, url: str) -> None:
+        http.RequestError.__init__(self, f"{server} keeps the old {noun} as a file in the media folder", url)
+        self.server, self.noun = server, noun
+
+
+def _tag(raw: Mapping[str, Any], target: Target) -> str | None:
+    if target == "art":
+        tags = raw.get("BackdropImageTags") or []
+        return str(tags[0]) if tags else None
+    tag = (raw.get("ImageTags") or {}).get("Primary")
+    return str(tag) if tag else None
+
+
 class Jellyfin:
     name = "Jellyfin"
     collections_per_library = False
@@ -173,6 +194,7 @@ class Jellyfin:
                     "title": str(folder["Name"]),
                     "type": LIBRARY_TYPES[str(folder.get("CollectionType"))],
                     "paths": [_folder(str(p)) for p in folder.get("Locations") or []],
+                    "saves_locally": bool((folder.get("LibraryOptions") or {}).get("SaveLocalMetadata")),
                 }
                 for folder in self._get("/Library/VirtualFolders")
                 if folder.get("CollectionType") in LIBRARY_TYPES
@@ -326,19 +348,16 @@ class Jellyfin:
         return raw
 
     def selected(self, rating_key: str, target: Target) -> str | None:
-        raw = self._raw(rating_key)
-        if target == "art":
-            tags = raw.get("BackdropImageTags") or []
-            return str(tags[0]) if tags else None
-        tag = (raw.get("ImageTags") or {}).get("Primary")
-        return str(tag) if tag else None
+        return _tag(self._raw(rating_key), target)
 
     def upload(self, rating_key: str, target: Target, jpeg: bytes) -> str:
         """Jellyfin takes the image as base64 text. Raw bytes answer HTTP 500."""
         image_type = IMAGE_TYPES[target]
+        current = self._raw(rating_key)
+        self._check_no_media_files(rating_key, current, target)
         if target == "art":
-            for _ in self._raw(rating_key).get("BackdropImageTags") or []:
-                self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", imageIndex=0)
+            for _ in current.get("BackdropImageTags") or []:
+                self._send("DELETE", f"/Items/{self._id(rating_key)}/Images/Backdrop", retries=1, imageIndex=0)
         self._send(
             "POST",
             f"/Items/{self._id(rating_key)}/Images/{image_type}",
@@ -347,10 +366,56 @@ class Jellyfin:
             # Each background sent is added to the list. The next run deletes them all first.
             retries=1 if target == "art" else 3,
         )
-        tag = self.selected(rating_key, target)
+        raw = self._raw(rating_key)
+        tag = _tag(raw, target)
         if not tag:
             raise http.RequestError(f"upload left no {target} to select", self._url(f"/Items/{rating_key}"))
+        self._check_kept(rating_key, raw, target)
         return tag
+
+    def _images(self, rating_key: str, image_type: str) -> list[Mapping[str, Any]]:
+        try:
+            images = self._get(f"/Items/{self._id(rating_key)}/Images") or []
+        except http.HttpError as exc:
+            if exc.status not in (400, 404):
+                raise
+            return []
+        return [i for i in images if i.get("ImageType") == image_type]
+
+    def _image_path(self, rating_key: str, image_type: str) -> str:
+        first = (i for i in self._images(rating_key, image_type) if not i.get("ImageIndex"))
+        return str(next(first, {}).get("Path") or "")
+
+    def _check_no_media_files(self, rating_key: str, raw: Mapping[str, Any], target: Target) -> None:
+        """Emby deletes an image file in the media folder that an upload replaces. Jellyfin brings it back later.
+
+        Only the server's own artwork saving, with the library setting on, may change those files.
+        """
+        library = self._library(_folder(self._path(raw, {})).rstrip("/"))
+        if library is None or library.get("saves_locally"):
+            return
+        image_type = IMAGE_TYPES[target]
+        paths = [str(i.get("Path") or "") for i in self._images(rating_key, image_type)]
+        if any(path and self._inside(path, library) for path in paths):
+            raise MediaFileError(self.name, NOUNS[target], self._url(f"/Items/{rating_key}/Images/{image_type}"))
+
+    def _check_kept(self, rating_key: str, raw: Mapping[str, Any], target: Target) -> None:
+        """A library that saves artwork in the media folder keeps an upload elsewhere only when it cannot write there.
+
+        Jellyfin then brings the old file in the media folder back at the next library scan.
+        """
+        library = self._library(_folder(self._path(raw, {})).rstrip("/"))
+        if library is None or not library.get("saves_locally"):
+            return
+        after = self._image_path(rating_key, IMAGE_TYPES[target])
+        if after and not self._inside(after, library):
+            raise KeptOutsideError(
+                self.name, NOUNS[target], self._url(f"/Items/{rating_key}/Images/{IMAGE_TYPES[target]}")
+            )
+
+    @staticmethod
+    def _inside(path: str, library: Item) -> bool:
+        return any(_folder(path).startswith(p) for p in library["paths"])
 
     def poster_bytes(self, item: Item) -> bytes:
         return http.request(

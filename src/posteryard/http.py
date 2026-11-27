@@ -33,6 +33,7 @@ SECRET_HEADERS = frozenset({"x-plex-token", "authorization", "api-key"})
 USER_AGENT = f"Posteryard/{__version__} (+https://github.com/SandObserver/Posteryard)"
 MAX_RESPONSE = 64 * 1024 * 1024
 ERROR_EXCERPT = 4096
+ERROR_MESSAGE_KEYS = ("status_message", "detail", "title", "message", "error")
 MAX_REDIRECTS = 5
 DEFAULT_PORTS = {"http": 80, "https": 443}
 RETRY_AFTER_MAX = 60.0
@@ -41,6 +42,8 @@ HOLD_STATUSES = frozenset({429, 503})
 DEADLINE_FACTOR = 4
 READ_CHUNK = 256 * 1024
 GZIP = frozenset({"gzip", "x-gzip"})
+# TLS reason codes for a server that answers plain HTTP. Trying again changes nothing.
+PLAIN_HTTP = frozenset({"WRONG_VERSION_NUMBER"})
 UNREADABLE = "***"
 METADATA = frozenset({ipaddress.ip_address("100.100.100.200"), ipaddress.ip_address("fd00:ec2::254")})
 
@@ -227,6 +230,7 @@ class RequestError(Exception):
     def __init__(self, message: str, url: str) -> None:
         super().__init__(f"{message} for {redact(url)}")
         self.url = redact(url)
+        self.reason = message
 
 
 class TemporaryError(RequestError):
@@ -235,9 +239,23 @@ class TemporaryError(RequestError):
 
 class HttpError(RequestError):
     def __init__(self, status: int, url: str, body: str = "") -> None:
-        detail = "" if body.lstrip().startswith("<") else " ".join(body.split())[:200]
+        detail = _detail(body)
         super().__init__(f"HTTP {status}: {detail}" if detail else f"HTTP {status}", url)
         self.status = status
+
+
+def _detail(body: str) -> str:
+    """The message of a JSON error, or the text on one line. RFC 9457 calls it `detail` or `title`."""
+    text = body.strip()
+    if text.startswith("<"):
+        return ""
+    try:
+        data = json.loads(text) if text.startswith("{") else None
+    except ValueError:
+        data = None
+    if isinstance(data, dict):
+        text = next((data[k] for k in ERROR_MESSAGE_KEYS if isinstance(data.get(k), str) and data[k].strip()), text)
+    return " ".join(text.split())[:200]
 
 
 class RedirectError(RequestError):
@@ -527,6 +545,8 @@ def _network_failure(exc: urllib3.exceptions.HTTPError, method: str, url: str, *
         raise RequestError(f"TLS certificate refused: {tls.verify_message or tls.reason}", url) from None
     # Only the class name and the TLS reason code. urllib3's message can hold the full URL with a credential.
     reason = f"{type(cause).__name__} {tls.reason}" if tls is not None and tls.reason else type(cause).__name__
+    if tls is not None and tls.reason in PLAIN_HTTP:
+        raise RequestError(reason, url) from None
     if last:
         raise TemporaryError(reason, url) from None
     if first and isinstance(cause, urllib3.exceptions.ProtocolError):
