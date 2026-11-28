@@ -6,8 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-28
+
 ### Changed
 
+- Take longer on the first full check after the update: it reads the text of every title logo once.
 - Add an `error_type` and a short `hint` to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change. The troubleshooting page explains each type, and the startup block links to it.
 - Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
 - Log the full reason and the request address of a known setup problem only at `LOG_LEVEL=debug`.
@@ -547,7 +550,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add the `posteryard forget` command.
 - Add the Docker image.
 
-[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.10.5...HEAD
+[Unreleased]: https://github.com/SandObserver/Posteryard/compare/v0.10.6...HEAD
+[0.10.6]: https://github.com/SandObserver/Posteryard/compare/v0.10.5...v0.10.6
 [0.10.5]: https://github.com/SandObserver/Posteryard/compare/v0.10.4...v0.10.5
 [0.10.4]: https://github.com/SandObserver/Posteryard/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/SandObserver/Posteryard/compare/v0.10.2...v0.10.3
