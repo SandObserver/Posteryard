@@ -13,29 +13,31 @@
   <Overview>Clean, consistent posters for Plex, Jellyfin and Emby, picked, rendered and kept current automatically.[br][br]Posteryard gives every movie, show, season and episode the same calm look: clean art without printed text, the title logo in one fixed spot, a soft fade, and small badges for 4K, Dolby Vision, Dolby Atmos and the streaming service. It finds the art on TMDB, checks it, renders it, uploads it and keeps it up to date. With Live TV on, it does the same for the shows and movies in the Plex or Jellyfin guide.[br][br]It starts with Dry Run on: images go to the previews folder in Data and the server is not touched. Set Dry Run to false when you like them.[br][br]For new titles right away, add the webhook http://UNRAID-IP:8098/webhook/YOUR-WEBHOOK-SECRET in Plex under Settings, Webhooks. For Jellyfin and Emby, see the README. Without it, new titles get posters within 15 minutes.</Overview>
   <Requires>A free TMDB API key and a Plex, Jellyfin or Emby server.</Requires>
   <Changes>
-### 0.10.5 - 2026-11-21
+### 0.10.6 - 2026-11-28
 
 #### Changed
 
-- List art in `why` in the order `art next` walks it after `art next` was used.
-- Print command errors to stderr, so they stay out of output you redirect.
-- Show the landing page's missing address on its 404 page and link the closest page, Home and Back.
+- Take longer on the first full check after the update: it reads the text of every title logo once.
+- Add an `error_type` and a short `hint` to log lines for known setup problems, such as a refused key, an unreachable server or an image Jellyfin cannot change. The troubleshooting page explains each type, and the startup block links to it.
+- Log a setup problem that fails many titles once with its hint, then one line with the count of titles.
+- Log the full reason and the request address of a known setup problem only at `LOG_LEVEL=debug`.
+- Add the hint and the troubleshooting link to alerts for a title that keeps failing.
+- Stop retrying an `https://` address on a port that serves plain HTTP. Add a hint to a refused TLS certificate, and to a read-only media folder that Emby reports.
+- Log only the message of a JSON error answer, such as TMDB's, in place of the whole answer.
+- Stop retrying a Jellyfin or Emby background delete that fails with a server error.
+- Say how to make a `WEBHOOK_SECRET` when it is missing.
 
 #### Fixed
 
-- Stop within 9 seconds of `docker stop`, before Docker kills the container, even while a poster is being drawn.
-- Exit cleanly when stopped while a title is being read for text, instead of aborting with a fatal Python error or counting the title as failed.
-- Delete only service collections that carry the `posteryard-collection` label, even if the server ignores the label filter.
-- Hold less memory on Jellyfin and Emby when a sweep finds many changed items.
-- Make `preview TITLE` show the art set with `art set`, `art next` or the `posteryard-custom` label, and use the last known Maintainerr schedule when Maintainerr is down.
-- Draw each title's own name when two library items share a TMDB id, such as one movie in two libraries under different names.
-- Stop treating a Plex guide poster as changed by hand after a restart cut its upload short.
-- Report a taken webhook port in one log line before `serve` starts, instead of logging "service ready" and crashing.
-- Draw `´` and `` ` `` between letters in Live TV guide titles as an apostrophe instead of dropping them, so "Grey´s Anatomy" no longer shows as "Greys Anatomy". Live TV posters are uploaded again once.
+- Skip a title logo with a promotion printed on it, such as "Stan exclusives." or "Watch at Home on Digital", for the next logo in order. Before, the white promotion text made it the preferred light logo.
+- Leave poster and background files in a Jellyfin or Emby media folder in place while "Save artwork into media folders" is off. Before, Emby deleted the old poster file, and replacing a background on Jellyfin deleted its file. The title now fails with what to change.
+- Report a Jellyfin poster as failed, with what to change, when a poster file in the media folder would replace it at the next library scan. Before, it counted as uploaded and later as changed by hand.
+- Find Jellyfin movies and shows that are in a collection when "Group movies into collections" or "Group shows into collections" is on. The full check and the sweep skipped them without a warning.
+- Draw a one-colour title logo in white when its own colour does not reach 3:1 contrast with the art, such as The Split's black logo. Reported by @asm0dey in #326.
 
 #### Security
 
-- Hide any address parameter or header whose name marks a credential, such as `access_token`, `client_secret` or `X-Api-Key`, in logs, errors and alerts, and drop such headers on a redirect to another host.
+- Publish the exact images the release checks tested, and attest each one, so `gh attestation verify` can prove it came from this repository.
   </Changes>
   <Category>MediaApp:Video Tools:Utilities</Category>
   <TemplateURL>https://raw.githubusercontent.com/SandObserver/Posteryard/main/templates/posteryard.xml</TemplateURL>
